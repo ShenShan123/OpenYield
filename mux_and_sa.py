@@ -4,7 +4,7 @@ from PySpice.Unit import u_Ohm, u_pF, u_V, u_ns
 class ColumnMux(SubCircuitFactory):
     """Column multiplexer for SRAM array using NMOS pass gates."""
     
-    def __init__(self, mux_ratio, nmos_model_name, width, length):
+    def __init__(self, mux_ratio, nmos_model_name, pmos_model_name, nmos_width, pmos_width, length):
         """
         Args:
             mux_ratio (int): Number of columns multiplexed into one output.
@@ -15,23 +15,28 @@ class ColumnMux(SubCircuitFactory):
         self.NAME = f'ColumnMux_{mux_ratio}'
         self.mux_ratio = mux_ratio
 
-        # Nodes: SA_BL (sense amplifier bitline), SA_BLB (sense amplifier bitline bar),
-        # VSS (ground), SEL (select signals), BL/BLB (bitlines).
-        nodes = ['SA_BL', 'SA_BLB', 'VSS']
-        nodes += [f'SEL{i}' for i in range(mux_ratio)]  # Select signals
-        nodes += [f'BL{i}' for i in range(mux_ratio)]   # Bitlines
-        nodes += [f'BLB{i}' for i in range(mux_ratio)]  # Bitline bars
+        # Power Nodes: VDD, VSS,
+        # Output: SA_BL (sense amplifier bitline), SA_BLB (sense amplifier bitline bar),
+        # Input: SEL (select signals), BL/BLB (bitlines).
+        nodes = ['VDD', 'VSS', 'SA_BL', 'SA_BLB']
+        nodes += [f'SEL{i}' for i in range(mux_ratio)]  # input: Select signals
+        nodes += [f'BL{i}' for i in range(mux_ratio)]   # input: Bitlines
+        nodes += [f'BLB{i}' for i in range(mux_ratio)]  # input: Bitline bars
         self.NODES = tuple(nodes)
         super().__init__()
 
         # Add NMOS pass transistors for each column in the mux
         for i in range(mux_ratio):
             # Bitline pass gate
-            self.M(f'Mux_BL_{i}', f'BL{i}', f'SEL{i}', 'SA_BL', 'VSS', 
-                   model=nmos_model_name, w=width, l=length)
+            self.M(f'Muxn_BL_{i}', f'BL{i}', f'SEL{i}', 'SA_BL', 'VSS', 
+                   model=nmos_model_name, w=nmos_width, l=length)
+            self.M(f'Muxp_BL_{i}', f'BL{i}', f'SEL{i}', 'SA_BL', 'VDD', 
+                   model=pmos_model_name, w=pmos_width, l=length)
             # Bitline bar pass gate
-            self.M(f'Mux_BLB_{i}', f'BLB{i}', f'SEL{i}', 'SA_BLB', 'VSS',
-                   model=nmos_model_name, w=width, l=length)
+            self.M(f'Muxn_BLB_{i}', f'BLB{i}', f'SEL{i}', 'SA_BLB', 'VSS',
+                   model=nmos_model_name, w=nmos_width, l=length)
+            self.M(f'Muxp_BLB_{i}', f'BLB{i}', f'SEL{i}', 'SA_BLB', 'VDD',
+                   model=pmos_model_name, w=pmos_width, l=length)
 
         # Performance considerations:
         # 1. NMOS width should be large enough to reduce resistance (~2-3x access transistor width).
@@ -41,7 +46,9 @@ class SenseAmp(SubCircuitFactory):
     """Differential sense amplifier with enable signal."""
     
     NAME = 'SenseAmp'
-    NODES = ('SA_BL', 'SA_BLB', 'OUT', 'OUTB', 'VDD', 'VSS', 'SE')
+    # Input: VDD, VSS, SA_BL, SA_BLB, SE
+    # Output: OUT, OUTB, 
+    NODES = ('VDD', 'VSS', 'SA_BL', 'SA_BLB', 'OUT', 'OUTB', 'SE')
 
     def __init__(self, nmos_model_name, pmos_model_name, 
                  nmos_width, pmos_width, length):
