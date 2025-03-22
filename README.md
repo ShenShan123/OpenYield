@@ -1,5 +1,8 @@
 # OpenYield
+![](img/logo-cut-openyield.jpg)
 This project is a open-source yield analysis for SRAM circuits.
+
+> OpenYield is under development, some definitions of functions and classes may change significantely.
 
 ## Supported PDK
 In this initial version, we only support FreePDK45. The model file is located in ` model_lib/models.spice `.
@@ -12,8 +15,15 @@ The 6T SRAM core array is defined in ` sram_6t_core.py `. It consists of rowxcol
 ### SRAM Array Testbench
 The testbench for SRAM array is located in ` sram_6t_core_testbench.py `. It supports NgSpice to run norminal simulaiton and HSPICE to run MC sweeps. It contains read and write operations in this version.
 
-## Utils
-The ` utils.py ` contains plot function, measurement function, and other functions.
+### Utils
+The ` utils.py ` contains plot function, measurement function, and SNM calulation functions.
+
+## Run command
+If you want to run 6T cell simulation, please see the main function in [`sram_6t_core_testbench.py`](sram_6t_core_testbench.py)
+``` bash
+python sram_6t_core_testbench.py
+```
+Some simulation results are in `sim/` and plots are in `plots/`.
 
 ## TODO
 A ton of works need to be done, including
