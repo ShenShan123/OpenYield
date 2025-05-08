@@ -2,7 +2,7 @@ from PySpice.Spice.Netlist import SubCircuitFactory, Circuit
 from PySpice.Unit import u_Ohm, u_pF
 
 class SRAM_6T_Cell(SubCircuitFactory):
-    ###6T SRAM Cell SubCircuitFactory with debug capabilities###
+    """ 6T SRAM Cell SubCircuitFactory with debug capabilities """
     NAME = 'SRAM_6T_CELL'
     # The first and second nodes are always power and ground nodes,VDD and VSS
     NODES = ('VDD', 'VSS', 'BL', 'BLB', 'WL')
@@ -14,6 +14,9 @@ class SRAM_6T_Cell(SubCircuitFactory):
                  pi_res=100 @ u_Ohm, pi_cap=0.010 @ u_pF,
                  disconncet=False,
                  ):
+        if disconncet:
+            self.NAME += '_DISCONNECT'
+            
         super().__init__()
         print(f"\n[DEBUG] Creating SRAM_6T_Cell with models: "
               f"NMOS={nmos_model_name}, PMOS={pmos_model_name}")
@@ -27,8 +30,6 @@ class SRAM_6T_Cell(SubCircuitFactory):
         self.pu_width = pu_width
         self.length = length
         self.disconncet = disconncet
-        if disconncet:
-            self.NAME += '_DISCONNECT'
 
         if not w_rc:
             bl_node  = self.NODES[2]
@@ -44,7 +45,7 @@ class SRAM_6T_Cell(SubCircuitFactory):
         self.add_6T_cell(bl_node, blb_node, wl_node)
         
     def add_rc_networks_to_node(self, in_node, pi_r, pi_c, num_segs=1):
-        ###Add RC networks to the SRAM cell###
+        """ Add RC networks to the SRAM cell """
         start_node = in_node
         end_node = start_node
 
@@ -61,7 +62,7 @@ class SRAM_6T_Cell(SubCircuitFactory):
         return end_node
     
     def add_6T_cell(self, bl_node, blb_node, wl_node):
-        ###Add 6T cell to the SRAM cell###
+        """ Add 6T cell to the SRAM cell """
         if self.disconncet:
             data_q = 'QD'
             data_qb = 'QBD'
@@ -85,12 +86,48 @@ class SRAM_6T_Cell(SubCircuitFactory):
 
         print(f"[DEBUG] M3-M6: Cross-coupled inverters (NMOS={self.nmos_model_name} W={self.pd_width} L={self.length}"+
               f"      PMOS={self.pmos_model_name} W={self.pu_width} L={self.length})")  
+        
+    def estimate_bitcell_area(
+        self,
+        # FreePDK45 Design Rules (default values in meters)
+        CPP: float = 0.18e-6,          # Contacted Poly Pitch
+        MMP: float = 0.16e-6,          # Minimum Metal Pitch
+        diffusion_spacing: float = 0.08e-6,    # Diffusion-to-diffusion
+        gate_contact_spacing: float = 0.05e-6, # Gate-to-contact
+        metal_overhang: float = 0.03e-6,       # Metal over active
+    ) -> float:
+        """
+        Estimates 6T SRAM bitcell area for FreePDK45nm technology.
+        Methodology:
+        1. Horizontal dimension: Based on contacted poly pitch (CPP) and transistor widths
+        2. Vertical dimension: Based on metal pitch (MMP) and peripheral routing
+        3. Includes spacing/overhang from design rules
+        """
+        
+        # --- Horizontal Dimension (Width) ---
+        # Effective width per cell column (sum of parallel transistors)
+        access_width = self.pg_width + 2 * gate_contact_spacing
+        pd_pu_width = max(self.pd_width, self.pu_width) + 2 * diffusion_spacing
+        
+        # Total cell width = (3 columns * CPP) + scaling from transistor widths
+        width_columns = 3 * CPP  # 2 access + 1 inverter pair
+        width_scaling = (access_width + pd_pu_width) / (0.135e-6 + 0.205e-6)  # Normalize to PDK45 ref
+        cell_width = width_columns * width_scaling + 2 * metal_overhang
+
+        # --- Vertical Dimension (Height) ---
+        # Height dominated by metal routing (2 tracks) + n-well spacing
+        cell_height = 2 * MMP + 2 * diffusion_spacing + 4 * metal_overhang
+        
+        # --- Area Calculation ---
+        area = cell_width * cell_height
+        print(f"Estimated 6T SRAM Cell Area: {area*1e12:.2f} µm²")
+        return area
 
 class SRAM_6T_Array(SubCircuitFactory):
-    ###
-    # SRAM Array SubCircuitFactory class.
-    # Configurable number of rows and columns.
-    ###
+    """
+    SRAM Array SubCircuitFactory class.
+    Configurable number of rows and columns.
+    """
 
     def __init__(self, num_rows, num_cols, 
                  nmos_model_name, pmos_model_name, 

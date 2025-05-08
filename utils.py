@@ -4,7 +4,9 @@ import os
 from typing import List, Dict
 import re
 import pandas as pd
-from matplotlib.patches import Rectangle
+from pathlib import Path
+from matplotlib.lines import Line2D 
+
 
 def plot_results(analysis, signals, fig_name='sram_6t.png'):
     """Plot specified signals from analysis results"""
@@ -68,9 +70,13 @@ def measure_delay(timestamp, signals,
     
     return float(targ_time - trig_time)
 
-def measure_power(vdd, vvdd_i):
+def measure_power(vdd, all_branches):
+    assert isinstance(all_branches, dict), f"In measure_power, must be a dict class, but got {type(all_branches)}"
+    current = np.zeros(all_branches['vvdd'].shape)
+    for b in all_branches.values():
+        current += b
     """Calculate average power during sensing"""
-    return np.mean(vdd * vvdd_i)
+    return np.mean(vdd * np.abs(current))
 
 from scipy.interpolate import CubicSpline
 
@@ -138,6 +144,9 @@ def calculate_snm(VQ_sweep, VQB_measured, VQB_sweep, VQ_measured, operation, plo
             plt.scatter(x[intersection], f_r_inv(x[intersection]), color='red', label='Intersection')
             plt.title(f'Bad WSNM with intersection: {inters_str}')
             print(f"[DEBUG] Bad WSNM with intersection: {inters_str}!!")
+        ## final write SNM is obtained at x=0 in this version
+        # final_snm = (f_r_inv(0) - f_l_inv(0)) / np.sqrt(2)
+        final_snm = snm[snm < 0].min() / np.sqrt(2)
 
     # For read and hold SNMs
     elif operation == 'read_snm' or operation == 'hold_snm':
@@ -145,10 +154,10 @@ def calculate_snm(VQ_sweep, VQB_measured, VQB_sweep, VQ_measured, operation, plo
         snm_r_lobe = snm[snm < 0].min()
         snm_name = 'RSNM' if operation == 'read_snm' else 'HSNM'
         plt.title(f'{snm_name}: {snm_l_lobe*1000/np.sqrt(2):.2f}mV, {snm_r_lobe*1000/np.sqrt(2):.2f}mV')
+        final_snm = min(snm_l_lobe, snm_r_lobe) /np.sqrt(2)
 
     plt.savefig(plot_name)
-
-    return snm
+    return np.abs(final_snm)
 
 def plot_butterfly_with_squares(VQ_sweep, VQB_measured, VQB_sweep, VQ_measured, 
                                 # snm_values, anchor_points, 
@@ -188,40 +197,8 @@ def plot_butterfly_with_squares(VQ_sweep, VQB_measured, VQB_sweep, VQ_measured,
     plt.close()
 
 
-# def plot_butterfly_curve(butterfly_curve, filename='butterfly_curve.png'):
-#     """
-#     Plot the butterfly curve with SNM annotation and the largest inscribed square.
-    
-#     Args:
-#         butterfly_curve (np.ndarray): Array of (V1, V2) points for the butterfly curve.
-#         snm (float): Static noise margin (in volts).
-#         vdd (float): Supply voltage (in volts).
-#         filename (str): Output filename for saving the plot.
-#     """
-#     # Extract BL and BLB voltages
-#     bl_voltages = butterfly_curve[:, 0]
-#     blb_voltages = butterfly_curve[:, 1]
-    
-#     # Create the plot
-#     plt.figure(figsize=(8, 8))
-    
-#     # Plot the butterfly curve
-#     plt.plot(bl_voltages, blb_voltages, 'b-', label='Butterfly Curve')
-    
-#     # Add labels and title
-#     plt.xlabel('BL Voltage (V)')
-#     plt.ylabel('BLB Voltage (V)')
-#     plt.title('SRAM Butterfly Curve')
-#     plt.grid(True)
-#     plt.legend()
-    
-#     # Save the plot
-#     plt.savefig(filename)
-#     plt.close()
-
-
 def parse_mt0(filename):
-    """Parse an HSPICE .mt0 file and return a list of dictionaries for each data entry."""
+    """Parse an HSPICE .mt0 or .ms0 file and return a list of dictionaries for each data entry."""
     with open(filename, 'r') as f:
         lines = [line.rstrip() for line in f.readlines()]
 
@@ -336,3 +313,413 @@ def analyze_mt0(filename):
     print(stats_df)
 
     return stats_df
+
+def parse_mc_measurements(netlist_prefix: str = "simulation",
+                         file_suffix: str = 'mt',
+                         num_runs: int = 100,
+                         missing_value: float = np.nan,
+                         value_threshold: float = 1e-30) -> pd.DataFrame:
+    """
+    Parse Monte Carlo simulation results from multiple output files
+    
+    Args:
+        netlist_prefix: Base name for simulation files
+        file_suffix: Suffix pattern for MC result files
+        num_runs: Number of Monte Carlo runs
+        missing_value: Value to fill for missing measurements
+        value_threshold: Minimum absolute value to consider valid
+    
+    Returns:
+        DataFrame containing parsed results with runs as rows
+    """
+    measurement_cache = {}
+    raw_data = []
+
+    def parse_line(line: str) -> tuple:
+        """Parse single measurement line with validation"""
+        line = line.strip().replace('\t', ' ')
+        if not line or '=' not in line:
+            return None, None
+        if line.startswith(('*', '#', '//')):
+            return None, None
+        
+        try:
+            var_part, value_part = line.split('=', 1)
+            var_name = var_part.strip()
+            raw_value = value_part.split()[0].strip()
+            
+            # Numeric conversion
+            value = float(raw_value) if '.' in raw_value or 'e' in raw_value.lower() else int(raw_value)
+            
+            if abs(value) < value_threshold:
+                return None, None
+                
+            return var_name, value
+        except (ValueError, IndexError) as e:
+            print(f"Ignoring invalid line: {line[:50]}... | Error: {str(e)}")
+            return None, None
+
+    for run_id in range(num_runs):
+        file_path = Path(f"{netlist_prefix}.{file_suffix}{run_id}")
+        if not file_path.exists():
+            print(f"Warning: Missing file {file_path}")
+            continue
+
+        run_data = {"Run": run_id}
+        with open(file_path, 'r') as f:
+            for line in f:
+                var_name, value = parse_line(line)
+                if var_name and value is not None:
+                    run_data[var_name] = value
+                    measurement_cache[var_name] = True
+
+        raw_data.append(run_data)
+
+    # Build complete dataframe
+    all_vars = sorted(measurement_cache.keys())
+    clean_data = []
+    for entry in raw_data:
+        full_entry = {var: entry.get(var, missing_value) for var in all_vars}
+        full_entry["Run"] = entry["Run"]
+        clean_data.append(full_entry)
+    
+    return pd.DataFrame(clean_data).set_index('Run')
+
+def generate_mc_statistics(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Generate comprehensive statistics from MC results
+    
+    Args:
+        df: DataFrame from parse_mc_measurements()
+    
+    Returns:
+        Transposed DataFrame with statistical metrics
+    """
+    if df.empty:
+        raise ValueError("Input DataFrame is empty")
+    
+    stats = df.describe(percentiles=[0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99])
+    
+    # Additional statistical metrics
+    stats.loc['cv'] = stats.loc['std'] / stats.loc['mean']  # Coefficient of variation
+    stats.loc['range'] = stats.loc['max'] - stats.loc['min']
+    stats.loc['skew'] = df.skew()
+    stats.loc['kurtosis'] = df.kurtosis()
+    
+    return stats.T
+
+def save_mc_results(df: pd.DataFrame,
+                   stats_df: pd.DataFrame,
+                   data_file: str = "mc_results.csv",
+                   stats_file: str = "mc_statistics.csv") -> None:
+    """
+    Save MC results and statistics to CSV files
+    
+    Args:
+        df: Main results DataFrame
+        stats_df: Statistics DataFrame
+        data_file: Filename for measurement data
+        stats_file: Filename for statistics
+    """
+    df.to_csv(data_file)
+    stats_df.to_csv(stats_file)
+    print(f"Saved results to {data_file} and {stats_file}")
+    print("\nStatistical Summary:")
+    print(stats_df)
+
+
+def read_prn_with_preprocess(prn_file_path):
+    """Read and preprocess PRN files with Index column
+    
+    Args:
+        prn_file_path (str): Path to PRN file
+        
+    Returns:
+        tuple: (pd.DataFrame, analysis_type)
+    
+    Raises:
+        FileNotFoundError: If file not found
+        ValueError: For format errors
+    """
+    try:
+        # Read and preprocess header
+        with open(prn_file_path, 'r') as f:
+            # Find first non-empty line for column headers
+            header_line = ''
+            while not header_line.strip():
+                header_line = f.readline()
+                if not header_line:  # Handle empty files
+                    raise ValueError("Empty PRN file")
+
+            # Clean and validate header
+            headers = [h.strip() for h in header_line.split()]
+            if len(headers) < 2:
+                raise ValueError("Invalid header - insufficient columns")
+                
+            if headers[0].upper() != 'INDEX':
+                raise ValueError(f"First column must be 'INDEX', got '{headers[0]}'")
+
+        # Read data with enhanced validation
+        df = pd.read_csv(
+            prn_file_path,
+            sep='\s+',
+            skiprows=1,
+            header=None,
+            names=headers,
+            engine='python',
+            dtype=np.float64,
+            comment='E',
+            on_bad_lines='warn'
+        )
+
+        # drop the default index
+        df = df.set_index(headers[0])
+        df = df.reset_index(drop=True)
+
+        # Determine analysis type from first data column
+        first_data_col = df.columns[0].upper()
+        analysis_type = "tran" if first_data_col == "TIME" else "dc"
+
+        if df.columns[0].upper() != 'TIME' and df.columns[0].upper() != '{U}':
+            raise ValueError(f"Wrong x-axis in PRN file: {df.columns[0]}")
+
+        # Data integrity checks
+        if df.empty:
+            raise ValueError("No valid data rows found")
+            
+        if df.select_dtypes(exclude=np.number).any().any():
+            raise ValueError("Non-numeric data detected")
+
+        return df, analysis_type
+
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"PRN file not found: {prn_file_path}") from e
+        
+    except pd.errors.ParserError as e:
+        raise ValueError(f"Data parsing error: {str(e)}") from e
+
+def split_blocks(df, analysis_type, num_mc):
+    """
+    Enhanced data splitting function, including strict num_mc validation
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        The dataframe containing simulation data to be split into blocks
+    analysis_type : str
+        Type of analysis, must be either "tran" (transient) or "dc"
+    num_mc : int
+        Expected number of Monte Carlo iterations/blocks
+        
+    Returns:
+    --------
+    list of pandas.DataFrame
+        A list containing the split dataframes, with length equal to num_mc
+        
+    Raises:
+    -------
+    ValueError
+        If parameters are invalid or if the actual block count doesn't match num_mc
+    """
+    # Basic parameter validation
+    if not isinstance(num_mc, int) or num_mc <= 0:
+        raise ValueError("num_mc must be a positive integer")
+    
+    if analysis_type == "tran":
+        # Time series splitting logic
+        time_series = df.iloc[:, 0]
+        reset_indices = np.where(np.diff(time_series) < -1e-12)[0] + 1
+        
+        # Automatically split blocks count
+        auto_blocks = np.split(df, reset_indices) if reset_indices.size else [df]
+        auto_block_count = len(auto_blocks)
+        
+        # Block count consistency verification
+        if auto_block_count != num_mc:
+            raise ValueError(
+                f"Auto-split block count ({auto_block_count}) does not match specified num_mc ({num_mc})\n"
+                f"Possible reasons: 1. Incorrect simulation count setting 2. Incomplete data 3. Time series anomaly"
+            )
+        
+        # Secondary validation of start times
+        for i, blk in enumerate(auto_blocks):
+            if abs(blk.iloc[0, 0]) > 1e-12:
+                raise ValueError(f"TRAN block {i} start time anomaly: {blk.iloc[0,0]:.2e}s")
+        
+        return auto_blocks
+    
+    elif analysis_type == "dc":
+        # DC analysis splitting logic
+        total_points = len(df)
+        if total_points % num_mc != 0:
+            raise ValueError(
+                f"Data points ({total_points}) cannot be evenly divided by num_mc ({num_mc})\n"
+                f"Suggestions: 1. Check simulation settings 2. Verify output options"
+            )
+        
+        dc_blocks = np.array_split(df, num_mc)
+        
+        # Final block count verification
+        if (actual_mc := len(dc_blocks)) != num_mc:
+            raise ValueError(
+                f"Actual split block count ({actual_mc}) does not match num_mc ({num_mc})\n"
+                f"Possible reason: Split anomaly caused by pandas version difference"
+            )
+        
+        return dc_blocks
+    
+    else:
+        raise ValueError(f"Unsupported analysis type: {analysis_type}")
+
+def visualize_results(blocks, analysis_type, output_file):
+    """
+    Visualization function for large-scale Monte Carlo simulations with variable time steps
+    
+    Parameters:
+    -----------
+    blocks : list of pandas.DataFrame
+        List of data blocks from split_blocks function, each containing simulation data
+    analysis_type : str
+        Type of analysis, typically "tran" (transient) or "dc"
+    output_file : str or Path
+        Path to save the output visualization file
+        
+    Returns:
+    --------
+    None
+        The function saves the visualization to the specified output file
+        
+    Raises:
+    -------
+    ValueError
+        If the input data blocks are empty
+    """
+    # Create output directory
+    output_path = Path(output_file)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Basic data validation
+    if not blocks:
+        raise ValueError("Input data blocks are empty, please check splitting results")
+    
+    # Get signal list
+    base_block = blocks[0]
+    x_label = base_block.columns[0]
+    signals = base_block.columns[1:]
+    
+    # Create plot object
+    fig, ax = plt.subplots(figsize=(16, 10))
+    colors = plt.cm.tab10(np.linspace(0, 1, len(signals)))
+    
+    # Configure plot parameters
+    LINE_ALPHA = 0.08  # Lower transparency to support large-scale data
+    LINE_WIDTH = 0.3   # Thin line width for optimized rendering performance
+    
+    # Process signals in parallel
+    for color, signal in zip(colors, signals):
+        print(f"Processing signal: {signal}")
+        
+        # Collect valid samples
+        valid_samples = []
+        for blk_idx, blk in enumerate(blocks):
+            try:
+                # Get raw data directly
+                x = blk[x_label].to_numpy()
+                y = blk[signal].to_numpy()
+                
+                # Strict dimension validation
+                if len(x) != len(y):
+                    print(f"Block {blk_idx} dimension mismatch, skipped: x({len(x)}) vs y({len(y)})")
+                    continue
+                
+                # Plot raw trajectory
+                ax.plot(x, y,
+                       color=color,
+                       alpha=LINE_ALPHA,
+                       linewidth=LINE_WIDTH,
+                       zorder=1)
+                
+                valid_samples.append((x, y))
+                
+            except Exception as e:
+                print(f"Failed to process block {blk_idx}: {str(e)}")
+                continue
+        
+        if not valid_samples:
+            print(f"No valid data for signal {signal}")
+            continue
+        
+        # Optional: Add representative statistical trajectories
+        if len(valid_samples) > 10:
+            # Randomly sample some trajectories for highlighting
+            for x, y in valid_samples[:10]:
+                ax.plot(x, y,
+                       color=color,
+                       alpha=0.3,
+                       linewidth=1,
+                       zorder=2)
+    
+    # Graph decoration
+    ax.set_title(f"{analysis_type.upper()} Monte Carlo Analysis (Variable Steps)", pad=15)
+    ax.set_xlabel(x_label, fontsize=12)
+    ax.set_ylabel("Voltage (V)", fontsize=12)
+    ax.grid(alpha=0.2)
+    
+    # Create legend proxies
+    legend_elements = [Line2D([0], [0], color=c, lw=2, label=s) 
+                      for s, c in zip(signals, colors)]
+    ax.legend(handles=legend_elements,
+             loc='upper center',
+             bbox_to_anchor=(0.5, -0.15),
+             ncol=3,
+             frameon=False,
+             fontsize=10)
+    
+    # Optimize output
+    plt.subplots_adjust(bottom=0.2)
+    plt.savefig(output_path, dpi=200, bbox_inches='tight')  # Reduce dpi to optimize file size
+    plt.close()
+    
+    print(f"Visualization file generated: {output_path.resolve()}")
+    print(f"Plot parameters: line alpha={LINE_ALPHA}, line width={LINE_WIDTH}, total samples={sum(len(b) for b in blocks)}")
+
+def process_simulation_data(prn_path, num_mc=None, output="results"):
+    """
+    Main processing function for simulation data
+    
+    Parameters:
+    -----------
+    prn_path : str or Path
+        Path to the .prn simulation output file
+    num_mc : int, optional
+        Number of Monte Carlo iterations to expect in the data
+    output : str, default="results"
+        Path to save output visualization files
+        
+    Returns:
+    --------
+    bool
+        True if processing completed successfully
+        
+    Raises:
+    -------
+    Exception
+        If any error occurs during data processing
+    """
+    try:
+        # Data loading
+        df, analysis_type = read_prn_with_preprocess(prn_path)
+
+        # Data splitting
+        data_blocks = split_blocks(df, analysis_type, num_mc)
+        # print("data_blocks", data_blocks)
+        # assert 0
+        # Results visualization
+        visualize_results(data_blocks, analysis_type, output)
+        # assert 0
+        print(f"Successfully data processed! Saving results to {output}")
+        return True
+    
+    except Exception as e:
+        print(f"Failed data processed: {str(e)}")
+        raise
