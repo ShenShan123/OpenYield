@@ -1,0 +1,17 @@
+.DS_Store
+.coverage*
+*.orig
+*.rej
+*.pyc
+*.aux
+*.out
+*.toc
+*.log
+*.synctex.gz
+**/model_data
+*.sp
+outputs
+technology/
+open_pdks/
+sim/
+miniconda/
