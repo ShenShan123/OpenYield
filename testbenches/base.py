@@ -5,7 +5,7 @@ from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF
 # from utils import parse_mt0, analyze_mt0
 
 class Base_Testbench:
-    def __init__(self, tb_name, pdk_path, nmos_model_name, pmos_model_name):
+    def __init__(self, tb_name, vdd, pdk_path, nmos_model_name, pmos_model_name):
         self.name = tb_name
         self.pdk_path = pdk_path
 
@@ -16,7 +16,7 @@ class Base_Testbench:
         
         self.nmos_model_name = nmos_model_name
         self.pmos_model_name = pmos_model_name
-        self.vdd = 1.0 
+        self.vdd = vdd
         self.half_vdd = float(self.vdd) * 0.5
         ## need to be changed in create_testbench
         self.data_node_prefix = 'X'
@@ -27,7 +27,7 @@ class Base_Testbench:
         self.t_pulse = 5 @ u_ns  # Pulse width
         self.t_period = 12 @ u_ns  # Period
         self.t_delay = 1 @ u_ns # shift for write signal
-        self.t_step = float(self.t_rise) * 0.1
+        self.t_step = self.t_rise * 0.1
 
     def set_vdd(self, value):
         self.vdd = value

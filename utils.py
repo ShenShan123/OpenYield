@@ -594,6 +594,38 @@ def visualize_results(blocks, analysis_type, output_file):
     ValueError
         If the input data blocks are empty
     """
+    # Change default font family
+    plt.rcParams['font.family'] = 'serif'  # Options: 'serif', 'sans-serif', 'monospace'
+
+    # Set specific font (if installed on your system)
+    # plt.rcParams['font.serif'] = ['Times New Roman']  # Or 'Palatino', 'Computer Modern Roman', etc.
+
+    # Change font sizes
+    # plt.rcParams['font.size'] = 12          # Base font size
+    # plt.rcParams['axes.titlesize'] = 14     # Title font size
+    # plt.rcParams['axes.labelsize'] = 14     # Axis label size
+    # plt.rcParams['xtick.labelsize'] = 12    # X-tick label size
+    # plt.rcParams['ytick.labelsize'] = 12    # Y-tick label size
+    # plt.rcParams['legend.fontsize'] = 12    # Legend font size
+    # # Set default figure size (width, height) in inches
+    plt.rcParams['figure.figsize'] = [8.0, 6.0]
+
+    # plt.rcParams.update({
+    #     'font.family': 'serif',           # 设置字体族
+    #     'font.sans-serif': 'Century',
+    #     'font.size': 20,                  # 基础字体大小
+    #     'axes.labelsize': 20,             # 轴标签字体大小
+    #     'axes.titlesize': 20,             # 标题字体大小
+    #     'xtick.labelsize': 20,            # x轴刻度标签大小
+    #     'ytick.labelsize': 20,            # y轴刻度标签大小
+    #     'legend.fontsize': 20,            # 图例字体大小
+    #     'figure.figsize': [8, 8],         # 图形大小
+    #     'figure.dpi': 350,                # 分辨率
+    # })
+
+    # Or use built-in style sheets
+    plt.style.use('ggplot')  # Options: 'seaborn', 'fivethirtyeight', 'dark_background', etc.
+
     # Create output directory
     output_path = Path(output_file)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -608,11 +640,11 @@ def visualize_results(blocks, analysis_type, output_file):
     signals = base_block.columns[1:]
     
     # Create plot object
-    fig, ax = plt.subplots(figsize=(16, 10))
+    fig, ax = plt.subplots()
     colors = plt.cm.tab10(np.linspace(0, 1, len(signals)))
     
     # Configure plot parameters
-    LINE_ALPHA = 0.08  # Lower transparency to support large-scale data
+    LINE_ALPHA = 0.5  # Lower transparency to support large-scale data
     LINE_WIDTH = 0.3   # Thin line width for optimized rendering performance
     
     # Process signals in parallel
@@ -660,10 +692,10 @@ def visualize_results(blocks, analysis_type, output_file):
                        zorder=2)
     
     # Graph decoration
-    ax.set_title(f"{analysis_type.upper()} Monte Carlo Analysis (Variable Steps)", pad=15)
-    ax.set_xlabel(x_label, fontsize=12)
-    ax.set_ylabel("Voltage (V)", fontsize=12)
-    ax.grid(alpha=0.2)
+    # ax.set_title(f"{analysis_type.upper()} Monte Carlo Analysis (Variable Steps)", pad=15)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(r"Voltage (V)")
+    ax.grid(alpha=1.0)
     
     # Create legend proxies
     legend_elements = [Line2D([0], [0], color=c, lw=2, label=s) 
@@ -671,9 +703,8 @@ def visualize_results(blocks, analysis_type, output_file):
     ax.legend(handles=legend_elements,
              loc='upper center',
              bbox_to_anchor=(0.5, -0.15),
-             ncol=3,
-             frameon=False,
-             fontsize=10)
+             ncol=2,
+             frameon=False)
     
     # Optimize output
     plt.subplots_adjust(bottom=0.2)

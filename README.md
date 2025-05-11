@@ -1,41 +1,83 @@
-# OpenYield
+# OpenYield: An Open-Source SRAM Yield Analysis and Optimization Benchmark Suite
 ![](img/logo-cut-openyield.jpg)
-This project is a open-source yield analysis for SRAM circuits.
+**OpenYield** is a novel and scalable SRAM circuit generator designed to produce diverse, industrially-relevant test cases. It distinguishes itself by incorporating critical second-order effects often overlooked in simpler models, such as:
 
-> OpenYield is under development, some definitions of functions and classes may change significantely.
+* **Detailed Parasitics:** Accurate modeling of parasitic capacitances and resistances.
+* **Inter-cell Leakage Coupling:** Accounting for leakage current interactions between adjacent memory cells.
+* **Peripheral Circuit Variations:** Modeling variations in the behavior of peripheral circuits like sense amplifiers and write drivers.
 
-## Supported PDK
-In this initial version, we only support FreePDK45. The model file is located in ` model_lib/models.spice `.
+This enhanced level of detail enables more realistic and reliable yield analysis of SRAM designs.
 
-## Base Component
-### SRAM 6T Cell
-The 6T cell class defined in ` sram_6t_core.py ` can be tested individually. It can be configured with (without) pi-shaped RC networks.
-### SRAM Array
-The 6T SRAM core array is defined in ` sram_6t_core.py `. It consists of rowxcolumn 6T cells.
-### SRAM Array Testbench
-The testbench for SRAM array is located in ` sram_6t_core_testbench.py `. It supports NgSpice to run norminal simulaiton and HSPICE to run MC sweeps. It contains read and write operations in this version.
+## Key Features
 
-### Utils
-The ` utils.py ` contains plot function, measurement function, and SNM calulation functions.
+* **Xyce Integration:** Utilizes the Xyce parallel circuit simulator for transistor-level simulations.
+* **Monte Carlo Simulation Support:**
+    * Built-in Monte Carlo simulations within Xyce.
+    * Support for user-defined Monte Carlo simulations, allowing for custom process parameter generation.
+* **Performance Metrics Analysis:** Evaluates critical SRAM performance metrics:
+    * Hold Static Noise Margin (SNM)
+    * Read Static Noise Margin (SNM)
+    * Write Static Noise Margin (SNM)
+    * Read Delay
+    * Write Delay
+* **Output Parsing and Waveform Plotting:** Includes parsers to extract simulation results and tools to visualize signal waveforms.
+* **Extensible Design:** The project is under active development with plans to integrate various yield analysis and sizing optimization algorithms.
 
-## Run command
-If you want to run 6T cell simulation, please see the main function in [`sram_6t_core_testbench.py`](sram_6t_core_testbench.py)
-``` bash
-python sram_6t_core_testbench.py
+## Dependencies
+
+* **PySpice:** Required for interfacing with the Xyce simulator. Install using pip:
+
+    ```bash
+    pip install PySpice
+    ```
+
+## Usage Examples
+
+### 1.  Using the `SRAM_6T_Array_MC_Testbench` Class
+
+The `SRAM_6T_Array_MC_Testbench` class in `testbenches/sram_6t_core_MC_testbench.py` facilitates Monte Carlo simulations of the SRAM core. Here's a basic example of how to instantiate and use it:
+
+```python
+from testbenches.sram_6t_core_MC_testbench import SRAM_6T_Array_MC_Testbench
+
+# Create an instance of the testbench
+testbench = SRAM_6T_Array_MC_Testbench(
+    netlist="sram_6t_core.spice",  # Path to the SRAM cell netlist
+    simulator="xyce",            # Simulator to use (currently only 'xyce' supported)
+    variation_type="process",     # Type of variation (e.g., "process", "mismatch")
+    num_bits=1                    # Number of bits in the SRAM array
+)
 ```
-Some simulation results are in `sim/` and plots are in `plots/`.
+### 2. Using the `run_mc_simulation` Method
+The run_mc_simulation method within the        `SRAM_6T_Array_MC_Testbench` class executes Monte Carlo simulations.  Here's an example demonstrating its usage:
+```python 
+from testbenches.sram_6t_core_MC_testbench import SRAM_6T_Array_MC_Testbench
 
-## TODO
-A ton of works need to be done, including
-1. Sense amplifiers
-2. Column multiplexers
-3. WL drivers
-4. Prechargers
-5. Write drivers
-6. Decoder
-7. DFFs
-8. Other types of SRAM cell (8T, 9T, 10T)
-9. Timing controller
-10. SNM simulation (to ensure hold ability)
-11. Size optimization
-12. Yield analysis
+testbench = SRAM_6T_Array_MC_Testbench(
+    netlist="sram_6t_core.spice",
+    simulator="xyce",
+    variation_type="process",
+    num_bits=1
+)
+
+# Define the number of Monte Carlo samples
+num_samples = 100
+
+# Run the Monte Carlo simulation
+mc_results = testbench.run_mc_simulation(num_samples=num_samples)
+```
+
+## Important Notes:
+
+* Ensure that you have Xyce installed and configured correctly. OpenYield assumes Xyce is available in your system's PATH.
+* The netlist parameter should point to the SPICE netlist file describing your SRAM cell.
+* The structure of the mc_results will depend on the specific analyses performed in the Monte Carlo simulation. You'll need to inspect the output to understand how to access the desired metrics.
+* Refer to main.py for more complete examples and usage patterns.
+
+## Future Development
+This project is actively being developed.  Planned future enhancements include:
+* Integration of advanced yield analysis algorithms.
+* Implementation of SRAM cell sizing optimization techniques.
+
+## Contributing
+Contributions to OpenYield are welcome! Please refer to the contribution guidelines for details on how to get involved.

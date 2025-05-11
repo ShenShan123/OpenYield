@@ -8,17 +8,17 @@ import PySpice
 from PySpice.Spice.Netlist import SubCircuitFactory
 
 class SRAM_6T_Array_MC_Testbench(SRAM_6T_Array_Testbench):
-    def __init__(self, pdk_path, nmos_model_name, pmos_model_name, 
+    def __init__(self, vdd, pdk_path, nmos_model_name, pmos_model_name, 
                  pd_width, pu_width, pg_width, length,
                  num_rows, num_cols, w_rc, pi_res, pi_cap,
-                 vth_std=0.05, custom_mc=False,
+                 vth_std=0.05, custom_mc=False, q_init_val=0,
                  sim_path='sim'):
         
         super().__init__(
-            pdk_path, nmos_model_name, pmos_model_name, 
+            vdd, pdk_path, nmos_model_name, pmos_model_name, 
             pd_width, pu_width, pg_width, length,
             num_rows, num_cols, w_rc, pi_res, pi_cap, 
-            custom_mc,
+            custom_mc, q_init_val,
         )
 
         self.vth_std = vth_std
@@ -95,11 +95,15 @@ class SRAM_6T_Array_MC_Testbench(SRAM_6T_Array_Testbench):
 
         # The read operation
         elif operation == 'read':
+            # .ic conditions
             for col in range(self.num_cols):
                 # Initial V(BL) and V(BLB) for all columns
                 init_cond[f'BL{col}'] = 0 @ u_V
                 init_cond[f'BLB{col}'] = 0 @ u_V
             
+            # init_cond[target_node_q] = 0 @ u_V
+            # init_cond[target_node_qb] = self.vdd @ u_V
+
             simulator.initial_condition(**init_cond)
 
             # Add measurements for read delay, 
@@ -111,6 +115,21 @@ class SRAM_6T_Array_MC_Testbench(SRAM_6T_Array_Testbench):
                 'TRAN', 'TBL', 
                 f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{self.half_vdd}' FALL=1")
             simulator.measure('TRAN', 'TREAD', f"PARAM='TBL-TWL'")
+            
+            # Add measurements for average power, static power and dynamic power
+            simulator.measure(
+                'TRAN', 'PAVG',
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(self.t_pulse*2):.4e}'
+            )
+            simulator.measure(
+                'TRAN', 'PDYN',
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(self.t_pulse/2):.4e}'
+            )
+            simulator.measure(
+                'TRAN', 'PSTC',
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float((self.t_pulse+self.t_fall)*2):.4e} '+ 
+                f'TO={float(self.t_period):.4e}'
+            )
 
             # Add print for read delay
             simulator.circuit.raw_spice += \
@@ -133,6 +152,21 @@ class SRAM_6T_Array_MC_Testbench(SRAM_6T_Array_Testbench):
                 f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1', 
                 f"TARG V({target_node_qb})={float(self.vdd)*0.9:.2f} FALL=1")
             
+            # Add measurements for average power, static power and dynamic power
+            simulator.measure(
+                'TRAN', 'PAVG',
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(self.t_pulse-self.t_delay):.4e} TO={float(self.t_pulse*2):.4e}'
+            )
+            simulator.measure(
+                'TRAN', 'PDYN',
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(self.t_pulse):.4e} TO={float(self.t_pulse*1.5):.4e}'
+            )
+            simulator.measure(
+                'TRAN', 'PSTC',
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float((self.t_pulse+self.t_fall)*2):.4e} '+ 
+                f'TO={float(self.t_period):.4e}'
+            )
+            
             # Add print for write delay
             simulator.circuit.raw_spice += \
                 f'.PRINT TRAN FORMAT=NOINDEX V(WL{self.target_row}) V({target_node_q}) V({target_node_qb})\n'
@@ -151,10 +185,10 @@ class SRAM_6T_Array_MC_Testbench(SRAM_6T_Array_Testbench):
                 f'.DC U -{u_tmp:.2f} {u_tmp:.2f} 0.001\n'
         else:
             circuit.raw_spice += \
-                f'.TRAN {self.t_step:.2e} {float(self.t_period):.2e}\n'
+                f'.TRAN {float(self.t_step):.4e} {float(self.t_period):.4e}\n'
             # Timing interval option is set only in .TRAN analysis.
             circuit.raw_spice += \
-                f'.OPTIONS OUTPUT INITIAL_INTERVAL={self.t_step:.2e}\n'
+                f'.OPTIONS OUTPUT INITIAL_INTERVAL={float(self.t_step):.4e}\n'
             
         # Whether we use custom MC
         if self.custom_mc:
@@ -259,7 +293,7 @@ class SRAM_6T_Array_MC_Testbench(SRAM_6T_Array_Testbench):
         self.add_analysis(simulator.circuit, operation, mc_runs)
 
         # Add measurements according to the operation
-        self.add_meas_and_print(simulator, {}, operation)
+        self.add_meas_and_print(simulator, self.data_init(), operation)
         
         # Add process parameters
         if self.custom_mc:
@@ -267,9 +301,11 @@ class SRAM_6T_Array_MC_Testbench(SRAM_6T_Array_Testbench):
 
         print("[DEBUG] Printing generated netlists...")
         print(simulator)
-
+        init = '_q1' if self.q_init_val > 0 else ''
         # Generate and run Xyce netlist
-        tb_path = os.path.join(self.sim_path, f'mc_{operation}_testbench.sp')
+        tb_path = os.path.join(
+            self.sim_path, 
+            f'mc_{operation}_{self.num_rows}x{self.num_cols}_rc{self.w_rc:d}{init}_tb.sp')
         
         with open(tb_path, 'w') as f:
             f.write(str(simulator))

@@ -12,13 +12,13 @@ import numpy as np
 from copy import deepcopy
 
 class SRAM_6T_Array_Testbench(Base_Testbench):
-    def __init__(self, pdk_path, nmos_model_name, pmos_model_name, 
+    def __init__(self, vdd, pdk_path, nmos_model_name, pmos_model_name, 
                  pd_width, pu_width, pg_width, length,
                  num_rows, num_cols, w_rc, pi_res, pi_cap,
-                 custom_mc=False,):
+                 custom_mc=False, q_init_val=0):
         super().__init__(
             f'SRAM_6T_Array_{num_rows}x{num_cols}_Testbench', 
-            pdk_path, nmos_model_name, pmos_model_name)
+            vdd, pdk_path, nmos_model_name, pmos_model_name)
         # transistor size info.
         self.pd_width = pd_width
         self.pu_width = pu_width
@@ -35,6 +35,10 @@ class SRAM_6T_Array_Testbench(Base_Testbench):
         self.heir_delimiter = ':'
         # User defined MC simulation
         self.custom_mc = custom_mc
+        self.power_node = 'VDD'
+        self.gnd_node = 'VSS'
+        # init internal data q
+        self.q_init_val = q_init_val
 
     def create_wl_driver(self, circuit: Circuit, target_row: int):
         """Create wordline driver for the target/standby row"""
@@ -83,9 +87,10 @@ class SRAM_6T_Array_Testbench(Base_Testbench):
             circuit.PulseVoltageSource(
                 f'BL{col}_pulse', f'BL{col}', circuit.gnd, 
                 initial_value=0 @ u_V, pulsed_value=self.vdd, 
+                # data setup time = t_delay time
                 delay_time=self.t_pulse - self.t_delay, 
                 rise_time=self.t_rise, fall_time=self.t_fall, 
-                # data hold time, assuming 2X rise times
+                # data hold time = t_delay time
                 pulse_width=self.t_pulse + 2*self.t_delay, 
                 period=self.t_period)
             
@@ -93,9 +98,10 @@ class SRAM_6T_Array_Testbench(Base_Testbench):
             circuit.PulseVoltageSource(
                 f'BLB{col}_pulse', f'BLB{col}', circuit.gnd,
                 initial_value=self.vdd, pulsed_value=0 @ u_V, 
+                # data setup time = t_delay time
                 delay_time=self.t_pulse - self.t_delay, 
                 rise_time=self.t_rise, fall_time=self.t_fall, 
-                # data hold time, assuming 2X rise times
+                # data hold time = t_delay time
                 pulse_width=self.t_pulse + 2*self.t_delay, 
                 period=self.t_period, dc_offset=self.vdd)
             
@@ -114,7 +120,7 @@ class SRAM_6T_Array_Testbench(Base_Testbench):
         if self.custom_mc:
             # Instantiate 6T SRAM cell
             sbckt_6t_cell = SRAM_6T_Cell_for_Yield(
-                self.nmos_model_name, self.pmos_model_name,
+                self.vdd, self.nmos_model_name, self.pmos_model_name,
                 self.pd_width, self.pu_width, self.pg_width, self.length,
                 w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap, 
                 disconnect=True, #NOTE: Key argument to disconnect the internal data nodes!!
@@ -125,7 +131,7 @@ class SRAM_6T_Array_Testbench(Base_Testbench):
         else:
             # Instantiate 6T SRAM cell
             sbckt_6t_cell = SRAM_6T_Cell(
-                self.nmos_model_name, self.pmos_model_name,
+                self.vdd, self.nmos_model_name, self.pmos_model_name,
                 self.pd_width, self.pu_width, self.pg_width, self.length,
                 w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap, 
                 disconnect=True, #NOTE: Key argument to disconnect the internal data nodes!!
@@ -182,6 +188,24 @@ class SRAM_6T_Array_Testbench(Base_Testbench):
         # print(circuit)
         # assert 0 
         return circuit
+    
+    def data_init(self):
+        init_dict = {}
+        vq = self.vdd @ u_V if self.q_init_val else 0 @ u_V
+        vqb = 0 @ u_V if self.q_init_val else self.vdd @ u_V
+
+        for row in range(self.num_rows):
+            for col in range(self.num_cols):
+                q_name = self.inst_prefix + f'_{row}_{col}{self.heir_delimiter}Q'
+                qb_name = self.inst_prefix + f'_{row}_{col}{self.heir_delimiter}QB'
+                init_dict[q_name] = vq
+                init_dict[qb_name] = vqb
+                # The target cell always stores '0' by default
+                if row == self.target_row and col == self.target_col:
+                    init_dict[q_name] = 0 @ u_V
+                    init_dict[qb_name] = self.vdd @ u_V
+        
+        return init_dict
 
     def create_testbench(self, operation, target_row, target_col):
         """
@@ -208,15 +232,19 @@ class SRAM_6T_Array_Testbench(Base_Testbench):
         # Instantiate 6T SRAM array
         if self.custom_mc:
             sbckt_6t_array = SRAM_6T_Array_for_Yield(
-                self.num_rows, self.num_cols, self.nmos_model_name, self.pmos_model_name,
+                self.vdd, self.num_rows, self.num_cols, 
+                self.nmos_model_name, self.pmos_model_name,
                 self.pd_width, self.pu_width, self.pg_width, self.length,
-                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
+                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap, 
+                q_init_val=self.q_init_val
             )
         else:
             sbckt_6t_array = SRAM_6T_Array(
-                self.num_rows, self.num_cols, self.nmos_model_name, self.pmos_model_name,
+                self.vdd, self.num_rows, self.num_cols, 
+                self.nmos_model_name, self.pmos_model_name,
                 self.pd_width, self.pu_width, self.pg_width, self.length,
                 w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
+                q_init_val=self.q_init_val,
             )
         # Add subcircuit definition to this testbench.
         circuit.subcircuit(sbckt_6t_array)
@@ -330,6 +358,9 @@ class SRAM_6T_Array_Testbench(Base_Testbench):
             # Initial V(BL) and V(BLB) for the target column
             init_cond[f'BL{target_col}'] = 0 @ u_V
             init_cond[f'BLB{target_col}'] = 0 @ u_V
+            init_cond.update(self.data_init())
+            # init_cond[target_node_q] = 0 @ u_V
+            # init_cond[target_node_qb] = self.vdd @ u_V
             
             simulator.initial_condition(**init_cond)
 
@@ -360,6 +391,7 @@ class SRAM_6T_Array_Testbench(Base_Testbench):
 
         #NOTE: We write a `1` to a `0` cell in default
         elif operation == 'write':
+            init_cond.update(self.data_init())
             simulator.initial_condition(**init_cond)
 
             print("[DEBUG] Printing generated netlists...")

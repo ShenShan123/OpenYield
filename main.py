@@ -5,6 +5,7 @@ import numpy as np
 
 
 if __name__ == '__main__':
+    vdd = 1.0
     pdk_path = 'model_lib/models.spice'
     nmos_model_name = 'NMOS_VTG'
     pmos_model_name = 'PMOS_VTG'
@@ -12,7 +13,6 @@ if __name__ == '__main__':
     pu_width = 0.09e-6
     pg_width = 0.135e-6
     length = 50e-9
-
     # FreePDK45 default transistor sizes
     # area = estimate_bitcell_area(
     #     w_access=pg_width,
@@ -22,9 +22,10 @@ if __name__ == '__main__':
     # )
     # print(f"Estimated 6T SRAM Cell Area: {area*1e12:.2f} µm²")
 
-    # assert 0
-    num_rows = 32
-    num_cols = 2
+    num_rows = 4
+    num_cols = 4
+    num_mc = 10
+
     # print("===== 6T SRAM Array NgSpice Simulation Debug Session =====")
     # testbench = SRAM_6T_Array_Testbench(
     #     pdk_path, nmos_model_name, pmos_model_name,
@@ -40,19 +41,19 @@ if __name__ == '__main__':
 
     print("===== 6T SRAM Array Monte Carlo Simulation Debug Session =====")
     mc_testbench = SRAM_6T_Array_MC_Testbench(
+        vdd,
         pdk_path, nmos_model_name, pmos_model_name,
         pd_width, pu_width, pg_width, length,
         num_rows=num_rows, num_cols=num_cols, 
-        w_rc=False, # Add RC to nets
+        w_rc=True, # Add RC to nets
         pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
         custom_mc=True, # Use your process params?
-        sim_path='sim',
+        q_init_val=1, sim_path='sim',
     )
-    num_mc=1500
     vars = np.random.rand(num_mc,num_rows*num_cols*18)
     # Operation can be 'read' 'write' 'write_snm' 'hold_snm' 'read_snm'
     y = mc_testbench.run_mc_simulation(
-        operation='write_snm', target_row=0, target_col=0, mc_runs=num_mc, 
+        operation='read', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, 
         vars=None, # Input your data table
     )
     # print('[DEBUG] y.shape', y.shape)
