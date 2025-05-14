@@ -2,7 +2,7 @@ from testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
 from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 import numpy as np
-
+from utils import estimate_bitcell_area
 
 if __name__ == '__main__':
     vdd = 1.0
@@ -13,17 +13,18 @@ if __name__ == '__main__':
     pu_width = 0.09e-6
     pg_width = 0.135e-6
     length = 50e-9
+
     # FreePDK45 default transistor sizes
-    # area = estimate_bitcell_area(
-    #     w_access=pg_width,
-    #     w_pd=pd_width,
-    #     w_pu=pu_width,
-    #     l_transistor=length
-    # )
-    # print(f"Estimated 6T SRAM Cell Area: {area*1e12:.2f} µm²")
+    area = estimate_bitcell_area(
+        w_access=pg_width,
+        w_pd=pd_width,
+        w_pu=pu_width,
+        l_transistor=length
+    )
+    print(f"Estimated 6T SRAM Cell Area: {area*1e12:.2f} µm²")
 
     num_rows = 32
-    num_cols = 1
+    num_cols = 4
     num_mc = 1
 
     print("===== 6T SRAM Array Monte Carlo Simulation Debug Session =====")
@@ -37,14 +38,18 @@ if __name__ == '__main__':
         custom_mc=False, # Use your process params?
         q_init_val=0, sim_path='sim',
     )
-    vars = np.random.rand(num_mc,num_rows*num_cols*18)
-    # Operation can be 'read' 'write' 'write_snm' 'hold_snm' 'read_snm'
-    y = mc_testbench.run_mc_simulation(
+    # vars = np.random.rand(num_mc,num_rows*num_cols*18)
+
+    # For using DC analysis, operation can be 'write_snm' 'hold_snm' 'read_snm'
+    # read_snm = mc_testbench.run_mc_simulation(
+    #     operation='hold_snm', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, 
+    #     vars=None, # Input your data table
+    # )
+
+    # For using TRAN analysis, operation can be 'write' or 'read'
+    w_delay, w_pavg = mc_testbench.run_mc_simulation(
         operation='write', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, 
         vars=None, # Input your data table
     )
-    # print('[DEBUG] y.shape', y.shape)
-    # assert 0
-    # y = mc_testbench.run_mc_simulation(operation='write', target_row=1, target_col=1, mc_runs=3, vars=vars)
 
     print("[DEBUG] Monte Carlo simulation completed")

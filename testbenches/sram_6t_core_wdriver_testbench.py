@@ -5,79 +5,46 @@ from subcircuits.sram_6t_core_for_yield import (
     Sram6TCore, Sram6TCell, 
     Sram6TCoreForYield, Sram6TCellForYield  # Assuming SRAM_6T_Cell_RC is defined
 )
+from subcircuits.sram_6t_core_wdriver import Sram6TCoreWdriver
 from utils import plot_results, measure_delay, calculate_snm, plot_butterfly_with_squares
 from utils import parse_mt0, analyze_mt0, measure_power
-from testbenches.base_testbench import BaseTestbench
-import numpy as np
-from copy import deepcopy
+from testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
 
-class Sram6TCoreTestbench(BaseTestbench):
+class Sram6TCoreWdriverTestbench(Sram6TCoreTestbench):
     def __init__(self, vdd, pdk_path, nmos_model_name, pmos_model_name, 
                  pd_width, pu_width, pg_width, length,
                  num_rows, num_cols, w_rc, pi_res, pi_cap,
-                 custom_mc=False, q_init_val=0):
-        super().__init__(
-            f'SRAM_6T_Core_{num_rows}x{num_cols}_Testbench', 
-            vdd, pdk_path, nmos_model_name, pmos_model_name)
-        # transistor size info.
-        self.pd_width = pd_width
-        self.pu_width = pu_width
-        self.pg_width = pg_width
-        self.length = length
-        # array size
-        self.num_rows = num_rows
-        self.num_cols = num_cols
-        self.inst_prefix = 'X'
-        # add rc?
-        self.w_rc = w_rc
-        self.pi_res = pi_res
-        self.pi_cap = pi_cap
-        self.heir_delimiter = ':'
-        # User defined MC simulation
-        self.custom_mc = custom_mc
-        self.power_node = 'VDD'
-        self.gnd_node = 'VSS'
-        # init internal data q
-        self.q_init_val = q_init_val
-
-    def create_wl_driver(self, circuit: Circuit, target_row: int):
-        """Create wordline driver for the target/standby row"""
-        # Wordline control & drivers
-        for row in range(self.num_rows):
-            if row == target_row:
-                # Add pulse source for the target row
-                circuit.PulseVoltageSource(
-                    f'WL{row}_pulse', f'WL{row}', circuit.gnd,
-                    initial_value=0 @ u_V, pulsed_value=self.vdd, 
-                    delay_time=self.t_pulse,
-                    rise_time=self.t_rise, fall_time=self.t_fall, 
-                    pulse_width=self.t_pulse,
-                    period=self.t_period
-                )
-            else:
-                # Tie idle wordlines to ground
-                circuit.V(f'WL{row}_gnd', f'WL{row}', circuit.gnd, 0 @ u_V)
-        return circuit
-
-    def create_read_periphery(self, circuit: Circuit):
-        """Create read periphery circuitry"""
-        # Add precharge circuitry for all columns
-        for col in range(self.num_cols):
-            circuit.M(f'MP1_{col}', f'BL{col}', 'PRE', 'VDD', 'VDD', model=self.pmos_model_name, w=0.4e-6, l=50e-9)
-            circuit.M(f'MP2_{col}', f'BLB{col}', 'PRE', 'VDD', 'VDD', model=self.pmos_model_name, w=0.4e-6, l=50e-9)
-            circuit.M(f'MP3_{col}', f'BL{col}', 'PRE', f'BLB{col}', 'VDD', model=self.pmos_model_name, w=0.4e-6, l=50e-9)
+                 custom_mc=False, q_init_val=0, sim_path=''):
         
-        # Precharge pulse source to precharge all BL/BLB to VDD
-        circuit.PulseVoltageSource(
-            'PRE', 'PRE', circuit.gnd, 
-            initial_value=self.vdd, pulsed_value=0 @ u_V, 
-            delay_time=0 @ u_ns, 
-            rise_time=self.t_rise, 
-            fall_time=self.t_fall, 
-            pulse_width=self.t_pulse-2*self.t_rise, 
-            period=self.t_period, dc_offset=self.vdd
+        super().__init__(
+            vdd,
+            pdk_path, nmos_model_name, pmos_model_name, 
+            pd_width, pu_width, pg_width, length,
+            num_rows, num_cols, w_rc, pi_res, pi_cap,
+            custom_mc=custom_mc, q_init_val=q_init_val,
         )
-        return circuit
+        # Overwite the name of TB
+        self.name = f'SRAM_6T_CORE_WDRIVER_{num_rows}x{num_cols}_TB'
+
+    # def create_read_periphery(self, circuit: Circuit):
+    #     """Create read periphery circuitry"""
+    #     # Add precharge circuitry for all columns
+    #     for col in range(self.num_cols):
+    #         circuit.M(f'MP1_{col}', f'BL{col}', 'PRE', 'VDD', 'VDD', model=self.pmos_model_name, w=0.4e-6, l=50e-9)
+    #         circuit.M(f'MP2_{col}', f'BLB{col}', 'PRE', 'VDD', 'VDD', model=self.pmos_model_name, w=0.4e-6, l=50e-9)
+    #         circuit.M(f'MP3_{col}', f'BL{col}', 'PRE', f'BLB{col}', 'VDD', model=self.pmos_model_name, w=0.4e-6, l=50e-9)
+        
+    #     # Precharge pulse source to precharge all BL/BLB to VDD
+    #     circuit.PulseVoltageSource(
+    #         'PRE', 'PRE', circuit.gnd, 
+    #         initial_value=self.vdd, pulsed_value=0 @ u_V, 
+    #         delay_time=0 @ u_ns, 
+    #         rise_time=self.t_rise, 
+    #         fall_time=self.t_fall, 
+    #         pulse_width=self.t_pulse-2*self.t_rise, 
+    #         period=self.t_period, dc_offset=self.vdd
+    #     )
+    #     return circuit
     
     def create_write_periphery(self, circuit: Circuit):
         """Create write periphery circuitry, writing `1`s into a row"""
@@ -85,7 +52,7 @@ class Sram6TCoreTestbench(BaseTestbench):
         for col in range(self.num_cols):
             # high voltage on BL
             circuit.PulseVoltageSource(
-                f'BL{col}_pulse', f'BL{col}', circuit.gnd, 
+                f'DIN{col}', f'DIN{col}', circuit.gnd, 
                 initial_value=0 @ u_V, pulsed_value=self.vdd, 
                 # data setup time = t_delay time
                 delay_time=self.t_pulse - self.t_delay, 
@@ -94,97 +61,16 @@ class Sram6TCoreTestbench(BaseTestbench):
                 pulse_width=self.t_pulse + 2*self.t_delay, 
                 period=self.t_period)
             
-            # low voltage on BLB
-            circuit.PulseVoltageSource(
-                f'BLB{col}_pulse', f'BLB{col}', circuit.gnd,
-                initial_value=self.vdd, pulsed_value=0 @ u_V, 
-                # data setup time = t_delay time
-                delay_time=self.t_pulse - self.t_delay, 
-                rise_time=self.t_rise, fall_time=self.t_fall, 
-                # data hold time = t_delay time
-                pulse_width=self.t_pulse + 2*self.t_delay, 
-                period=self.t_period, dc_offset=self.vdd)
-            
-        return circuit
-
-    def create_single_cell_for_snm(self, circuit: Circuit, operation: str):
-        """
-        Create a single 6T SRAM cell for SNM measurement.
-        How to calculate SNM for 6T SRAM cell in SPICE?
-        See: https://www.edaboard.com/threads/sram-snm-simulation-hspice.253224/
-        """
-        # Add U parameter
-        # .param U=0
-        circuit.parameter('U', 0)
-
-        if self.custom_mc:
-            # Instantiate 6T SRAM cell
-            sbckt_6t_cell = Sram6TCellForYield(
-                self.vdd, self.nmos_model_name, self.pmos_model_name,
-                self.pd_width, self.pu_width, self.pg_width, self.length,
-                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap, 
-                disconnect=True, #NOTE: Key argument to disconnect the internal data nodes!!
-                suffix='_0_0',
-                custom_mc=self.custom_mc,
-            )
-        else:
-            # Instantiate 6T SRAM cell
-            sbckt_6t_cell = Sram6TCell(
-                self.vdd, self.nmos_model_name, self.pmos_model_name,
-                self.pd_width, self.pu_width, self.pg_width, self.length,
-                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap, 
-                disconnect=True, #NOTE: Key argument to disconnect the internal data nodes!!
-            )
-        # Add subcircuit definition to this testbench.
-        circuit.subcircuit(sbckt_6t_cell)
-        circuit.X(sbckt_6t_cell.name, sbckt_6t_cell.name, 'VDD', circuit.gnd, 
-                'BL', 'BLB', 'WL')
-        # internal node prefix in the SRAM cell
-        self.inst_prefix = 'X' + sbckt_6t_cell.name
-
-        if operation == 'hold_snm':
-            # For hold_snm measurement, keep WL low and add DC sources to Q/QB
-            circuit.V(f'WL_gnd', 'WL', circuit.gnd, 0 @ u_V)
-
-        elif operation == 'read_snm':
-            # For read_snm operation, keep WL high and add DC sources to Q/QB
-            circuit.V(f'WL_vdd', 'WL', circuit.gnd, self.vdd)
-            circuit.V(f'BL_vdd', 'BL', circuit.gnd, self.vdd)
-            circuit.V(f'BLB_vdd', 'BLB', circuit.gnd, self.vdd)
-        elif operation == 'write_snm':
-            # For write_snm operation, keep WL high and add DC sources to Q/QB
-            circuit.V(f'WL_vdd', 'WL', circuit.gnd, self.vdd@ u_V)
-            circuit.V(f'BL_vdd', 'BL', circuit.gnd, self.vdd @ u_V)
-            circuit.V(f'BLB_vdd', 'BLB', circuit.gnd, 0 @ u_V)
-        else:
-            raise ValueError(f"Invalid operation: {operation}")
-
-        # Add voltage control voltage source for get SNM,
-        # The grammar is insane, but it works, fuckin' PySpice,
-        # e.g., EV1 V1 0 VOL='U+sqrt(2)*V(XSRAM_6T_CELL.QBD)
-        circuit.VCVS(
-            'V1', 'V1', '', circuit.gnd, '', 
-            **{'raw_spice': f"VOL='U+sqrt(2)*V({self.inst_prefix}{self.heir_delimiter}QBD)'"}
+        circuit.PulseVoltageSource(
+            f'WE', f'WE', circuit.gnd, 
+            initial_value=0 @ u_V, pulsed_value=self.vdd, 
+            # data setup time = t_delay time
+            delay_time=self.t_pulse, 
+            rise_time=self.t_rise, fall_time=self.t_fall, 
+            # data hold time = t_delay time
+            pulse_width=self.t_pulse + 2*self.t_delay, 
+            period=self.t_period
         )
-        circuit.VCVS(
-            'V2', 'V2', '', circuit.gnd, '', 
-            **{'raw_spice': f"VOL='-U+sqrt(2)*V({self.inst_prefix}{self.heir_delimiter}QD)'"}
-        )
-        circuit.VCVS(
-            'Q', f'{self.inst_prefix}{self.heir_delimiter}Q', '', circuit.gnd, '', 
-            **{'raw_spice': f" VOL='1/sqrt(2)*U+1/sqrt(2)*V(V1)'"}
-        )
-        circuit.VCVS(
-            'QB', f'{self.inst_prefix}{self.heir_delimiter}QB', '', circuit.gnd, '', 
-            **{'raw_spice': f" VOL='-1/sqrt(2)*U+1/sqrt(2)*V(V2)'"}
-        )
-        circuit.VCVS(
-            'VD', 'VD', '', circuit.gnd, '', 
-            **{'raw_spice': f"VOL='ABS(V(V1)-V(V2))'"}
-        )
-        # print("[DEBUG] Netlists for SRAM_6T_Cell_for_Yield")
-        # print(circuit)
-        # assert 0 
         return circuit
     
     def data_init(self):
@@ -194,8 +80,8 @@ class Sram6TCoreTestbench(BaseTestbench):
 
         for row in range(self.num_rows):
             for col in range(self.num_cols):
-                q_name = self.inst_prefix + f'_{row}_{col}{self.heir_delimiter}Q'
-                qb_name = self.inst_prefix + f'_{row}_{col}{self.heir_delimiter}QB'
+                q_name = self.arr_inst_prefix + f'_{row}_{col}{self.heir_delimiter}Q'
+                qb_name = self.arr_inst_prefix + f'_{row}_{col}{self.heir_delimiter}QB'
                 init_dict[q_name] = vq
                 init_dict[qb_name] = vqb
                 # The target cell always stores '0' by default
@@ -221,41 +107,26 @@ class Sram6TCoreTestbench(BaseTestbench):
         # Power supply
         circuit.V('VDD', 'VDD', circuit.gnd, self.vdd)
 
-        # if it is a SNM test
-        if 'snm' in operation:
-            self.create_single_cell_for_snm(circuit, operation)
-            # finish the circuit just return
-            return circuit
-
         # Instantiate 6T SRAM array
         if self.custom_mc:
-            sbckt_6t_array = Sram6TCoreForYield(
-                self.vdd, self.num_rows, self.num_cols, 
-                self.nmos_model_name, self.pmos_model_name,
-                self.pd_width, self.pu_width, self.pg_width, self.length,
-                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap, 
-                # q_init_val=self.q_init_val
-            )
+            pass
         else:
-            sbckt_6t_array = Sram6TCore(
+            sbckt_6t_array = Sram6TCoreWdriver(
                 self.vdd, self.num_rows, self.num_cols, 
                 self.nmos_model_name, self.pmos_model_name,
-                self.pd_width, self.pu_width, self.pg_width, self.length,
-                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
-                # q_init_val=self.q_init_val,
             )
         # Add subcircuit definition to this testbench.
         circuit.subcircuit(sbckt_6t_array)
         self.array_subckt_name = sbckt_6t_array.name
-
         # Instantiate the SRAM array.
-        circuit.X(sbckt_6t_array.name, sbckt_6t_array.name, 'VDD', circuit.gnd,
-                  *[f'BL{i}' for i in range(self.num_cols)],
-                  *[f'BLB{i}' for i in range(self.num_cols)],
+        circuit.X(sbckt_6t_array.name, sbckt_6t_array.name, 
+                  'VDD', circuit.gnd, 'WE',
+                  *[f'DIN{i}' for i in range(self.num_cols)],
                   *[f'WL{i}' for i in range(self.num_rows)])
 
         # internal node prefix in the SRAM cell
-        self.inst_prefix = 'X' + sbckt_6t_array.name + self.heir_delimiter + sbckt_6t_array.inst_prefix
+        self.arr_inst_prefix = \
+            'X' + sbckt_6t_array.name + self.heir_delimiter + sbckt_6t_array.arr_inst_prefix
 
         # For read transient simulation, add pulse source to the array
         if operation == 'read':

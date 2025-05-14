@@ -2,16 +2,17 @@ import os
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 # Only for yield analysis
 from utils import parse_mc_measurements, generate_mc_statistics, save_mc_results, process_simulation_data
-from testbenches.sram_6t_core_testbench import SRAM_6T_Array_Testbench
+from testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
 import numpy as np
 import PySpice
 from PySpice.Spice.Netlist import SubCircuitFactory
 
-class SRAM_6T_Array_MC_Testbench(SRAM_6T_Array_Testbench):
+class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, vdd, pdk_path, nmos_model_name, pmos_model_name, 
                  pd_width, pu_width, pg_width, length,
                  num_rows, num_cols, w_rc, pi_res, pi_cap,
-                 vth_std=0.05, custom_mc=False, q_init_val=0,
+                 vth_std=0.05, custom_mc=False, 
+                 q_init_val=0,
                  sim_path='sim'):
         
         super().__init__(
@@ -352,8 +353,10 @@ class SRAM_6T_Array_MC_Testbench(SRAM_6T_Array_Testbench):
                 data_file=tb_path.replace('.sp', '.data.csv'), 
                 stats_file=tb_path.replace('.sp', '.stats.csv')
             )
-            if operation == 'write': return mc_df['TWRITE_Q'].to_numpy()
-            elif operation == 'read': return mc_df['TREAD'].to_numpy()
+
+            # Reture the performance metrics for yield analysis and sizing optimization
+            if operation == 'write': return mc_df['TWRITE_Q'].to_numpy(), mc_df['PAVG'].to_numpy() 
+            elif operation == 'read': return mc_df['TREAD'].to_numpy(), mc_df['PAVG'].to_numpy() 
             elif operation == 'hold_snm': return mc_df['HOLD_SNM'].to_numpy()
             elif operation == 'read_snm': return mc_df['READ_SNM'].to_numpy()
             elif operation == 'write_snm': return mc_df['WRITE_SNM'].to_numpy()

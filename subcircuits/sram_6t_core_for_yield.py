@@ -1,7 +1,8 @@
 from PySpice.Spice.Netlist import SubCircuitFactory, Circuit
 from PySpice.Unit import u_Ohm, u_pF
+from subcircuits.base import BaseSubcircuit
 
-class SRAM_6T_Cell(SubCircuitFactory):
+class Sram6TCell(BaseSubcircuit):
     ###6T SRAM Cell SubCircuitFactory with debug capabilities###
     NAME = 'SRAM_6T_CELL'
     # The first and second nodes are always power and ground nodes,VDD and VSS
@@ -13,29 +14,29 @@ class SRAM_6T_Cell(SubCircuitFactory):
                  pg_width, length,
                  w_rc=False,
                  pi_res=100 @ u_Ohm, pi_cap=0.010 @ u_pF,
-                 disconnect=False, q_init=True, q_init_val=0,
+                 disconnect=False, 
                  ):
         # Modify the name of this subcircuit before call parent class.__init__()
         if disconnect:
             self.NAME += '_DISCONNECT'
             
-        super().__init__()
+        super().__init__(
+            nmos_model_name, pmos_model_name, 
+            pd_width, pu_width, length, 
+            w_rc, pi_res, pi_cap
+        )
         print(f"\n[DEBUG] Creating {self.name} with models: "
               f"NMOS={nmos_model_name}, PMOS={pmos_model_name}")
         self.vdd = vdd
-        self.nmos_pdk_model = nmos_model_name
-        self.pmos_pdk_model = pmos_model_name
 
         # Transistor Sizes (FreePDK45 uses nanometers)
         self.pg_width = pg_width
         self.pd_width = pd_width
         self.pu_width = pu_width
-        self.length = length
-        self.disconnect = disconnect
-        self.q_init = q_init
-        self.q_init_val = q_init_val
 
-        if not w_rc:
+        self.disconnect = disconnect
+
+        if not self.w_rc:
             bl_node  = self.NODES[2]
             blb_node = self.NODES[3]
             wl_node  = self.NODES[4]
@@ -43,44 +44,14 @@ class SRAM_6T_Cell(SubCircuitFactory):
             qb_node = 'QB'
         else:
             # Add L-shape RC networks for BL, BLB, and WL
-            bl_node  = self.add_rc_networks_to_node(self.NODES[2], pi_res, pi_cap, 2)
-            blb_node = self.add_rc_networks_to_node(self.NODES[3], pi_res, pi_cap, 2)
-            wl_node  = self.add_rc_networks_to_node(self.NODES[4], pi_res, pi_cap, 2)
+            bl_node  = self.add_rc_networks_to_node(self.NODES[2], 2)
+            blb_node = self.add_rc_networks_to_node(self.NODES[3], 2)
+            wl_node  = self.add_rc_networks_to_node(self.NODES[4], 2)
             # Add L-shape RC networks for Q and QB
-            q_node = self.add_rc_networks_to_node('Q', pi_res, pi_cap, 1)
-            qb_node  = self.add_rc_networks_to_node('QB', pi_res, pi_cap, 1)
+            q_node  = self.add_rc_networks_to_node('Q', 1)
+            qb_node = self.add_rc_networks_to_node('QB', 1)
 
         self.add_6T_cell(bl_node, blb_node, wl_node, q_node, qb_node)
-
-        # if self.q_init:
-        #     # By default, we set V(Q)=0
-        #     self.add_init_q(self.vdd)
-        
-    def add_rc_networks_to_node(self, in_node, pi_r, pi_c, num_segs=1, end_name=None):
-        ###Add RC networks to the SRAM cell###
-        start_node = in_node
-        end_node = start_node
-
-        for i in range(num_segs):
-            if num_segs-1 == i:
-                if end_name:
-                    end_node = end_node
-                else:
-                    end_node = in_node + '_end' 
-            else:
-                end_node = start_node + f'_seg{i}'
-
-            self.R(f'R_{in_node}_{i}',  start_node, end_node, pi_r)
-            self.C(f'Cg_{in_node}_{i}', end_node, self.gnd, pi_c)
-            start_node = end_node
-        
-        return end_node
-    
-    # def add_init_q(self, vdd_val=1.0):
-    #     """ init Q with `vdd_val` """
-    #     q_val = vdd_val if self.q_init_val else 0
-    #     qb_val = 0 if self.q_init_val else vdd_val
-    #     self.raw_spice += f'.ic V(Q)={q_val} V(QB)={qb_val}\n'
         
     def add_6T_cell(self, bl_node, blb_node, wl_node, q_node, qb_node):
         ###Add 6T cell to the SRAM cell, initializaed with `0` at Q###
@@ -109,7 +80,7 @@ class SRAM_6T_Cell(SubCircuitFactory):
         print(f"[DEBUG] M3-M6: Cross-coupled inverters (NMOS={self.nmos_pdk_model} W={self.pd_width} L={self.length}"+
               f"      PMOS={self.pmos_pdk_model} W={self.pu_width} L={self.length})")  
 
-class SRAM_6T_Cell_for_Yield(SRAM_6T_Cell):
+class Sram6TCellForYield(Sram6TCell):
     ###6T SRAM Cell SubCircuitFactory with debug capabilities###
     NAME = 'SRAM_6T_CELL'
     
@@ -121,7 +92,7 @@ class SRAM_6T_Cell_for_Yield(SRAM_6T_Cell):
                  pi_res=100 @ u_Ohm, pi_cap=0.010 @ u_pF,
                  disconnect=False,
                  suffix='',
-                 q_init=True, q_init_val=0,
+                #  q_init=True, q_init_val=0,
                  custom_mc=False,
                  ):
         # Modify the name of this subcircuit before call parent class.__init__()
@@ -140,7 +111,6 @@ class SRAM_6T_Cell_for_Yield(SRAM_6T_Cell):
             nmos_model_name, pmos_model_name, 
             pd_width, pu_width, pg_width, length, 
             w_rc, pi_res, pi_cap, disconnect, 
-            q_init, q_init_val
         )
         
     
@@ -195,10 +165,6 @@ class SRAM_6T_Cell_for_Yield(SRAM_6T_Cell):
                w=self.pu_width, l=self.length)
         self.add_usrdefine_mos_model(pur_udf_model)
 
-        # # NOTE: Add small load cap to data nodes to balance the write time.
-        # self.C(f'g_Q', 'Q', self.gnd, 0.001 @ u_pF)
-        # self.C(f'g_QB', 'QB', self.gnd, 0.001 @ u_pF)
-
         print(f"[DEBUG] M3-M6: Cross-coupled inverters (NMOS={pdr_udf_model} W={self.pd_width} L={self.length}"+
               f"      PMOS={pur_udf_model} W={self.pu_width} L={self.length})")  
         
@@ -221,7 +187,7 @@ class SRAM_6T_Cell_for_Yield(SRAM_6T_Cell):
             f'level=54 vth0=vth0_{udf_model_name} u0=u0_{udf_model_name} voff=voff_{udf_model_name}\n'
 
 
-class SRAM_6T_Array(SubCircuitFactory):
+class Sram6TCore(SubCircuitFactory):
     ###
     # SRAM Array SubCircuitFactory class.
     # Configurable number of rows and columns.
@@ -229,13 +195,13 @@ class SRAM_6T_Array(SubCircuitFactory):
 
     def __init__(self, vdd, num_rows, num_cols, 
                  nmos_model_name, pmos_model_name, 
-                 pd_width, pu_width, 
-                 pg_width, length,
+                 pd_width=0.205e-6, pu_width=0.09e-6, 
+                 pg_width=0.135e-6, length=50e-9,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.010 @ u_pF,
-                 q_init=True, q_init_val=0):
+                 ):
                 #  disconnect=False, target_row=None, target_col=None):
         
-        self.NAME = f"SRAM_6T_ARRAY_{num_rows}x{num_cols}"
+        self.NAME = f"SRAM_6T_CORE_{num_rows}x{num_cols}"
         # Define nodes
         self.NODES = (
             'VDD',  # Power supply
@@ -259,16 +225,12 @@ class SRAM_6T_Array(SubCircuitFactory):
         self.w_rc = w_rc
         self.pi_res = pi_res
         self.pi_cap = pi_cap
-        # data node initial value
-        self.q_init = q_init
-        self.q_init_val = q_init_val
 
-        subckt_6t_cell = SRAM_6T_Cell(
+        subckt_6t_cell = Sram6TCell(
             vdd,
             nmos_model_name, pmos_model_name, 
             pd_width, pu_width, pg_width, length, 
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
-            q_init=q_init, q_init_val=q_init_val,
         )
 
         # define the cell subcircuit
@@ -293,7 +255,7 @@ class SRAM_6T_Array(SubCircuitFactory):
                     f'WL{row}',     # Connect to row wordline
                 )
 
-class SRAM_6T_Array_for_Yield(SRAM_6T_Array):
+class Sram6TCoreForYield(Sram6TCore):
     ###
     # SRAM Array SubCircuitFactory class.
     # Configurable number of rows and columns.
@@ -301,22 +263,23 @@ class SRAM_6T_Array_for_Yield(SRAM_6T_Array):
 
     def __init__(self, vdd, num_rows, num_cols, 
                  nmos_model_name, pmos_model_name, 
-                 pd_width, pu_width, 
-                 pg_width, length,
+                 pd_width=0.205e-6, pu_width=0.09e-6, 
+                 pg_width=0.135e-6, length=50e-9,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.010 @ u_pF,
-                 q_init=True, q_init_val=0):
+                 ):
                 #  disconnect=False, target_row=None, target_col=None):
         super().__init__(vdd, num_rows, num_cols, 
                          nmos_model_name, pmos_model_name, 
                          pd_width, pu_width, pg_width, length, 
-                         w_rc, pi_res, pi_cap, q_init, q_init_val)
+                         w_rc, pi_res, pi_cap, 
+                         )
 
     def build_array(self, num_rows, num_cols):
         # Generate SRAM cells
         for row in range(num_rows):
             for col in range(num_cols):
                 # instantiate the bitcell's subcircuit for each bit
-                subckt_6t_cell = SRAM_6T_Cell_for_Yield(
+                subckt_6t_cell = Sram6TCellForYield(
                     self.vdd,
                     self.nmos_pdk_model, self.pmos_pdk_model, 
                     self.pd_width, self.pu_width, 
@@ -324,7 +287,6 @@ class SRAM_6T_Array_for_Yield(SRAM_6T_Array):
                     w_rc=self.w_rc, 
                     pi_res=self.pi_res, pi_cap=self.pi_cap,
                     suffix=f'_{row}_{col}',
-                    q_init=self.q_init, q_init_val=self.q_init_val,
                 )
 
                 # add the cell subcircuit to this circuit
@@ -358,7 +320,7 @@ if __name__ == '__main__':
 #     # )
 #     # print(bc)
 
-    array = SRAM_6T_Array_for_Yield(
+    array = Sram6TCoreForYield(
         2, 2, 
         nmos_model_name, pmos_model_name,
         pd_width=pd_width, pu_width=pu_width, pg_width=pg_width, length=length,

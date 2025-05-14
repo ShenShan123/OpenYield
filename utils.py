@@ -754,3 +754,42 @@ def process_simulation_data(prn_path, num_mc=None, output="results"):
     except Exception as e:
         print(f"Failed data processed: {str(e)}")
         raise
+
+def estimate_bitcell_area(
+    # Transistor dimensions (m)
+    w_access: float,       # Access NMOS (M1/M2) width
+    w_pd: float,           # Pull-down NMOS (M3/M5) width
+    w_pu: float,           # Pull-up PMOS (M4/M6) width
+    l_transistor: float,   # Transistor length (all devices)
+    
+    # FreePDK45 Design Rules (default values in meters)
+    CPP: float = 0.18e-6,          # Contacted Poly Pitch
+    MMP: float = 0.16e-6,          # Minimum Metal Pitch
+    diffusion_spacing: float = 0.08e-6,    # Diffusion-to-diffusion
+    gate_contact_spacing: float = 0.05e-6, # Gate-to-contact
+    metal_overhang: float = 0.03e-6,       # Metal over active
+) -> float:
+    """
+    Estimates 6T SRAM bitcell area for FreePDK45nm technology.
+    Methodology:
+      1. Horizontal dimension: Based on contacted poly pitch (CPP) and transistor widths
+      2. Vertical dimension: Based on metal pitch (MMP) and peripheral routing
+      3. Includes spacing/overhang from design rules
+    """
+    
+    # --- Horizontal Dimension (Width) ---
+    # Effective width per cell column (sum of parallel transistors)
+    access_width = w_access + 2 * gate_contact_spacing
+    pd_pu_width = max(w_pd, w_pu) + 2 * diffusion_spacing
+    
+    # Total cell width = (3 columns * CPP) + scaling from transistor widths
+    width_columns = 3 * CPP  # 2 access + 1 inverter pair
+    width_scaling = (access_width + pd_pu_width) / (0.135e-6 + 0.205e-6)  # Normalize to PDK45 ref
+    cell_width = width_columns * width_scaling + 2 * metal_overhang
+
+    # --- Vertical Dimension (Height) ---
+    # Height dominated by metal routing (2 tracks) + n-well spacing
+    cell_height = 2 * MMP + 2 * diffusion_spacing + 4 * metal_overhang
+    
+    # --- Area Calculation ---
+    return cell_width * cell_height

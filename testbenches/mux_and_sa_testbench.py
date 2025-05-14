@@ -4,10 +4,10 @@ from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_uW
 from subcircuits.mux_and_sa import ColumnMux, SenseAmp
 from utils import plot_results, measure_delay, measure_power
 # from utils import parse_mt0, analyze_mt0
-from testbenches.base import Base_Testbench
+from testbenches.base_testbench import BaseTestbench
 import numpy as np
 
-class SingleColumnMuxSenseAmp_Testbench(Base_Testbench):
+class SingleColumnMuxSenseAmp_Testbench(BaseTestbench):
     """Testbench for single Column Mux and Sense Amp pair"""
     
     def __init__(self, pdk_path, nmos_model_name, pmos_model_name, 
