@@ -9,8 +9,8 @@ class BaseSubcircuit(SubCircuit):
     
     def __init__(self, 
                  nmos_model_name, pmos_model_name,
-                 nmos_width=0.9e-6, pmos_width=1.8e-6, length=50e-9,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.010 @ u_pF,
+                 base_nmos_width=0.9e-6, base_pmos_width=1.8e-6, length=50e-9,
+                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  ):
         super().__init__(self.NAME, *self.NODES)
         
@@ -20,8 +20,8 @@ class BaseSubcircuit(SubCircuit):
               f"NMOS={self.nmos_pdk_model}, PMOS={self.pmos_pdk_model}")
 
         # Transistor Sizes (FreePDK45 uses nanometers)
-        self.base_nmos_width = nmos_width
-        self.base_pmos_width = pmos_width
+        self.base_nmos_width = base_nmos_width
+        self.base_pmos_width = base_pmos_width
         self.length = length
 
         # use RC?

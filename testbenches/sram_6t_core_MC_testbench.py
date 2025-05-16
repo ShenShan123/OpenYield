@@ -9,11 +9,11 @@ from PySpice.Spice.Netlist import SubCircuitFactory
 
 class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, vdd, pdk_path, nmos_model_name, pmos_model_name, 
-                 pd_width, pu_width, pg_width, length,
-                 num_rows, num_cols, w_rc, pi_res, pi_cap,
+                 num_rows, num_cols,
+                 pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, length=50e-9,
+                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  vth_std=0.05, custom_mc=False, 
-                 q_init_val=0,
-                 sim_path='sim'):
+                 q_init_val=0, sim_path='sim'):
         
         super().__init__(
             vdd, pdk_path, nmos_model_name, pmos_model_name, 
@@ -23,6 +23,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         )
 
         self.vth_std = vth_std
+        self.name = f'SRAM_6T_CORE_{num_rows}x{num_cols}_MC_TB'
 
         # Create temporary model file
         self.sim_path = sim_path
@@ -79,8 +80,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     
     def add_meas_and_print(self, simulator, init_cond, operation):
         # Internal nodes' names of the target cell
-        target_node_q = self.inst_prefix + f'_{self.target_row}_{self.target_col}{self.heir_delimiter}Q'
-        target_node_qb = self.inst_prefix + f'_{self.target_row}_{self.target_col}{self.heir_delimiter}QB'
+        target_node_q = self.cell_inst_prefix + f'_{self.target_row}_{self.target_col}{self.heir_delimiter}Q'
+        target_node_qb = self.cell_inst_prefix + f'_{self.target_row}_{self.target_col}{self.heir_delimiter}QB'
 
         if operation == 'hold_snm' or operation == 'read_snm' or operation == 'write_snm':
             # Initial V(BL) and V(BLB) for the  cell
@@ -101,13 +102,24 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 # Initial V(BL) and V(BLB) for all columns
                 init_cond[f'BL{col}'] = 0 @ u_V
                 init_cond[f'BLB{col}'] = 0 @ u_V
-            
-            # init_cond[target_node_q] = 0 @ u_V
-            # init_cond[target_node_qb] = self.vdd @ u_V
+                init_cond[f'Q{col}'] = self.vdd @ u_V
+                init_cond[f'QB{col}'] = 0 @ u_V
 
             simulator.initial_condition(**init_cond)
 
-            # Add measurements for read delay, 
+            # Measurements for precharge delay (TPRCH), defined by the time from PRE assertion to V(BL)=0.9*VDD
+            simulator.measure(
+                'TRAN', 'TPRCH', 
+                f'TRIG V(PRE)={self.half_vdd} FALL=1 ' +
+                f'TARG V(BL{self.target_col})={float(self.vdd)*0.9} RISE=1') # modified for Xyce
+
+            # Measurements for wl driver delay (TWLDRV), defined as the time from the WLE assertion to V(WL)=VDD/2
+            simulator.measure(
+                'TRAN', 'TWLDRV', 
+                f'TRIG V(WLE{self.target_row})={self.half_vdd} RISE=1 ' +
+                f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
+            
+            # Add measurements for read delay (TREAD), 
             # which is defined as the time from the WL rise to BL swing to VDD/2
             simulator.measure(
                 'TRAN', 'TWL', 
@@ -116,15 +128,21 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 'TRAN', 'TBL', 
                 f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{self.half_vdd}' FALL=1")
             simulator.measure('TRAN', 'TREAD', f"PARAM='TBL-TWL'")
-            
+
+            # Measurements for SA delay (TSA), defined as the time from the SAE assertion to V(Q)=VDD/2
+            simulator.measure(
+                'TRAN', 'TSA', 
+                f'TRIG V(SAE)={self.half_vdd} RISE=1 ' +
+                f'TARG V(Q{self.target_col})={self.half_vdd} RISE=1')
+
             # Add measurements for average power, static power and dynamic power
             simulator.measure(
                 'TRAN', 'PAVG',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(self.t_pulse*2):.4e}'
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(self.t_pulse*1.5):.4e}'
             )
             simulator.measure(
                 'TRAN', 'PDYN',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(self.t_pulse/2):.4e}'
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(self.t_pulse):.4e}'
             )
             simulator.measure(
                 'TRAN', 'PSTC',
@@ -132,17 +150,36 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'TO={float(self.t_period):.4e}'
             )
 
-            # Add print for read delay
+            # Add print for read operation
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX V(WL{self.target_row}) V(BL{self.target_col})'+ \
-                f' V(BLB{self.target_col}) V({target_node_q}) V({target_node_qb})\n'
+                f'.PRINT TRAN FORMAT=NOINDEX V(SAE) V(WL{self.target_row}) ' + \
+                f'V(BL{self.target_col}) V(BLB{self.target_col}) '+ \
+                f'V({target_node_q}) V({target_node_qb}) ' + \
+                f'V(Q{self.target_col}) V(QB{self.target_col})\n'
         
         # The write operation
         elif operation == 'write':
-            # Initial all cell to '0'
+            # .ic conditions
+            for col in range(self.num_cols):
+                # Initial V(BL) and V(BLB) for all columns
+                init_cond[f'BL{col}'] = 0 @ u_V
+                init_cond[f'BLB{col}'] = 0 @ u_V
+
             simulator.initial_condition(**init_cond)
 
-            # Add measurements for write delay, 
+            # Measurements for wl driver delay (TWLDRV), defined as the time from the WLE assertion to V(WL)=VDD/2
+            simulator.measure(
+                'TRAN', 'TWLDRV', 
+                f'TRIG V(WLE{self.target_row})={self.half_vdd} RISE=1 ' +
+                f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
+            
+            # Measurements for write driver delay (TWDRV), defined as the time from the WE assertion to V(BL)=VDD/2
+            simulator.measure(
+                'TRAN', 'TWDRV', 
+                f'TRIG V(WE)={self.half_vdd} RISE=1 ' +
+                f'TARG V(BL{self.target_col})={self.half_vdd} RISE=1')
+
+            # Measurements for write delay (TWRITE_Q/QB), 
             # which is defined as the time from the WL rise to data Q rise to 90% VDD.
             simulator.measure(
                 'TRAN', 'TWRITE_Q', 
@@ -167,12 +204,14 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'AVG {{V(VDD)*I(VVDD)}} FROM={float((self.t_pulse+self.t_fall)*2):.4e} '+ 
                 f'TO={float(self.t_period):.4e}'
             )
-            
-            # Add print for write delay
+            # Add print for write operation
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX V(WL{self.target_row}) V({target_node_q}) V({target_node_qb})\n'
+                f'.PRINT TRAN FORMAT=NOINDEX V(WE) V(WL{self.target_row}) V(BL{self.target_col})'+ \
+                f' V(BLB{self.target_col}) V({target_node_q}) V({target_node_qb})\n'
         else:
             raise ValueError(f"Invalid operation: {operation}")
+        
+        
         
     def add_xyce_options(self, circuit, mc_runs, operation):
         """ Add options for Xyce """

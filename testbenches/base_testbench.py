@@ -16,6 +16,10 @@ class BaseTestbench:
         
         self.nmos_model_name = nmos_model_name
         self.pmos_model_name = pmos_model_name
+        # The power / ground node
+        self.power_node = 'VDD'
+        self.gnd_node = 'VSS'
+        # Supply voltage
         self.vdd = vdd
         self.half_vdd = float(self.vdd) * 0.5
         ## need to be changed in create_testbench
@@ -24,8 +28,8 @@ class BaseTestbench:
         # Define timing parameters for pulse sources
         self.t_rise = 0.2 @ u_ns  # Rise time
         self.t_fall = 0.2 @ u_ns  # Fall time
-        self.t_pulse = 5 @ u_ns  # Pulse width
-        self.t_period = 12 @ u_ns  # Period
+        self.t_pulse = 6 @ u_ns  # Pulse width
+        self.t_period = 14 @ u_ns  # Period
         self.t_delay = 1 @ u_ns # shift for write signal
         self.t_step = self.t_rise * 0.1
 
@@ -53,11 +57,12 @@ class BaseTestbench:
         Override this method to create a testbench for the circuit array.
         Create a testbench for the circuit array.
         """
-        circuit = Circuit(self.tb_name)
+        circuit = Circuit(self.name)
         circuit.include(self.pdk_path)
         
         # Power supply
-        circuit.V('VDD', 'VDD', circuit.gnd, self.vdd)
+        circuit.V(self.power_node, self.power_node, self.gnd_node, self.vdd @ u_V)
+        circuit.V(self.gnd_node, self.gnd_node, circuit.gnd, 0 @ u_V)
         
         return circuit
 

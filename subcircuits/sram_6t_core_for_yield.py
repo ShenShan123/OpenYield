@@ -1,6 +1,6 @@
 from PySpice.Spice.Netlist import SubCircuitFactory, Circuit
 from PySpice.Unit import u_Ohm, u_pF
-from subcircuits.base import BaseSubcircuit
+from subcircuits.base_subcircuit import BaseSubcircuit
 
 class Sram6TCell(BaseSubcircuit):
     ###6T SRAM Cell SubCircuitFactory with debug capabilities###
@@ -13,7 +13,7 @@ class Sram6TCell(BaseSubcircuit):
                  pd_width, pu_width, 
                  pg_width, length,
                  w_rc=False,
-                 pi_res=100 @ u_Ohm, pi_cap=0.010 @ u_pF,
+                 pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  disconnect=False, 
                  ):
         # Modify the name of this subcircuit before call parent class.__init__()
@@ -44,9 +44,9 @@ class Sram6TCell(BaseSubcircuit):
             qb_node = 'QB'
         else:
             # Add L-shape RC networks for BL, BLB, and WL
-            bl_node  = self.add_rc_networks_to_node(self.NODES[2], 2)
-            blb_node = self.add_rc_networks_to_node(self.NODES[3], 2)
-            wl_node  = self.add_rc_networks_to_node(self.NODES[4], 2)
+            bl_node  = self.add_rc_networks_to_node(self.NODES[2], 1)
+            blb_node = self.add_rc_networks_to_node(self.NODES[3], 1)
+            wl_node  = self.add_rc_networks_to_node(self.NODES[4], 1)
             # Add L-shape RC networks for Q and QB
             q_node  = self.add_rc_networks_to_node('Q', 1)
             qb_node = self.add_rc_networks_to_node('QB', 1)
