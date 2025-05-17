@@ -571,7 +571,7 @@ def split_blocks(df, analysis_type, num_mc):
     else:
         raise ValueError(f"Unsupported analysis type: {analysis_type}")
 
-def visualize_results(blocks, analysis_type, output_file):
+def visualize_results(blocks, analysis_type, num_mc, output_file):
     """
     Visualization function for large-scale Monte Carlo simulations with variable time steps
     
@@ -581,6 +581,8 @@ def visualize_results(blocks, analysis_type, output_file):
         List of data blocks from split_blocks function, each containing simulation data
     analysis_type : str
         Type of analysis, typically "tran" (transient) or "dc"
+    num_mc : int
+        Number of MC simulations
     output_file : str or Path
         Path to save the output visualization file
         
@@ -594,37 +596,20 @@ def visualize_results(blocks, analysis_type, output_file):
     ValueError
         If the input data blocks are empty
     """
-    # Change default font family
-    plt.rcParams['font.family'] = 'serif'  # Options: 'serif', 'sans-serif', 'monospace'
-
-    # Set specific font (if installed on your system)
-    # plt.rcParams['font.serif'] = ['Times New Roman']  # Or 'Palatino', 'Computer Modern Roman', etc.
-
-    # Change font sizes
-    # plt.rcParams['font.size'] = 12          # Base font size
-    # plt.rcParams['axes.titlesize'] = 14     # Title font size
-    # plt.rcParams['axes.labelsize'] = 14     # Axis label size
-    # plt.rcParams['xtick.labelsize'] = 12    # X-tick label size
-    # plt.rcParams['ytick.labelsize'] = 12    # Y-tick label size
-    # plt.rcParams['legend.fontsize'] = 12    # Legend font size
-    # # Set default figure size (width, height) in inches
-    plt.rcParams['figure.figsize'] = [8.0, 6.0]
-
-    # plt.rcParams.update({
-    #     'font.family': 'serif',           # 设置字体族
-    #     'font.sans-serif': 'Century',
-    #     'font.size': 20,                  # 基础字体大小
-    #     'axes.labelsize': 20,             # 轴标签字体大小
-    #     'axes.titlesize': 20,             # 标题字体大小
-    #     'xtick.labelsize': 20,            # x轴刻度标签大小
-    #     'ytick.labelsize': 20,            # y轴刻度标签大小
-    #     'legend.fontsize': 20,            # 图例字体大小
-    #     'figure.figsize': [8, 8],         # 图形大小
-    #     'figure.dpi': 350,                # 分辨率
-    # })
 
     # Or use built-in style sheets
-    plt.style.use('ggplot')  # Options: 'seaborn', 'fivethirtyeight', 'dark_background', etc.
+    plt.style.use('seaborn-v0_8-whitegrid')  # Options: 'ggplot' 'seaborn', 'fivethirtyeight', 'dark_background', etc.
+
+    plt.rcParams.update({
+        'font.size': 20,                  # 基础字体大小
+        'axes.labelsize': 22,             # 轴标签字体大小
+        # 'axes.titlesize': 20,             # 标题字体大小
+        # 'xtick.labelsize': 20,            # x轴刻度标签大小
+        # 'ytick.labelsize': 20,            # y轴刻度标签大小
+        # 'legend.fontsize': 20,            # 图例字体大小
+        'figure.figsize': [14, 6],        # 图形大小 or [12,6] [8, 6]
+        'figure.dpi': 350,                # 分辨率
+    })
 
     # Create output directory
     output_path = Path(output_file)
@@ -639,6 +624,14 @@ def visualize_results(blocks, analysis_type, output_file):
     x_label = base_block.columns[0]
     signals = base_block.columns[1:]
     
+    # Set defaults w.r.t analysis type
+    if analysis_type == 'dc':
+        y_label = r"$\sqrt{2}$ Voltage (V)"
+        plt.rcParams['figure.figsize'] = [6.0, 6.0]
+    else:
+        y_label = 'Voltage (V)'
+        plt.rcParams['figure.figsize'] = [14.0, 6.0]
+
     # Create plot object
     fig, ax = plt.subplots()
     colors = plt.cm.tab10(np.linspace(0, 1, len(signals)))
@@ -690,13 +683,13 @@ def visualize_results(blocks, analysis_type, output_file):
                        alpha=0.3,
                        linewidth=1,
                        zorder=2)
-    
+
     # Graph decoration
-    # ax.set_title(f"{analysis_type.upper()} Monte Carlo Analysis (Variable Steps)", pad=15)
+    ax.set_title(f"{analysis_type.upper()} Analysis {num_mc:d} Monte Carlo", pad=15)
     ax.set_xlabel(x_label)
-    ax.set_ylabel(r"Voltage (V)")
-    ax.grid(alpha=1.0)
-    
+    ax.set_ylabel(y_label)
+    # ax.grid(alpha=1.0)
+        
     # Create legend proxies
     legend_elements = [Line2D([0], [0], color=c, lw=2, label=s) 
                       for s, c in zip(signals, colors)]
@@ -711,8 +704,8 @@ def visualize_results(blocks, analysis_type, output_file):
     plt.savefig(output_path, dpi=200, bbox_inches='tight')  # Reduce dpi to optimize file size
     plt.close()
     
-    print(f"Visualization file generated: {output_path.resolve()}")
-    print(f"Plot parameters: line alpha={LINE_ALPHA}, line width={LINE_WIDTH}, total samples={sum(len(b) for b in blocks)}")
+    print(f"[DEBUG] Visualization file generated: {output_path.resolve()}")
+    print(f"[DEBUG] Plot parameters: line alpha={LINE_ALPHA}, line width={LINE_WIDTH}, total samples={sum(len(b) for b in blocks)}")
 
 def process_simulation_data(prn_path, num_mc=None, output="results"):
     """
@@ -746,7 +739,7 @@ def process_simulation_data(prn_path, num_mc=None, output="results"):
         # print("data_blocks", data_blocks)
         # assert 0
         # Results visualization
-        visualize_results(data_blocks, analysis_type, output)
+        visualize_results(data_blocks, analysis_type, num_mc, output)
         # assert 0
         print(f"Successfully data processed! Saving results to {output}")
         return True

@@ -6,28 +6,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 import numpy as np
 
-# def set_default():
+# # Change default color cycle
+# plt.rcParams['axes.prop_cycle'] = plt.cycler(color=['#d62728', '#ff7f0e', '#2ca02c',
+#                                                     '#1f77b4', '#9467bd', '#8c564b',
+#                                                     '#e377c2', '#000000', '#17becf',
+#                                                     '#808080'])
+
+plt.style.use('seaborn-v0_8-whitegrid')  # Options: 'ggplot' 'seaborn', 'fivethirtyeight', 'dark_background', etc.
+
 plt.rcParams.update({
-    'font.family': 'serif',           # 设置字体族
-    'font.sans-serif': 'Century',
+    # 'font.family': 'serif',           # 设置字体族
+    # 'font.sans-serif': 'Century',
     'font.size': 22,                  # 基础字体大小
-    'axes.labelsize': 22,             # 轴标签字体大小
-    'axes.titlesize': 22,             # 标题字体大小
-    'xtick.labelsize': 22,            # x轴刻度标签大小
-    'ytick.labelsize': 22,            # y轴刻度标签大小
-    'legend.fontsize': 22,            # 图例字体大小
+    'axes.labelsize': 24,             # 轴标签字体大小
+    # 'axes.titlesize': 20,             # 标题字体大小
+    # 'xtick.labelsize': 20,            # x轴刻度标签大小
+    # 'ytick.labelsize': 20,            # y轴刻度标签大小
+    # 'legend.fontsize': 20,            # 图例字体大小
     'figure.figsize': [8, 8],         # 图形大小
-    'figure.dpi': 300,                # 分辨率
+    'figure.dpi': 350,                # 分辨率
 })
-
-# Change default color cycle
-plt.rcParams['axes.prop_cycle'] = plt.cycler(color=['#d62728', '#ff7f0e', '#2ca02c',
-                                                    '#1f77b4', '#9467bd', '#8c564b',
-                                                    '#e377c2', '#000000', '#17becf',
-                                                    '#808080'])
-
-# Or use built-in style sheets
-plt.style.use('ggplot')  # Options: 'seaborn', 'fivethirtyeight', 'dark_background', etc.
 
 def plot_delay(row, r_delay_mean, r_delay_std, w_delay_mean, w_delay_std,
                labelr, labelw, figname, ylim_b=0.05):
@@ -52,8 +50,8 @@ def plot_delay(row, r_delay_mean, r_delay_std, w_delay_mean, w_delay_std,
         capsize=6, 
         capthick=2, 
         markersize=8,
-        color='#1f77b4',
-        ecolor='#ff7f0e',
+        # color='#1f77b4',
+        # ecolor='#ff7f0e',
         label=labelr,
     )
 
@@ -67,8 +65,8 @@ def plot_delay(row, r_delay_mean, r_delay_std, w_delay_mean, w_delay_std,
         capsize=6, 
         capthick=2, 
         markersize=8,
-        color='#2ca02c',
-        ecolor='#d62728',
+        # color='#2ca02c',
+        # ecolor='#d62728',
         label=labelw,
     )
 
@@ -129,8 +127,8 @@ def plot_power(row, r_pavg_mean, r_pavg_std, w_pavg_mean, w_pavg_std,
         capsize=6, 
         capthick=2, 
         markersize=8,
-        color='#1f77b4',
-        ecolor='#ff7f0e',
+        # color='#1f77b4',
+        # ecolor='#ff7f0e',
         label=labelr
     )
 
@@ -144,8 +142,8 @@ def plot_power(row, r_pavg_mean, r_pavg_std, w_pavg_mean, w_pavg_std,
         capsize=6, 
         capthick=2, 
         markersize=8,
-        color='#2ca02c',
-        ecolor='#d62728',
+        # color='#2ca02c',
+        # ecolor='#d62728',
         label=labelw
     )
 
@@ -263,7 +261,7 @@ def plot_leak_delay(row, r_delay_mean, r_delay_std, w_delay_mean, w_delay_std,
     w_delay_std_ns = [x * 1e9 for x in w_delay_std]
 
     # Set up the figure with a specified size
-    plt.figure()
+    plt.figure(figsize=(12, 6))
 
     # Create the plot with error bars for read delay
     plt.errorbar(
@@ -275,8 +273,8 @@ def plot_leak_delay(row, r_delay_mean, r_delay_std, w_delay_mean, w_delay_std,
         capsize=6, 
         capthick=2, 
         markersize=8,
-        color='#1f77b4',
-        ecolor='#ff7f0e',
+        # color='#1f77b4',
+        # ecolor='#ff7f0e',
         label=labelr,
         alpha=0.7,
     )
@@ -291,26 +289,26 @@ def plot_leak_delay(row, r_delay_mean, r_delay_std, w_delay_mean, w_delay_std,
         capsize=6, 
         capthick=2, 
         markersize=8,
-        color='#2ca02c',
-        ecolor='#d62728',
+        # color='#2ca02c',
+        # ecolor='#d62728',
         label=labelw,
         alpha=0.7,
     )
 
     # Set labels and title
-    plt.xlabel('VDD (V)', fontsize=24)
-    plt.ylabel('Delay (ns)', fontsize=24)
+    plt.xlabel('VDD (V)', fontsize=22)
+    plt.ylabel('Delay (ns)', fontsize=22)
     # plt.title('SRAM Read and Write Delay vs Row Size')
 
     # Add legend
-    plt.legend(frameon=False)
+    plt.legend(frameon=False, fontsize=20)
 
     # Add grid for better readability
-    plt.grid(True, linestyle='--', alpha=1.0)
+    # plt.grid(True, linestyle='--', alpha=1.0)
 
     # Customize the tick parameters - removing font size settings
-    plt.xticks()
-    plt.yticks()
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
 
     # Add a light gray background to highlight the plot area
     # plt.gca().set_facecolor('#f8f8f8')
@@ -333,11 +331,11 @@ def plot_leak_delay(row, r_delay_mean, r_delay_std, w_delay_mean, w_delay_std,
     plt.savefig(f'plots/{figname}.pdf')
 
 if __name__ == '__main__':
+    row = ['8', '16', '32', '64', '128', '256']
     r_delay_mean = [1.386000e-10, 2.402947e-10, 4.396346e-10, 8.434029e-10, 1.646921e-09, 3.273307e-09,] 
     r_delay_std = [6.397186e-12, 1.252712e-11, 2.172452e-11, 4.576142e-11, 9.092243e-11, 1.754441e-10] 
     w_delay_mean = [9.151580e-11, 9.148292e-11, 9.118616e-11, 9.234190e-11, 9.315216e-11, 9.514691e-11]
     w_delay_std = [4.195672e-12, 4.285453e-12, 4.118874e-12, 3.783552e-12, 3.559204e-12, 2.834615e-12]
-    row = ['8', '16', '32', '64', '128', '256']
     r_pavg_mean =[1.413105e-05, 2.777633e-05, 5.508502e-05, 1.094728e-04, 2.182667e-04, 4.345131e-04]
     r_pavg_std =[7.431630e-08, 1.217739e-07, 2.815874e-07, 5.487543e-07, 1.179591e-06, 2.234966e-06]
     w_pavg_mean =[2.719423e-06, 2.936455e-06, 3.302843e-06, 3.919095e-06, 5.343889e-06, 8.408444e-06]
@@ -362,11 +360,11 @@ if __name__ == '__main__':
     r_pavg_std_wc =[8.149906e-08, 1.557332e-07, 2.596893e-07, 5.576341e-07, 2.210737e-06, 9.947269e-07]
 
     # 64x4 array vs. vdd
+    vdd = ['0.45', '0.5', '0.6', '0.7', '0.8', '0.9', '1.0']
     r0_delay_mean = [6.702204e-09, 3.851744e-09, 1.914726e-09, 1.364176e-09, 1.090848e-09, 9.309606e-10, 8.434029e-10]
     r0_delay_std = [2.207034e-09, 8.956956e-10, 2.975255e-10, 1.310010e-10, 8.723298e-11, 5.036981e-11, 4.576142e-11]
     r0_pavg_mean = [5.618400e-06, 1.094728e-04, 3.926230e-05, 5.342455e-05, 6.986006e-05, 8.853872e-05, 1.094728e-04]
     r0_pavg_std = [8.078408e-08, 5.487543e-07, 1.276220e-07, 1.837578e-07, 2.858239e-07, 3.484549e-07, 5.487543e-07]
-    vdd = ['0.45', '0.5', '0.6', '0.7', '0.8', '0.9', '1.0']
     r1_delay_mean = [6.377010e-09, 3.943235e-09, 1.942409e-09, 1.360166e-09, 1.086421e-09, 9.387288e-10, 8.440601e-10]
     r1_delay_std = [1.960650e-09, 9.234266e-10, 2.580048e-10, 1.144108e-10, 6.582480e-11, 5.484934e-11, 3.546146e-11]
     r1_pavg_mean = [5.627842e-06, 1.371640e-05, 3.926542e-05, 5.345351e-05, 6.988124e-05, 8.857163e-05, 1.095417e-04]
@@ -374,4 +372,26 @@ if __name__ == '__main__':
     plot_leak_delay(
         vdd, r0_delay_mean, r0_delay_std, r1_delay_mean, r1_delay_std, 
         '0 Idle Cells', '1 Idle Cells', 'leakage_vs_vdd', 
-        ylim_b=0.8, ylim_t=7)
+        ylim_b=0.8, ylim_t=7
+    )
+    assert 0
+
+    arr64x32_delay_peripheral = {
+        'Read': {'TPRECH': 1.085305e-09, 'TWLDRV': 2.283272e-10, 'TBL': 4.086456e-09}, 
+        'Write':{'TWDRV': 7.154608e-10, 'TWLDRV': 2.319273e-10, 'TQ': 3.799442e-10},
+    }
+
+    arr64x32_power_peripheral = {
+        'Read': {'PAVG': 4.707311e-03, 'PDYN': 6.995493e-03, 'PSTC': 1.270649e-05}, 
+        'Write':{'PAVG': 1.577371e-04, 'PDYN': 3.546407e-04, 'PSTC': 1.907161e-04}, 
+    }
+
+    arr64x32_delay = {
+        'Read': {'TPRECH': 0, 'TWLDRV': 0, 'TBL': 8.523225e-10}, 
+        'Write':{'TWDRV': 0, 'TWLDRV': 0, 'TQ': 9.740322e-11},
+    }
+
+    arr64x32_power = { 
+        'Read': {'PAVG': 8.757191e-04, 'PDYN': 3.476069e-03, 'PSTC': 9.442324e-06},
+        'Write':{'PAVG': 2.541138e-05, 'PDYN': 5.246997e-05, 'PSTC': 5.741917e-06}
+    }

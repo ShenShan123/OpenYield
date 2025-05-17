@@ -99,6 +99,13 @@ class SenseAmp(BaseSubcircuit):
             q_node = self.add_rc_networks_to_node('Q', num_segs=2)
             qb_node = self.add_rc_networks_to_node('QB', num_segs=2)
             net1_node = self.add_rc_networks_to_node('net1', num_segs=1)
+        else:
+            en_node = 'EN'
+            in_node = 'IN'
+            inb_node = 'INB'
+            q_node = 'Q'
+            qb_node = 'QB'
+            net1_node = 'net1'
 
         # Cross-coupled inverters for positive feedback
         self.M(1, 'Q', qb_node, 'net1', 'VSS', model=self.nmos_pdk_model,

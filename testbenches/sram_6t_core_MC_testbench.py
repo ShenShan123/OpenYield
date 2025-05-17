@@ -371,7 +371,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             process_simulation_data(
                 prn_path=tb_path+'.prn',
                 num_mc=mc_runs,
-                output=f"{self.sim_path}/mc_{operation}_waveform.png",
+                output=f"{self.sim_path}/mc_{operation}_waveform.pdf",
             )
             
             # Get all `.mtX` or `.msX` files from MC

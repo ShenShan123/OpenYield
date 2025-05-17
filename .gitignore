@@ -17,3 +17,4 @@ technology/
 open_pdks/
 sim/
 miniconda/
+**/__pycache__

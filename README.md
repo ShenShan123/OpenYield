@@ -22,6 +22,7 @@ This enhanced level of detail enables more realistic and reliable yield analysis
     * Write Delay
 * **Output Parsing and Waveform Plotting:** Includes parsers to extract simulation results and tools to visualize signal waveforms.
 * **Extensible Design:** The project is under active development with plans to integrate various yield analysis and sizing optimization algorithms.
+
 ![](img/openyield_all-overall.drawio.png)
 
 ## Dependencies
