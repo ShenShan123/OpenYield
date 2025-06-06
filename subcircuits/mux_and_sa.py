@@ -8,7 +8,7 @@ class ColumnMux(BaseSubcircuit):
     
     def __init__(self, mux_ratio, nmos_model_name, pmos_model_name, 
                  base_nmos_width, base_pmos_width, length,
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         """
         Args:
@@ -67,7 +67,7 @@ class SenseAmp(BaseSubcircuit):
 
     def __init__(self, nmos_model_name, pmos_model_name, 
                  base_nmos_width=0.27e-6, base_pmos_width=0.54e-6, length=50e-9,
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         """
         Args:

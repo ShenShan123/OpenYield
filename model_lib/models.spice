@@ -167,9 +167,6 @@
 +vth0 = 0.4106       k1 = 0.4   u0 = 0.045   vsat = 123000
 +rdsw = 155        ndep = 3.4e+18    xj = 1.98e-08
 
-
-
-
 +version = 4.8             binunit = 1               paramchk= 1               mobmod  = 0             
 +capmod  = 2               igcmod  = 1               igbmod  = 1               geomod  = 1             
 +diomod  = 1               rdsmod  = 0               rbodymod= 1               rgatemod= 1             

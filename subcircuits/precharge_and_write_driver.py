@@ -11,7 +11,7 @@ class Precharge(BaseSubcircuit):
     NODES = ('VDD', 'ENB', 'BL', 'BLB') 
 
     def __init__(self, pmos_model_name, base_pmos_width=0.27e-6, length=50e-9, 
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF, num_rows=16):
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF, num_rows=16):
         
         super().__init__(
             None, pmos_model_name, 
@@ -65,7 +65,7 @@ class WriteDriver(BaseSubcircuit):
 
     def __init__(self, nmos_model_name, pmos_model_name,
                  base_nmos_width=0.18e-6, base_pmos_width=0.36e-6, length=50e-9,
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  num_rows=16):
         super().__init__(
             nmos_model_name, pmos_model_name,

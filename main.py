@@ -23,7 +23,7 @@ if __name__ == '__main__':
     )
     print(f"Estimated 6T SRAM Cell Area: {area*1e12:.2f} µm²")
 
-    num_rows = 64
+    num_rows = 4
     num_cols = 4
     num_mc = 10
 
@@ -34,9 +34,10 @@ if __name__ == '__main__':
         num_rows=num_rows, num_cols=num_cols, 
         pd_width=pd_width, pu_width=pu_width, 
         pg_width=pg_width, length=length,
-        w_rc=False, # Add RC to nets
-        pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
-        custom_mc=False, # Use your process params?
+        w_rc=True, # Whether add RC to nets
+        pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+        vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
+        custom_mc=False, # Use your own process params?
         q_init_val=0, sim_path='sim',
     )
     # vars = np.random.rand(num_mc,num_rows*num_cols*18)

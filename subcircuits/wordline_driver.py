@@ -15,7 +15,7 @@ class Pinv(BaseSubcircuit):
     def __init__(self, nmos_model_name, pmos_model_name,
                  base_pmos_width=0.27e-6, base_nmos_width=0.09e-6, length=0.05e-6,
                  num_cols=4, # Number of columns in the SRAM array configuration
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
 
         super().__init__(
@@ -70,7 +70,7 @@ class PNAND2(BaseSubcircuit):
     def __init__(self, nmos_model_name, pmos_model_name,
                  base_pmos_width=0.27e-6, base_nmos_width=0.18e-6, length=0.05e-6,
                  num_cols=4, # Number of columns in the SRAM array configuration
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF):
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
         
         super().__init__(
             # name=self.NAME, 
@@ -127,7 +127,7 @@ class WordlineDriver(BaseSubcircuit):
                  # Base widths for Inverter transistors
                  base_inv_pmos_width=0.27e-6, base_inv_nmos_width=0.09e-6,
                  length=0.05e-6, 
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  num_cols=4, # Number of columns this driver is intended for
                  ):
         
