@@ -7,8 +7,7 @@ from subcircuits.sram_6t_core_for_yield import (
 from subcircuits.wordline_driver import WordlineDriver
 from subcircuits.precharge_and_write_driver import Precharge, WriteDriver
 from subcircuits.mux_and_sa import ColumnMux, SenseAmp
-from utils import plot_results, measure_delay, calculate_snm, plot_butterfly_with_squares
-from utils import parse_mt0, analyze_mt0, measure_power
+from utils import parse_spice_models
 from testbenches.base_testbench import BaseTestbench
 
 
@@ -49,7 +48,8 @@ class Sram6TCoreTestbench(BaseTestbench):
             nmos_model_name=self.nmos_model_name, 
             pmos_model_name=self.pmos_model_name,
             num_cols=self.num_cols,
-            w_rc=self.w_rc
+            w_rc=self.w_rc, # default `w_rc` is False
+            # pi_res=self.pi_res, pi_cap=self.pi_cap,
         )
         circuit.subcircuit(wldrv)
 
@@ -81,7 +81,8 @@ class Sram6TCoreTestbench(BaseTestbench):
         """Create read periphery circuitry"""
         prch = Precharge(
             self.pmos_model_name, 
-            w_rc=self.w_rc, 
+            w_rc=self.w_rc,  # default `w_rc` is False
+            # pi_res=self.pi_res, pi_cap=self.pi_cap,
             num_rows=self.num_rows,
         )
         circuit.subcircuit(prch)
@@ -110,7 +111,8 @@ class Sram6TCoreTestbench(BaseTestbench):
         sa = SenseAmp(
             self.nmos_model_name, 
             self.pmos_model_name, 
-            w_rc=self.w_rc, 
+            w_rc=self.w_rc, # default `w_rc` is False
+            # pi_res=self.pi_res, pi_cap=self.pi_cap,
         )
         circuit.subcircuit(sa)
         self.sa_inst_prefix = f'X{sa.name}'
@@ -144,7 +146,9 @@ class Sram6TCoreTestbench(BaseTestbench):
         write_drv = WriteDriver(
             self.nmos_model_name, self.pmos_model_name,
             # base_nmos_width, base_pmos_width, length,
-            w_rc=self.w_rc, num_rows=self.num_rows,
+            w_rc=self.w_rc, # default `w_rc` is False
+            # pi_res=self.pi_res, pi_cap=self.pi_cap,
+            num_rows=self.num_rows,
         )
         
         circuit.subcircuit(write_drv)
@@ -204,7 +208,9 @@ class Sram6TCoreTestbench(BaseTestbench):
         if self.custom_mc:
             # Instantiate 6T SRAM cell
             sbckt_6t_cell = Sram6TCellForYield(
-                self.vdd, self.nmos_model_name, self.pmos_model_name,
+                self.nmos_model_name, self.pmos_model_name,
+                # This function returns a Dict of MOS models
+                parse_spice_models(self.pdk_path),
                 self.pd_width, self.pu_width, self.pg_width, self.length,
                 w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap, 
                 disconnect=True, #NOTE: Key argument to disconnect the internal data nodes!!
@@ -214,7 +220,7 @@ class Sram6TCoreTestbench(BaseTestbench):
         else:
             # Instantiate 6T SRAM cell
             sbckt_6t_cell = Sram6TCell(
-                self.vdd, self.nmos_model_name, self.pmos_model_name,
+                self.nmos_model_name, self.pmos_model_name,
                 self.pd_width, self.pu_width, self.pg_width, self.length,
                 w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap, 
                 disconnect=True, #NOTE: Key argument to disconnect the internal data nodes!!
@@ -304,7 +310,7 @@ class Sram6TCoreTestbench(BaseTestbench):
         circuit.include(self.pdk_path)
         
         # Power supply
-        circuit.V(self.power_node, self.power_node, self.gnd_node, self.vdd)
+        circuit.V(self.power_node, self.power_node, self.gnd_node, self.vdd @ u_V)
         circuit.V(self.gnd_node, self.gnd_node, circuit.gnd, 0 @ u_V)
 
         # if it is a SNM test
@@ -316,19 +322,23 @@ class Sram6TCoreTestbench(BaseTestbench):
         # Instantiate 6T SRAM array
         if self.custom_mc:
             sbckt_6t_array = Sram6TCoreForYield(
-                self.vdd, self.num_rows, self.num_cols, 
+                self.num_rows, self.num_cols, 
                 self.nmos_model_name, self.pmos_model_name,
-                self.pd_width, self.pu_width, self.pg_width, self.length,
+                # This function returns a Dict of MOS models
+                parse_spice_models(self.pdk_path),
+                self.pd_width, self.pu_width, 
+                self.pg_width, self.length,
                 w_rc=self.w_rc, 
-                # pi_res=self.pi_res, pi_cap=self.pi_cap, 
+                pi_res=self.pi_res, pi_cap=self.pi_cap, 
             )
         else:
             sbckt_6t_array = Sram6TCore(
-                self.vdd, self.num_rows, self.num_cols, 
+                self.num_rows, self.num_cols, 
                 self.nmos_model_name, self.pmos_model_name,
-                self.pd_width, self.pu_width, self.pg_width, self.length,
+                self.pd_width, self.pu_width, 
+                self.pg_width, self.length,
                 w_rc=self.w_rc, 
-                # pi_res=self.pi_res, pi_cap=self.pi_cap,
+                pi_res=self.pi_res, pi_cap=self.pi_cap,
             )
         
         # Add subcircuit definition to this testbench.

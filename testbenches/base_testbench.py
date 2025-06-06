@@ -26,8 +26,8 @@ class BaseTestbench:
         self.data_node_prefix = 'X'
 
         # Define timing parameters for pulse sources
-        self.t_rise = 0.2 @ u_ns  # Rise time
-        self.t_fall = 0.2 @ u_ns  # Fall time
+        self.t_rise = 0.1 @ u_ns  # Rise time
+        self.t_fall = 0.1 @ u_ns  # Fall time
         self.t_pulse = 6 @ u_ns  # Pulse width
         self.t_period = 14 @ u_ns  # Period
         self.t_delay = 1 @ u_ns # shift for write signal

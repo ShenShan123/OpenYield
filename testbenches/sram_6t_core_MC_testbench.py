@@ -1,10 +1,13 @@
 import os
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 # Only for yield analysis
-from utils import parse_mc_measurements, generate_mc_statistics, save_mc_results, process_simulation_data
+from utils import (
+    parse_mc_measurements, generate_mc_statistics, 
+    save_mc_results, process_simulation_data, 
+    parse_spice_models, write_spice_models
+)
 from testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
 import numpy as np
-import PySpice
 from PySpice.Spice.Netlist import SubCircuitFactory
 
 class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
@@ -29,42 +32,25 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         self.sim_path = sim_path
         os.makedirs(self.sim_path, exist_ok=True)
 
-        # Standard MC needs a model lib with variables, 
-        # otherwise, process parameters are defined by user
-        if not custom_mc:
-            self.temp_model_file = self.create_mc_model_file()
-
     def create_mc_model_file(self):
         """Create temporary model file with Monte Carlo variations"""
-        with open(self.pdk_path, 'r') as f:
-            model_content = f.read()
+        model_dict = parse_spice_models(self.pdk_path)
 
-        # Add DEV variation to VTH0 parameters for NMOS and PMOS
-        modified_content = model_content.replace(# for NMOS
-            'vth0 = 0.4106 ',
-            f'vth0 = {{AGAUSS(0.4106, 0.4106*{self.vth_std}, 1)}}'
-        ).replace(# for NMOS
-            'u0 = 0.045 ',
-            f'u0 = {{AGAUSS(0.045, 0.045*{self.vth_std}, 1)}}'
-        ).replace(# for NMOS
-            'voff    = -0.13 ',
-            f'voff = {{AGAUSS(-0.13, 0.13*{self.vth_std}, 1)}}'
-        ).replace(# for PMOS
-            'vth0    = -0.3842 ',
-            f'vth0 = {{AGAUSS(-0.3842, 0.3842*{self.vth_std}, 1)}}'
-        ).replace(# for PMOS
-            'u0      = 0.02 ',
-            f'u0 = {{AGAUSS(0.02, 0.02*{self.vth_std}, 1)}}'
-        ).replace(# for PMOS
-            'voff    = -0.126 ',
-            f'voff = {{AGAUSS(-0.126, 0.126*{self.vth_std}, 1)}}'
-        )
+        for m in model_dict.keys():
+
+            # Get parameters for the model_name
+            param_dict = model_dict[m]['parameters']
+
+            for param in param_dict.keys():
+                # substitute the default values with user-defined parameters
+                if param in ['vth0', 'u0', 'voff']:
+                    val = param_dict[param]
+                    param_dict[param] = f"{{AGAUSS({val}, {abs(val)*self.vth_std:.5f}, 1)}}"
 
         # Generate a modified model lib
         temp_model_path = os.path.join(self.sim_path, 'tmp_mc.spice')
-
-        with open(temp_model_path, 'w') as f:
-            f.write(modified_content)
+        # Write the model cards back to temporary file
+        write_spice_models(model_dict, temp_model_path)
 
         return temp_model_path
 
@@ -72,9 +58,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         """Create testbench with Monte Carlo models"""
         circuit = super().create_testbench(operation, target_row, target_col)
 
+        # Standard MC needs a model lib with variables, 
+        # otherwise, process parameters are defined by user
         if not self.custom_mc:
             # Replace original included model lib with new path
-            circuit._includes[0] = self.temp_model_file
+            circuit._includes[0] = self.create_mc_model_file()
 
         return circuit
     
@@ -124,9 +112,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.measure(
                 'TRAN', 'TWL', 
                 f'WHEN V(WL{self.target_row})={self.half_vdd} RISE=1 ') # modified for Xyce
+            # Define minimum Vswing = 250mV
+            vswing=0.25
             simulator.measure(
                 'TRAN', 'TBL', 
-                f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{self.half_vdd}' FALL=1")
+                f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{vswing}' FALL=1")
             simulator.measure('TRAN', 'TREAD', f"PARAM='TBL-TWL'")
 
             # Measurements for SA delay (TSA), defined as the time from the SAE assertion to V(Q)=VDD/2
@@ -188,7 +178,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.measure(
                 'TRAN', 'TWRITE_QB', 
                 f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1', 
-                f"TARG V({target_node_qb})={float(self.vdd)*0.9:.2f} FALL=1")
+                f"TARG V({target_node_qb})={float(self.vdd)*0.1:.2f} FALL=1")
             
             # Add measurements for average power, static power and dynamic power
             simulator.measure(
@@ -210,8 +200,6 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f' V(BLB{self.target_col}) V({target_node_q}) V({target_node_qb})\n'
         else:
             raise ValueError(f"Invalid operation: {operation}")
-        
-        
         
     def add_xyce_options(self, circuit, mc_runs, operation):
         """ Add options for Xyce """
@@ -342,6 +330,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         print("[DEBUG] Printing generated netlists...")
         print(simulator)
         init = '_q1' if self.q_init_val > 0 else ''
+        
         # Generate and run Xyce netlist
         tb_path = os.path.join(
             self.sim_path, 
@@ -371,7 +360,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             process_simulation_data(
                 prn_path=tb_path+'.prn',
                 num_mc=mc_runs,
-                output=f"{self.sim_path}/mc_{operation}_waveform.pdf",
+                output=f"{self.sim_path}/mc_{operation}_waveform.png",
             )
             
             # Get all `.mtX` or `.msX` files from MC
