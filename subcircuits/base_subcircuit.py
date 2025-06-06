@@ -9,8 +9,8 @@ class BaseSubcircuit(SubCircuit):
     
     def __init__(self, 
                  nmos_model_name, pmos_model_name,
-                 base_nmos_width=0.9e-6, base_pmos_width=1.8e-6, length=50e-9,
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 base_nmos_width, base_pmos_width, length,
+                 w_rc, pi_res, pi_cap,
                  ):
         super().__init__(self.NAME, *self.NODES)
         

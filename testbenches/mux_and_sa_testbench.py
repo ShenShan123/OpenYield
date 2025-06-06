@@ -34,7 +34,7 @@ class SingleColumnMuxSenseAmp_Testbench(BaseTestbench):
 
         # 1. Add Column Mux
         mux = ColumnMux(
-            mux_ratio=self.mux_ratio,
+            num_in=self.mux_ratio,
             nmos_model_name=self.nmos_model_name,
             pmos_model_name=self.pmos_model_name,
             nmos_width=0.2e-6,

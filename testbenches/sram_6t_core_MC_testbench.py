@@ -90,8 +90,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 # Initial V(BL) and V(BLB) for all columns
                 init_cond[f'BL{col}'] = 0 @ u_V
                 init_cond[f'BLB{col}'] = 0 @ u_V
-                init_cond[f'Q{col}'] = self.vdd @ u_V
-                init_cond[f'QB{col}'] = 0 @ u_V
+                # init_cond[f'Q{col}'] = self.vdd @ u_V
+                # init_cond[f'QB{col}'] = 0 @ u_V
 
             simulator.initial_condition(**init_cond)
 
@@ -123,7 +123,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.measure(
                 'TRAN', 'TSA', 
                 f'TRIG V(SAE)={self.half_vdd} RISE=1 ' +
-                f'TARG V(Q{self.target_col})={self.half_vdd} RISE=1')
+                f'TARG V(SA_Q{self.target_col // self.mux_in})={self.half_vdd} RISE=1')
 
             # Add measurements for average power, static power and dynamic power
             simulator.measure(
@@ -144,8 +144,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.circuit.raw_spice += \
                 f'.PRINT TRAN FORMAT=NOINDEX V(SAE) V(WL{self.target_row}) ' + \
                 f'V(BL{self.target_col}) V(BLB{self.target_col}) '+ \
-                f'V({target_node_q}) V({target_node_qb}) ' + \
-                f'V(Q{self.target_col}) V(QB{self.target_col})\n'
+                f'V({target_node_q}) V({target_node_qb}) \n'
+            simulator.circuit.raw_spice += \
+                f'.PRINT TRAN V(SA_IN{self.target_col // self.mux_in}) ' + \
+                f'V(SA_INB{self.target_col // self.mux_in}) ' + \
+                f'V(SA_Q{self.target_col // self.mux_in}) ' + \
+                f'V(SA_QB{self.target_col // self.mux_in})\n'
         
         # The write operation
         elif operation == 'write':

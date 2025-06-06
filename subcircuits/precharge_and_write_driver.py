@@ -15,8 +15,8 @@ class Precharge(BaseSubcircuit):
         
         super().__init__(
             None, pmos_model_name, 
-            base_pmos_width=base_pmos_width, length=length,
-            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
+            base_pmos_width, base_pmos_width, length,
+            w_rc, pi_res, pi_cap,
         )
         
         self.num_rows = num_rows
@@ -70,7 +70,7 @@ class WriteDriver(BaseSubcircuit):
         super().__init__(
             nmos_model_name, pmos_model_name,
             base_nmos_width, base_pmos_width, length,
-            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
+            w_rc, pi_res, pi_cap,
         )
         self.num_rows = num_rows
 

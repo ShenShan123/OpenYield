@@ -19,13 +19,8 @@ class Pinv(BaseSubcircuit):
                  ):
 
         super().__init__(
-            # name=self.NAME, 
-            # nodes=self.NODES, 
-            nmos_model_name=nmos_model_name, 
-            pmos_model_name=pmos_model_name,
-            base_nmos_width=base_nmos_width, # Pass actual width to BaseSubcircuit if it uses it
-            base_pmos_width=base_pmos_width, # Pass actual width to BaseSubcircuit if it uses it
-            length=length,
+            nmos_model_name, pmos_model_name,
+            base_nmos_width, base_pmos_width, length,
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
 
@@ -73,13 +68,8 @@ class PNAND2(BaseSubcircuit):
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
         
         super().__init__(
-            # name=self.NAME, 
-            # nodes=self.NODES, 
-            nmos_model_name=nmos_model_name, 
-            pmos_model_name=pmos_model_name,
-            base_nmos_width=base_nmos_width, 
-            base_pmos_width=base_pmos_width, 
-            length=length, 
+            nmos_model_name, pmos_model_name,
+            base_nmos_width, base_pmos_width, length, 
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
         
@@ -132,10 +122,8 @@ class WordlineDriver(BaseSubcircuit):
                  ):
         
         super().__init__(
-            # name=self.NAME, 
-            # nodes=self.NODES, 
-            nmos_model_name=nmos_model_name, 
-            pmos_model_name=pmos_model_name,
+            nmos_model_name, pmos_model_name,
+            base_nand_nmos_width, base_nand_pmos_width, length,
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
         

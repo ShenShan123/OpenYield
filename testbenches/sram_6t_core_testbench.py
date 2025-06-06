@@ -41,6 +41,8 @@ class Sram6TCoreTestbench(BaseTestbench):
         
         # init internal data q
         self.q_init_val = q_init_val
+        # default mux inputs
+        self.mux_in = 1
 
     def create_wl_driver(self, circuit: Circuit, target_row: int):
         """Create wordline driver for the target/standby row"""
@@ -58,7 +60,7 @@ class Sram6TCoreTestbench(BaseTestbench):
             if row == target_row:
                 # Add WL enable source for the target row
                 circuit.PulseVoltageSource(
-                    f'WLE{row}_pulse', f'WLE{row}', self.gnd_node,
+                    f'WLE_{row}', f'WLE{row}', self.gnd_node,
                     initial_value=0 @ u_V, pulsed_value=self.vdd, 
                     delay_time=self.t_pulse,
                     rise_time=self.t_rise, fall_time=self.t_fall, 
@@ -77,7 +79,7 @@ class Sram6TCoreTestbench(BaseTestbench):
                 circuit.V(f'WL{row}_gnd', f'WL{row}', self.gnd_node, 0 @ u_V)
         return circuit
 
-    def create_read_periphery(self, circuit: Circuit):
+    def create_read_periphery(self, circuit: Circuit, target_col: int):
         """Create read periphery circuitry"""
         prch = Precharge(
             self.pmos_model_name, 
@@ -107,6 +109,49 @@ class Sram6TCoreTestbench(BaseTestbench):
             period=self.t_period, dc_offset=self.vdd
         )
 
+        # we temporarily fix this to 2
+        self.mux_in = 2
+
+        # Column Mux
+        cmux = ColumnMux(
+            self.nmos_model_name, 
+            self.pmos_model_name, 
+            self.mux_in, w_rc=self.w_rc, 
+            # pi_res=self.pi_res, pi_cap=self.pi_cap,
+        )
+        circuit.subcircuit(cmux)
+        self.cmux_inst_prefix = f"X{cmux.name}"
+
+        # Add Column Mux for all columns
+        for col in range(self.num_cols // self.mux_in):
+            circuit.X(
+                f'{cmux.name}_{col}', 
+                cmux.name, 
+                self.power_node, self.gnd_node, # Power node and GND node
+                f'SA_IN{col}',                  # SA inputs are Mux's outputs
+                f'SA_INB{col}',                 # SA inputs are Mux's outputs
+                # SELect signal, high valid, #SEL = self.mux_in
+                *[f'SEL{i}' for i in range(self.mux_in)], 
+                # Inputs are BLs, #BLs  = self.mux_in
+                *[f'BL{i}' for i in range(col*self.mux_in, (col+1)*self.mux_in)],
+                # Inputs are BLBs, #BLBs = self.mux_in
+                *[f'BLB{i}' for i in range(col*self.mux_in, (col+1)*self.mux_in)],
+            ) 
+        # Set SEL signals
+        for i in range(self.mux_in):
+            if i == target_col % self.mux_in:
+                # Pulse setting of select signal is the same as WLE
+                circuit.PulseVoltageSource(
+                    f'SEL_{i}', f'SEL{i}', self.gnd_node, 
+                    initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V, 
+                    delay_time=self.t_pulse,
+                    rise_time=self.t_rise, fall_time=self.t_fall, 
+                    pulse_width=self.t_pulse,
+                    period=self.t_period
+                )
+            else:
+                circuit.V(f'SEL_{i}', f'SEL{i}', self.gnd_node, 0 @ u_V)
+
         # Sense Amplifer
         sa = SenseAmp(
             self.nmos_model_name, 
@@ -118,14 +163,14 @@ class Sram6TCoreTestbench(BaseTestbench):
         self.sa_inst_prefix = f'X{sa.name}'
 
         # Add SA circuitry for all columns
-        for col in range(self.num_cols):
+        for col in range(self.num_cols // self.mux_in):
             circuit.X(
                 f'{sa.name}_{col}', 
                 sa.name, 
                 self.power_node, self.gnd_node,
-                'SAE',
-                f'BL{col}', f'BLB{col}',
-                f'Q{col}', f'QB{col}',
+                'SAE',   # SA Enable signal
+                f'SA_IN{col}', f'SA_INB{col}', # Inputs
+                f'SA_Q{col}', f'SA_QB{col}',   # Outputs
             )
 
         # SA enable signal
@@ -293,6 +338,11 @@ class Sram6TCoreTestbench(BaseTestbench):
                 if row == self.target_row and col == self.target_col:
                     init_dict[q_name] = 0 @ u_V
                     init_dict[qb_name] = self.vdd @ u_V
+
+        # initiate the voltage of inputs of SAs, connecting to column muxes
+        for col in range(self.num_cols // self.mux_in):        
+            init_dict[f'SA_IN{col}'] = self.vdd @ u_V
+            init_dict[f'SA_INB{col}'] = self.vdd @ u_V
         
         return init_dict
 
@@ -358,7 +408,7 @@ class Sram6TCoreTestbench(BaseTestbench):
 
         # For read transient simulation, add pulse source to the array
         if operation == 'read':
-            self.create_read_periphery(circuit)
+            self.create_read_periphery(circuit, target_col)
             self.create_wl_driver(circuit, target_row)
         # For write transient simulation, add pulse source to the array
         elif operation == 'write':

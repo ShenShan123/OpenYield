@@ -23,9 +23,9 @@ if __name__ == '__main__':
     )
     print(f"Estimated 6T SRAM Cell Area: {area*1e12:.2f} µm²")
 
-    num_rows = 4
+    num_rows = 64
     num_cols = 4
-    num_mc = 10
+    num_mc = 1
 
     print("===== 6T SRAM Array Monte Carlo Simulation Debug Session =====")
     mc_testbench = Sram6TCoreMcTestbench(
@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     # For using TRAN analysis, operation can be 'write' or 'read'
     w_delay, w_pavg = mc_testbench.run_mc_simulation(
-        operation='write', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, 
+        operation='read', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, 
         vars=None, # Input your data table
     )
 
