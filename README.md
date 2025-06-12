@@ -109,6 +109,41 @@ w_delay, w_pavg = mc_testbench.run_mc_simulation(
 )
 ```
 
+### 3. Using the Optimization Algorithms
+
+OpenYield includes integrated SRAM circuit optimization algorithms that can be accessed after running Monte Carlo simulations.
+
+#### Available Algorithms
+
+* **PSO** - Particle Swarm Optimization
+* **SA** - Simulated Annealing  
+* **CBO** - Constrained Bayesian Optimization
+* **RoSE-Opt** - Reinforcement Learning Enhanced Bayesian Optimization
+* **SMAC** - Sequential Model-based Algorithm Configuration
+
+#### Usage
+
+Run the main script which includes the optimization module:
+
+```python
+python main.py
+```
+
+After the Monte Carlo simulation completes, you'll be prompted to select optimization algorithms:
+
+```
+Select optimization algorithm(s) to run:
+  Enter number(s) separated by commas (e.g., 1,3,5)
+  Enter 'all' to run all algorithms
+  Enter 'none' to skip optimization
+```
+
+#### Output
+
+Results are saved in:
+* `sim/opt/results/` - Optimization results and statistics
+* `sim/opt/plots/` - Convergence plots and visualizations
+
 ## Important Notes:
 
 * Ensure that you have Xyce installed and configured correctly. OpenYield assumes Xyce is available in your system's PATH.
