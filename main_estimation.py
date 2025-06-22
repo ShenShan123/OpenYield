@@ -54,7 +54,7 @@ if __name__ == '__main__':
         '''
         参数选择：feature_num=18:   p =0.003  
                 feature_num=108:   p =0.0095   
-                feature_num=18:   p =0.048
+                feature_num=1152:   p =0.048
         '''
     elif RUN_MODEL == "MNIS":
         p = 0.005
