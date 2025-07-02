@@ -12,18 +12,17 @@ from tool.delete import delete_folder_content
 from tool.Distribution.normal_v1 import norm_dist
 from model_lib.spice import Spice
 parent_dir_of_code2 = '/home/lixy/OpenYield-main'
-# 将父目录添加到模块搜索路径
 sys.path.append(parent_dir_of_code2) 
 from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 import warnings
 class MC():
     def __init__(self, f_norm, mc_testbench,  spice, means, feature_num, num_rows, num_cols, IS_bound_num, initial_num=10000, sample_num=10, FOM_use_num=10, seed=0, IS_bound_on=False):
-        self.x = None   # 存储生成的 x 值，初始值为 None。
-        self.spice = spice  # 存储传入的 spice 对象，以便在类的其他方法中使用。
+        self.x = None  
+        self.spice = spice  
         self.means = means
         self.feature_num = feature_num
         self.mc_testbench = mc_testbench
-        self.f_norm = f_norm # 存储传入的 f_norm 对象，以便在类的其他方法中使用。#创建了一个均值为零向量、协方差矩阵为单位矩阵的多元正态分布对象 f_norm
+        self.f_norm = f_norm 
         self.initial_num, self.sample_num, self.FOM_use_num = initial_num, sample_num, FOM_use_num
         self.IS_bound_on = IS_bound_on
         self.IS_bound_num = IS_bound_num
@@ -32,16 +31,16 @@ class MC():
         self.num_rows = num_rows
         self.num_cols = num_cols
 
-    #主要功能是将蒙特卡罗模拟的结果保存到 CSV 文件中
+     # Save Monte Carlo simulation results to a CSV file
     def save_result(self, P_fail, FOM, num, used_time, seed):
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
 
-        write_data2csv(tgt_dir=os.path.join("./results/MC"),  # 保存目的文件
-                       tgt_name=f"MC_read_{self.feature_num}.csv",  # 文件名:包含训练数据量, 模型名
-                       head_info=('Pfail', 'FOM', 'num', 'used_time'),  # 表头
-                       data_info=data_info_list)  # 信息
+        write_data2csv(tgt_dir=os.path.join("./results/MC"),  
+                       tgt_name=f"MC_read_{self.feature_num}.csv",  
+                       head_info=('Pfail', 'FOM', 'num', 'used_time'),  
+                       data_info=data_info_list)  
 
-    #单下划线开头表示这是一个私有方法，通常用于类内部调用  test_y包含所有样本数据的二维数组，每一行代表一个样本，每一列代表一个特征
+     # Private method to extract new samples from the output dataset
     def _get_new_y(self, sample_num, initial_num, i, test_y):   
 
         if initial_num+(i+1)*sample_num > test_y.shape[0]:
@@ -49,8 +48,8 @@ class MC():
         else:
             new_y = test_y[initial_num+i*sample_num:initial_num+(i+1)*sample_num, :]
         return new_y  
-    
-    #根据给定的输出数据 y 计算失败概率 P_fail 和品质因数 FOM。
+
+    # Compute failure probability and Figure of Merit (FOM) based on output data
     def _evaluate(self, y, P_fail_list, FOM_use_num=10): 
         indic = self.spice.indicator(y)
         P_fail = indic.sum() / indic.shape[0]
@@ -65,11 +64,11 @@ class MC():
             FOM = P_fail_list[-FOM_use_num:].std() / P_fail_list[-FOM_use_num:].mean()
         return P_fail, FOM
 
-    #主要功能是从 test_y 数据集中提取初始样本
+  # Extract initial samples from the test_y dataset
     def _get_initial_sample(self, initial_num, test_y):
         return test_y[0:initial_num,:]
 
-    #对输入的 test_x 数据进行随机重排
+    # Randomly shuffle the input test_x data
     def rearrage_x(self, test_x):
         # np.random.shuffle(test_x)
         test_x = np.random.permutation(test_x)
@@ -80,7 +79,7 @@ class MC():
         x[x<low_bound_full] = low_bound_full[x<low_bound_full]
         x[x>high_bound_full] = high_bound_full[x>high_bound_full]
         return x
-    #进行蒙特卡罗模拟估计，直到满足特定条件为止。
+     # Perform Monte Carlo simulation until convergence conditions are met
     def start_estimate(self, max_num=100000):
         means = self.means
         feature_num = self.feature_num
@@ -90,7 +89,7 @@ class MC():
 
         now_time = time.time()
         self.y, P_fail_list, FOM_list, data_num_list = np.empty([0,1]), np.empty([0]), np.empty([0]), np.empty([0])
-        #self.y 是 MC 类的一个实例属性，用于存储蒙特卡罗模拟过程中生成的所有样本的输出数据。初始化为空数组
+        
         if feature_num ==18:
             variances = np.abs(means) * 0.003
         elif feature_num ==108:
