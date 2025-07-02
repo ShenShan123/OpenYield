@@ -203,7 +203,7 @@ class HSCS(nn.Module):
 
         return x_labels, now_centroids, new_k
 
-    def find_min_norm(self, x_samples, centroids, cluster_num, means,find_MN_sam_num=100):  #每个聚类中具有最小范数（通常指最小距离）的点
+    def find_min_norm(self, x_samples, centroids, cluster_num, means,find_MN_sam_num=100): #The point with the minimum norm (typically the shortest distance) in each cluster.
         """
             return the min_norm point of each cluster
         """
@@ -226,7 +226,7 @@ class HSCS(nn.Module):
                 samples = self.sample_on_sphere(num=find_MN_sam_num, dim=dim, radius=R,means=means,direction=direction,IS_bound_num=1,IS_bound_on =True)
                 num_mc = samples.shape[0]
                 y, w_pavg = self.mc_testbench.run_mc_simulation(operation='write', target_row=self.num_rows-1, target_col=self.num_cols-1, mc_runs=num_mc, vars=samples)
-                samples_y = y.reshape(num_mc,1)  # TODO: the bug1 fixed  修改
+                samples_y = y.reshape(num_mc,1)  
                 folder_path = '/home/lixy/sim3'
                 delete_folder_content(folder_path)
                 if self.indicator_func(samples_y).any():
@@ -240,8 +240,8 @@ class HSCS(nn.Module):
 
         # turn list into array
         min_norm_points = np.array(min_norm_points)
-        return min_norm_points, spend_num  #输出为这是一个二维数组，每一行代表一个聚类的最小范数点。
-    #spend_num表示在整个查找最小范数点的过程中，总共采样的样本数量
+        return min_norm_points, spend_num # The output is a 2D array, where each row represents the minimum-norm point of a cluster.
+    # spend_num indicates the total number of samples used during the process of finding the minimum-norm points.
 
     def get_cluster_ratios(self, weights, x_labels, k): # beta
         """
@@ -268,10 +268,10 @@ class HSCS(nn.Module):
 
     def save_result(self, P_fail, FOM, num, used_time, seed):
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
-        write_data2csv(tgt_dir=os.path.join("./results/HSCS"),  # 保存目的文件
-                       tgt_name=f"HSCS_write_{self.feature_num}.csv",  # 文件名:包含训练数据量, 模型名
-                       head_info=('Pfail', 'FOM', 'num', 'used_time'),  # 表头
-                       data_info=data_info_list)  # 信息
+        write_data2csv(tgt_dir=os.path.join("./results/HSCS"),  
+                       tgt_name=f"HSCS_write_{self.feature_num}.csv", 
+                       head_info=('Pfail', 'FOM', 'num', 'used_time'),  
+                       data_info=data_info_list)  
 
     def _calculate_fail_rate_this_round(self, log_f_val, log_g_val, I_val):
         """
@@ -379,7 +379,7 @@ class HSCS(nn.Module):
 
             num_mc = x_IS.shape[0]
             y, w_pavg = self.mc_testbench.run_mc_simulation(operation='write', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, vars=x_IS)
-            y_IS = y.reshape(num_mc,1)  #修改
+            y_IS = y.reshape(num_mc,1) 
             folder_path = '/home/lixy/sim3'
             delete_folder_content(folder_path)
             log_f_IS_val, log_g_IS_val, I_IS_val = self._calculate_val(x_IS, y_IS, f_norm, mix_model_val, self.spice)
@@ -434,7 +434,6 @@ if __name__ == "__main__":
         q_init_val=0, sim_path='/home/lixy/sim_read0' )
     warnings.filterwarnings("ignore", category=FutureWarning)
     #variances = np.abs(means) * 0.004
-    #cov_matrix = np.diag(variances)  g_var_num 太小结果就变成正的 var_num = 0.0008
     if feature_num == 18:
         var_num=0.0004
         g_var_num=0.001
@@ -451,12 +450,4 @@ if __name__ == "__main__":
     hscs = HSCS(spice=spice,f_norm=f_norm, mc_testbench=mc_testbench, means = means,feature_num=feature_num, num_cols = num_cols, num_rows=num_rows,
                  g_var_num=g_var_num,  bound_num=1, find_MN_sam_num=100,IS_sample_num=100, initial_failed_data_num=12, ratio=0.1,
                             sample_num_each_sphere=100, max_gen_times=100, FOM_num=FOM_num, seed=0,IS_bound_num=1, IS_bound_on=True)
-    
-    '''
-    var_num：原始分布中的方差大小0.0004  越小，pfail越小
-    sample_num_each_sphere:初始采样中生成的样本数
-    FOM_nom:计算FOm的窗口大小，窗口小一点快
-    g_var_num：提议分布的方差0.001左右，0.001  越小结果变正
-    ratio：f (x) 在 g (x) 中的混合比例。表示两个函数在某种计算或分布混合过程中的比例关系
-    '''
     Pfail,sim_num = hscs.start_estimate(max_num=100000)
