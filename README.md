@@ -121,6 +121,19 @@ OpenYield includes integrated SRAM circuit optimization algorithms that can be a
 * **RoSE-Opt** - Reinforcement Learning Enhanced Bayesian Optimization
 * **SMAC** - Sequential Model-based Algorithm Configuration
 
+
+
+### 4. Using the SRAM Yield Estimation Alogrithms
+
+OpenYield provides integrated SRAM yield estimation algorithms based on Monte Carlo and advanced importance sampling techniques. These algorithms help quantify failure probability under process variations with high efficiency and accuracy.
+
+#### Available Algorithms
+- **MC** ：Monte Carlo
+- **MNIS** ： Mean-shifted Importance Sampling
+- **ACS** : Adaptive Compressed Sampling
+- **AIS** : Adaptive Importance Sampling
+- **HSCS**: High-dimensional Sparse Compressed Sampling
+
 #### Usage
 
 Run the main script which includes the optimization module:
