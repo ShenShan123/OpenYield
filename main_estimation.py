@@ -13,8 +13,8 @@ from sram_yield_estimation.tool.Distribution.gmm_v2 import mixture_gaussian
 from utils import estimate_bitcell_area
 
 import warnings
-# 选择要运行的模型，每次只改这里即可
-RUN_MODEL = "MC"  # 可选值："MC", "MNIS", "AIS", "ACS", "HSCS"
+# Select the model to run. Modify this line to switch algorithms.
+RUN_MODEL = "MC"  # Options："MC", "MNIS", "AIS", "ACS", "HSCS"
 if __name__ == '__main__':
     vdd = 1.0
     pdk_path = '/home/lixy/OpenYield-main/model_lib/models.spice'
@@ -65,9 +65,9 @@ if __name__ == '__main__':
                 IS_bound_on=True, g_cal_val=0.24, g_sam_val=0.01,initial_fail_num=15, initial_sample_each=200, IS_num=150, FOM_num=13)
         acs.start_estimate(max_num=100000)
         '''
-        参数选择：feature_num=18:   p =0.005  
-                feature_num=108:   p =0.0095   
-                feature_num=1152:   p =0.048
+        Parameter：feature_num=18:   p =0.005   initial_fail_num, initial_sample_each,IS_num=15, 200, 150
+                feature_num=108:   p =0.0095   initial_fail_num, initial_sample_each,IS_num=15, 100, 100
+                feature_num=1152:   p =0.048   initial_fail_num, initial_sample_each,IS_num=10, 100, 80
         '''
     elif RUN_MODEL == "AIS":
         p = 0.004
@@ -77,10 +77,10 @@ if __name__ == '__main__':
         ais = AIS(spice=spice,mc_testbench=mc_testbench,f_norm=f_norm,feature_num=feature_num, num_rows=num_rows, num_cols= num_cols,
                 g_cal_num=0.003, initial_failed_data_num=150,
                         num_generate_each_norm=1, sample_num_each_sphere=50, max_gen_times=1000,
-                        FOM_num =11,  seed=7072, IS_bound_num=1, IS_bound_on=True)  #case4 参数
+                        FOM_num =11,  seed=7072, IS_bound_num=1, IS_bound_on=True)  
         fail_rate, sample_num, fom, used_time = ais.start_estimate(max_num=10000)
         '''
-        参数选择：feature_num=18:   p =0.004   g_cal_num=0.003,  
+         Parameter：feature_num=18:   p =0.004   g_cal_num=0.003,  
                  feature_num=108: p =0.0095   g_cal_num=0.003,    
                  feature_num=1152: p =0.066  g_cal_num=0.0066
         '''
@@ -93,7 +93,7 @@ if __name__ == '__main__':
                 initial_fail_num=10, initial_sample_each=100, IS_num=100, FOM_num=10,seed=0,IS_bound_num=1, IS_bound_on=True)
         acs.start_estimate(max_num=100000)
         '''
-        参数选择：feature_num=18:   p =0.004   g_cal_val=0.001,   
+         Parameter：feature_num=18:   p =0.004   g_cal_val=0.001,   
                  feature_num=108: p =0.0098   g_cal_val=0.003,    
                  feature_num=1152:  p =0.064 g_cal_val=0.0064
         '''
@@ -104,7 +104,7 @@ if __name__ == '__main__':
                                 sample_num_each_sphere=100, max_gen_times=100, FOM_num=25, seed=0,IS_bound_num=1, IS_bound_on=True)
         Pfail,sim_num = hscs.start_estimate(max_num=100000)
         '''
-        参数选择：feature_num=18:   var_num=0.0004    g_var_num=0.001  FOM_num=25
+         Parameter：feature_num=18:   var_num=0.0004    g_var_num=0.001  FOM_num=25
                  feature_num=108:  var_num=0.0003    g_var_num=0.001  FOM_num=25
               feature_num=1152: var_num=0.001  g_var_num=0.0023   FOM_num=15
         '''
