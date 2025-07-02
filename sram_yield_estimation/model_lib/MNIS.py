@@ -4,7 +4,6 @@ import numpy as np
 import sys
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 parent_dir_of_code1 = '/home/lixy/sram_yield_estimation/'
-# 将父目录添加到模块搜索路径
 sys.path.append(parent_dir_of_code1) 
 from tool.util import write_data2csv, seed_set
 from tool.delete import delete_folder_content
@@ -59,10 +58,10 @@ class MNIS():
     def _save_result(self, P_fail, FOM, num, used_time, seed):
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
 
-        write_data2csv(tgt_dir=os.path.join("./results/MNIS"),  # 保存目的文件
-                       tgt_name=f"MNIS_read_{self.feature_num}.csv",  # 文件名:包含训练数据量, 模型名
-                       head_info=('Pfail', 'FOM', 'num', 'used_time'),  # 表头
-                       data_info=data_info_list)  # 信息
+        write_data2csv(tgt_dir=os.path.join("./results/MNIS"), 
+                       tgt_name=f"MNIS_read_{self.feature_num}.csv",  
+                       head_info=('Pfail', 'FOM', 'num', 'used_time'),  
+                       data_info=data_info_list)  
         
     def _initial_sampling(self, initial_fail_num, sample_num_each_sphere, spice):
         captured_fail_data_num = 0
@@ -116,7 +115,7 @@ class MNIS():
             :param initial_fail_num: the number of initial failed sample
             :param initial_sample_each: the number of samples each time during initial sampling
             :param IS_num: the number of importance sampling (IS) during each importance sampling iteration
-            :param g_sam_val: the used variance of importance distribution during sampling采样过程中重要性分布所使用的方差值
+            :param g_sam_val: the used variance of importance distribution during sampling
             :param FOM_num: the used number of latest fail rates to calculate FOM
         """
 
@@ -131,12 +130,12 @@ class MNIS():
         self.y_fail = y.reshape(num_mc,1)
         folder_path = '/home/lixy/sim0'
         delete_folder_content(folder_path)
-        #print(self.y_fail) #需要替换
+        #print(self.y_fail) 
         centered_x_fail = self.x_fail - means
         distances = np.sqrt((centered_x_fail * centered_x_fail).sum(-1))
         min_index = distances.argmin()
         min_norm = self.x_fail[min_index, :]
-        #min_norm = self.x_fail[abs(self.x_fail-means).sum(-1).argmin(), :]## L1 使用 L1 范数（欧几里得距离）来找出距离原点最近的失败样本：
+        #min_norm = self.x_fail[abs(self.x_fail-means).sum(-1).argmin(), :]## L1 uses the L1 norm (Manhattan distance) to identify the failed sample closest to the origin.
         if feature_num ==18:
             variances = np.abs(means) * 0.004
         elif feature_num ==108:
@@ -167,7 +166,7 @@ class MNIS():
             num_mc = x_IS.shape[0]
             #print(num_mc)
             y, w_pavg = self.mc_testbench.run_mc_simulation(operation='write', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, vars=x_IS)
-            y_IS = y.reshape(num_mc,1)  #需要替换
+            y_IS = y.reshape(num_mc,1) 
             folder_path = '/home/lixy/sim0'
             delete_folder_content(folder_path)
             #print(y_IS)
@@ -234,11 +233,5 @@ if __name__ == "__main__":
                IS_bound_num=1, IS_bound_on=True, g_cal_val=0.24, g_sam_val=0.01,
                        initial_fail_num=initial_fail_num, initial_sample_each=initial_fail_num, IS_num=IS_num, FOM_num=13)
     acs.start_estimate(max_num=100000)
-'''
-    g_cal_val=0.24, g_sam_val=0.01   :无用参数
-    f_norm：原始分布
-    提议分布的方差：0.004
-    原始分布的方差：0.005
 
-    '''
     
