@@ -106,7 +106,7 @@ class ACS():
    # Compute cumulative failure rate up to the current round
     def _calculate_fail_rate(self, fail_rate_this_round, fail_rate_list):
         """
-            calculate the overall P_f vias all IS samples  通过所有重要性采样（IS）样本计算总体失败率 P_f
+            calculate the overall P_f vias all IS samples  
         """
         fail_rate = (sum(fail_rate_list) + fail_rate_this_round) / (len(fail_rate_list) + 1)
         return fail_rate
