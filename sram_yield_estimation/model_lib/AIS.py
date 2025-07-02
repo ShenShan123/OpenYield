@@ -266,8 +266,8 @@ class AIS(nn.Module):
             IS_x_samples = norm_mixture.sample(n=num_generate_each_norm * initial_failed_data_num)
 
             '''
-            如果你当前一共有 initial_failed_data_num 个失效点，它们将被当作 GMM 的组件中心（即每个点生成一个高斯子分布）。
-            所以整个 GMM 就有 initial_failed_data_num 个高斯分布。
+           If you currently have initial_failed_data_num failed samples, they will each be used as a component center in the GMM (i.e., each point generates a Gaussian component).
+            So the entire GMM will consist of initial_failed_data_num Gaussian distributions.
             '''
             if IS_bound_on:
                  IS_x_samples= self._IS_bound(IS_x_samples, self.spice, IS_bound_num)
