@@ -59,8 +59,16 @@ Model-based optimization using Sequential Model-based Algorithm Configuration.
 pip install smac ConfigSpace
 ```
 
+## Configuration
+
+All algorithms support configuration files for circuit parameter definition:
+- **Configuration file**: `config_sram.yaml`
+- Define parameter spaces, constraints, and simulation settings
+- Easy adaptation to different circuits without code modification
+
 ## Usage
 
+### Individual Algorithms
 ```bash
 python sram_cbo.py      
 python pso.py  
@@ -69,16 +77,22 @@ python rose_opt.py
 python sram_smac.py 
 ```
 
+### Automated Comparison
+```bash
+python run_experiments.py
+```
+Runs multiple algorithms and generates comparison reports.
+
 ## Common Dependencies
 
 All algorithms require:
 ```bash
-pip install numpy pandas matplotlib scipy torch
+pip install numpy pandas matplotlib scipy torch pyyaml
 ```
 
 ## Output
 
-All algorithms generate CSV results, Merit tracking, and Pareto front visualizations in `results/` and `plots/`.
+All algorithms generate CSV results, Merit tracking, and Pareto front visualizations in `sim/opt/results/` and `sim/opt/plots/`.
 
 ## Extended Algorithm Repository
 

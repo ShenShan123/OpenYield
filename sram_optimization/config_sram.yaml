@@ -1,0 +1,131 @@
+# ============================================================================
+# SRAM 6T电路优化配置文件
+# SRAM 6T Circuit Optimization Configuration File
+# ============================================================================
+
+# global 参数配置
+# 仿真参数 / Simulation parameters
+sim_params:
+  vdd: 1.0                             # 供电电压(V) / Supply voltage (V)
+  temperature: 27                       # 温度(摄氏度) / Temperature (Celsius)
+  num_rows: 32                         # SRAM行数 / Number of SRAM rows
+  num_cols: 1                          # SRAM列数 / Number of SRAM columns
+  monte_carlo_runs: 1                  # 蒙特卡洛仿真次数 / Monte Carlo simulation runs
+  timeout: 120                         # 仿真超时时间(秒) / Simulation timeout (seconds)
+  
+# 工艺库配置 / PDK configuration
+pdk:
+  path: "model_lib/models.spice"       # PDK路径 / PDK path
+
+subcircuit:
+  name: "SRAM_6T_Cell"
+
+  # 参数空间配置 / Parameter Space Configuration
+  parameter_space:
+    # 无需显示给出参数维度 / Parameter dimensions
+    # dimensions: 6
+    
+    # 参数定义 / Parameter definitions
+    parameters:
+      pmos_width:
+        type: "continuous list"   # 参数类型：连续型列表 / Parameter type: continuous list
+        names: ["pu"]           # PMOS device names
+        upper: [1.0e-6]         # 参数范围上界 
+        lower: [0.01e-6]        # 参数范围下界 
+        default: [9e-8]           # 默认值：基准pu宽度 / Default value: base pd width
+        description: "Pull-up transistor width / 上拉晶体管宽度"
+        other_default: 1.0e-9     # 其他PMOS名字不为'pu'时候的设置
+        
+      nmos_width:
+        type: "continuous list"               # 参数类型：连续型 / Parameter type: continuous
+        names: ['pd', 'pg']                   # NMOS器件名字
+        upper: [1.35e-7, 2.025e-7]            # 参数范围上界 
+        lower: [4.5e-8, 6.75e-8]            # 参数范围下界
+        default: [9.0e-8, 1.35e-7]            # 默认值
+        description: "Pull-up, pull-down transistor width / 上拉晶体管宽度"
+        other_default: 1.0e-9     # 其他PMOS名字不为'pd' 或 'pg' 时候的设置
+
+        
+      length:
+        type: "continuous value"     # 参数类型：连续型标量 / Parameter type: continuous scalar
+        names: 'l'                   # L 怎么弄暂时没想好，先全都用1个值
+        upper: 1e-7                       
+        lower: 3e-8                
+        default: 50e-9
+        description: "Transistor channel length / 晶体管沟道长度"
+        
+      nmos_model:
+        type: "categorical list"                   # 参数类型：分类型 / Parameter type: categorical
+        names: ['pd', 'pg']                        # 类似的，你有多少个nmos待优化，那么有多少个nmos_model
+        choices: ["NMOS_VTL", "NMOS_VTG", "NMOS_VTH"]  # 选项：低阈值、标准阈值、高阈值 / Choices: low Vt, regular Vt, high Vt
+        default: ["NMOS_VTG", "NMOS_VTG"]               # 默认值：标准阈值 / Default value: regular Vt
+        description: "NMOS transistor model / NMOS晶体管模型"
+        
+      pmos_model:
+        type: "categorical list"                   # 参数类型：分类型 / Parameter type: categorical
+        names: ['pu']
+        choices: ["PMOS_VTL", "PMOS_VTG", "PMOS_VTH"]  # 选项：低阈值、标准阈值、高阈值 / Choices: low Vt, regular Vt, high Vt
+        default: ["PMOS_VTG"]                  # 默认值：标准阈值 / Default value: regular Vt
+        description: "PMOS transistor model / PMOS晶体管模型"
+
+  # 评估函数配置 / Evaluation Function Configuration
+  evaluation:
+    # 评估器配置 / Evaluator configuration
+    evaluator:
+      class_name: "SRAMEvaluator"            # 评估器类名 / Evaluator class name
+      module_path: "evaluators.sram_evaluator"  # 模块路径 / Module path
+    
+  # 仿真配置 / Simulation configuration
+  simulation:
+    testbench:
+      class_name: "Sram6TCoreMcTestbench"  # 测试平台类名 / Testbench class name
+      module_path: "testbenches.sram_6t_core_MC_testbench"  # 测试平台模块路径 / Testbench module path
+
+  # 性能指标定义 / Performance Metrics Definition
+  # 所有metrics定义一个范围，有具体范围的就是constraint，正负无穷的就是没有约束
+  performance_metrics:
+    snm:
+      type: "continuous scalar"              # 指标类型：仿真结果 / Metric type: simulation result
+      names: ['hold_snm', 'read_snm', 'write_snm']       # 应该跟parameter_space的数据结构一致吧
+      upper: [inf, inf, inf]
+      lower: [-inf, -inf, -inf]
+      # source:                                # 仿真输出中的键名 / Key name in simulation output
+      description: "Static noise margins / 静态噪声容限"
+      aggregation: 'min'                     # 聚合方式：平均，max, min, ...
+      
+    power:
+      type: "continuous scalar"              # 指标类型：仿真结果 / Metric type: simulation result
+      names: ['read_power', 'write_power']       # 应该跟parameter_space的数据结构一致吧
+      upper: [inf, inf]
+      lower: [-inf, -inf]
+      # source: "write.power"                  # 仿真输出中的键名 / Key name in simulation output
+      aggregation: 'max'                     # 聚合方式：平均，max, min, ...
+      description: "Operation power consumption / 操作功耗"
+      
+    delay:
+      type: "continuous list"              # 指标类型：
+      names: ['read_delay', 'write_delay']  
+      upper: [2e-10, 1e-10]                  
+      lower: [0.0, 0.0]
+      penalty: [1.0e6, 1.0e6]
+      # source: "read.delay"                   # 仿真输出中的键名 / Key name in simulation output
+      description: "Read and write operation delay / 读取和写入操作延迟"
+      
+    area:
+      type: "continuous scalar"              # 指标类型：计算指标 / Metric type: calculated metric
+      names: "area"
+      upper: "inf"                 
+      lower: 0.0
+      formula: "estimate_bitcell_area(pd_width, pu_width, pg_width, length)"  # 计算公式 / Calculation formula
+      description: "SRAM cell area / SRAM单元面积"
+
+  # 目标函数配置 / Objective Function Configuration
+  objectives:
+    # 复合目标函数 / Composite objective function
+    composite_objective:
+      enabled: true                          # 是否启用复合目标 / Enable composite objective
+      type: "merit_function"                 # 复合函数类型：Merit函数 / Composite function type: merit function
+      formula: "log10(min_snm / (max_power * sqrt(area)))"  # Merit函数公式 / Merit function formula
+      description: "SRAM Merit function combining SNM, power and area / SRAM Merit函数，结合SNM、功耗和面积"
+
+    
