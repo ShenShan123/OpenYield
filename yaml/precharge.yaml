@@ -1,0 +1,26 @@
+# 预充电 / Precharge PMOS
+PRECHARGE:
+  # 设计参数空间 / Design Parameter Space Configuration
+  # This subckt has 1 pmos and 0 nmos to be optimized
+  parameters:
+    pmos_width:
+      type: "continuous scalar"   # 参数类型：连续型标量 / Parameter type: continuous scalar
+      names: 'p'                  # 对应器件实例名称 / The corresponding device instance names
+      upper: 1.0e-6               # 参数范围上界 / Parameter upper bounds
+      lower: 1.0e-8               # 参数范围下界 / Parameter lower bounds
+      value: 0.27e-6            # 默认值：基准pu宽度 / Default value: base pd width 0.27e-6
+      description: "PMOS width"
+    length: # 这个版本先使用同一个沟道长度 / In this version, we use a unified gate length
+      type: "continuous scalar"   # 参数类型：连续型标量 / Parameter type: continuous scalar
+      names: 'l'                  #
+      upper: 1.0e-7                 # 参数范围上界 / Parameter upper bounds
+      lower: 3.0e-8                 # 参数范围下界 / Parameter lower bounds
+      value: 50.0e-9                # 默认值
+      description: "MOS gate length / 晶体管沟道长度"
+    pmos_model:
+      type: "discrete scalar"     # 参数类型：离散型标量 / Parameter type: categorical scalar
+      names: 'p'                  # 对应器件实例名称 / The corresponding device instance names
+      # 选项：低阈值、标准阈值、高阈值 / Choices: low Vt, regular Vt, high Vt
+      choices: ["PMOS_VTL", "PMOS_VTG", "PMOS_VTH"]
+      value: 'PMOS_VTG'           # 默认值：标准阈值 / Default value: regular Vt
+      description: "PMOS type"
