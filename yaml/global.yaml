@@ -1,0 +1,66 @@
+# ============================================================================
+# SRAM 6T电路优化配置文件
+# SRAM 6T Circuit Optimization Configuration File
+# ============================================================================
+
+# global 参数配置
+# 仿真参数 / Simulation parameters
+vdd: 1.5                          # 供电电压(V) / Supply voltage (V)
+temperature: 27                   # 温度(摄氏度) / Temperature (Celsius)
+num_rows: 64                      # SRAM行数 / Number of SRAM rows
+num_cols: 4                       # SRAM列数 / Number of SRAM columns
+monte_carlo_runs: 1               # 蒙特卡洛仿真次数 / Monte Carlo simulation runs
+timeout: 120                      # 仿真超时时间(秒) / Simulation timeout (seconds)
+pdk_path: "model_lib/models.spice"# PDK路径 / PDK path
+
+# 评估器配置 / Evaluator configuration
+evaluator:
+  class_name: "SRAMEvaluator"    # 评估器类名 / Evaluator class name
+  module_path: "evaluators.sram_evaluator"  # 模块路径 / Module path
+
+# 仿真器配置 / Simulator configuration
+simulator:
+  class_name: "Sram6TCoreMcTestbench"  # 测试平台类名 / Testbench class name
+  # 测试平台模块路径 / Testbench module path
+  module_path: "testbenches.sram_6t_core_MC_testbench"
+
+# 性能指标定义 / Performance Metrics Definition
+# 所有metrics定义一个范围，有具体范围的就是constraint，正负无穷的就是没有约束
+performance_metrics:
+  snm:
+    type: "continuous list"      # 参数类型：连续型列表 / Parameter type: continuous list
+    names: ['hold_snm', 'read_snm', 'write_snm'] # 各种噪声容限 / Static Noise Margins
+    upper: [1.0, 2.0, 3.0]       # 参数范围上界 / Parameter upper bounds
+    lower: [-1.0, -2.0, -3.0]    # 参数范围下界 / Parameter lower bounds
+    aggregation: 'min'           # 聚合方式：平均，max, min / Aggregation type: average, max, min
+    description: "Static noise margins / 静态噪声容限"
+  power:
+    type: "continuous list"      # 参数类型：连续型列表 / Parameter type: continuous list
+    names: ['read_power', 'write_power'] # 读写功耗 / Read Write power
+    upper: [1.0, 2.0]            # 参数范围上界 / Parameter upper bounds
+    lower: [0.0, 0.0]          # 参数范围下界 / Parameter lower bounds
+    aggregation: 'max'           # 聚合方式：平均，max, min / Aggregation type: average, max, min
+    description: "Operation power consumption / 操作功耗"
+  delay:
+    type: "continuous list"      # 参数类型：连续型列表 / Parameter type: continuous list
+    names: ['read_delay', 'write_delay'] # 读写延迟 / Read Write delay
+    # 此处变为约束 / These are constraints
+    upper: [2.0e-10, 1.0e-10]        # 参数范围上界 / Parameter upper bounds
+    lower: [0.0, 0.0]            # 参数范围下界 / Parameter lower bounds
+    # penalty: [1.0e6, 1.0e6]    # 暂时不考虑约束
+    description: "Read and write operation delay / 读取和写入操作延迟"
+  area:
+    type: "continuous scalar"    # 参数类型：连续型标量 / Parameter type: continuous scalar
+    names: "area"
+    upper: 1.0
+    lower: 0.0
+    formula: "estimate_bitcell_area(pd_width, pu_width, pg_width, length)"  # 计算公式 / Calculation formula
+    description: "SRAM cell area / SRAM单元面积"
+
+# 复合目标函数配置 / Composite Objective Function Configuration
+# 目标函数的输入从 performance_metrics 中挑选 [snm, power, delay, area]
+objectives:
+  type: "merit_function"       # 复合函数类型：Merit函数 / Composite function type: merit function
+  formula: "log10(snm / (power * sqrt(area)))"  # Merit函数公式 / Merit function formula
+  constraints: 'delay' # 待定
+  description: "SRAM Merit function combining SNM, power and area / SRAM Merit函数，结合SNM、功耗和面积"
