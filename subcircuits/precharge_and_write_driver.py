@@ -1,10 +1,11 @@
 from PySpice.Spice.Netlist import SubCircuitFactory, Circuit
 from PySpice.Unit import u_Ohm, u_pF, u_V, u_ns
-from subcircuits.base_subcircuit import BaseSubcircuit
+from .base_subcircuit import BaseSubcircuit
 
-class Precharge(BaseSubcircuit):
+class Precharge(BaseSubcircuit):    #只需要三个PMOS
     """
     Precharge circuit for SRAM bitlines with dynamically adjusted strength.
+    根据行数动态调节强度的SRAM位线预充电路。驱动位线,行数越多,位线越长,需要的驱动能力越强
     """
     NAME = "PRECHARGE"
     # Power, Precharge Enable (0 for assertion), BL, BLB
@@ -21,20 +22,21 @@ class Precharge(BaseSubcircuit):
         
         self.num_rows = num_rows
         self.pmos_width = self.calculate_dynamic_width(base_pmos_width, num_rows)
-        self.add_precharge_transistors()
+        self.add_precharge_transistors()#预充电单元函数
 
     def calculate_dynamic_width(self, base_width, num_rows):
         """
         Dynamically adjust the transistor width based on the number of rows.
         This is a simple linear scaling; you might need a more complex function.
+        根据行数动态线性缩放晶体管宽度
         """
         scaling_factor = num_rows / 16  
-        scaling_factor = 0.5 if scaling_factor < 0.5 else scaling_factor
+        scaling_factor = 0.5 if scaling_factor < 0.5 else scaling_factor    #缩放因子至少为0.5
 
         return base_width * scaling_factor
 
     def add_precharge_transistors(self):
-        if self.w_rc:
+        if self.w_rc:                                                       #考虑是否添加rc网络
             bl_node = self.add_rc_networks_to_node('BL', 2)
             blb_node = self.add_rc_networks_to_node('BLB', 2)
             enb_node = self.add_rc_networks_to_node('ENB', 1)
@@ -55,9 +57,10 @@ class Precharge(BaseSubcircuit):
             model=self.pmos_pdk_model,
             w=self.pmos_width, l=self.length)
 
-class WriteDriver(BaseSubcircuit):
+class WriteDriver(BaseSubcircuit):          #写驱动
     """
     Write driver circuit for SRAM with dynamically adjusted strength.
+    同样需要根据行数动态调整晶体管宽度
     """
     NAME = "WRITEDRIVER"
     # VDD, GND, ENable, Data In, BL, BLB, 
@@ -77,9 +80,9 @@ class WriteDriver(BaseSubcircuit):
         self.nmos_width = self.calculate_dynamic_width(base_nmos_width, num_rows)
         self.pmos_width = self.calculate_dynamic_width(base_pmos_width, num_rows)
 
-        self.add_driver_transistors()
+        self.add_driver_transistors()#添加写驱动晶体管函数
 
-    def calculate_dynamic_width(self, base_width, num_rows):
+    def calculate_dynamic_width(self, base_width, num_rows):#动态调整width函数
         """
         Dynamically adjust the transistor width based on the number of rows.
         This is a simple linear scaling; you might need a more complex function.
@@ -90,7 +93,7 @@ class WriteDriver(BaseSubcircuit):
         return base_width * scaling_factor
 
     def add_driver_transistors(self):
-        if self.w_rc:
+        if self.w_rc:                                           #考虑是否添加rc网络
             d_node = self.add_rc_networks_to_node('DIN', 1)
             db_node = self.add_rc_networks_to_node('DINB', 1)
             bl_node = self.add_rc_networks_to_node('BL', 2)
