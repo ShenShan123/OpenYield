@@ -285,6 +285,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                                 f'.param {param}_{self.sram_config.sram_6t_cell.pmos_model.value}_{mos}_{row:d}_{col:d}=0.0\n'
                             # Data table head
                             self.table_head += f'{param}_{self.sram_config.sram_6t_cell.pmos_model.value}_{mos}_{row:d}_{col:d} '
+                        elif mos in ['PGL','PGR']:
+                            circuit.raw_spice += \
+                                f'.param {param}_{self.sram_config.sram_6t_cell.nmos_model.value[1]}_{mos}_{row:d}_{col:d}=0.0\n'
+                            # Data table head
+                            self.table_head += f'{param}_{self.sram_config.sram_6t_cell.nmos_model.value[1]}_{mos}_{row:d}_{col:d} '
                         else:
                             # Parameter definitions for NMOS
                             circuit.raw_spice += \
