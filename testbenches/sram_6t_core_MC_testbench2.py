@@ -8,13 +8,15 @@ from utils import (  # type: ignore
 )
 from testbenches.sram_6t_core_testbench2 import Sram6TCoreTestbench  # type: ignore
 import numpy as np
+import csv
 from PySpice.Spice.Netlist import SubCircuitFactory
 
 
 class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, sram_config,
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 vth_std=0.05, custom_mc=False,
+                 vth_std=0.05, custom_mc=False,param_sweep=False,sweep_precharge=False,sweep_senseamp=True,sweep_wordlinedriver=False,
+                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,
                  q_init_val=0, sim_path='sim'):
         """
                蒙特卡洛测试平台初始化
@@ -31,8 +33,15 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         super().__init__(#父类
             sram_config,
             w_rc, pi_res, pi_cap,
-            custom_mc, q_init_val,
+            custom_mc, param_sweep,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,q_init_val,
         )
+        self.sweep_decoder=sweep_decoder
+        self.sweep_writedriver=sweep_writedriver
+        self.sweep_columnmux=sweep_columnmux
+        self.sweep_wordlinedriver=sweep_wordlinedriver
+        self.sweep_senseamp=sweep_senseamp
+        self.sweep_precharge=sweep_precharge
+        self.param_sweep =param_sweep
         self.sram_config = sram_config
         self.vth_std = vth_std
         num_rows = sram_config.global_config.num_rows
@@ -110,14 +119,14 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.measure(
                 'TRAN', 'TPRCH',
                 f'TRIG V(PRE)={self.half_vdd} FALL=1 ' +
-                f'TARG V(BL{self.target_col})={float(self.vdd) * 0.9} RISE=1')  # modified for Xyce
+                f'TARG V(BL{self.target_col})={float(self.vdd) * 0.8} RISE=1')  # modified for Xyce
 
             # Measurements for wl driver delay (TWLDRV), defined as the time from the WLE assertion to V(WL)=VDD/2
-            #测量WLE驱动延迟（TWLDRV），定义为从WLE断言到V(wl)=VDD/2的时间
+            #测量WLE驱动延迟（TWLDRV），定义为从译码器输出到V(wl)=VDD/2的时间
             simulator.measure(
                 'TRAN', 'TWLDRV',
-                f'TRIG V(WLE{self.target_row})={self.half_vdd} RISE=1 ' +
-                f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
+                f'TRIG V(A0)={self.half_vdd} RISE=1 ' +
+                f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
 
             # Add measurements for read delay (TREAD),读延迟
             # which is defined as the time from the WL rise to BL swing to VDD/2
@@ -128,7 +137,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             vswing = 0.25
             simulator.measure(
                 'TRAN', 'TBL',
-                f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{vswing}' FALL=1")
+                f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{vswing}' FALL=2")
             simulator.measure('TRAN', 'TREAD', f"PARAM='TBL-TWL'")
 
             # Measurements for SA delay (TSA), defined as the time from the SAE assertion to V(Q)=VDD/2
@@ -177,7 +186,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # Measurements for wl driver delay (TWLDRV), defined as the time from the WLE assertion to V(WL)=VDD/2
             simulator.measure(
                 'TRAN', 'TWLDRV',
-                f'TRIG V(WLE{self.target_row})={self.half_vdd} RISE=1 ' +
+                f'TRIG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1 ' +
                 f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
             #写驱动延迟
             # Measurements for write driver delay (TWDRV), defined as the time from the WE assertion to V(BL)=VDD/2
@@ -241,9 +250,31 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             circuit.raw_spice += \
                 f'.STEP data=table\n'
         else:
-            # Use build-in sampling method in Xyce
-            circuit.raw_spice += \
-                f'.SAMPLING useExpr=true\n.options samples numsamples={num_mc}\n'
+            if self.param_sweep:
+                circuit.raw_spice += \
+                    f'.STEP data=SRAM_6T_CELL\n'
+            if self.sweep_precharge:
+                circuit.raw_spice += \
+                    f'.STEP data=PRECHARGE\n'
+            if self.sweep_senseamp:
+                 circuit.raw_spice += \
+                    f'.STEP data=SENSEAMP\n'
+            if self.sweep_wordlinedriver:
+                circuit.raw_spice += \
+                    f'.STEP data=WORDLINEDRIVER\n'
+            if self.sweep_columnmux:
+                circuit.raw_spice += \
+                    f'.STEP data=COLUMNMUX\n'
+            if self.sweep_writedriver:
+                circuit.raw_spice += \
+                    f'.STEP data=WRITEDRIVER\n'
+            if self.sweep_decoder:
+                circuit.raw_spice += \
+                    f'.STEP data=DECODER\n'
+            if not self.param_sweep and not self.sweep_precharge and not self.sweep_senseamp and not self.sweep_wordlinedriver and not self.sweep_columnmux and not self.sweep_writedriver and not self.sweep_decoder:
+                # Use build-in sampling method in Xyce
+                circuit.raw_spice += \
+                    f'.SAMPLING useExpr=true\n.options samples numsamples={num_mc}\n'
 
         print(f"[DEBUG] Custom_MC={self.custom_mc}, numsamples={num_mc}")
 
@@ -293,9 +324,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                         else:
                             # Parameter definitions for NMOS
                             circuit.raw_spice += \
-                                f'.param {param}_{self.sram_config.sram_6t_cell.nmos_model.value}_{mos}_{row:d}_{col:d}=0.0\n'
+                                f'.param {param}_{self.sram_config.sram_6t_cell.nmos_model.value[0]}_{mos}_{row:d}_{col:d}=0.0\n'
                             # Data table head
-                            self.table_head += f'{param}_{self.sram_config.sram_6t_cell.nmos_model.value}_{mos}_{row:d}_{col:d} '
+                            self.table_head += f'{param}_{self.sram_config.sram_6t_cell.nmos_model.value[0]}_{mos}_{row:d}_{col:d} '
 
                         num_params += 1
         # Just for debugging
@@ -332,14 +363,353 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         table_path = os.path.join(self.sim_path, f'mc_{operation}_table.data')
         with open(table_path, 'w') as f:
             f.write(self.table_head + table_content)
-
         circuit.include(table_path)
         print(f'[DEBUG] Data table has been saved to {table_path}')
+
+    def gen_param_sweep_6T_CELL(self, circuit: SubCircuitFactory, operation: str,
+                    vars: np.array = None):
+        """ Add parameter sweep for width and length variations
+        添加cell单元的宽度和长度的参数扫描
+        """
+        #   # 添加包含文件
+        # include_path = '/home/majh/OpenYield/sim/mc_read_6T_CELL.data'
+        # circuit.raw_spice += f'.include "{include_path}"\n'
+        # 定义要添加的参数名称
+        param_names = ['pmos_width_pu', 'nmos_width_pd', 'nmos_width_pg', 'length']
+        csv_path="param_sweep_data/param_sweep_6t_cell.csv"
+        if csv_path is None:
+            raise ValueError("必须指定 csv_path 参数")
+        vars = []
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f, skipinitialspace=True)
+             # 检查表头是否包含需要的列
+            missing = set(param_names) - set(reader.fieldnames or [])
+            if missing:
+                raise KeyError(f"CSV 缺少列: {missing}")
+            for row in reader:
+                vars.append([float(row[p]) for p in param_names])
+        # 构建数据表内容
+        table_content = f".data SRAM_6T_CELL\n"
+        table_content += "+ " + " ".join(param_names) + "\n"
+
+        # 在网表中添加参数定义
+        for param in param_names:
+            circuit.raw_spice += f'.param {param}=0.0\n'
+        
+        # 验证参数维度
+        for i, row in enumerate(vars):
+            assert len(row) == 4, f"Row {i} has {len(row)} values, expected 4"
+
+        for row in vars:
+        # 使用科学计数法格式化
+            formatted_row = [f"{x:.3e}" for x in row]
+            table_content += "+ " + " ".join(formatted_row) + "\n"
+
+        # 生成并保存参数表文件
+        include_path = os.path.join(self.sim_path, f'param_sweep_6T_CELL.data')
+        with open(include_path, 'w') as f:
+            f.write(table_content)
+    
+        # 在网表中包含参数表
+        circuit.include(include_path)
+        print(f'[DEBUG] Parameter sweep table saved to {include_path}')
+    
+    def gen_param_sweep_precharge(self, circuit: SubCircuitFactory, operation: str,
+                    vars: np.array = None):
+        """ Add parameter sweep for width and length variations
+        添加预充电单元的宽度和长度的参数扫描
+        """
+        #   # 添加包含文件
+        # include_path = '/home/majh/OpenYield/sim/mc_read_6T_CELL.data'
+        # circuit.raw_spice += f'.include "{include_path}"\n'
+        # 定义要添加的参数名称
+        param_names = ['pmos_width_precharge', 'length_precharge']
+        csv_path="param_sweep_data/param_sweep_precharge.csv"
+        if csv_path is None:
+            raise ValueError("必须指定 csv_path 参数")
+        vars = []
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f, skipinitialspace=True)
+             # 检查表头是否包含需要的列
+            missing = set(param_names) - set(reader.fieldnames or [])
+            if missing:
+                raise KeyError(f"CSV 缺少列: {missing}")
+            for row in reader:
+                vars.append([float(row[p]) for p in param_names])
+
+        # 构建数据表内容
+        table_content = f".data PRECHARGE\n"
+        table_content += "+ " + " ".join(param_names) + "\n"
+
+        # 在网表中添加参数定义
+        for param in param_names:
+            circuit.raw_spice += f'.param {param}=0.0\n'
+        
+        #验证参数维度
+        for i, row in enumerate(vars):
+            assert len(row) == 2, f"Row {i} has {len(row)} values, expected 2"
+        for row in vars:
+        # 使用科学计数法格式化
+            formatted_row = [f"{x:.3e}" for x in row]
+            table_content += "+ " + " ".join(formatted_row) + "\n"
+
+        # 生成并保存参数表文件
+        include_path = os.path.join(self.sim_path, f'param_sweep_PRECHARGE.data')
+        with open(include_path, 'w') as f:
+            f.write(table_content)
+    
+        # 在网表中包含参数表
+        circuit.include(include_path)
+        print(f'[DEBUG] Parameter sweep table saved to {include_path}')
+
+    def gen_param_sweep_senseamp(self, circuit: SubCircuitFactory, operation: str,
+                    vars: np.array = None):
+        """ Add parameter sweep for width and length variations
+        添加灵敏放大器电路的宽度和长度的参数扫描
+        """
+        #   # 添加包含文件
+        # include_path = '/home/majh/OpenYield/sim/mc_read_6T_CELL.data'
+        # circuit.raw_spice += f'.include "{include_path}"\n'
+        # 定义要添加的参数名称
+        param_names = ['pmos_width_senseamp', 'nmos_width_senseamp','length_senseamp']
+        csv_path="param_sweep_data/param_sweep_senseamp.csv"
+        if csv_path is None:
+            raise ValueError("必须指定 csv_path 参数")
+        vars = []
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f, skipinitialspace=True)
+             # 检查表头是否包含需要的列
+            missing = set(param_names) - set(reader.fieldnames or [])
+            if missing:
+                raise KeyError(f"CSV 缺少列: {missing}")
+            for row in reader:
+                vars.append([float(row[p]) for p in param_names])
+        # 构建数据表内容
+        table_content = f".data SENSEAMP\n"
+        table_content += "+ " + " ".join(param_names) + "\n"
+
+        # 在网表中添加参数定义
+        for param in param_names:
+            circuit.raw_spice += f'.param {param}=0.0\n'
+        
+        # 验证参数维度
+        for i, row in enumerate(vars):
+            assert len(row) == 3, f"Row {i} has {len(row)} values, expected 3"
+
+        for row in vars:
+        # 使用科学计数法格式化
+            formatted_row = [f"{x:.3e}" for x in row]
+            table_content += "+ " + " ".join(formatted_row) + "\n"
+
+        # 生成并保存参数表文件
+        include_path = os.path.join(self.sim_path, f'param_sweep_SENSEAMP.data')
+        with open(include_path, 'w') as f:
+            f.write(table_content)
+    
+        # 在网表中包含参数表
+        circuit.include(include_path)
+        print(f'[DEBUG] Parameter sweep table saved to {include_path}')   
+
+    def gen_param_sweep_wordlinedriver(self, circuit: SubCircuitFactory, operation: str,
+                    vars: np.array = None):
+        """ Add parameter sweep for width and length variations
+        添加字线驱动器电路的宽度和长度的参数扫描
+        """
+    
+        # 定义要添加的参数名称
+        param_names = ['pmos_width_wld_nandp', 'nmos_width_wld_nandn','pmos_width_wld_invp', 'nmos_width_wld_invn','length_wld']
+        csv_path="param_sweep_data/param_sweep_wordlinedriver.csv"
+        if csv_path is None:
+            raise ValueError("必须指定 csv_path 参数")
+        vars = []
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f, skipinitialspace=True)
+             # 检查表头是否包含需要的列
+            missing = set(param_names) - set(reader.fieldnames or [])
+            if missing:
+                raise KeyError(f"CSV 缺少列: {missing}")
+            for row in reader:
+                vars.append([float(row[p]) for p in param_names])
+        # 构建数据表内容
+        table_content = f".data WORDLINEDRIVER\n"
+        table_content += "+ " + " ".join(param_names) + "\n"
+
+        # 在网表中添加参数定义
+        for param in param_names:
+            circuit.raw_spice += f'.param {param}=0.0\n'
+        
+        # 验证参数维度
+        for i, row in enumerate(vars):
+            assert len(row) == 5, f"Row {i} has {len(row)} values, expected 5"
+
+        for row in vars:
+        # 使用科学计数法格式化
+            formatted_row = [f"{x:.3e}" for x in row]
+            table_content += "+ " + " ".join(formatted_row) + "\n"
+
+        # 生成并保存参数表文件
+        include_path = os.path.join(self.sim_path, f'param_sweep_WORDLINEDREIVER.data')
+        with open(include_path, 'w') as f:
+            f.write(table_content)
+    
+        # 在网表中包含参数表
+        circuit.include(include_path)
+        print(f'[DEBUG] Parameter sweep table saved to {include_path}') 
+    
+
+    def gen_param_sweep_columnmux(self, circuit: SubCircuitFactory, operation: str,
+                    vars: np.array = None):
+        """ Add parameter sweep for width and length variations
+        添加列多路选择器电路的宽度和长度的参数扫描
+        """
+        #   # 添加包含文件'
+        # 定义要添加的参数名称
+        param_names = ['pmos_width_mux', 'nmos_width_mux','length_mux']
+        csv_path="param_sweep_data/param_sweep_columnmux.csv"
+        if csv_path is None:
+            raise ValueError("必须指定 csv_path 参数")
+        vars = []
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f, skipinitialspace=True)
+             # 检查表头是否包含需要的列
+            missing = set(param_names) - set(reader.fieldnames or [])
+            if missing:
+                raise KeyError(f"CSV 缺少列: {missing}")
+            for row in reader:
+                vars.append([float(row[p]) for p in param_names])
+        # 构建数据表内容
+        table_content = f".data COLUMNMUX\n"
+        table_content += "+ " + " ".join(param_names) + "\n"
+
+        # 在网表中添加参数定义
+        for param in param_names:
+            circuit.raw_spice += f'.param {param}=0.0\n'
+        
+        # 验证参数维度
+        for i, row in enumerate(vars):
+            assert len(row) == 3, f"Row {i} has {len(row)} values, expected 3"
+
+        for row in vars:
+        # 使用科学计数法格式化
+            formatted_row = [f"{x:.3e}" for x in row]
+            table_content += "+ " + " ".join(formatted_row) + "\n"
+
+        # 生成并保存参数表文件
+        include_path = os.path.join(self.sim_path, f'param_sweep_COLUMNMUX.data')
+        with open(include_path, 'w') as f:
+            f.write(table_content)
+    
+        # 在网表中包含参数表
+        circuit.include(include_path)
+        print(f'[DEBUG] Parameter sweep table saved to {include_path}') 
+
+
+    def gen_param_sweep_writedriver(self, circuit: SubCircuitFactory, operation: str,
+                    vars: np.array = None):
+        """ Add parameter sweep for width and length variations
+        添加写驱动电路的宽度和长度的参数扫描
+        """
+        #   # 添加包含文件'
+        # 定义要添加的参数名称
+        param_names = ['pmos_width_wrd', 'nmos_width_wrd','length_wrd']
+        csv_path="param_sweep_data/param_sweep_writedriver.csv"
+        if csv_path is None:
+            raise ValueError("必须指定 csv_path 参数")
+        vars = []
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f, skipinitialspace=True)
+             # 检查表头是否包含需要的列
+            missing = set(param_names) - set(reader.fieldnames or [])
+            if missing:
+                raise KeyError(f"CSV 缺少列: {missing}")
+            for row in reader:
+                vars.append([float(row[p]) for p in param_names])
+        # 构建数据表内容
+        table_content = f".data WRITEDRIVER\n"
+        table_content += "+ " + " ".join(param_names) + "\n"
+
+        # 在网表中添加参数定义
+        for param in param_names:
+            circuit.raw_spice += f'.param {param}=0.0\n'
+        
+        # 验证参数维度
+        for i, row in enumerate(vars):
+            assert len(row) == 3, f"Row {i} has {len(row)} values, expected 3"
+
+        for row in vars:
+        # 使用科学计数法格式化
+            formatted_row = [f"{x:.3e}" for x in row]
+            table_content += "+ " + " ".join(formatted_row) + "\n"
+
+        # 生成并保存参数表文件
+        include_path = os.path.join(self.sim_path, f'param_sweep_WRITEDRIVER.data')
+        with open(include_path, 'w') as f:
+            f.write(table_content)
+    
+        # 在网表中包含参数表
+        circuit.include(include_path)
+        print(f'[DEBUG] Parameter sweep table saved to {include_path}') 
+    
+    def gen_param_sweep_decoder(self, circuit: SubCircuitFactory, operation: str,
+                    vars: np.array = None):
+        """ Add parameter sweep for width and length variations
+        添加译码器电路的宽度和长度的参数扫描
+        """
+        #   # 添加包含文件'
+        # 定义要添加的参数名称
+        param_names = ['pmos_width_decoder_nandp', 'nmos_width_decoder_nandn','pmos_width_decoder_invp', 'nmos_width_decoder_invn','length_decoder']
+        csv_path="param_sweep_data/param_sweep_decoder.csv"
+        if csv_path is None:
+            raise ValueError("必须指定 csv_path 参数")
+        vars = []
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f, skipinitialspace=True)
+             # 检查表头是否包含需要的列
+            missing = set(param_names) - set(reader.fieldnames or [])
+            if missing:
+                raise KeyError(f"CSV 缺少列: {missing}")
+            for row in reader:
+                vars.append([float(row[p]) for p in param_names])
+        # 构建数据表内容
+        table_content = f".data DECODER\n"
+        table_content += "+ " + " ".join(param_names) + "\n"
+
+        # 在网表中添加参数定义
+        for param in param_names:
+            circuit.raw_spice += f'.param {param}=0.0\n'
+        
+    
+        # # 调试模式下的默认值
+        # if vars is None:
+        #     # 默认参数值 [pmos_width_pu, nmos_width_pd, nmos_width_pg, length]
+        #     vars = [[0.27e-6,0.18e-6,0.27e-6,0.09e-6,5.0e-8] ,[0.30e-6,0.20e-6,0.30e-6,0.25e-6,5.0e-8]]
+            
+        #     print(f"[DEBUG]  Using default vars with {len(vars)} rows")
+        
+        # 验证参数维度
+        for i, row in enumerate(vars):
+            assert len(row) == 5, f"Row {i} has {len(row)} values, expected 5"
+
+        for row in vars:
+        # 使用科学计数法格式化
+            formatted_row = [f"{x:.3e}" for x in row]
+            table_content += "+ " + " ".join(formatted_row) + "\n"
+
+        # 生成并保存参数表文件
+        include_path = os.path.join(self.sim_path, f'param_sweep_DECODER.data')
+        with open(include_path, 'w') as f:
+            f.write(table_content)
+    
+        # 在网表中包含参数表
+        circuit.include(include_path)
+        print(f'[DEBUG] Parameter sweep table saved to {include_path}') 
 
     def run_mc_simulation(self, operation='read', target_row=0, target_col=0, mc_runs=100, vars=None):
         """Run Xyce Monte Carlo simulation"""
         simulator = self.create_testbench(operation, target_row, target_col).simulator()
 
+        # if self.param_sweep:
+        #     mc_runs=num_sweep
         # Add some Xyce related commands
         self.add_analysis(simulator.circuit, operation, mc_runs)
 
@@ -349,6 +719,21 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # Add process parameters
         if self.custom_mc:
             self.gen_process_params(simulator.circuit, operation, vars=vars, num_mc=mc_runs)
+        else:
+            if self.param_sweep:
+                self.gen_param_sweep_6T_CELL(simulator.circuit, operation, vars=vars)
+            if self.sweep_precharge:
+                self.gen_param_sweep_precharge(simulator.circuit, operation, vars=vars)
+            if self.sweep_senseamp:
+                self.gen_param_sweep_senseamp(simulator.circuit, operation, vars=vars)
+            if self.sweep_wordlinedriver:
+                self.gen_param_sweep_wordlinedriver(simulator.circuit, operation, vars=vars)
+            if self.sweep_columnmux:
+                self.gen_param_sweep_columnmux(simulator.circuit, operation, vars=vars)
+            if self.sweep_writedriver:
+                self.gen_param_sweep_writedriver(simulator.circuit, operation, vars=vars)
+            if self.sweep_decoder:
+                self.gen_param_sweep_decoder(simulator.circuit, operation, vars=vars)
 
         print("[DEBUG] Printing generated netlists...")
         print(simulator)
