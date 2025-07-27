@@ -18,6 +18,10 @@ class Sram6TCell(BaseSubcircuit):#继承自BaseSubcircuit
                  w_rc=False,
                  pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  disconnect=False,                          #是否断开内部数据节点连接
+                 param_sweep=False,
+                 pmos_modle_choices='PMOS_VTG',
+                 nmos_modle_choices='NMOS_VTG',
+                 param_file="sim/param_sweep_model_name.txt"
                  ):                                         #基本6t单元所需参数：pd/pu/pg各自的模型名，晶体管长宽以及rc相关参数
         # Modify the name of this subcircuit before call parent class.__init__()
         if disconnect:
@@ -29,6 +33,11 @@ class Sram6TCell(BaseSubcircuit):#继承自BaseSubcircuit
             w_rc, pi_res, pi_cap
         )
         # Transistor Sizes (FreePDK45 uses nanometers)      #存储关键参数
+        self.param_file = param_file
+        self.mos_model_index = self.read_mos_model_from_param_file()
+        self.pmos_modle_choices=pmos_modle_choices
+        self.nmos_modle_choices=nmos_modle_choices
+
         self.pg_width = pg_width
         self.pd_width = pd_width
         self.pu_width = pu_width
@@ -50,9 +59,33 @@ class Sram6TCell(BaseSubcircuit):#继承自BaseSubcircuit
             q_node = self.add_rc_networks_to_node('Q', 1)
             qb_node = self.add_rc_networks_to_node('QB', 1)
 
-        self.add_6T_cell(bl_node, blb_node, wl_node, q_node, qb_node)#添加6T cell单元
+        self.add_6T_cell(bl_node, blb_node, wl_node, q_node, qb_node,param_sweep)#添加6T cell单元
 
-    def add_6T_cell(self, bl_node, blb_node, wl_node, q_node, qb_node):
+    def read_mos_model_from_param_file(self):
+        """
+        从 param_sweep_PRECHARGE.txt 中读取 mos_model 的值
+        """
+        try:
+            with open(self.param_file, 'r') as f:
+                lines = f.readlines()
+                # 假设第一行为标题行，第二行为数据行
+                if len(lines) >= 2:
+                    header = lines[0].strip().split()
+                    values = lines[1].strip().split()
+                    models = {}
+                    for key in ['pmos_model_pu', 'nmos_model_pd', 'nmos_model_pg']:
+                        if key not in header:
+                            raise ValueError(f"Missing required column: {key}")
+                        index = header.index(key)
+                        models[key.split('_')[-1]] = values[index]  # 只保留 pu/pd/pg 作为键
+                    return models
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Parameter file '{self.param_file}' not found.")
+        except Exception as e:
+            raise ValueError(f"Error parsing parameter file: {e}")
+        raise ValueError("Could not find 'pmos_model_precharge' in parameter file.")
+
+    def add_6T_cell(self, bl_node, blb_node, wl_node, q_node, qb_node,param_sweep):
         ###Add 6T cell to the SRAM cell, initializaed with `0` at Q###
         #处理断开模式下的内部节点命名
         if self.disconnect:
@@ -61,25 +94,45 @@ class Sram6TCell(BaseSubcircuit):#继承自BaseSubcircuit
         else:
             data_q = q_node
             data_qb = qb_node
-        # Access transistors    #添加传输门晶体管
-        self.M('PGL', bl_node, wl_node, data_q, self.NODES[1], model=self.pg_nmos_model_name, w=self.pg_width,
-               l=self.length)
-        self.M('PGR', blb_node, wl_node, data_qb, self.NODES[1], model=self.pg_nmos_model_name, w=self.pg_width,
-               l=self.length)
-        print(f"[DEBUG] M1-M2: Access transistors NMOS={self.pg_nmos_model_name} W={self.pg_width} L={self.length})")
+        if not param_sweep:
+            # Access transistors    #添加传输门晶体管
+            self.M('PGL', bl_node, wl_node, data_q, self.NODES[1], model=self.pg_nmos_model_name, w=self.pg_width,
+                l=self.length)
+            self.M('PGR', blb_node, wl_node, data_qb, self.NODES[1], model=self.pg_nmos_model_name, w=self.pg_width,
+                l=self.length)
+            print(f"[DEBUG] M1-M2: Access transistors NMOS={self.pg_nmos_model_name} W={self.pg_width} L={self.length})")
 
-        # Cross-coupled inverters   #添加两个交叉耦合反相器
-        self.M('PDL', data_q, 'QB', self.NODES[1], self.NODES[1], model=self.nmos_pdk_model, w=self.pd_width,
-               l=self.length)
-        self.M('PUL', data_q, 'QB', self.NODES[0], self.NODES[0], model=self.pmos_pdk_model, w=self.pu_width,
-               l=self.length)
-        self.M('PDR', data_qb, 'Q', self.NODES[1], self.NODES[1], model=self.nmos_pdk_model, w=self.pd_width,
-               l=self.length)
-        self.M('PUR', data_qb, 'Q', self.NODES[0], self.NODES[0], model=self.pmos_pdk_model, w=self.pu_width,
-               l=self.length)
+            # Cross-coupled inverters   #添加两个交叉耦合反相器
+            self.M('PDL', data_q, 'QB', self.NODES[1], self.NODES[1], model=self.nmos_pdk_model, w=self.pd_width,
+                l=self.length)
+            self.M('PUL', data_q, 'QB', self.NODES[0], self.NODES[0], model=self.pmos_pdk_model, w=self.pu_width,
+                l=self.length)
+            self.M('PDR', data_qb, 'Q', self.NODES[1], self.NODES[1], model=self.nmos_pdk_model, w=self.pd_width,
+                l=self.length)
+            self.M('PUR', data_qb, 'Q', self.NODES[0], self.NODES[0], model=self.pmos_pdk_model, w=self.pu_width,
+                l=self.length)
 
-        print(f"[DEBUG] M3-M6: Cross-coupled inverters (NMOS={self.nmos_pdk_model} W={self.pd_width} L={self.length}" +
-              f"        PMOS={self.pmos_pdk_model} W={self.pu_width} L={self.length})")
+            print(f"[DEBUG] M3-M6: Cross-coupled inverters (NMOS={self.nmos_pdk_model} W={self.pd_width} L={self.length}" +
+                f"        PMOS={self.pmos_pdk_model} W={self.pu_width} L={self.length})")
+        else:
+            self.M('PGL', bl_node, wl_node, data_q, self.NODES[1], model=self.nmos_modle_choices[int(self.mos_model_index['pg'])],
+                w= 'nmos_width_pg',l='length')
+            self.M('PGR', blb_node, wl_node, data_qb, self.NODES[1], model=self.nmos_modle_choices[int(self.mos_model_index['pg'])], 
+                w='nmos_width_pg',l='length')
+            print(f"[DEBUG] M1-M2: Access transistors NMOS={self.pg_nmos_model_name} W={self.pg_width} L={'length'})")
+
+            # Cross-coupled inverters   #添加两个交叉耦合反相器
+            self.M('PDL', data_q, 'QB', self.NODES[1], self.NODES[1], model=self.nmos_modle_choices[int(self.mos_model_index['pd'])],
+                w='nmos_width_pd',l='length')
+            self.M('PUL', data_q, 'QB', self.NODES[0], self.NODES[0], model=self.pmos_modle_choices[int(self.mos_model_index['pu'])],
+                w='pmos_width_pu',l='length')
+            self.M('PDR', data_qb, 'Q', self.NODES[1], self.NODES[1], model=self.nmos_modle_choices[int(self.mos_model_index['pd'])], 
+                w='nmos_width_pd',l='length')
+            self.M('PUR', data_qb, 'Q', self.NODES[0], self.NODES[0], model=self.pmos_modle_choices[int(self.mos_model_index['pu'])], 
+                w='pmos_width_pu',l='length')
+
+            print(f"[DEBUG] M3-M6: Cross-coupled inverters (NMOS={self.nmos_pdk_model} W={self.pd_width} L={self.length}" +
+                f"        PMOS={self.pmos_pdk_model} W={self.pu_width} L={self.length})")
 
 
 class Sram6TCellForYield(Sram6TCell):#支持良率分析的6t sram单元
@@ -96,6 +149,7 @@ class Sram6TCellForYield(Sram6TCell):#支持良率分析的6t sram单元
                  disconnect=False,
                  suffix='',
                  custom_mc=False,
+                 param_sweep= False,
                  ):
         # Modify the name of this subcircuit before call parent class.__init__()
         if disconnect:
@@ -106,6 +160,7 @@ class Sram6TCellForYield(Sram6TCell):#支持良率分析的6t sram单元
         self.suffix = suffix
         # Whether use local process parameters
         self.custom_mc = custom_mc
+        self.param_sweep = param_sweep
         # Model parameters are in this dict.
         self.model_dict = model_dict
 
@@ -113,11 +168,11 @@ class Sram6TCellForYield(Sram6TCell):#支持良率分析的6t sram单元
         super().__init__(
             pd_nmos_model_name, pu_pmos_model_name, pg_nmos_model_name,
             pd_width, pu_width, pg_width, length,
-            w_rc, pi_res, pi_cap, disconnect,
+            w_rc, pi_res, pi_cap, disconnect,param_sweep
         )
         self.pg_nmos_model_name = pg_nmos_model_name
 
-    def add_6T_cell(self, bl_node, blb_node, wl_node, q_node, qb_node):#重写add函数
+    def add_6T_cell(self, bl_node, blb_node, wl_node, q_node, qb_node,param_sweep):#重写add函数
         ###Add 6T cell to the SRAM cell###
         if self.disconnect:
             data_q = 'QD'
@@ -125,51 +180,96 @@ class Sram6TCellForYield(Sram6TCell):#支持良率分析的6t sram单元
         else:
             data_q = q_node
             data_qb = qb_node
+        if not param_sweep:
+            # Access transistors    #为每个晶体管创建udf_model模型
+            pgl_udf_model = self.pg_nmos_model_name + '_PGL' + self.suffix
+            self.M('PGL', bl_node, wl_node, data_q, self.NODES[1],
+                model=pgl_udf_model,
+                w=self.pg_width, l=self.length)
+            self.add_usrdefine_mos_model(self.pg_nmos_model_name, pgl_udf_model)
 
-        # Access transistors    #为每个晶体管创建udf_model模型
-        pgl_udf_model = self.pg_nmos_model_name + '_PGL' + self.suffix
-        self.M('PGL', bl_node, wl_node, data_q, self.NODES[1],
-               model=pgl_udf_model,
-               w=self.pg_width, l=self.length)
-        self.add_usrdefine_mos_model(self.pg_nmos_model_name, pgl_udf_model)
+            pgr_udf_model =self.pg_nmos_model_name + '_PGR' + self.suffix
+            self.M('PGR', blb_node, wl_node, data_qb, self.NODES[1],
+                model=pgr_udf_model,
+                w=self.pg_width, l=self.length)
+            self.add_usrdefine_mos_model(self.pg_nmos_model_name, pgr_udf_model)
 
-        pgr_udf_model =self.pg_nmos_model_name + '_PGR' + self.suffix
-        self.M('PGR', blb_node, wl_node, data_qb, self.NODES[1],
-               model=pgr_udf_model,
-               w=self.pg_width, l=self.length)
-        self.add_usrdefine_mos_model(self.pg_nmos_model_name, pgr_udf_model)
+            print(f"[DEBUG] M1-M2: Access transistors NMOS={pgl_udf_model} W={self.pg_width} L={self.length})")
 
-        print(f"[DEBUG] M1-M2: Access transistors NMOS={pgl_udf_model} W={self.pg_width} L={self.length})")
+            # Cross-coupled inverters
+            # Left-side inverter
+            pdl_udf_model = self.nmos_pdk_model + '_PDL' + self.suffix
+            self.M('PDL', data_q, 'QB', self.NODES[1], self.NODES[1],
+                model=pdl_udf_model,
+                w=self.pd_width, l=self.length)
+            self.add_usrdefine_mos_model(self.nmos_pdk_model, pdl_udf_model)
 
-        # Cross-coupled inverters
-        # Left-side inverter
-        pdl_udf_model = self.nmos_pdk_model + '_PDL' + self.suffix
-        self.M('PDL', data_q, 'QB', self.NODES[1], self.NODES[1],
-               model=pdl_udf_model,
-               w=self.pd_width, l=self.length)
-        self.add_usrdefine_mos_model(self.nmos_pdk_model, pdl_udf_model)
+            pul_udf_model = self.pmos_pdk_model + '_PUL' + self.suffix
+            self.M('PUL', data_q, 'QB', self.NODES[0], self.NODES[0],
+                model=pul_udf_model,
+                w=self.pu_width, l=self.length)
+            self.add_usrdefine_mos_model(self.pmos_pdk_model, pul_udf_model)
 
-        pul_udf_model = self.pmos_pdk_model + '_PUL' + self.suffix
-        self.M('PUL', data_q, 'QB', self.NODES[0], self.NODES[0],
-               model=pul_udf_model,
-               w=self.pu_width, l=self.length)
-        self.add_usrdefine_mos_model(self.pmos_pdk_model, pul_udf_model)
+            # Right-side inverter
+            pdr_udf_model = self.nmos_pdk_model + '_PDR' + self.suffix
+            self.M('PDR', data_qb, 'Q', self.NODES[1], self.NODES[1],
+                model=pdr_udf_model,
+                w=self.pd_width, l=self.length)
+            self.add_usrdefine_mos_model(self.nmos_pdk_model, pdr_udf_model)
 
-        # Right-side inverter
-        pdr_udf_model = self.nmos_pdk_model + '_PDR' + self.suffix
-        self.M('PDR', data_qb, 'Q', self.NODES[1], self.NODES[1],
-               model=pdr_udf_model,
-               w=self.pd_width, l=self.length)
-        self.add_usrdefine_mos_model(self.nmos_pdk_model, pdr_udf_model)
+            pur_udf_model = self.pmos_pdk_model + '_PUR' + self.suffix
+            self.M('PUR', data_qb, 'Q', self.NODES[0], self.NODES[0],
+                model=pur_udf_model,
+                w=self.pu_width, l=self.length)
+            self.add_usrdefine_mos_model(self.pmos_pdk_model, pur_udf_model)
 
-        pur_udf_model = self.pmos_pdk_model + '_PUR' + self.suffix
-        self.M('PUR', data_qb, 'Q', self.NODES[0], self.NODES[0],
-               model=pur_udf_model,
-               w=self.pu_width, l=self.length)
-        self.add_usrdefine_mos_model(self.pmos_pdk_model, pur_udf_model)
+            print(f"[DEBUG] M3-M6: Cross-coupled inverters (NMOS={pdr_udf_model} W={self.pd_width} L={self.length}" +
+                f"        PMOS={pur_udf_model} W={self.pu_width} L={self.length})")
+        else:
+             # Access transistors    #为每个晶体管创建udf_model模型
+            pgl_udf_model = self.pg_nmos_model_name + '_PGL' + self.suffix
+            self.M('PGL', bl_node, wl_node, data_q, self.NODES[1],
+                model=pgl_udf_model,
+                w= 'nmos_width_pg', l='length')
+            self.add_usrdefine_mos_model(self.pg_nmos_model_name, pgl_udf_model)
 
-        print(f"[DEBUG] M3-M6: Cross-coupled inverters (NMOS={pdr_udf_model} W={self.pd_width} L={self.length}" +
-              f"        PMOS={pur_udf_model} W={self.pu_width} L={self.length})")
+            pgr_udf_model =self.pg_nmos_model_name + '_PGR' + self.suffix
+            self.M('PGR', blb_node, wl_node, data_qb, self.NODES[1],
+                model=pgr_udf_model,
+                w='nmos_width_pg', l='length')
+            self.add_usrdefine_mos_model(self.pg_nmos_model_name, pgr_udf_model)
+
+            print(f"[DEBUG] M1-M2: Access transistors NMOS={pgl_udf_model} W={'nmos_width_pg'} L={'length'})")
+
+            # Cross-coupled inverters
+            # Left-side inverter
+            pdl_udf_model = self.nmos_pdk_model + '_PDL' + self.suffix
+            self.M('PDL', data_q, 'QB', self.NODES[1], self.NODES[1],
+                model=pdl_udf_model,
+                w='nmos_width_pd', l='length')
+            self.add_usrdefine_mos_model(self.nmos_pdk_model, pdl_udf_model)
+
+            pul_udf_model = self.pmos_pdk_model + '_PUL' + self.suffix
+            self.M('PUL', data_q, 'QB', self.NODES[0], self.NODES[0],
+                model=pul_udf_model,
+                w='pmos_width_pu', l='length')
+            self.add_usrdefine_mos_model(self.pmos_pdk_model, pul_udf_model)
+
+            # Right-side inverter
+            pdr_udf_model = self.nmos_pdk_model + '_PDR' + self.suffix
+            self.M('PDR', data_qb, 'Q', self.NODES[1], self.NODES[1],
+                model=pdr_udf_model,
+                w='nmos_width_pd', l='length')
+            self.add_usrdefine_mos_model(self.nmos_pdk_model, pdr_udf_model)
+
+            pur_udf_model = self.pmos_pdk_model + '_PUR' + self.suffix
+            self.M('PUR', data_qb, 'Q', self.NODES[0], self.NODES[0],
+                model=pur_udf_model,
+                w='pmos_width_pu', l='length')
+            self.add_usrdefine_mos_model(self.pmos_pdk_model, pur_udf_model)
+
+            print(f"[DEBUG] M3-M6: Cross-coupled inverters (NMOS={pdr_udf_model} W={'pmos_width_pu'} L={'length'}" +
+                f"        PMOS={pur_udf_model} W={self.pu_width} L={self.length})")
 
     def add_usrdefine_mos_model(self, pdk_model_name, udf_model_name):  #添加用户定义的mos模型？？
         model_data = self.model_dict[pdk_model_name]    #通过pdk_model_name获取模型数据
@@ -206,7 +306,9 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
                  pd_nmos_model_name: str, pu_pmos_model_name: str, pg_nmos_model_name: str,
                  pd_width=0.205e-6, pu_width=0.09e-6,
                  pg_width=0.135e-6, length=50e-9,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,param_sweep=False,
+                 pmos_modle_choices = 'PMOS_VTG',
+                 nmos_modle_choices = 'NMOS_VTG'
                  ):
         #  disconnect=False, target_row=None, target_col=None):
 
@@ -234,7 +336,9 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
         self.w_rc = w_rc
         self.pi_res = pi_res
         self.pi_cap = pi_cap
-
+        self.param_sweep= param_sweep
+        self.pmos_modle_choices=pmos_modle_choices
+        self.nmos_modle_choices=nmos_modle_choices
         # Build the array
         self.build_array(num_rows, num_cols)        #构建阵列
         # set instance prefix and the name of 6t cell
@@ -247,7 +351,9 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
             self.pd_width, self.pu_width,
             self.pg_width, self.length,
             w_rc=self.w_rc,
-            pi_res=self.pi_res, pi_cap=self.pi_cap,
+            pi_res=self.pi_res, pi_cap=self.pi_cap,param_sweep=self.param_sweep,
+            pmos_modle_choices=self.pmos_modle_choices,
+            nmos_modle_choices=self.nmos_modle_choices
         )
 
         # define the cell subcircuit    #添加cell单元
@@ -278,7 +384,7 @@ class Sram6TCoreForYield(Sram6TCore):   #使用良率分析时调用的sram 阵�
                  model_dict: Dict[str, Dict[str, Any]], #添加新参数
                  pd_width=0.205e-6, pu_width=0.09e-6,
                  pg_width=0.135e-6, length=50e-9,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,param_sweep=False
                  ):
         # add model_dict for customizing transistor `.model` in each cell
         # set `model_dict` before super().__init__()
@@ -287,11 +393,12 @@ class Sram6TCoreForYield(Sram6TCore):   #使用良率分析时调用的sram 阵�
         super().__init__(num_rows, num_cols,
                          pd_nmos_model_name, pu_pmos_model_name, pg_nmos_model_name,
                          pd_width, pu_width, pg_width, length,
-                         w_rc, pi_res, pi_cap,
+                         w_rc, pi_res, pi_cap,param_sweep
                          )
         self.pd_nmos_pdk_model = pd_nmos_model_name
         self.pu_pmos_pdk_model = pu_pmos_model_name
         self.pg_pmos_pdk_model = pg_nmos_model_name
+        self.param_sweep= param_sweep
 
     def build_array(self, num_rows, num_cols):      #重写阵列构建函数
         # Generate SRAM cells
@@ -306,6 +413,7 @@ class Sram6TCoreForYield(Sram6TCore):   #使用良率分析时调用的sram 阵�
                     w_rc=self.w_rc,
                     pi_res=self.pi_res, pi_cap=self.pi_cap,
                     suffix=f'_{row}_{col}',
+                    param_sweep=self.param_sweep
                 )
 
                 # add the cell subcircuit to this circuit
