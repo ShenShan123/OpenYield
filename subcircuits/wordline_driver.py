@@ -16,7 +16,8 @@ class Pinv(BaseSubcircuit): #单个反相器,不分pd,pu,pg
     def __init__(self, nmos_model_name, pmos_model_name,
                  base_pmos_width=0.27e-6, base_nmos_width=0.09e-6, length=0.05e-6,
                  num_cols=4, # Number of columns in the SRAM array configuration    #列
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,sweep_wordlinedriver=False,
+                 pmos_modle_choices = 'PMOS_VTG',nmos_modle_choices = 'MOS_VTG',param_file="sim/param_sweep_model_name.txt"
                  ):
 
         super().__init__(
@@ -24,8 +25,13 @@ class Pinv(BaseSubcircuit): #单个反相器,不分pd,pu,pg
             base_nmos_width, base_pmos_width, length,
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
+        self.param_file = param_file
+        self.mos_model_index = self.read_mos_model_from_param_file()
+        self.pmos_modle_choices=pmos_modle_choices
+        self.nmos_modle_choices=nmos_modle_choices
 
         self.num_cols = num_cols
+        self.sweep_wordlinedriver = sweep_wordlinedriver
         # Calculate dynamic widths before calling super().__init__ if BaseSubcircuit uses them
         # or store base widths and calculate actuals after super()
         self.pmos_width = self.calculate_dynamic_width(base_pmos_width, self.num_cols)
@@ -33,6 +39,30 @@ class Pinv(BaseSubcircuit): #单个反相器,不分pd,pu,pg
         # self.transistor_length = length
         
         self.add_inverter_transistors() #添加反相器单元函数
+
+    def read_mos_model_from_param_file(self):
+        """
+        从 param_sweep_PRECHARGE.txt 中读取 mos_model 的值
+        """
+        try:
+            with open(self.param_file, 'r') as f:
+                lines = f.readlines()
+                # 假设第一行为标题行，第二行为数据行
+                if len(lines) >= 2:
+                    header = lines[0].strip().split()
+                    values = lines[1].strip().split()
+                    models = {}
+                    for key in ['pmos_model_wld_invp', 'nmos_model_wld_invn']:
+                        if key not in header:
+                            raise ValueError(f"Missing required column: {key}")
+                        index = header.index(key)
+                        models[key.split('_')[0]] = values[index]  # 保留 pmos/nmos作为键
+                    return models
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Parameter file '{self.param_file}' not found.")
+        except Exception as e:
+            raise ValueError(f"Error parsing parameter file: {e}")
+        raise ValueError("Could not find 'pmos_model_precharge' in parameter file.")
 
     def calculate_dynamic_width(self, base_width, num_cols_config):
         """
@@ -48,13 +78,22 @@ class Pinv(BaseSubcircuit): #单个反相器,不分pd,pu,pg
 
     def add_inverter_transistors(self): #反相器即一个pmos+一个nmos
         # Mpinv_pmos Z A vdd vdd pmos_vtg m=1 w=0.27u l=0.05u
-        self.M('pinv_pmos', 'Z', 'A', 'VDD', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.pmos_width, l=self.length)
-        # Mpinv_nmos Z A gnd gnd nmos_vtg m=1 w=0.09u l=0.05u
-        self.M('pinv_nmos', 'Z', 'A', 'VSS', 'VSS',
-               model=self.nmos_pdk_model,
-               w=self.nmos_width, l=self.length)
+        if not self.sweep_wordlinedriver:
+            self.M('pinv_pmos', 'Z', 'A', 'VDD', 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)
+            # Mpinv_nmos Z A gnd gnd nmos_vtg m=1 w=0.09u l=0.05u
+            self.M('pinv_nmos', 'Z', 'A', 'VSS', 'VSS',
+                model=self.nmos_pdk_model,
+                w=self.nmos_width, l=self.length)
+        else:
+            self.M('pinv_pmos', 'Z', 'A', 'VDD', 'VDD',
+                model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_wld_invp', l='length_wld')
+            # Mpinv_nmos Z A gnd gnd nmos_vtg m=1 w=0.09u l=0.05u
+            self.M('pinv_nmos', 'Z', 'A', 'VSS', 'VSS',
+                model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_wld_invn', l='length_wld')
 
 class PNAND2(BaseSubcircuit):   #单个2输入与非门
     """
@@ -68,14 +107,21 @@ class PNAND2(BaseSubcircuit):   #单个2输入与非门
     def __init__(self, nmos_model_name, pmos_model_name,
                  base_pmos_width=0.27e-6, base_nmos_width=0.18e-6, length=0.05e-6,
                  num_cols=4, # Number of columns in the SRAM array configuration
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,sweep_wordlinedriver=False,
+                 pmos_modle_choices = 'PMOS_VTG',nmos_modle_choices = 'MOS_VTG',param_file="sim/param_sweep_model_name.txt"
+                 ):
         
         super().__init__(
             nmos_model_name, pmos_model_name,
             base_nmos_width, base_pmos_width, length, 
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
+        self.param_file = param_file
+        self.mos_model_index = self.read_mos_model_from_param_file()
+        self.pmos_modle_choices=pmos_modle_choices
+        self.nmos_modle_choices=nmos_modle_choices
 
+        self.sweep_wordlinedriver=sweep_wordlinedriver
         self.add_nand2_transistors()
     #不需要尺寸调整函数
     # def calculate_dynamic_width(self, base_width, num_cols_config):
@@ -88,21 +134,59 @@ class PNAND2(BaseSubcircuit):   #单个2输入与非门
             
     #     scaling_factor = num_cols_config / 4.0 
     #     return base_width * scaling_factor
+    def read_mos_model_from_param_file(self):
+        """
+        从 param_sweep_PRECHARGE.txt 中读取 mos_model 的值
+        """
+        try:
+            with open(self.param_file, 'r') as f:
+                lines = f.readlines()
+                # 假设第一行为标题行，第二行为数据行
+                if len(lines) >= 2:
+                    header = lines[0].strip().split()
+                    values = lines[1].strip().split()
+                    models = {}
+                    for key in ['pmos_model_wld_nandp', 'nmos_model_wld_nandn']:
+                        if key not in header:
+                            raise ValueError(f"Missing required column: {key}")
+                        index = header.index(key)
+                        models[key.split('_')[0]] = values[index]  # 保留 pmos/nmos作为键
+                    return models
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Parameter file '{self.param_file}' not found.")
+        except Exception as e:
+            raise ValueError(f"Error parsing parameter file: {e}")
+        raise ValueError("Could not find 'pmos_model_precharge' in parameter file.")
 
     def add_nand2_transistors(self):
-        self.M('pnand2_pmos1', 'VDD', 'A', 'Z', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.base_pmos_width, l=self.length)
-        self.M('pnand2_pmos2', 'Z', 'B', 'VDD', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.base_pmos_width, l=self.length)
-        
-        self.M('pnand2_nmos1', 'Z', 'B', 'net1_nand', 'VSS', 
-               model=self.nmos_pdk_model,
-               w=self.base_nmos_width, l=self.length)
-        self.M('pnand2_nmos2', 'net1_nand', 'A', 'VSS', 'VSS',
-               model=self.nmos_pdk_model,
-               w=self.base_nmos_width, l=self.length)
+        if not self.sweep_wordlinedriver:
+            self.M('pnand2_pmos1', 'VDD', 'A', 'Z', 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.base_pmos_width, l=self.length)
+            self.M('pnand2_pmos2', 'Z', 'B', 'VDD', 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.base_pmos_width, l=self.length)
+            
+            self.M('pnand2_nmos1', 'Z', 'B', 'net1_nand', 'VSS', 
+                model=self.nmos_pdk_model,
+                w=self.base_nmos_width, l=self.length)
+            self.M('pnand2_nmos2', 'net1_nand', 'A', 'VSS', 'VSS',
+                model=self.nmos_pdk_model,
+                w=self.base_nmos_width, l=self.length)
+        else:
+            self.M('pnand2_pmos1', 'VDD', 'A', 'Z', 'VDD',
+                model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_wld_nandp', l='length_wld')
+            self.M('pnand2_pmos2', 'Z', 'B', 'VDD', 'VDD',
+                model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_wld_nandp', l='length_wld')
+            
+            self.M('pnand2_nmos1', 'Z', 'B', 'net1_nand', 'VSS', 
+                model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_wld_nandn', l='length_wld')
+            self.M('pnand2_nmos2', 'net1_nand', 'A', 'VSS', 'VSS',
+                model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_wld_nandn', l='length_wld')
 
 
 class WordlineDriver(BaseSubcircuit):   #总的字线驱动器=一个与非门加一个反相器
@@ -123,6 +207,9 @@ class WordlineDriver(BaseSubcircuit):   #总的字线驱动器=一个与非门�
                  length=0.05e-6, 
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  num_cols=4, # Number of columns this driver is intended for
+                 sweep_wordlinedriver = False,
+                pmos_modle_choices = 'PMOS_VTG',
+                nmos_modle_choices = 'MOS_VTG'
                  ):
         
         super().__init__(
@@ -132,6 +219,9 @@ class WordlineDriver(BaseSubcircuit):   #总的字线驱动器=一个与非门�
         )
         
         self.num_cols = num_cols
+        self.sweep_wordlinedriver= sweep_wordlinedriver
+        self.pmos_modle_choices=pmos_modle_choices
+        self.nmos_modle_choices=nmos_modle_choices
 
         # This is the nand gate
         self.nand_gate = PNAND2(nmos_model_name=nmos_model_name, 
@@ -139,7 +229,11 @@ class WordlineDriver(BaseSubcircuit):   #总的字线驱动器=一个与非门�
                                 base_pmos_width=base_nand_pmos_width,
                                 base_nmos_width=base_nand_nmos_width,
                                 length=length,
-                                num_cols=self.num_cols) # Pass num_cols for dynamic sizing
+                                num_cols=self.num_cols,
+                                sweep_wordlinedriver=self.sweep_wordlinedriver,
+                                pmos_modle_choices = self.pmos_modle_choices,
+                                nmos_modle_choices = self.nmos_modle_choices
+                                ) # Pass num_cols for dynamic sizing
         self.subcircuit(self.nand_gate) #添加与非门电路
         
         # This is the inverter for driving WLs
@@ -148,7 +242,11 @@ class WordlineDriver(BaseSubcircuit):   #总的字线驱动器=一个与非门�
                                base_pmos_width=base_inv_pmos_width,
                                base_nmos_width=base_inv_nmos_width,
                                length=length,
-                               num_cols=self.num_cols) # Pass num_cols for dynamic sizing
+                               num_cols=self.num_cols,
+                               sweep_wordlinedriver=self.sweep_wordlinedriver,
+                               pmos_modle_choices = self.pmos_modle_choices,
+                               nmos_modle_choices = self.nmos_modle_choices
+                               ) # Pass num_cols for dynamic sizing
         self.subcircuit(self.inv_driver)    #添加反相器电路
 
         self.add_driver_components()
