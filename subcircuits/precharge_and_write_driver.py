@@ -12,17 +12,43 @@ class Precharge(BaseSubcircuit):    #只需要三个PMOS
     NODES = ('VDD', 'ENB', 'BL', 'BLB') 
 
     def __init__(self, pmos_model_name, base_pmos_width=0.27e-6, length=50e-9, 
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF, num_rows=16):
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF, num_rows=16,
+                 sweep_precharge = False,pmos_modle_choices='NMOS_VTG',
+                 param_file="sim/param_sweep_model_name.txt"):
         
         super().__init__(
             None, pmos_model_name, 
             base_pmos_width, base_pmos_width, length,
             w_rc, pi_res, pi_cap,
         )
-        
+        # 新增：加载参数表数据
+        self.param_file = param_file
+        self.pmos_model_precharge = self._read_pmos_model_from_param_file()
+        self.pmos_modle_choices=pmos_modle_choices
         self.num_rows = num_rows
+        self.sweep_precharge = sweep_precharge
         self.pmos_width = self.calculate_dynamic_width(base_pmos_width, num_rows)
         self.add_precharge_transistors()#预充电单元函数
+
+    def _read_pmos_model_from_param_file(self):
+        """
+        从 param_sweep_PRECHARGE.txt 中读取 pmos_model_precharge 的值
+        """
+        try:
+            with open(self.param_file, 'r') as f:
+                lines = f.readlines()
+                # 假设第一行为标题行，第二行为数据行
+                if len(lines) >= 2:
+                    header = lines[0].strip().split()
+                    values = lines[1].strip().split()
+                    if 'pmos_model_precharge' in header:
+                        index = header.index('pmos_model_precharge')
+                        return values[index]
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Parameter file '{self.param_file}' not found.")
+        except Exception as e:
+            raise ValueError(f"Error parsing parameter file: {e}")
+        raise ValueError("Could not find 'pmos_model_precharge' in parameter file.")
 
     def calculate_dynamic_width(self, base_width, num_rows):
         """
@@ -44,18 +70,30 @@ class Precharge(BaseSubcircuit):    #只需要三个PMOS
             bl_node = 'BL'
             blb_node = 'BLB'
             enb_node = 'ENB'
-            
-        # PMOS transistors to precharge BL and BLB to VDD
-        self.M(1, bl_node,  enb_node, 'VDD', 'VDD',
-            model=self.pmos_pdk_model,
-            w=self.pmos_width, l=self.length)
-        self.M(2, blb_node, enb_node, 'VDD', 'VDD',
-            model=self.pmos_pdk_model,
-            w=self.pmos_width, l=self.length)
-        # Equalization transistor to reduce the difference between BL and BLB
-        self.M(3, bl_node, enb_node, blb_node, 'VDD',
-            model=self.pmos_pdk_model,
-            w=self.pmos_width, l=self.length)
+        if not self.sweep_precharge:   
+            # PMOS transistors to precharge BL and BLB to VDD
+            self.M(1, bl_node,  enb_node, 'VDD', 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)
+            self.M(2, blb_node, enb_node, 'VDD', 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)
+            # Equalization transistor to reduce the difference between BL and BLB
+            self.M(3, bl_node, enb_node, blb_node, 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)
+        else:
+             # PMOS transistors to precharge BL and BLB to VDD
+            self.M(1, bl_node,  enb_node, 'VDD', 'VDD',
+                model=self.pmos_modle_choices[ int(self.pmos_model_precharge)],
+                w='pmos_width_precharge', l='length_precharge')
+            self.M(2, blb_node, enb_node, 'VDD', 'VDD',
+                model=self.pmos_modle_choices[ int(self.pmos_model_precharge)],
+                w='pmos_width_precharge', l='length_precharge')
+            # Equalization transistor to reduce the difference between BL and BLB
+            self.M(3, bl_node, enb_node, blb_node, 'VDD',
+                model=self.pmos_modle_choices[ int(self.pmos_model_precharge)],
+                w='pmos_width_precharge', l='length_precharge')
 
 class WriteDriver(BaseSubcircuit):          #写驱动
     """
@@ -69,18 +107,49 @@ class WriteDriver(BaseSubcircuit):          #写驱动
     def __init__(self, nmos_model_name, pmos_model_name,
                  base_nmos_width=0.18e-6, base_pmos_width=0.36e-6, length=50e-9,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 num_rows=16):
+                 num_rows=16,sweep_writedriver=False,
+                 pmos_modle_choices='PMOS_VTG',nmos_modle_choices='NMOS_VTG',param_file="sim/param_sweep_model_name.txt"
+                 ):
         super().__init__(
             nmos_model_name, pmos_model_name,
             base_nmos_width, base_pmos_width, length,
             w_rc, pi_res, pi_cap,
         )
         self.num_rows = num_rows
+        self.sweep_writedriver= sweep_writedriver
+        self.param_file = param_file
+        self.mos_model_index = self.read_mos_model_from_param_file()
+        self.pmos_modle_choices=pmos_modle_choices
+        self.nmos_modle_choices=nmos_modle_choices
 
         self.nmos_width = self.calculate_dynamic_width(base_nmos_width, num_rows)
         self.pmos_width = self.calculate_dynamic_width(base_pmos_width, num_rows)
 
         self.add_driver_transistors()#添加写驱动晶体管函数
+
+    def read_mos_model_from_param_file(self):
+        """
+        从 param_sweep_PRECHARGE.txt 中读取 mos_model 的值
+        """
+        try:
+            with open(self.param_file, 'r') as f:
+                lines = f.readlines()
+                # 第一行为标题行，第二行为数据行
+                if len(lines) >= 2:
+                    header = lines[0].strip().split()
+                    values = lines[1].strip().split()
+                    models = {}
+                    for key in ['pmos_model_writedriver', 'nmos_model_writedriver']:
+                        if key not in header:
+                            raise ValueError(f"Missing required column: {key}")
+                        index = header.index(key)
+                        models[key.split('_')[0]] = values[index]  # 保留 pmos/nmos作为键
+                    return models
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Parameter file '{self.param_file}' not found.")
+        except Exception as e:
+            raise ValueError(f"Error parsing parameter file: {e}")
+        raise ValueError("Could not find 'pmos_model_precharge' in parameter file.")
 
     def calculate_dynamic_width(self, base_width, num_rows):#动态调整width函数
         """
@@ -108,45 +177,86 @@ class WriteDriver(BaseSubcircuit):          #写驱动
             blb_node = 'BLB'
             en_node = 'EN'
             enb_node = 'ENB'
-
+        if not self.sweep_writedriver:
         # Inverters for enable and data input
-        self.M(1, 'DINB', d_node, 'VDD', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.pmos_width, l=self.length)
-        self.M(2, 'DINB', d_node, 'VSS', 'VSS',
-               model=self.nmos_pdk_model,
-               w=self.nmos_width, l=self.length)
-        self.M(3, 'ENB', en_node, 'VDD', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.pmos_width, l=self.length)
-        self.M(4, 'ENB', en_node, 'VSS', 'VSS',
-               model=self.nmos_pdk_model,
-               w=self.nmos_width, l=self.length)
-
-        # Tristate for BL
-        self.M(5, 'int1', db_node, 'VDD', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.pmos_width, l=self.length)
-        self.M(6, bl_node, enb_node, 'int1', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.pmos_width, l=self.length)
-        self.M(7, bl_node, en_node, 'int2', 'VSS',
-               model=self.nmos_pdk_model,
-               w=self.nmos_width, l=self.length)
-        self.M(8, 'int2', db_node, 'VSS', 'VSS',
-               model=self.nmos_pdk_model,
-               w=self.nmos_width, l=self.length)
-
-        # Tristate for BLB
-        self.M(9, 'int3', d_node, 'VDD', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.pmos_width, l=self.length)
-        self.M(10, blb_node, enb_node, 'int3', 'VDD',
+            self.M(1, 'DINB', d_node, 'VDD', 'VDD',
                 model=self.pmos_pdk_model,
                 w=self.pmos_width, l=self.length)
-        self.M(11, blb_node, en_node, 'int4', 'VSS',
+            self.M(2, 'DINB', d_node, 'VSS', 'VSS',
                 model=self.nmos_pdk_model,
                 w=self.nmos_width, l=self.length)
-        self.M(12, 'int4', d_node, 'VSS', 'VSS',
+            self.M(3, 'ENB', en_node, 'VDD', 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)
+            self.M(4, 'ENB', en_node, 'VSS', 'VSS',
                 model=self.nmos_pdk_model,
                 w=self.nmos_width, l=self.length)
+
+            # Tristate for BL
+            self.M(5, 'int1', db_node, 'VDD', 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)
+            self.M(6, bl_node, enb_node, 'int1', 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)
+            self.M(7, bl_node, en_node, 'int2', 'VSS',
+                model=self.nmos_pdk_model,
+                w=self.nmos_width, l=self.length)
+            self.M(8, 'int2', db_node, 'VSS', 'VSS',
+                model=self.nmos_pdk_model,
+                w=self.nmos_width, l=self.length)
+
+            # Tristate for BLB
+            self.M(9, 'int3', d_node, 'VDD', 'VDD',
+                model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)
+            self.M(10, blb_node, enb_node, 'int3', 'VDD',
+                    model=self.pmos_pdk_model,
+                    w=self.pmos_width, l=self.length)
+            self.M(11, blb_node, en_node, 'int4', 'VSS',
+                    model=self.nmos_pdk_model,
+                    w=self.nmos_width, l=self.length)
+            self.M(12, 'int4', d_node, 'VSS', 'VSS',
+                    model=self.nmos_pdk_model,
+                    w=self.nmos_width, l=self.length)
+        else:
+            self.M(1, 'DINB', d_node, 'VDD', 'VDD',
+                model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_wrd', l='length_wrd')
+            self.M(2, 'DINB', d_node, 'VSS', 'VSS',
+                model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_wrd', l='length_wrd')
+            self.M(3, 'ENB', en_node, 'VDD', 'VDD',
+                model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_wrd', l='length_wrd')
+            self.M(4, 'ENB', en_node, 'VSS', 'VSS',
+                model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_wrd', l='length_wrd')
+
+            # Tristate for BL
+            self.M(5, 'int1', db_node, 'VDD', 'VDD',
+                model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_wrd', l='length_wrd')
+            self.M(6, bl_node, enb_node, 'int1', 'VDD',
+                model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_wrd', l='length_wrd')
+            self.M(7, bl_node, en_node, 'int2', 'VSS',
+                model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_wrd', l='length_wrd')
+            self.M(8, 'int2', db_node, 'VSS', 'VSS',
+                model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_wrd', l='length_wrd')
+
+            # Tristate for BLB
+            self.M(9, 'int3', d_node, 'VDD', 'VDD',
+                model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_wrd', l='length_wrd')
+            self.M(10, blb_node, enb_node, 'int3', 'VDD',
+                    model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                    w='pmos_width_wrd', l='length_wrd')
+            self.M(11, blb_node, en_node, 'int4', 'VSS',
+                    model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                    w='nmos_width_wrd', l='length_wrd')
+            self.M(12, 'int4', d_node, 'VSS', 'VSS',
+                    model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                    w='nmos_width_wrd', l='length_wrd')
