@@ -7,9 +7,9 @@
 # 仿真参数 / Simulation parameters
 vdd: 1.5                          # 供电电压(V) / Supply voltage (V)
 temperature: 27                   # 温度(摄氏度) / Temperature (Celsius)
-num_rows: 64                      # SRAM行数 / Number of SRAM rows
+num_rows: 8                      # SRAM行数 / Number of SRAM rows
 num_cols: 4                       # SRAM列数 / Number of SRAM columns
-monte_carlo_runs: 1               # 蒙特卡洛仿真次数 / Monte Carlo simulation runs
+monte_carlo_runs: 2               # 蒙特卡洛仿真次数 / Monte Carlo simulation runs
 timeout: 120                      # 仿真超时时间(秒) / Simulation timeout (seconds)
 pdk_path: "model_lib/models.spice"# PDK路径 / PDK path
 
