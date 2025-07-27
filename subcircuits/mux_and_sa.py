@@ -10,7 +10,8 @@ class ColumnMux(BaseSubcircuit):
                  num_in,#把几列进行多路复用
                  base_nmos_width=0.135e-6, base_pmos_width=0.135e-6, 
                  length=50e-9,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF, sweep_columnmux = False,
+                 pmos_modle_choices='PMOS_VTG',nmos_modle_choices='NMOS_VTG',param_file="sim/param_sweep_model_name.txt"
                  ):
         """
         Args:
@@ -39,9 +40,37 @@ class ColumnMux(BaseSubcircuit):
             base_nmos_width, base_pmos_width, length,
             w_rc, pi_res, pi_cap,
         )
-        
+        self.param_file = param_file
+        self.mos_model_index = self.read_mos_model_from_param_file()
+        self.pmos_modle_choices=pmos_modle_choices
+        self.nmos_modle_choices=nmos_modle_choices
         self.num_in = num_in
+        self. sweep_columnmux =  sweep_columnmux
         self.add_switch_transistor()#添加多路选择器晶体管函数
+    
+    def read_mos_model_from_param_file(self):
+        """
+        从 param_sweep_PRECHARGE.txt 中读取 mos_model 的值
+        """
+        try:
+            with open(self.param_file, 'r') as f:
+                lines = f.readlines()
+                # 假设第一行为标题行，第二行为数据行
+                if len(lines) >= 2:
+                    header = lines[0].strip().split()
+                    values = lines[1].strip().split()
+                    models = {}
+                    for key in ['pmos_model_columnmux', 'nmos_model_columnmux']:
+                        if key not in header:
+                            raise ValueError(f"Missing required column: {key}")
+                        index = header.index(key)
+                        models[key.split('_')[0]] = values[index]  # 保留 pmos/nmos作为键
+                    return models
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Parameter file '{self.param_file}' not found.")
+        except Exception as e:
+            raise ValueError(f"Error parsing parameter file: {e}")
+        raise ValueError("Could not find 'pmos_model_precharge' in parameter file.")
     
     def add_switch_transistor(self):
         # Add NMOS pass transistors for each column in the mux
@@ -55,29 +84,53 @@ class ColumnMux(BaseSubcircuit):
             else:
                 sel_node = f'SEL{i}'
                 selb_node = f'SELB{i}'
+            if not self.sweep_columnmux:
+                # Inverters for select signal
+                self.M(f'Invp_{i}', selb_node, sel_node, 'VDD', 'VDD',
+                    model=self.pmos_pdk_model,
+                    w=self.base_pmos_width, l=self.length)
+                self.M(f'Invn_{i}', selb_node, sel_node, 'VSS', 'VSS',
+                    model=self.nmos_pdk_model,
+                    w=self.base_nmos_width, l=self.length)
+                
+                # Bitline pass gate
+                self.M(f'Muxn_BL_{i}', f'BL{i}', sel_node, 'SA_IN', 'VSS', 
+                    model=self.nmos_pdk_model, w=self.base_nmos_width, 
+                    l=self.length)
+                self.M(f'Muxp_BL_{i}', f'BL{i}', selb_node, 'SA_IN', 'VDD', 
+                    model=self.pmos_pdk_model, w=self.base_pmos_width, 
+                    l=self.length)
+                # Bitline bar pass gate
+                self.M(f'Muxn_BLB_{i}', f'BLB{i}', sel_node, 'SA_INB', 'VSS',
+                    model=self.nmos_pdk_model, w=self.base_nmos_width, 
+                    l=self.length)
+                self.M(f'Muxp_BLB_{i}', f'BLB{i}', selb_node, 'SA_INB', 'VDD',
+                    model=self.pmos_pdk_model, w=self.base_pmos_width, 
+                    l=self.length)
+            else:
+                # Inverters for select signal
+                self.M(f'Invp_{i}', selb_node, sel_node, 'VDD', 'VDD',
+                    model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                    w='pmos_width_mux', l='length_mux')
+                self.M(f'Invn_{i}', selb_node, sel_node, 'VSS', 'VSS',
+                    model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                    w= 'nmos_width_mux', l='length_mux')
+                
+                # Bitline pass gate
+                self.M(f'Muxn_BL_{i}', f'BL{i}', sel_node, 'SA_IN', 'VSS', 
+                    model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                    w= 'nmos_width_mux', l='length_mux')
+                self.M(f'Muxp_BL_{i}', f'BL{i}', selb_node, 'SA_IN', 'VDD', 
+                    model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                    w='pmos_width_mux', l='length_mux')
+                # Bitline bar pass gate
+                self.M(f'Muxn_BLB_{i}', f'BLB{i}', sel_node, 'SA_INB', 'VSS',
+                    model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                    w= 'nmos_width_mux', l='length_mux')
+                self.M(f'Muxp_BLB_{i}', f'BLB{i}', selb_node, 'SA_INB', 'VDD',
+                    model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])], 
+                    w='pmos_width_mux', l='length_mux')
 
-            # Inverters for select signal
-            self.M(f'Invp_{i}', selb_node, sel_node, 'VDD', 'VDD',
-                model=self.pmos_pdk_model,
-                w=self.base_pmos_width, l=self.length)
-            self.M(f'Invn_{i}', selb_node, sel_node, 'VSS', 'VSS',
-                model=self.nmos_pdk_model,
-                w=self.base_nmos_width, l=self.length)
-            
-            # Bitline pass gate
-            self.M(f'Muxn_BL_{i}', f'BL{i}', sel_node, 'SA_IN', 'VSS', 
-                   model=self.nmos_pdk_model, w=self.base_nmos_width, 
-                   l=self.length)
-            self.M(f'Muxp_BL_{i}', f'BL{i}', selb_node, 'SA_IN', 'VDD', 
-                   model=self.pmos_pdk_model, w=self.base_pmos_width, 
-                   l=self.length)
-            # Bitline bar pass gate
-            self.M(f'Muxn_BLB_{i}', f'BLB{i}', sel_node, 'SA_INB', 'VSS',
-                   model=self.nmos_pdk_model, w=self.base_nmos_width, 
-                   l=self.length)
-            self.M(f'Muxp_BLB_{i}', f'BLB{i}', selb_node, 'SA_INB', 'VDD',
-                   model=self.pmos_pdk_model, w=self.base_pmos_width, 
-                   l=self.length)
 
         # Performance considerations:
         # 1. NMOS width should be large enough to reduce resistance (~2-3x access transistor width).
@@ -93,7 +146,8 @@ class SenseAmp(BaseSubcircuit):
 
     def __init__(self, nmos_model_name, pmos_model_name, 
                  base_nmos_width=0.27e-6, base_pmos_width=0.54e-6, length=50e-9,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,sweep_senseamp = False,
+                 pmos_modle_choices='PMOS_VTG',nmos_modle_choices='NMOS_VTG',param_file="sim/param_sweep_model_name.txt"
                  ):
         """
         Args:
@@ -108,9 +162,39 @@ class SenseAmp(BaseSubcircuit):
             base_nmos_width, base_pmos_width, length,
             w_rc, pi_res, pi_cap,
         )
+        self.param_file = param_file
+        self.mos_model_index = self.read_mos_model_from_param_file()
+        self.pmos_modle_choices=pmos_modle_choices
+        self.nmos_modle_choices=nmos_modle_choices
+
+        self.sweep_senseamp = sweep_senseamp
         self.pmos_width = self.base_pmos_width / 3 * 4  #专门用于左右两个传输管的参数
         self.nmos_width = self.base_nmos_width
         self.add_sense_transistors()
+    
+    def read_mos_model_from_param_file(self):
+        """
+        从 param_sweep_PRECHARGE.txt 中读取 mos_model 的值
+        """
+        try:
+            with open(self.param_file, 'r') as f:
+                lines = f.readlines()
+                # 假设第一行为标题行，第二行为数据行
+                if len(lines) >= 2:
+                    header = lines[0].strip().split()
+                    values = lines[1].strip().split()
+                    models = {}
+                    for key in ['pmos_model_senseamp', 'nmos_model_senseamp']:
+                        if key not in header:
+                            raise ValueError(f"Missing required column: {key}")
+                        index = header.index(key)
+                        models[key.split('_')[0]] = values[index]  # 保留 pmos/nmos作为键
+                    return models
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Parameter file '{self.param_file}' not found.")
+        except Exception as e:
+            raise ValueError(f"Error parsing parameter file: {e}")
+        raise ValueError("Could not find 'pmos_model_precharge' in parameter file.")
 
     def add_sense_transistors(self):
         if self.w_rc:                                    #考虑是否加rc参数，修改节点名
@@ -127,24 +211,41 @@ class SenseAmp(BaseSubcircuit):
             q_node = 'Q'
             qb_node = 'QB'
             net1_node = 'net1'
+        if not self.sweep_senseamp:
+            # Cross-coupled inverters for positive feedback
+            self.M(1, 'Q', qb_node, 'net1', 'VSS', model=self.nmos_pdk_model,
+                w=self.base_nmos_width, l=self.length)  # NMOS
+            self.M(2, 'Q', qb_node, 'VDD', 'VDD', model=self.pmos_pdk_model,
+                w=self.base_pmos_width, l=self.length)  # PMOS
+            self.M(3, 'QB', q_node, 'net1', 'VSS', model=self.nmos_pdk_model,
+                w=self.base_nmos_width, l=self.length)  # NMOS
+            self.M(4, 'QB', q_node, 'VDD', 'VDD', model=self.pmos_pdk_model,
+                w=self.base_pmos_width, l=self.length)  # PMOS
 
-        # Cross-coupled inverters for positive feedback
-        self.M(1, 'Q', qb_node, 'net1', 'VSS', model=self.nmos_pdk_model,
-               w=self.base_nmos_width, l=self.length)  # NMOS
-        self.M(2, 'Q', qb_node, 'VDD', 'VDD', model=self.pmos_pdk_model,
-               w=self.base_pmos_width, l=self.length)  # PMOS
-        self.M(3, 'QB', q_node, 'net1', 'VSS', model=self.nmos_pdk_model,
-               w=self.base_nmos_width, l=self.length)  # NMOS
-        self.M(4, 'QB', q_node, 'VDD', 'VDD', model=self.pmos_pdk_model,
-               w=self.base_pmos_width, l=self.length)  # PMOS
+            # Sense enable transistors 注意左右两个传输管的参数不用base
+            self.M(5, 'Q', en_node, in_node, 'VDD', model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)  # NMOS (wider for lower resistance)
+            self.M(6, 'QB', en_node, inb_node, 'VDD', model=self.pmos_pdk_model,
+                w=self.pmos_width, l=self.length)  # NMOS (wider for lower resistance)
+            self.M(7, net1_node, en_node, 'VSS', 'VSS', model=self.nmos_pdk_model,
+                w=self.base_nmos_width, l=self.length)  # NMOS
+        else:
+            self.M(1, 'Q', qb_node, 'net1', 'VSS', model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_senseamp', l='length_senseamp')  # NMOS
+            self.M(2, 'Q', qb_node, 'VDD', 'VDD', model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_senseamp', l='length_senseamp')  # PMOS
+            self.M(3, 'QB', q_node, 'net1', 'VSS', model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_senseamp', l='length_senseamp')  # NMOS
+            self.M(4, 'QB', q_node, 'VDD', 'VDD', model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_senseamp', l='length_senseamp')  # PMOS
 
-        # Sense enable transistors 注意左右两个传输管的参数不用base
-        self.M(5, 'Q', en_node, in_node, 'VDD', model=self.pmos_pdk_model,
-               w=self.pmos_width, l=self.length)  # NMOS (wider for lower resistance)
-        self.M(6, 'QB', en_node, inb_node, 'VDD', model=self.pmos_pdk_model,
-               w=self.pmos_width, l=self.length)  # NMOS (wider for lower resistance)
-        self.M(7, net1_node, en_node, 'VSS', 'VSS', model=self.nmos_pdk_model,
-               w=self.base_nmos_width, l=self.length)  # NMOS
+            # Sense enable transistors 注意左右两个传输管的参数不用base
+            self.M(5, 'Q', en_node, in_node, 'VDD', model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_senseamp', l='length_senseamp')  # NMOS (wider for lower resistance)
+            self.M(6, 'QB', en_node, inb_node, 'VDD', model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
+                w='pmos_width_senseamp', l='length_senseamp')  # NMOS (wider for lower resistance)
+            self.M(7, net1_node, en_node, 'VSS', 'VSS', model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
+                w='nmos_width_senseamp', l='length_senseamp')  # NMOS
 
         # Performance considerations:
         # 1. Cross-coupled inverters should be balanced for symmetric operation.交叉耦合逆变器应平衡对称工作
