@@ -1,0 +1,3 @@
+pmos_width_decoder_nandp,nmos_width_decoder_nandn,pmos_width_decoder_invp, nmos_width_decoder_invn,length_decoder
+0.27e-6,0.18e-6,0.27e-6,0.09e-6,5.0e-8
+0.31e-6,0.21e-6,0.31e-6,0.21e-6,5.1e-8
