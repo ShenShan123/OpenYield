@@ -9,14 +9,15 @@ if __name__ == '__main__':
     # ================== 1. 加载所有配置 ==================
     sram_config = SRAM_CONFIG()
     sram_config.load_all_configs(
-        global_file="global.yaml",
+        global_file="yaml/global.yaml",
         circuit_configs={
-            "SRAM_6T_CELL": "sram_6t_cell.yaml",
-            "WORDLINEDRIVER": "wordline_driver.yaml",
-            "PRECHARGE": "precharge.yaml",
-            "COLUMNMUX": "mux.yaml",
-            "SENSEAMP": "sa.yaml",
-            "WRITEDRIVER": "write_driver.yaml"
+            "SRAM_6T_CELL": "yaml/sram_6t_cell.yaml",
+            "WORDLINEDRIVER": "yaml/wordline_driver.yaml",
+            "PRECHARGE": "yaml/precharge.yaml",
+            "COLUMNMUX": "yaml/mux.yaml",
+            "SENSEAMP": "yaml/sa.yaml",
+            "WRITEDRIVER": "yaml/write_driver.yaml",
+            "DECODER":"yaml/decoder.yaml"
         }
     )
 
@@ -40,6 +41,13 @@ if __name__ == '__main__':
         pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
         vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
         custom_mc=False, # Use your own process params?
+        param_sweep=True,
+        sweep_precharge=True,
+        sweep_senseamp=True,
+        sweep_wordlinedriver=True,
+        sweep_columnmux=True,
+        sweep_writedriver=False,
+        sweep_decoder=True,
         q_init_val=0, sim_path='sim',
     )
     # vars = np.random.rand(num_mc,num_rows*num_cols*18)
