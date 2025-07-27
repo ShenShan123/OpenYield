@@ -139,7 +139,7 @@ OpenYield provides integrated SRAM yield estimation algorithms based on Monte Ca
 Run the main script which includes the optimization module:
 
 ```python
-python main.py
+python main2.py
 ```
 
 After the Monte Carlo simulation completes, you'll be prompted to select optimization algorithms:
