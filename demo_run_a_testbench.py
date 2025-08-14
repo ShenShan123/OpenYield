@@ -21,7 +21,7 @@ if __name__ == '__main__':
         }
     )
 
-    # FreePDK45 default transistor sizes
+    # FreePDK45 default transistor sizes estimation
     area = estimate_bitcell_area(
         w_access=sram_config.sram_6t_cell.nmos_width.value[1],#pg
         w_pd=sram_config.sram_6t_cell.nmos_width.value[0],

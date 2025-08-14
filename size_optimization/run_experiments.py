@@ -26,11 +26,11 @@ sys.path.append(project_root)
 # Import algorithm modules
 # 导入算法模块
 try:
-    from sram_optimization.pso import main as pso_main
-    from sram_optimization.sa import main as sa_main  
-    from sram_optimization.sram_cbo import main as cbo_main
-    from sram_optimization.sram_smac import main as smac_main
-    from sram_optimization.rose_opt import main as rose_opt_main 
+    from sram_optimization.demo_pso import main as pso_main
+    from sram_optimization.demo_sa import main as sa_main  
+    from sram_optimization.demo_cbo import main as cbo_main
+    from sram_optimization.demo_smac import main as smac_main
+    from sram_optimization.demo_roseopt import main as rose_opt_main 
 except ImportError as e:
     print(f"导入算法模块失败: {e}")
     print("请确保所有算法文件都在正确的位置")

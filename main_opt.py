@@ -5,57 +5,7 @@ import numpy as np
 from utils import estimate_bitcell_area
 
 if __name__ == '__main__':
-    vdd = 1.0
-    pdk_path = 'model_lib/models.spice'
-    nmos_model_name = 'NMOS_VTG'
-    pmos_model_name = 'PMOS_VTG'
-    pd_width = 0.205e-6
-    pu_width = 0.09e-6
-    pg_width = 0.135e-6
-    length = 50e-9
-
-    # FreePDK45 default transistor sizes
-    area = estimate_bitcell_area(
-        w_access=pg_width,
-        w_pd=pd_width,
-        w_pu=pu_width,
-        l_transistor=length
-    )
-    print(f"Estimated 6T SRAM Cell Area: {area*1e12:.2f} µm²")
-
-    num_rows = 64
-    num_cols = 4
-    num_mc = 1
-
-    print("===== 6T SRAM Array Monte Carlo Simulation Debug Session =====")
-    mc_testbench = Sram6TCoreMcTestbench(
-        vdd,
-        pdk_path, nmos_model_name, pmos_model_name,
-        num_rows=num_rows, num_cols=num_cols, 
-        pd_width=pd_width, pu_width=pu_width, 
-        pg_width=pg_width, length=length,
-        w_rc=True, # Whether add RC to nets
-        pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-        vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
-        custom_mc=False, # Use your own process params?
-        q_init_val=0, sim_path='sim',
-    )
-    # vars = np.random.rand(num_mc,num_rows*num_cols*18)
-
-    # For using DC analysis, operation can be 'write_snm' 'hold_snm' 'read_snm'
-    # read_snm = mc_testbench.run_mc_simulation(
-    #     operation='write_snm', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, 
-    #     vars=None, # Input your data table
-    # )
-
-    # For using TRAN analysis, operation can be 'write' or 'read'
-    w_delay, w_pavg = mc_testbench.run_mc_simulation(
-        operation='read', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, 
-        vars=None, # Input your data table
-    )
-
-    print("[DEBUG] Monte Carlo simulation completed")
-
+  
     # ===== SRAM Optimization Algorithms =====
     print("\n" + "="*60)
     print("Starting SRAM Circuit Optimization Algorithms")
@@ -123,24 +73,24 @@ if __name__ == '__main__':
                 
                 try:
                     if algo == 'PSO':
-                        from sram_optimization import pso
-                        pso.main(config_file)  # Pass config file
+                        from sram_optimization import demo_pso
+                        demo_pso.main(config_file)  # Pass config file
                         
                     elif algo == 'SA':
-                        from sram_optimization import sa
-                        sa.main(config_file)  # Pass config file
+                        from sram_optimization import demo_sa
+                        demo_sa.main(config_file)  # Pass config file
                         
                     elif algo == 'CBO':
-                        from sram_optimization import sram_cbo
-                        sram_cbo.main(config_file)  # Pass config file
+                        from sram_optimization import demo_cbo
+                        demo_cbo.main(config_file)  # Pass config file
                         
                     elif algo == 'RoSE_Opt':  
-                        from sram_optimization import rose_opt
-                        rose_opt.main(config_file)  # Pass config file
+                        from sram_optimization import demo_roseopt
+                        demo_roseopt.main(config_file)  # Pass config file
                         
                     elif algo == 'SMAC':
-                        from sram_optimization import sram_smac 
-                        sram_smac.main(config_file)  # Pass config file and correct function call
+                        from sram_optimization import demo_smac 
+                        demo_smac.main(config_file)  # Pass config file and correct function call
                     
                     print(f"{algo} optimization completed successfully!")
                     
