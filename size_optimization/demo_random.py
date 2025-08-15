@@ -3,6 +3,8 @@
 from testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
 import numpy as np
 
+candidate_i = np.random.randint(0, 100, 100)
+
 # generate random parameters
 params = {
     'nmos_model_name': 'NMOS_VTG',
