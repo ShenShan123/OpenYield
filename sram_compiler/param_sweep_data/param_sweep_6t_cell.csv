@@ -1,1 +1,3 @@
-
+pmos_width_pu, nmos_width_pd, nmos_width_pg, length
+9.0e-8 ,9.0e-8 , 1.35e-7 ,  5e-8
+10.5e-8, 10.5e-8, 1.5e-07, 5.6e-08
