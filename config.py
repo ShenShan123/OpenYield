@@ -308,6 +308,7 @@ class SRAM_CONFIG:
         self.column_mux = None
         self.senseamp = None
         self.write_driver = None
+        self.decoder = None
 
     def load_all_configs(self, global_file: str, circuit_configs: Dict[str, str]):
         """加载所有配置"""
@@ -328,6 +329,8 @@ class SRAM_CONFIG:
         self.column_mux = loader.get_config("COLUMNMUX")
         self.senseamp = loader.get_config("SENSEAMP")
         self.write_driver = loader.get_config("WRITEDRIVER")
+        self.decoder = loader.get_config("DECODER")
+        
 
         print("\n所有配置加载完成!")
 
@@ -352,7 +355,8 @@ class SRAM_CONFIG:
             f"预充电: {self.precharge is not None}",
             f"列选择器: {self.column_mux is not None}",
             f"灵敏放大器: {self.senseamp is not None}",
-            f"写入驱动器: {self.write_driver is not None}"
+            f"写入驱动器: {self.write_driver is not None}",
+            f"译码器: {self.decoder is not None}"
         ]
         return "SRAM配置状态:\n  " + "\n  ".join(configs)
 
@@ -366,14 +370,15 @@ if __name__ == "__main__":
     sram_config = SRAM_CONFIG()
 
     # 定义配置文件路径
-    global_file = "global.yaml"
+    global_file = "yaml/global.yaml"
     circuit_files = {
-        "SRAM_6T_CELL": "sram_6t_cell.yaml",
-        "WORDLINEDRIVER": "wordline_driver.yaml",
-        "PRECHARGE": "precharge.yaml",
-        "COLUMNMUX": "mux.yaml",
-        "SENSEAMP": "sa.yaml",
-        "WRITEDRIVER": "write_driver.yaml"
+        "SRAM_6T_CELL": "yaml/sram_6t_cell.yaml",
+        "WORDLINEDRIVER": "yaml/wordline_driver.yaml",
+        "PRECHARGE": "yaml/precharge.yaml",
+        "COLUMNMUX": "yaml/mux.yaml",
+        "SENSEAMP": "yaml/sa.yaml",
+        "WRITEDRIVER": "yaml/write_driver.yaml",
+        "DECODER":"yaml/decoder.yaml"
     }
 
     # 加载所有配置
@@ -402,3 +407,4 @@ if __name__ == "__main__":
     print(sram_config.global_config.metrics.snm.type)
     print(sram_config.senseamp.length.param_type)
     print(sram_config.precharge.pmos_model.value)
+    print(sram_config.decoder.pmos_width.value)
