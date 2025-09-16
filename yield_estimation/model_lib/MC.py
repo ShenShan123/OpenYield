@@ -5,18 +5,20 @@ import torch
 import random 
 import sys
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
-parent_dir_of_code1 = '/home/lixy/sram_yield_estimation/'
+parent_dir_of_code1 = '/home/lixy/OpenYield-main/yield_estimation'
 sys.path.append(parent_dir_of_code1) 
 from tool.util import write_data2csv, seed_set
 from tool.delete import delete_folder_content
 from tool.Distribution.normal_v1 import norm_dist
 from model_lib.spice import Spice
-parent_dir_of_code2 = '/home/lixy/OpenYield-main'
+parent_dir_of_code2 = '/home/lixy/OpenYield-main/sram_compiler'
 sys.path.append(parent_dir_of_code2) 
 from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from config import SRAM_CONFIG
+from utils import estimate_bitcell_area # type: ignore
 import warnings
 class MC():
-    def __init__(self, f_norm, mc_testbench,  spice, means, feature_num, num_rows, num_cols, IS_bound_num, initial_num=10000, sample_num=10, FOM_use_num=10, seed=0, IS_bound_on=False):
+    def __init__(self, f_norm, mc_testbench, spice, means, feature_num, num_rows, num_cols, IS_bound_num, initial_num=10000, sample_num=10, FOM_use_num=10, seed=0, IS_bound_on=False):
         self.x = None  
         self.spice = spice  
         self.means = means
@@ -32,6 +34,7 @@ class MC():
         self.num_cols = num_cols
 
      # Save Monte Carlo simulation results to a CSV file
+    
     def save_result(self, P_fail, FOM, num, used_time, seed):
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
 
@@ -94,7 +97,7 @@ class MC():
             variances = np.abs(means) * 0.003
         elif feature_num ==108:
             variances = np.abs(means) * 0.01 
-        elif feature_num == 1152:
+        elif feature_num == 576:
             variances = np.abs(means) * 0.005
         cov_matrix = np.diag(variances)
         x = np.random.multivariate_normal(mean=means, cov=cov_matrix,
@@ -102,9 +105,9 @@ class MC():
         if IS_bound_on:
                 x = self._IS_bound(x, self.spice, IS_bound_num)
         num_mc = x.shape[0]
-        y, w_pavg = self.mc_testbench.run_mc_simulation(operation='write', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, vars=x)
+        y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc, vars=x)
         new_y = y.reshape(num_mc,1)
-        folder_path = '/home/lixy/sim_read0'
+        folder_path = '/home/lixy/OpenYield-main/sim2'
         delete_folder_content(folder_path)
         self.spice.save_y_to_txt(new_y,'/home/lixy/yield_models/model/output_read.txt')
         self.y = np.vstack([self.y, new_y])
@@ -119,9 +122,10 @@ class MC():
             if IS_bound_on:
                 x = self._IS_bound(x, self.spice, IS_bound_num)
             num_mc = x.shape[0]
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='write', target_row=self.num_rows-1, target_col=self.num_cols-1, mc_runs=num_mc, vars=x)
+            print(x.shape())
+            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=self.num_rows-1, target_col=self.num_cols-1, mc_runs=num_mc, vars=x)
             new_y = y.reshape(num_mc,1)
-            folder_path = '/home/lixy/sim_read0'
+            folder_path = '/home/lixy/OpenYield-main/sim2'
             delete_folder_content(folder_path)
             self.spice.save_y_to_txt(new_y,'/home/lixy/yield_models/model/output_read.txt')
             self.y = np.vstack([self.y, new_y])
@@ -134,8 +138,6 @@ class MC():
             i += 1
 
         return P_fail_list, data_num_list
-
-
 def seed_torch(seed=42):
     seed = int(seed)
     random.seed(seed)
@@ -149,43 +151,67 @@ def seed_torch(seed=42):
     torch.backends.cudnn.enabled = True
 
 if __name__ == "__main__":
-    vdd = 1.0
-    pdk_path = '/home/lixy/OpenYield-main/model_lib/models.spice'
-    nmos_model_name = 'NMOS_VTG'
-    pmos_model_name = 'PMOS_VTG'
-    pd_width = 0.205e-6
-    pu_width = 0.09e-6
-    pg_width = 0.135e-6
-    length = 50e-9
-    num_rows = 1
-    num_cols = 1
-    feature_num = num_rows*num_cols*6*3
-    mean = np.array([0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13,
-                      -0.3842, 0.02, -0.126])
-    means = np.tile(mean, num_rows*num_cols)
-    spice =  Spice(feature_num ,means)
+    # ================== 1. 加载所有配置 ==================
+    sram_config = SRAM_CONFIG()
+    sram_config.load_all_configs(
+        global_file="/home/lixy/OpenYield-main/sram_compiler/config_yaml/global.yaml",
+        circuit_configs={
+            "SRAM_6T_CELL": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/sram_6t_cell.yaml",
+            "WORDLINEDRIVER": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/wordline_driver.yaml",
+            "PRECHARGE": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/precharge.yaml",
+            "COLUMNMUX": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/mux.yaml",
+            "SENSEAMP": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/sa.yaml",
+            "WRITEDRIVER": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/write_driver.yaml",
+            "DECODER":"/home/lixy/OpenYield-main/sram_compiler/config_yaml/decoder.yaml"
+        }
+    )
+
+    # FreePDK45 default transistor sizes
+    area = estimate_bitcell_area(
+        w_access=sram_config.sram_6t_cell.nmos_width.value[1],#pg
+        w_pd=sram_config.sram_6t_cell.nmos_width.value[0],
+        w_pu=sram_config.sram_6t_cell.pmos_width.value,
+        l_transistor=sram_config.sram_6t_cell.length.value
+    )
+    print(f"Estimated 6T SRAM Cell Area: {area*1e12:.2f} µm²")
+
+    num_rows = sram_config.global_config.num_rows
+    num_cols = sram_config.global_config.num_cols
+    num_mc = sram_config.global_config.monte_carlo_runs
+
+    print("===== 6T SRAM Array Monte Carlo Simulation Debug Session =====")
     mc_testbench = Sram6TCoreMcTestbench(
-        vdd,
-        pdk_path, nmos_model_name, pmos_model_name,
-        num_rows=num_rows, num_cols=num_cols, 
-        pd_width=pd_width, pu_width=pu_width, 
-        pg_width=pg_width, length=length,
+        sram_config,
         w_rc=True, # Whether add RC to nets
         pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
         vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
         custom_mc=True, # Use your own process params?
-        q_init_val=0, sim_path='/home/lixy/sim_read0' )
+        param_sweep=False,
+        sweep_precharge=False,
+        sweep_senseamp=False,
+        sweep_wordlinedriver=False,
+        sweep_columnmux=False,
+        sweep_writedriver=False,
+        sweep_decoder=False,
+        q_init_val=0, sim_path='/home/lixy/OpenYield-main/sim2',
+    )
+    feature_num = num_rows*num_cols*6*3
+    print(feature_num)
+    mean = np.array([0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13,
+                      -0.3842, 0.02, -0.126])
+    means = np.tile(mean, num_rows*num_cols)
+    spice =  Spice(feature_num ,means)
     warnings.filterwarnings("ignore", category=FutureWarning)
     if feature_num == 18:
         variances = np.abs(means) * 0.003
     elif feature_num ==108:
         variances = np.abs(means) * 0.0095
-    elif feature_num ==1152:
+    elif feature_num ==576:
         variances = np.abs(means) * 0.048
     cov_matrix = np.diag(variances)
     f_norm = norm_dist(mu=means, var=cov_matrix)
     mc = MC(f_norm=f_norm, spice=spice,  mc_testbench=mc_testbench, feature_num=feature_num, num_rows=num_rows, num_cols=num_cols, 
-            means=means, initial_num=100, sample_num=100, FOM_use_num=100, seed=0,IS_bound_on=True,IS_bound_num=1)
+            means=means, initial_num=1000, sample_num=100, FOM_use_num=100, seed=0, IS_bound_on=True,IS_bound_num=1)
     mc.start_estimate(max_num=1000000000)
    
    
