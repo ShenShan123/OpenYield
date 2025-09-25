@@ -54,14 +54,8 @@ Dependencies: Standard libraries (numpy, torch, gpytorch, sklearn.cluster)
 
 Usage
 ---
-### 1. Run Individual Algorithms
-<pre>  python MC.py 
-  python MNIS.py 
-  python ACS.py
-  python AIS.py
-  python HSCS.py </pre>
-### 2. Run All Algorithms
-<pre> python main_estimation.py </pre>
+### 1. Run All Algorithms
+<pre> python demo_run_a_testbench.py </pre>
 Run main_estimation.py to select and execute different algorithms within the file, with parameter settings provided for circuits of different dimensionalities.
 
 Output
