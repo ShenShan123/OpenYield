@@ -1,8 +1,8 @@
-from yield_estimation.model_lib.MC_v2 import MC
-from yield_estimation.model_lib.MNIS_v2 import MNIS
-from yield_estimation.model_lib.AIS_v2 import AIS
-from yield_estimation.model_lib.ACS_v2 import ACS
-from yield_estimation.model_lib.HSCS_v2 import HSCS
+from yield_estimation.model_lib.MC import MC
+from yield_estimation.model_lib.MNIS import MNIS
+from yield_estimation.model_lib.AIS import AIS
+from yield_estimation.model_lib.ACS import ACS
+from yield_estimation.model_lib.HSCS import HSCS
 import sys
 import numpy as np
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
