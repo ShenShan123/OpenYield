@@ -32,8 +32,11 @@ class GlobalConfig:
         self.num_cols = config_data.get("num_cols", 1)
         self.monte_carlo_runs = config_data.get("monte_carlo_runs", 1)
         self.timeout = config_data.get("timeout", 120)
-        self.pdk_path = config_data.get("pdk_path", "model_lib/models.spice")
-
+        self.pdk_path_TT = config_data.get("pdk_path_TT", "tran_models/models_TT.spice")
+        self.pdk_path_FF = config_data.get("pdk_path_FF", "tran_models/models_FF.spice")
+        self.pdk_path_SS = config_data.get("pdk_path_SS", "tran_models/models_SS.spice")
+        self.pdk_path_FS = config_data.get("pdk_path_FS", "tran_models/models_FS.spice")
+        self.pdk_path_SF = config_data.get("pdk_path_SF", "tran_models/models_SF.spice")
         # 将嵌套字典转换为支持点号访问的对象
         self.evaluator = AttrDict(config_data.get("evaluator", {}))
         self.simulator = AttrDict(config_data.get("simulator", {}))
@@ -98,7 +101,11 @@ class GlobalConfig:
             f"  阵列: {self.num_rows}×{self.num_cols}\n"
             f"  蒙特卡洛次数: {self.monte_carlo_runs}\n"
             f"  超时: {self.timeout} 秒\n"
-            f"  PDK路径: {self.pdk_path}\n"
+            f"  PDK_TT路径: {self.pdk_path_TT}\n"
+            f"  PDK_FF路径: {self.pdk_path_FF}\n"
+            f"  PDK_SS路径: {self.pdk_path_SS}\n"
+            f"  PDK_FS路径: {self.pdk_path_FS}\n"
+            f"  PDK_SF路径: {self.pdk_path_SF}\n"
             f"  性能指标: {list(vars(self.metrics).keys() if hasattr(self, 'metrics') else [])}\n"
             f"  目标函数: {getattr(self.objectives, 'formula', '未定义')}"
         )
