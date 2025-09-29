@@ -16,7 +16,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, sram_config,
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  vth_std=0.05, custom_mc=False,param_sweep=False,sweep_precharge=False,sweep_senseamp=True,sweep_wordlinedriver=False,
-                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,
+                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,coner='TT',
                  q_init_val=0, sim_path='sim'):
         """
                蒙特卡洛测试平台初始化
@@ -33,8 +33,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         super().__init__(#父类
             sram_config,
             w_rc, pi_res, pi_cap,
-            custom_mc, param_sweep,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,q_init_val,
+            custom_mc, param_sweep,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,coner,q_init_val,
         )
+        self.coner=coner
         self.sweep_decoder=sweep_decoder
         self.sweep_writedriver=sweep_writedriver
         self.sweep_columnmux=sweep_columnmux
@@ -52,7 +53,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
     def create_mc_model_file(self):
         """Create temporary model file with Monte Carlo variations创建蒙特卡洛模型文件"""
-        pdk_path = self.sram_config.global_config.pdk_path
+        #pdk_path = self.sram_config.global_config.pdk_path
+        pdk_path = getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")
         model_dict = parse_spice_models(pdk_path)
 
         for m in model_dict.keys():
@@ -119,14 +121,18 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.measure(
                 'TRAN', 'TPRCH',
                 f'TRIG V(PRE)={self.half_vdd} FALL=1 ' +
-                f'TARG V(BL{self.target_col})={float(self.vdd) * 0.8} RISE=1')  # modified for Xyce
+                f'TARG V(BL{self.target_col})={float(self.vdd) * 0.9} RISE=1')  # modified for Xyce
 
             # Measurements for wl driver delay (TWLDRV), defined as the time from the WLE assertion to V(WL)=VDD/2
             #测量WLE驱动延迟（TWLDRV），定义为从译码器输出到V(wl)=VDD/2的时间
             simulator.measure(
-                'TRAN', 'TWLDRV',
+                'TRAN', 'TDECODER',
                 f'TRIG V(A0)={self.half_vdd} RISE=1 ' +
                 f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
+            simulator.measure(
+                'TRAN', 'TWLDRV',
+                f'TRIG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1 ' +
+                f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
 
             # Add measurements for read delay (TREAD),读延迟
             # which is defined as the time from the WL rise to BL swing to VDD/2
@@ -137,15 +143,15 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             vswing = 0.25
             simulator.measure(
                 'TRAN', 'TBL',
-                f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{vswing}' FALL=2")
-            simulator.measure('TRAN', 'TREAD', f"PARAM='TBL-TWL'")
+                f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{vswing}' FALL=1")
+            simulator.measure('TRAN', 'TSWING', f"PARAM='TBL-TWL'")
 
             # Measurements for SA delay (TSA), defined as the time from the SAE assertion to V(Q)=VDD/2
             #SA延迟（TSA）的测量，定义为从SAE断言到V(Q)=VDD/2的时间
             simulator.measure(
                 'TRAN', 'TSA',
                 f'TRIG V(SAE)={self.half_vdd} RISE=1 ' +
-                f'TARG V(SA_Q{self.target_col // self.mux_in})={self.half_vdd} RISE=1')
+                f'TARG V(SA_Q{self.target_col // self.mux_in})={float(self.vdd) * 0.1} FALL=1')
 
             # Add measurements for average power, static power and dynamic power    测量功耗(平均、动态、静态)
             simulator.measure(
@@ -186,7 +192,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # Measurements for wl driver delay (TWLDRV), defined as the time from the WLE assertion to V(WL)=VDD/2
             simulator.measure(
                 'TRAN', 'TWLDRV',
-                f'TRIG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1 ' +
+                f'TRIG V(A0)={self.half_vdd} RISE=1 ' +
                 f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
             #写驱动延迟
             # Measurements for write driver delay (TWDRV), defined as the time from the WE assertion to V(BL)=VDD/2
@@ -704,6 +710,21 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         circuit.include(include_path)
         print(f'[DEBUG] Parameter sweep table saved to {include_path}') 
 
+    class SimulatorWrapper:
+        """简单的包装器类,避免调用PySpice的内部simulator"""
+        def __init__(self, circuit):
+            self.circuit = circuit
+
+        def initial_condition(self,**conditions):
+            """添加初始条件到circuit"""
+            for node,value in conditions.items():
+                self.circuit.raw_spice += f'.IC V({node})={float(value)}\n'
+
+        def measure(self,analysis_type, name, expression):
+            """添加测量语句到circuit"""
+            self.circuit.raw_spice += f'.MEASURE {analysis_type} {name} {expression}\n'
+
+
     def run_mc_simulation(self, operation='read', target_row=0, target_col=0, mc_runs=100, vars=None):
         """Run Xyce Monte Carlo simulation"""
         simulator = self.create_testbench(operation, target_row, target_col).simulator()
@@ -795,7 +816,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             if operation == 'write':
                 return mc_df['TWRITE_Q'].to_numpy(), mc_df['PAVG'].to_numpy()
             elif operation == 'read':
-                return mc_df['TREAD'].to_numpy(), mc_df['PAVG'].to_numpy()
+                return mc_df['TSWING'].to_numpy(), mc_df['PAVG'].to_numpy()
             elif operation == 'hold_snm':
                 return mc_df['HOLD_SNM'].to_numpy()
             elif operation == 'read_snm':
