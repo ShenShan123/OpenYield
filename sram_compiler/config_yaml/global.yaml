@@ -11,7 +11,11 @@ num_rows: 8                     # SRAM行数 / Number of SRAM rows
 num_cols: 4                       # SRAM列数 / Number of SRAM columns
 monte_carlo_runs: 2               # 蒙特卡洛仿真次数 / Monte Carlo simulation runs/设计参数有几行就改成几
 timeout: 120                      # 仿真超时时间(秒) / Simulation timeout (seconds)
-pdk_path: "model_lib/models.spice"# PDK路径 / PDK path
+pdk_path_TT: "tran_models/models_TT.spice"# PDK路径 / PDK path
+pdk_path_FF: "tran_models/models_FF.spice"
+pdk_path_SS: "tran_models/models_SS.spice"
+pdk_path_FS: "tran_models/models_FS.spice"
+pdk_path_SF: "tran_models/models_SF.spice"
 
 # 评估器配置 / Evaluator configuration
 evaluator:
