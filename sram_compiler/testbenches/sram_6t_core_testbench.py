@@ -1,4 +1,3 @@
-
 from PySpice.Spice.Netlist import Circuit 
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
 from sram_compiler.subcircuits.sram_6t_core_for_yield import ( # type: ignore
@@ -18,7 +17,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     def __init__(self, sram_config,
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  custom_mc: bool = False,param_sweep: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
-                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,
+                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",
                  q_init_val: int = 0
                  ):
         # 保存配置对象引用
@@ -29,7 +28,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
 
         super().__init__(
             f'SRAM_6T_CORE_{global_cfg.num_rows}x{global_cfg.num_cols}_TB',
-            global_cfg.vdd, global_cfg.pdk_path
+            global_cfg.vdd, global_cfg.pdk_path_TT
             )
         # transistor size info.
         # self.pd_width = pd_width
@@ -47,6 +46,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.pi_cap = pi_cap
         self.heir_delimiter = ':'
         # User defined MC simulation
+        self.corner=corner#选择工艺角
         self.custom_mc = custom_mc  #是否启用mc
         self.param_sweep = param_sweep #cell单元是否用参数扫描
         self.sweep_precharge = sweep_precharge    #预充电电路是否用参数扫描
@@ -134,6 +134,17 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         )
         circuit.subcircuit(wldrv)   #添加到主电路
 
+                # Precharge control signal  添加字线驱动使能信号（脉冲电压源）
+        circuit.PulseVoltageSource(
+            'WL_EN', 'WL_EN', self.gnd_node,
+            initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
+            delay_time=5 @ u_ns,
+            rise_time=self.t_rise,
+            fall_time=self.t_fall,
+            pulse_width=7e-09,
+            period=self.t_period,
+        )
+
         # Wordline control & drivers
         for row in range(self.num_rows):
             # if row == target_row:   #目标行，在MC里初始为第0行
@@ -154,7 +165,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 f'WL_DRV_{row}', wldrv.name,
                 self.power_node, self.gnd_node, 
                 decoder_enable,    # 来自译码器的使能信号
-                self.power_node,   # 内部使能（始终有效）
+                'WL_EN',   # 内部使能（始终有效）
                 f'WL{row}',        # 输出到SRAM阵列
             )
             # else:
@@ -193,7 +204,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             delay_time=0 @ u_ns,
             rise_time=self.t_rise,
             fall_time=self.t_fall,
-            pulse_width=self.t_pulse - 2 * self.t_rise, #不一样
+            #pulse_width=self.t_pulse - 2 * self.t_rise, #不一样
+            pulse_width=5e-09,
             period=self.t_period, dc_offset=self.vdd
         )
 
@@ -364,7 +376,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 self.sram_config.sram_6t_cell.pmos_model.value,
                 self.sram_config.sram_6t_cell.nmos_model.value[1],
                 # This function returns a Dict of MOS models
-                parse_spice_models(self.sram_config.global_config.pdk_path),
+                parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                 self.sram_config.sram_6t_cell.nmos_width.value[0],
                 self.sram_config.sram_6t_cell.pmos_width.value,
                 self.sram_config.sram_6t_cell.nmos_width.value[1],
@@ -481,7 +493,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.target_col = target_col if target_col < self.num_cols else self.num_cols - 1
 
         circuit = Circuit(self.name)
-        circuit.include(self.sram_config.global_config.pdk_path)
+        circuit.include(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}"))
 
         # Power supply
         circuit.V(self.power_node, self.power_node, self.gnd_node, self.vdd @ u_V)
@@ -502,7 +514,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 self.sram_config.sram_6t_cell.pmos_model.value,
                 self.sram_config.sram_6t_cell.nmos_model.value[1],
                 # This function returns a Dict of MOS models
-                parse_spice_models(self.sram_config.global_config.pdk_path),
+                parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                 self.sram_config.sram_6t_cell.nmos_width.value[0],
                 self.sram_config.sram_6t_cell.pmos_width.value,
                 self.sram_config.sram_6t_cell.nmos_width.value[1],
@@ -552,9 +564,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 circuit.PulseVoltageSource(
                     f'ADDR_{bit}', node_name, self.gnd_node,
                     initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-                    delay_time=5e-9,  # 预充电开始后5ns
+                    delay_time=4.5e-9,  # 预充电开始后5ns
                     rise_time=self.t_rise,fall_time=self.t_fall,
-                    pulse_width=14e-9 , # 保持有效
+                    pulse_width=7.5e-9 , # 保持有效
                     period=self.t_period
                 )
             else:
