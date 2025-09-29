@@ -205,11 +205,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # which is defined as the time from the WL rise to data Q rise to 90% VDD.
             simulator.measure(
                 'TRAN', 'TWRITE_Q',
-                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1',
+                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1 ',
                 f"TARG V({target_node_q})={float(self.vdd) * 0.9:.2f} RISE=1")
             simulator.measure(
                 'TRAN', 'TWRITE_QB',
-                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1',
+                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1 ',
                 f"TARG V({target_node_qb})={float(self.vdd) * 0.1:.2f} FALL=1")
 
             # Add measurements for average power, static power and dynamic power    功耗
