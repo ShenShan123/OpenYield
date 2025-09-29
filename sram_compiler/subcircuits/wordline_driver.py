@@ -84,6 +84,6 @@ class WordlineDriver(BaseSubcircuit):   #总的字线驱动器=一个与非门�
 
         """ Instantiate the `PNAND2` and `Pinv` gates """       #实例化
         self.X(self.nand_gate.name, self.nand_gate.name, 
-               'VDD', 'VSS', a_node, a_node, 'zb_int')          #两个输入都是A
+               'VDD', 'VSS', a_node, b_node, 'zb_int')          #两个输入都是A
         self.X(self.inv_driver.name, self.inv_driver.name,
                'VDD', 'VSS', zb_node, z_node)
