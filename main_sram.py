@@ -4,6 +4,8 @@ from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 import numpy as np
 from utils import estimate_bitcell_area # type: ignore
 from config import SRAM_CONFIG
+from datetime import datetime
+import os
 
 if __name__ == '__main__':
     # ================== 1. 加载所有配置 ==================
@@ -20,6 +22,11 @@ if __name__ == '__main__':
             "DECODER":"sram_compiler/config_yaml/decoder.yaml"
         }
     )
+
+    # 2. 生成时间戳子目录
+    time_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+    sim_path = os.path.join('sim', f"{time_str}_mc_6t")   # 例如 sim/20250928_153045_mc_6t
+    os.makedirs(sim_path, exist_ok=True)
 
     # FreePDK45 default transistor sizes
     area = estimate_bitcell_area(
@@ -41,14 +48,15 @@ if __name__ == '__main__':
         pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
         vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
         custom_mc=False, # Use your own process params?
-        param_sweep=True,
-        sweep_precharge=True,
-        sweep_senseamp=True,
-        sweep_wordlinedriver=True,
-        sweep_columnmux=True,
+        param_sweep=False,
+        sweep_precharge=False,
+        sweep_senseamp=False,
+        sweep_wordlinedriver=False,
+        sweep_columnmux=False,
         sweep_writedriver=False,
-        sweep_decoder=True,
-        q_init_val=0, sim_path='sim',
+        sweep_decoder=False,
+        coner='TT',#or FF or SS or FS or SF
+        q_init_val=0, sim_path=sim_path,
     )
     # vars = np.random.rand(num_mc,num_rows*num_cols*18)
 
