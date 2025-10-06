@@ -37,6 +37,7 @@ if __name__ == '__main__':
     )
     print(f"Estimated 6T SRAM Cell Area: {area*1e12:.2f} µm²")
 
+    temperature = sram_config.global_config.temperature
     num_rows = sram_config.global_config.num_rows
     num_cols = sram_config.global_config.num_cols
     num_mc = sram_config.global_config.monte_carlo_runs
@@ -44,7 +45,7 @@ if __name__ == '__main__':
     print("===== 6T SRAM Array Monte Carlo Simulation Debug Session =====")
     mc_testbench = Sram6TCoreMcTestbench(
         sram_config,
-        w_rc=False, # Whether add RC to nets
+        w_rc=True, # Whether add RC to nets
         pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
         vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
         custom_mc=False, # Use your own process params?
@@ -68,7 +69,7 @@ if __name__ == '__main__':
 
     # For using TRAN analysis, operation can be 'write' or 'read'
     w_delay, w_pavg = mc_testbench.run_mc_simulation(
-        operation='read', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc,
+        operation='read', target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc,temperature=temperature,
         vars=None, # Input your data table
     )
 
