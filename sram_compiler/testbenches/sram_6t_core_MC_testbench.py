@@ -191,8 +191,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             #字线驱动延迟
             # Measurements for wl driver delay (TWLDRV), defined as the time from the WLE assertion to V(WL)=VDD/2
             simulator.measure(
-                'TRAN', 'TWLDRV',
+                'TRAN', 'TDECODER',
                 f'TRIG V(A0)={self.half_vdd} RISE=1 ' +
+                f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
+            simulator.measure(
+                'TRAN', 'TWLDRV',
+                f'TRIG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1 ' +
                 f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
             #写驱动延迟
             # Measurements for write driver delay (TWDRV), defined as the time from the WE assertion to V(BL)=VDD/2
@@ -205,11 +209,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # which is defined as the time from the WL rise to data Q rise to 90% VDD.
             simulator.measure(
                 'TRAN', 'TWRITE_Q',
-                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1 ',
+                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1',
                 f"TARG V({target_node_q})={float(self.vdd) * 0.9:.2f} RISE=1")
             simulator.measure(
                 'TRAN', 'TWRITE_QB',
-                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1 ',
+                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1',
                 f"TARG V({target_node_qb})={float(self.vdd) * 0.1:.2f} FALL=1")
 
             # Add measurements for average power, static power and dynamic power    功耗
@@ -725,9 +729,14 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             self.circuit.raw_spice += f'.MEASURE {analysis_type} {name} {expression}\n'
 
 
-    def run_mc_simulation(self, operation='read', target_row=0, target_col=0, mc_runs=100, vars=None):
+    def run_mc_simulation(self, operation='read', target_row=0, target_col=0, mc_runs=100, temperature=27,vars=None):
         """Run Xyce Monte Carlo simulation"""
-        simulator = self.create_testbench(operation, target_row, target_col).simulator()
+        circuit = self.create_testbench(operation, target_row, target_col)
+        simulator = circuit.simulator(
+        temperature=temperature,           # 通过 **kwargs 传递
+        nominal_temperature=27    # 通过 **kwargs 传递
+        )
+        #simulator = self.create_testbench(operation, target_row, target_col).simulator()
 
         # if self.param_sweep:
         #     mc_runs=num_sweep
