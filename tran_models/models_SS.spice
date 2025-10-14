@@ -397,7 +397,8 @@
   
 +ll      = 0               wl      = 0               lln     = 1               wln     = 1             
 +lw      = 0               ww      = 0               lwn     = 1               wwn     = 1             
-+lwl     = 0               wwl     = 0               xpart   = 0               toxref  = 1.3e-009      
++lwl     = 0               wwl     = 0               xpart   = 0               
+*toxref  = 1.3e-009      
 +xl	   = -20e-9
 
 +k1      = 0.4             k2      = -0.01           k3      = 0             
