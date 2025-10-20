@@ -64,14 +64,18 @@ The simulation code is located at (sram_compiler/testbenches);
 
 The header file for circuit generation and simulation is main_sram.py;
 #### 0.  Using the `Testbench` Class
-Define some PDK related parameters.
+Define some  related parameters.
+The modifications of the number of rows num, the number of columns col, the temperature temp, and the power supply voltage vdd are all in global.config.
+
+The w and l values and types of each transistor are all in the yaml files of each sub-circuit
 ```python
-vdd = 1.0 # Supply voltage
 # your pdk_path is `'tran_models/models_TT.spice'` by default 
 pdk_path = 'tran_models/models_TT.spice' 
-# Mos model name for NMOS and PMOS
-nmos_model_name = 'NMOS_VTG'
-pmos_model_name = 'PMOS_VTG'
+vdd: 1.0                          #  Supply voltage (V)
+temperature: 27                   #  Temperature (Celsius)
+num_rows: 8                      #  Number of SRAM rows
+num_cols: 4                       #  Number of SRAM columns
+monte_carlo_runs: 2               #  Monte Carlo simulation runs
 ```
 
 The `Sram6TCoreMcTestbench` class in `sram_compiler/testbenches/sram_6t_core_MC_testbench.py` facilitates Monte Carlo simulations of the SRAM core. Here's a basic example of how to instantiate and use it:
@@ -98,11 +102,17 @@ from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 )
 ```
 Instantiate the simulation class.
+
 w_rc indicates whether an rc network is added during simulation, and pi_res and pi_cap represent the values of rc.
+
 vth_std represents the percentage change in process parameters.
+
 "custom_mc" indicates whether to use one's own Monka simulation parameters.
+
 The Sweep-related interface indicates whether parameter scanning is performed on the corresponding sub-circuit. If not, that is, the sweep-related variable is False, the basic parameters of the transistor are derived from the yaml file of each sub-circuit (sram_compiler/config_yaml).
+
 If parameter scanning is required, then enter each sub-circuit in (sram_compiler/param_sweep_data).Add several lines of parameters in the csv file.
+
 "Coner" represents the process Angle.
 
 
@@ -133,7 +143,7 @@ w_delay, w_pavg = mc_testbench.run_mc_simulation(
 Optional TRAN analysis or DC analysis is available. The specific operation options can be adjusted to obtain the desired circuit network table and simulation results.
 
 #### 3.results
-The results of each run are in the sim/ timestamp mc_6t folder, including netlist files, waveform diagrams, timing and power consumption results. By entering the.sp network meter, you can view the specific network meter and directly modify it. When cd enters this folder, the Xyce netlist name can be used to simulate the netlist independently.
+The results of each run are in the sim/, including netlist files, waveform diagrams, timing and power consumption results. By entering the.sp network meter, you can view the specific network meter and directly modify it. When cd enters this folder, the Xyce netlist name can be used to simulate the netlist independently.
 
 ### 3. Using the Optimization Algorithms
 
