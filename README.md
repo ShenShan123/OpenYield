@@ -43,7 +43,6 @@ This enhanced level of detail enables more realistic and reliable yield analysis
     For building your own Xyce please refers to this [guide](https://xyce.sandia.gov/documentation-tutorials/building-guide/)
 
 ## Usage Examples
-The `main.py` contains the usage examples.
 
 ### 0.  Conda Environment  Creation
 create the conda environment from our `yml` file:
@@ -58,9 +57,13 @@ otherwise, check the environment and update it
 ```bash
 conda env update -f environment.yml
 ```
+### 1. sram circuit generator 
+The generation modules of each sub-circuit are located at (sram_compiler/subcircuits);
 
+The simulation code is located at (sram_compiler/testbenches);
 
-### 1.  Using the `Testbench` Class
+The header file for circuit generation and simulation is main_sram.py;
+#### 0.  Using the `Testbench` Class
 Define some PDK related parameters.
 ```python
 vdd = 1.0 # Supply voltage
@@ -77,13 +80,23 @@ The `Sram6TCoreMcTestbench` class in `testbenches/sram_6t_core_MC_testbench.py` 
 from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 
 # Create an instance of the testbench
-mc_testbench = Sram6TCoreMcTestbench(
-    vdd,
-    pdk_path, nmos_model_name, pmos_model_name,
-    num_rows=num_rows, num_cols=num_cols, 
-    w_rc=True, # Add RC to nets
+ mc_testbench = Sram6TCoreMcTestbench(
+        sram_config,
+        w_rc=True, # Whether add RC to nets
+        pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+        vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
+        custom_mc=False, # Use your own process params?
+        param_sweep=False,
+        sweep_precharge=False,
+        sweep_senseamp=False,
+        sweep_wordlinedriver=False,
+        sweep_columnmux=False,
+        sweep_writedriver=False,
+        sweep_decoder=False,
+        coner='TT',#or FF or SS or FS or SF
+        q_init_val=0, sim_path=sim_path,
 )
-```
+Instantiate the simulation class. w_rc indicates whether an rc network is added during simulation, and pi_res and pi_cap represent the values of rc. vth_std represents the percentage change in process parameters. "custom_mc" indicates whether to use one's own Monka simulation parameters. The Sweep-related interface indicates whether parameter scanning is performed on the corresponding sub-circuit. If not, that is, the sweep-related variable is False, the basic parameters of the transistor are derived from the yaml file of each sub-circuit (sram_compiler/config_yaml). If parameter scanning is required, Then enter each sub-circuit in (sram_compiler/param_sweep_data). Add several lines of parameters in the csv file. "Coner" represents the process Angle.
 
 ### 2. Using the `run_mc_simulation` Method
 The `run_mc_simulation` method within the `SRAM_6T_Array_MC_Testbench` class executes Monte Carlo simulations.  Here's an example demonstrating its usage:
