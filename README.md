@@ -67,14 +67,14 @@ The header file for circuit generation and simulation is main_sram.py;
 Define some PDK related parameters.
 ```python
 vdd = 1.0 # Supply voltage
-# your pdk_path is `'model_lib/models.spice'` by default 
-pdk_path = 'model_lib/models.spice' 
+# your pdk_path is `'tran_models/models_TT.spice'` by default 
+pdk_path = 'tran_models/models_TT.spice' 
 # Mos model name for NMOS and PMOS
 nmos_model_name = 'NMOS_VTG'
 pmos_model_name = 'PMOS_VTG'
 ```
 
-The `Sram6TCoreMcTestbench` class in `testbenches/sram_6t_core_MC_testbench.py` facilitates Monte Carlo simulations of the SRAM core. Here's a basic example of how to instantiate and use it:
+The `Sram6TCoreMcTestbench` class in `sram_compiler/testbenches/sram_6t_core_MC_testbench.py` facilitates Monte Carlo simulations of the SRAM core. Here's a basic example of how to instantiate and use it:
 
 ```python
 from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
@@ -96,6 +96,7 @@ from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
         coner='TT',#or FF or SS or FS or SF
         q_init_val=0, sim_path=sim_path,
 )
+```
 Instantiate the simulation class.
 w_rc indicates whether an rc network is added during simulation, and pi_res and pi_cap represent the values of rc.
 vth_std represents the percentage change in process parameters.
@@ -103,6 +104,8 @@ vth_std represents the percentage change in process parameters.
 The Sweep-related interface indicates whether parameter scanning is performed on the corresponding sub-circuit. If not, that is, the sweep-related variable is False, the basic parameters of the transistor are derived from the yaml file of each sub-circuit (sram_compiler/config_yaml).
 If parameter scanning is required, then enter each sub-circuit in (sram_compiler/param_sweep_data).Add several lines of parameters in the csv file.
 "Coner" represents the process Angle.
+
+
 
 #### 2. Using the `run_mc_simulation` Method
 The `run_mc_simulation` method within the `SRAM_6T_Array_MC_Testbench` class executes Monte Carlo simulations.  Here's an example demonstrating its usage:
@@ -124,9 +127,13 @@ read_snm = mc_testbench.run_mc_simulation(
 w_delay, w_pavg = mc_testbench.run_mc_simulation(
     operation='write', 
     target_row=num_rows-1, target_col=num_cols-1, 
-    mc_runs=num_mc, vars=None, # Input your data table
+    mc_runs=num_mc, temperature=temperature,vars=None, # Input your data table
 )
 ```
+Optional TRAN analysis or DC analysis is available. The specific operation options can be adjusted to obtain the desired circuit network table and simulation results.
+
+#### 3.results
+The results of each run are in the sim/ timestamp mc_6t folder, including netlist files, waveform diagrams, timing and power consumption results. By entering the.sp network meter, you can view the specific network meter and directly modify it. When cd enters this folder, the Xyce netlist name can be used to simulate the netlist independently.
 
 ### 3. Using the Optimization Algorithms
 
