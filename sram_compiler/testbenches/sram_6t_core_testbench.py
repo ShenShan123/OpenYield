@@ -7,7 +7,7 @@ from sram_compiler.subcircuits.sram_6t_core_for_yield import ( # type: ignore
 from sram_compiler.subcircuits.standard_cell import Pbuff  # type: ignore
 from sram_compiler.subcircuits.wordline_driver import WordlineDriver  # type: ignore
 from sram_compiler.subcircuits.precharge_and_write_driver import Precharge, WriteDriver  # type: ignore
-from sram_compiler.subcircuits.mux_and_sa import ColumnMux, SenseAmp  # type: ignore
+from sram_compiler.subcircuits.mux_and_sa import ColumnMux,ColumnMux_simple,SenseAmp  # type: ignore
 from sram_compiler.subcircuits.decoder import DECODER_CASCADE # type: ignore
 from utils import parse_spice_models  # type: ignore
 from sram_compiler.testbenches.base_testbench import BaseTestbench  # type: ignore
@@ -17,7 +17,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     def __init__(self, sram_config,
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  custom_mc: bool = False,param_sweep: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
-                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",
+                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,
                  q_init_val: int = 0
                  ):
         # 保存配置对象引用
@@ -46,6 +46,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.pi_cap = pi_cap
         self.heir_delimiter = ':'
         # User defined MC simulation
+        self.choose_columnmux=choose_columnmux
         self.corner=corner#选择工艺角
         self.custom_mc = custom_mc  #是否启用mc
         self.param_sweep = param_sweep #cell单元是否用参数扫描
@@ -74,7 +75,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             base_inv_nmos_width =decoder_config.nmos_width.value[1],
             length=decoder_config.length.value,
             w_rc=self.w_rc,  # default `w_rc` is False
-            # pi_res=self.pi_res, pi_cap=self.pi_cap,
+            pi_res=self.pi_res, pi_cap=self.pi_cap,
             sweep_decoder=self.sweep_decoder,
             pmos_model_choices = self.sram_config.senseamp.pmos_model.choices,
             nmos_model_choices = self.sram_config.senseamp.nmos_model.choices
@@ -114,7 +115,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
 
         return circuit
     
-    def create_wl_driver(self, circuit: Circuit, target_row: int):  #创造写驱动电路函数
+    def create_wl_driver(self, circuit: Circuit, target_row: int):  #创造字线驱动电路函数
         """Create wordline driver for the target/standby row"""
         wl_config = self.sram_config.wordline_driver    #从总config类里提取wordline部分参数
         wldrv = WordlineDriver(
@@ -209,55 +210,81 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             period=self.t_period, dc_offset=self.vdd
         )
 
+        if self.choose_columnmux:
         # we temporarily fix this to 2  固定为2路复用
-        self.mux_in = 2
+            self.mux_in = 2
 
-        # Column Mux
-        cmux = ColumnMux(
-            nmos_model_name=self.sram_config.column_mux.nmos_model.value,
-            pmos_model_name=self.sram_config.column_mux.pmos_model.value,
-            num_in=self.mux_in,
-            base_nmos_width=self.sram_config.column_mux.nmos_width.value,
-            base_pmos_width=self.sram_config.column_mux.pmos_width.value,
-            length=self.sram_config.column_mux.length.value,
-            w_rc=self.w_rc,
-            sweep_columnmux = self.sweep_columnmux,
-            # pi_res=self.pi_res, pi_cap=self.pi_cap,
-            pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
-            nmos_modle_choices = self.sram_config.senseamp.nmos_model.choices
-        )
-        circuit.subcircuit(cmux)    #添加列多路选择器实例到主电路
-        self.cmux_inst_prefix = f"X{cmux.name}"
-
-        # Add Column Mux for all columns    为每组列添加多路复用器实例
-        for col in range(self.num_cols // self.mux_in): #//表示整除，即需要几组多路选择器
-            circuit.X(
-                f'{cmux.name}_{col}',
-                cmux.name,
-                self.power_node, self.gnd_node,  # Power node and GND node
-                f'SA_IN{col}',  # SA inputs are Mux's outputs
-                f'SA_INB{col}',  # SA inputs are Mux's outputs
-                # SELect signal, high valid, #SEL = self.mux_in
-                *[f'SEL{i}' for i in range(self.mux_in)],
-                # Inputs are BLs, #BLs  = self.mux_in
-                *[f'BL{i}' for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
-                # Inputs are BLBs, #BLBs = self.mux_in
-                *[f'BLB{i}' for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
+            # Column Mux
+            cmux = ColumnMux_simple(
+                nmos_model_name=self.sram_config.column_mux.nmos_model.value,
+                pmos_model_name=self.sram_config.column_mux.pmos_model.value,
+                num_in=self.mux_in,
+                base_nmos_width=self.sram_config.column_mux.nmos_width.value,
+                base_pmos_width=self.sram_config.column_mux.pmos_width.value,
+                length=self.sram_config.column_mux.length.value,
+                w_rc=self.w_rc,
+                sweep_columnmux = self.sweep_columnmux,
+                # pi_res=self.pi_res, pi_cap=self.pi_cap,
+                pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
+                nmos_modle_choices = self.sram_config.senseamp.nmos_model.choices
             )
-            # Set SEL signals   设置选择信号：目标列使用脉冲源，其他列接地
-        for i in range(self.mux_in):
-            if i == target_col % self.mux_in:   #目标列所在的目标组
-                # Pulse setting of select signal is the same as WLE
-                circuit.PulseVoltageSource(
-                    f'SEL_{i}', f'SEL{i}', self.gnd_node,
-                    initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-                    delay_time=self.t_pulse,
-                    rise_time=self.t_rise, fall_time=self.t_fall,
-                    pulse_width=self.t_pulse,
-                    period=self.t_period
+            circuit.subcircuit(cmux)    #添加列多路选择器实例到主电路
+            self.cmux_inst_prefix = f"X{cmux.name}"
+
+            # Add Column Mux for all columns    为每组列添加多路复用器实例
+            for col in range(self.num_cols // self.mux_in): #//表示整除，即需要几组多路选择器
+                circuit.X(
+                    f'{cmux.name}_{col}',
+                    cmux.name,
+                    self.power_node, self.gnd_node,  # Power node and GND node
+                    f'SA_IN{col}',  # SA inputs are Mux's outputs
+                    f'SA_INB{col}',  # SA inputs are Mux's outputs
+                    # SELect signal, high valid, #SEL = self.mux_in
+                    *[f'SEL{i}' for i in range(self.mux_in)],
+                    *[f'SELB{i}' for i in range(self.mux_in)],
+                    # Inputs are BLs, #BLs  = self.mux_in
+                    *[f'BL{i}' for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
+                    # Inputs are BLBs, #BLBs = self.mux_in
+                    *[f'BLB{i}' for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
                 )
-            else:
-                circuit.V(f'SEL_{i}', f'SEL{i}', self.gnd_node, 0 @ u_V)
+                # Set SEL signals   设置选择信号：目标列使用脉冲源，其他列接地
+            # for i in range(self.mux_in):
+            #     if i == target_col % self.mux_in:   #目标列所在的目标组
+            #         # Pulse setting of select signal is the same as WLE
+            #         circuit.PulseVoltageSource(
+            #             f'SEL_{i}', f'SEL{i}', self.gnd_node,
+            #             initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
+            #             delay_time=self.t_pulse,
+            #             rise_time=self.t_rise, fall_time=self.t_fall,
+            #             pulse_width=self.t_pulse,
+            #             period=self.t_period
+            #         )
+            #     else:
+            #         circuit.V(f'SEL_{i}', f'SEL{i}', self.gnd_node, 0 @ u_V)
+
+
+            for i in range(self.mux_in):
+                if i == target_col % self.mux_in:   #目标列所在的目标组
+                    # Pulse setting of select signal is the same as WLE
+                    circuit.PulseVoltageSource(
+                        f'SEL_{i}', f'SEL{i}', self.gnd_node,
+                        initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
+                        delay_time=self.t_pulse,
+                        rise_time=self.t_rise, fall_time=self.t_fall,
+                        pulse_width=self.t_pulse,
+                        period=self.t_period
+                    )
+                    circuit.PulseVoltageSource(
+                        f'SELB_{i}', f'SELB{i}', self.gnd_node,
+                        initial_value=self.vdd @ u_V, pulsed_value=0 @ u_V,
+                        delay_time=self.t_pulse,
+                        rise_time=self.t_rise, fall_time=self.t_fall,
+                        pulse_width=self.t_pulse,
+                        period=self.t_period,dc_offset=self.vdd
+                    )
+                else:
+                    circuit.V(f'SEL_{i}', f'SEL{i}', self.gnd_node, 0 @ u_V)
+                    circuit.V(f'SELB_{i}', f'SELB{i}', self.gnd_node, 1.0 @ u_V)
 
         # Sense Amplifer
         sa = SenseAmp(
@@ -275,16 +302,29 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         circuit.subcircuit(sa)  #添加灵敏放大器实例到主电路
         self.sa_inst_prefix = f'X{sa.name}'
 
-        # Add SA circuitry for all columns  #为每组多路选择器下接灵敏放大器
-        for col in range(self.num_cols // self.mux_in):
-            circuit.X(
-                f'{sa.name}_{col}',
-                sa.name,
-                self.power_node, self.gnd_node,
-                'SAE',  # SA Enable signal
-                f'SA_IN{col}', f'SA_INB{col}',  # Inputs
-                f'SA_Q{col}', f'SA_QB{col}',  # Outputs
-            )
+        if self.choose_columnmux:
+            # Add SA circuitry for all columns  #为每组多路选择器下接灵敏放大器
+            for col in range(self.num_cols // self.mux_in):
+                circuit.X(
+                    f'{sa.name}_{col}',
+                    sa.name,
+                    self.power_node, self.gnd_node,
+                    'SAE',  # SA Enable signal
+                    f'SA_IN{col}', f'SA_INB{col}',  # Inputs
+                    f'SA_Q{col}', f'SA_QB{col}',  # Outputs
+                )
+
+        else:
+            # Add SA circuitry for all columns  #为每组多路选择器下接灵敏放大器
+            for col in range(self.num_cols):
+                circuit.X(
+                    f'{sa.name}_{col}',
+                    sa.name,
+                    self.power_node, self.gnd_node,
+                    'SAE',  # SA Enable signal
+                    f'BL{col}', f'BLB{col}',  # Inputs
+                    f'SA_Q{col}', f'SA_QB{col}',  # Outputs
+                )
 
         # SA enable signal  添加灵敏放大器使能信号
         circuit.PulseVoltageSource(
@@ -476,9 +516,10 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
 
         # initiate the voltage of inputs of SAs, connecting to column muxes 
         # 灵敏放大器输入全置为1
-        for col in range(self.num_cols // self.mux_in):
-            init_dict[f'SA_IN{col}'] = self.vdd @ u_V
-            init_dict[f'SA_INB{col}'] = self.vdd @ u_V
+        if self.choose_columnmux:
+            for col in range(self.num_cols // self.mux_in):
+                init_dict[f'SA_IN{col}'] = self.vdd @ u_V
+                init_dict[f'SA_INB{col}'] = self.vdd @ u_V
 
         return init_dict
 
@@ -564,7 +605,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 circuit.PulseVoltageSource(
                     f'ADDR_{bit}', node_name, self.gnd_node,
                     initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-                    delay_time=4.5e-9,  # 预充电开始后5ns
+                    delay_time=5.0e-9,  # 预充电开始后5ns
                     rise_time=self.t_rise,fall_time=self.t_fall,
                     pulse_width=7.5e-9 , # 保持有效
                     period=self.t_period
