@@ -6,6 +6,11 @@ from utils import estimate_bitcell_area # type: ignore
 from config import SRAM_CONFIG
 from datetime import datetime
 import os
+# os.environ["OMP_NUM_THREADS"] = "8"
+# os.environ["OPENBLAS_NUM_THREADS"] = "8"
+# os.environ["MKL_NUM_THREADS"] = "8"
+# os.environ["VECLIB_MAXIMUM_THREADS"] = "8"
+# os.environ["NUMEXPR_NUM_THREADS"] = "8"
 
 if __name__ == '__main__':
     # ================== 1. 加载所有配置 ==================
@@ -45,7 +50,7 @@ if __name__ == '__main__':
     print("===== 6T SRAM Array Monte Carlo Simulation Debug Session =====")
     mc_testbench = Sram6TCoreMcTestbench(
         sram_config,
-        w_rc=True, # Whether add RC to nets
+        w_rc=False, # Whether add RC to nets
         pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
         vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
         custom_mc=False, # Use your own process params?
@@ -57,6 +62,7 @@ if __name__ == '__main__':
         sweep_writedriver=False,
         sweep_decoder=False,
         coner='TT',#or FF or SS or FS or SF
+        choose_columnmux=False,# Whether choose column mux or not
         q_init_val=0, sim_path=sim_path,
     )
     # vars = np.random.rand(num_mc,num_rows*num_cols*18)
