@@ -16,7 +16,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, sram_config,
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  vth_std=0.05, custom_mc=False,param_sweep=False,sweep_precharge=False,sweep_senseamp=True,sweep_wordlinedriver=False,
-                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,coner='TT',
+                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,coner='TT',choose_columnmux=True,
                  q_init_val=0, sim_path='sim'):
         """
                蒙特卡洛测试平台初始化
@@ -33,8 +33,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         super().__init__(#父类
             sram_config,
             w_rc, pi_res, pi_cap,
-            custom_mc, param_sweep,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,coner,q_init_val,
+            custom_mc, param_sweep,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,coner,choose_columnmux,q_init_val,
         )
+        self.choose_columnmux=choose_columnmux
         self.coner=coner
         self.sweep_decoder=sweep_decoder
         self.sweep_writedriver=sweep_writedriver
@@ -156,16 +157,16 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # Add measurements for average power, static power and dynamic power    测量功耗(平均、动态、静态)
             simulator.measure(
                 'TRAN', 'PAVG',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(self.t_pulse * 1.5):.4e}'
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(14.0 @ u_ns)}'
             )
             simulator.measure(
                 'TRAN', 'PDYN',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(self.t_pulse):.4e}'
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(4.0 @ u_ns)} TO={float(6.0 @ u_ns)}'
             )
             simulator.measure(
                 'TRAN', 'PSTC',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float((self.t_pulse + self.t_fall) * 2):.4e} ' +
-                f'TO={float(self.t_period):.4e}'
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(6.0 @ u_ns)} ' +
+                f'TO={float(10.0 @ u_ns)}'
             )
 
             # Add print for read operation
@@ -173,12 +174,13 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'.PRINT TRAN FORMAT=NOINDEX V(SAE) V(WL{self.target_row}) ' + \
                 f'V(BL{self.target_col}) V(BLB{self.target_col}) ' + \
                 f'V({target_node_q}) V({target_node_qb}) \n'
+            if self.choose_columnmux:
+                simulator.circuit.raw_spice += \
+                    f'.PRINT TRAN V(SA_IN{self.target_col // self.mux_in}) ' + \
+                    f'V(SA_INB{self.target_col // self.mux_in})\n'      
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN V(SA_IN{self.target_col // self.mux_in}) ' + \
-                f'V(SA_INB{self.target_col // self.mux_in}) ' + \
-                f'V(SA_Q{self.target_col // self.mux_in}) ' + \
+                f'.PRINT TRAN V(SA_Q{self.target_col // self.mux_in}) ' + \
                 f'V(SA_QB{self.target_col // self.mux_in})\n'
-
         # The write operation
         elif operation == 'write':
             # .ic conditions
@@ -219,16 +221,16 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # Add measurements for average power, static power and dynamic power    功耗
             simulator.measure(
                 'TRAN', 'PAVG',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(self.t_pulse - self.t_delay):.4e} TO={float(self.t_pulse * 2):.4e}'
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(14 @ u_ns)}'
             )
             simulator.measure(
                 'TRAN', 'PDYN',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(self.t_pulse):.4e} TO={float(self.t_pulse * 1.5):.4e}'
+                f'MIN {{V(VDD)*I(VVDD)}} FROM={float(4.0 @ u_ns)} TO={float(6.0 @ u_ns)}'
             )
             simulator.measure(
                 'TRAN', 'PSTC',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float((self.t_pulse + self.t_fall) * 2):.4e} ' +
-                f'TO={float(self.t_period):.4e}'
+                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(6.0 @ u_ns)} ' +
+                f'TO={float(10.0 @ u_ns)}'
             )
             # Add print for write operation
             simulator.circuit.raw_spice += \
