@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-from sram_optimization.borl_model.actor_critic import ActorCritic
+from size_optimization.borl_model.actor_critic import ActorCritic
 import logging
 
 # 设置日志记录器
