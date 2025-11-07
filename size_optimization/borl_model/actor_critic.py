@@ -1,9 +1,9 @@
-from sram_optimization.borl_model.actor_net import ActorPolicyNet
-from sram_optimization.borl_model.critic_net import CriticNet
+from size_optimization.borl_model.actor_net import ActorPolicyNet
+from size_optimization.borl_model.critic_net import CriticNet
 import torch.nn as nn
 import torch
 from torch.distributions import Categorical
-from sram_optimization.borl_model.buffer import Memory
+from size_optimization.borl_model.buffer import Memory
 import logging
 
 # 设置日志记录器
