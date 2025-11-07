@@ -21,11 +21,11 @@ from mpl_toolkits.mplot3d import Axes3D
 import signal
 from typing import Dict, List, Any, Union, Tuple
 from abc import ABC, abstractmethod
-
+from config import SRAM_CONFIG
 # Import SRAM simulation modules
 # 导入SRAM仿真模块
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
-from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 from utils import estimate_bitcell_area
 
 
@@ -151,7 +151,7 @@ class ConfigLoader:
                 'timeout': 120
             },
             'pdk': {
-                'path': 'model_lib/models.spice'
+                'path': 'tran_models/models_TT.spice'
             },
             'subcircuit': {
                 'name': 'SRAM_6T_Cell',
@@ -299,25 +299,36 @@ class ModifiedSRAMParameterSpace:
         
         # 设置默认值
         if nmos_width_config:
-            pd_default = nmos_width_config['default'][0] if 'pd' in nmos_width_config['names'] else 2.05e-7
-            pg_default = nmos_width_config['default'][1] if len(nmos_width_config['default']) > 1 else 1.35e-7
+            nmos_defaults = nmos_width_config['default']
+            if isinstance(nmos_defaults, (list, tuple)):
+                pd_default = nmos_defaults[0] if 'pd' in nmos_width_config['names'] else 2.05e-7
+                pg_default = nmos_defaults[1] if len(nmos_defaults) > 1 else 1.35e-7
+            else:
+                pd_default = pg_default = float(nmos_defaults)
         else:
             pd_default, pg_default = 2.05e-7, 1.35e-7
             
         if pmos_width_config:
-            pu_default = pmos_width_config['default'][0] if pmos_width_config['default'] else 9e-8
+            pmos_defaults = pmos_width_config['default']
+            if isinstance(pmos_defaults, (list, tuple)):
+                pu_default = pmos_defaults[0] if pmos_defaults else 9e-8
+            else:
+                pu_default = float(pmos_defaults)
         else:
             pu_default = 9e-8
             
         if length_config:
             length_default = length_config['default']
+            # 确保length_default是标量值，如果是列表则取第一个元素
+            if isinstance(length_default, (list, tuple)):
+                length_default = length_default[0]
         else:
             length_default = 50e-9
         
         self.base_pd_width = pd_default
         self.base_pu_width = pu_default
         self.base_pg_width = pg_default
-        self.base_length_nm = length_default * 1e9
+        self.base_length_nm = float(length_default) * 1e9
     
     def convert_params(self, x):
         """
@@ -352,9 +363,11 @@ class ModifiedSRAMParameterSpace:
                     
                     dim_idx += 1
                     
-            elif info['type'] == 'continuous_scalar':
+            elif info['type'] == 'continuous_scalar' or info['type'] == 'continuous value':
                 # 连续型标量参数
-                val = info['lower'] + x[dim_idx] * (info['upper'] - info['lower'])
+                upper = float(info['upper'])
+                lower = float(info['lower'])
+                val = lower + x[dim_idx] * (upper - lower)
                 
                 if param_name == 'length':
                     params['length'] = float(val)
@@ -390,6 +403,23 @@ def evaluate_sram(params, timeout=120):
     Execute SRAM evaluation with given parameters
     使用给定参数执行SRAM评估
     """
+    # 获取项目根目录路径
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+    
+    sram_config = SRAM_CONFIG()
+    sram_config.load_all_configs(
+        global_file=os.path.join(project_root, "sram_compiler/config_yaml/global.yaml"),
+        circuit_configs={
+            "SRAM_6T_CELL": os.path.join(project_root, "sram_compiler/config_yaml/sram_6t_cell.yaml"),
+            "WORDLINEDRIVER": os.path.join(project_root, "sram_compiler/config_yaml/wordline_driver.yaml"),
+            "PRECHARGE": os.path.join(project_root, "sram_compiler/config_yaml/precharge.yaml"),
+            "COLUMNMUX": os.path.join(project_root, "sram_compiler/config_yaml/mux.yaml"),
+            "SENSEAMP": os.path.join(project_root, "sram_compiler/config_yaml/sa.yaml"),
+            "WRITEDRIVER": os.path.join(project_root, "sram_compiler/config_yaml/write_driver.yaml"),
+            "DECODER": os.path.join(project_root, "sram_compiler/config_yaml/decoder.yaml")
+        }
+    )
     try:
         print(f"Starting SRAM evaluation with parameters: {params}")
         print(f"开始使用参数进行SRAM评估: {params}")
@@ -398,7 +428,7 @@ def evaluate_sram(params, timeout=120):
         # Set simulation parameters
         # 设置仿真参数
         vdd = 1.0
-        pdk_path = 'model_lib/models.spice'
+        pdk_path = os.path.join(project_root, 'tran_models/models_TT.spice')
         num_rows = 32
         num_cols = 1
         num_mc = 1
@@ -414,24 +444,24 @@ def evaluate_sram(params, timeout=120):
         print(f"Estimated 6T SRAM cell area: {area*1e12:.2f} µm²")
         print(f"估算的6T SRAM单元面积: {area*1e12:.2f} µm²")
         
-        # Create testbench
-        # 创建测试平台
+        # Create testbench with parameter sweep configuration
+        # 创建带有参数扫描配置的测试平台
         mc_testbench = Sram6TCoreMcTestbench(
-            vdd,
-            pdk_path,
-            params['nmos_model_name'],
-            params['pmos_model_name'],
-            num_rows=num_rows,
-            num_cols=num_cols,
-            pd_width=params['pd_width'],
-            pu_width=params['pu_width'],
-            pg_width=params['pg_width'],
-            length=params['length'],
-            w_rc=False,
-            pi_res=10 @ u_Ohm,
+            sram_config,
+            w_rc=True,  # Whether add RC to nets 
+            pi_res=100 @ u_Ohm, 
             pi_cap=0.001 @ u_pF,
-            custom_mc=False,
-            q_init_val=0,
+            vth_std=0.05,  # Process parameter variation is a percentage of its value in model lib 
+            custom_mc=False,  # Use your own process params? 
+            param_sweep=True,           # 启用参数扫描主开关
+            sweep_precharge=True,       # 扫描预充电电路（影响读取性能）
+            sweep_senseamp=True,        # 扫描灵敏放大器（影响读取灵敏度）
+            sweep_wordlinedriver=True,  # 扫描字线驱动器（影响访问速度）
+            sweep_columnmux=False,      # 不扫描列多路复用器
+            sweep_writedriver=False,    # 不扫描写驱动器
+            sweep_decoder=False,        # 不扫描解码器 
+            coner='TT',  # or FF or SS or FS or SF 
+            q_init_val=0, 
             sim_path='sim',
         )
         
