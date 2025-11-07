@@ -31,7 +31,7 @@ sys.path.append(project_root)
 
 # Import utilities from exp_utils
 # 从exp_utils导入工具函数
-from sram_optimization.exp_utils import (
+from size_optimization.exp_utils import (
     seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
     BaseOptimizer, get_default_initial_params, run_initial_evaluation
 )
@@ -217,7 +217,7 @@ def main(config_path="config_sram.yaml"):
 
     # Run SMAC optimization
     # 运行SMAC优化
-    best_result = optimizer.run_optimization(max_iter=400)
+    best_result = optimizer.run_optimization(max_iter=5)
 
     # Output best results
     # 输出最佳结果
