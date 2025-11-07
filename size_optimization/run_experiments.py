@@ -26,11 +26,11 @@ sys.path.append(project_root)
 # Import algorithm modules
 # 导入算法模块
 try:
-    from sram_optimization.demo_pso import main as pso_main
-    from sram_optimization.demo_sa import main as sa_main  
-    from sram_optimization.demo_cbo import main as cbo_main
-    from sram_optimization.demo_smac import main as smac_main
-    from sram_optimization.demo_roseopt import main as rose_opt_main 
+    from size_optimization.demo_pso import main as pso_main
+    from size_optimization.demo_sa import main as sa_main  
+    from size_optimization.demo_cbo import main as cbo_main
+    from size_optimization.demo_smac import main as smac_main
+    from size_optimization.demo_roseopt import main as rose_opt_main 
 except ImportError as e:
     print(f"导入算法模块失败: {e}")
     print("请确保所有算法文件都在正确的位置")
@@ -38,7 +38,7 @@ except ImportError as e:
 
 # Import utilities
 # 导入工具函数
-from sram_optimization.exp_utils import seed_set, create_directories
+from size_optimization.exp_utils import seed_set, create_directories
 
 
 class ExperimentRunner:
@@ -432,7 +432,7 @@ def main():
     
     # 配置文件路径
     # Configuration file path
-    CONFIG_FILE = "sram_optimization/config_sram.yaml"
+    CONFIG_FILE = os.path.join(current_dir, "config_sram.yaml")
     
     # 要运行的算法列表 - 在这里选择要对比的算法
     # Algorithm list to run - Select algorithms to compare here
