@@ -32,7 +32,7 @@ sys.path.append(project_root)
 
 # Import utilities from exp_utils
 # 从exp_utils导入工具函数
-from sram_optimization.exp_utils import (
+from size_optimization.exp_utils import (
     seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
     OptimizationLogger, save_pareto_front, save_best_result, plot_merit_history,
     plot_pareto_frontier, update_pareto_front, save_optimization_history
@@ -517,7 +517,9 @@ class SRAM_BORL:
                     mu = mu * Y_std + Y_mean
                     sigma = sigma * Y_std
                     
-                    sigma = sigma.reshape(-1, 1)
+                    # Keep sigma as 1D array to match ei dimensions
+                    # 保持sigma为1D数组以匹配ei的维度
+                    sigma = sigma.flatten()
                     
                     with np.errstate(divide='warn'):
                         imp = mu - f_max - xi
@@ -766,7 +768,7 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
 
     # Run RoSE-Opt training
     # 运行RoSE-Opt训练
-    results = optimizer.train(num_iterations=400, debug_interval=20)
+    results = optimizer.train(num_iterations=5, debug_interval=2)
 
     # Print final results
     # 打印最终结果
