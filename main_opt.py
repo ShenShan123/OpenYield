@@ -1,5 +1,5 @@
-from testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
-from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from sram_compiler.testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
+from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 import numpy as np
 from utils import estimate_bitcell_area
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     try:
         import sys
         import os
-        sys.path.append(os.path.join(os.path.dirname(__file__), 'sram_optimization'))
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'size_optimization'))
         
         # Available optimization algorithms for algorithm name and description
         # 算法名称和描述的可用优化算法
@@ -73,37 +73,37 @@ if __name__ == '__main__':
                 
                 try:
                     if algo == 'PSO':
-                        from sram_optimization import demo_pso
+                        from size_optimization import demo_pso
                         demo_pso.main(config_file)  # Pass config file
                         
                     elif algo == 'SA':
-                        from sram_optimization import demo_sa
+                        from size_optimization import demo_sa
                         demo_sa.main(config_file)  # Pass config file
                         
                     elif algo == 'CBO':
-                        from sram_optimization import demo_cbo
+                        from size_optimization import demo_cbo
                         demo_cbo.main(config_file)  # Pass config file
                         
                     elif algo == 'RoSE_Opt':  
-                        from sram_optimization import demo_roseopt
+                        from size_optimization import demo_roseopt
                         demo_roseopt.main(config_file)  # Pass config file
                         
                     elif algo == 'SMAC':
-                        from sram_optimization import demo_smac 
+                        from size_optimization import demo_smac 
                         demo_smac.main(config_file)  # Pass config file and correct function call
                     
                     print(f"{algo} optimization completed successfully!")
                     
                 except ImportError as e:
                     print(f"Error importing {algo} algorithm: {e}")
-                    print(f"Make sure the corresponding file exists in sram_optimization/")
+                    print(f"Make sure the corresponding file exists in size_optimization/")
                     print(f"Expected files:")
                     expected_files = {
-                        'PSO': 'sram_optimization/pso.py',
-                        'SA': 'sram_optimization/sa.py', 
-                        'CBO': 'sram_optimization/sram_cbo.py',
-                        'RoSE_Opt': 'sram_optimization/rose_opt.py',
-                        'SMAC': 'sram_optimization/sram_smac.py'
+                        'PSO': 'size_optimization/demo_pso.py',
+                        'SA': 'size_optimization/demo_sa.py', 
+                        'CBO': 'size_optimization/demo_cbo.py',
+                        'RoSE_Opt': 'size_optimization/demo_roseopt.py',
+                        'SMAC': 'size_optimization/demo_smac.py'
                     }
                     if algo in expected_files:
                         print(f"  - {expected_files[algo]}")
