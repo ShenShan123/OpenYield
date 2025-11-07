@@ -24,7 +24,7 @@ sys.path.append(project_root)
 
 # Import utilities from exp_utils
 # 从exp_utils导入工具函数
-from sram_optimization.exp_utils import (
+from size_optimization.exp_utils import (
     seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
     OptimizationLogger, save_pareto_front, save_best_result, plot_merit_history,
     plot_pareto_frontier, update_pareto_front, save_optimization_history
@@ -388,7 +388,7 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
 
     # Run PSO optimization
     # 运行PSO优化
-    best_result = optimizer.run_optimization(max_iter=400, population_size=20)
+    best_result = optimizer.run_optimization(max_iter=5, population_size=3)
 
     # Output best results
     # 输出最佳结果
