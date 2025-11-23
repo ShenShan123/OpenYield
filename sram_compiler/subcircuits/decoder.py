@@ -54,18 +54,12 @@ class AND3(BaseSubcircuit):  # ////////三输入与门=与非门+非门
         self.add_and3_components()
 
     def add_and3_components(self):
-        if self.w_rc:  # 字线要考虑是否添加rc网络，
-            a_node = self.add_rc_networks_to_node('A', num_segs=2)  # 调用base里的rc网络函数
-            b_node = self.add_rc_networks_to_node('B', num_segs=2)  # 4条线每条分成两段加rc
-            c_node = self.add_rc_networks_to_node('C', num_segs=2)
-            zb_node = self.add_rc_networks_to_node('zb_int', num_segs=2)
-            z_node = self.add_rc_networks_to_node('Z', num_segs=2)
-        else:
-            a_node = 'A'
-            b_node = "B"
-            c_node = "C"
-            zb_node = "zb_int"
-            z_node = "Z"
+        
+        a_node = 'A'
+        b_node = "B"
+        c_node = "C"
+        zb_node = "zb_int"
+        z_node = "Z"
 
         """ Instantiate the `PNAND3` and `Pinv` gates """  # 实例化
         self.X(f'PNAND3', self.nand_gate.name,
@@ -121,16 +115,11 @@ class AND2(BaseSubcircuit):  # ////////二输入与门=二输入与非门+非门
         self.add_and3_components()
 
     def add_and3_components(self):
-        if self.w_rc:  # 字线要考虑是否添加rc网络，
-            a_node = self.add_rc_networks_to_node('A', num_segs=2)  # 调用base里的rc网络函数
-            b_node = self.add_rc_networks_to_node('B', num_segs=2)  # 4条线每条分成两段加rc
-            zb_node = self.add_rc_networks_to_node('zb_int', num_segs=2)
-            z_node = self.add_rc_networks_to_node('Z', num_segs=2)
-        else:
-            a_node = 'A'
-            b_node = "B"
-            zb_node = "zb_int"
-            z_node = "Z"
+       
+        a_node = 'A'
+        b_node = "B"
+        zb_node = "zb_int"
+        z_node = "Z"
 
         """ Instantiate the `PNAND3` and `Pinv` gates """  # 实例化
         self.X(f'PNAND3', self.nand_gate.name,
@@ -290,6 +279,7 @@ class DECODER_CASCADE(BaseSubcircuit):
                 pmos_model_choices = 'PMOS_VTG',nmos_model_choices = 'NMOS_VTG'
                  ):
         # 计算地址位数和级数
+        self.w_rc=w_rc
         self.num_rows = num_rows
         self.sweep_decoder = sweep_decoder
         self.pmos_model_choices=pmos_model_choices
@@ -346,7 +336,7 @@ class DECODER_CASCADE(BaseSubcircuit):
                     base_nand_pmos_width=base_nand_pmos_width,
                     base_nand_nmos_width=base_nand_nmos_width,
                     length=length,
-                    w_rc=w_rc,
+                    w_rc=self.w_rc,
                     sweep_decoder=self.sweep_decoder,
                     pmos_model_choices = self.pmos_model_choices,
                     nmos_model_choices = self.nmos_model_choices
