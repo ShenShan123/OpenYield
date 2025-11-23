@@ -16,7 +16,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, sram_config,
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  vth_std=0.05, custom_mc=False,param_sweep=False,sweep_precharge=False,sweep_senseamp=True,sweep_wordlinedriver=False,
-                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,coner='TT',choose_columnmux=True,
+                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,corner='TT',choose_columnmux=True,
                  q_init_val=0, sim_path='sim'):
         """
                蒙特卡洛测试平台初始化
@@ -33,10 +33,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         super().__init__(#父类
             sram_config,
             w_rc, pi_res, pi_cap,
-            custom_mc, param_sweep,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,coner,choose_columnmux,q_init_val,
+            custom_mc, param_sweep,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,corner,choose_columnmux,q_init_val,
         )
         self.choose_columnmux=choose_columnmux
-        self.coner=coner
+        self.corner=corner
         self.sweep_decoder=sweep_decoder
         self.sweep_writedriver=sweep_writedriver
         self.sweep_columnmux=sweep_columnmux
