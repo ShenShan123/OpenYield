@@ -61,7 +61,7 @@ if __name__ == '__main__':
         sweep_columnmux=False,
         sweep_writedriver=False,
         sweep_decoder=False,
-        coner='TT',#or FF or SS or FS or SF
+        corner='TT',#or FF or SS or FS or SF
         choose_columnmux=False,# Whether choose column mux or not
         q_init_val=0, sim_path=sim_path,
     )
