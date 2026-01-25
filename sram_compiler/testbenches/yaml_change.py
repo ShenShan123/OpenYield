@@ -96,32 +96,3 @@ def summarize_from_csv(csv_path):
     
     return y
 
-
-if __name__ == "__main__":
-    # x1 = [
-    #     9.0e-8,        # pd_width
-    #     1.35e-7,        # pg_width
-    #     9.0e-8,        # pu_width
-    #     50.0e-9,          # length
-    #     "NMOS_VTG",
-    #     "NMOS_VTG",
-    #     "PMOS_VTG"
-    # ]
-
-    # update_sram6t_yaml_inplace(
-    #     x1,
-    #     yaml_path="sram_6t_cell.yaml"
-    # )
-    # x2 = [
-    #     16,        # num_rows
-    #     8,        # num_cols
-    #     False    # choose_columnmux
-    # ]
-
-    # update_global_yaml_inplace(
-    #     x2,
-    #     yaml_path="global.yaml"
-    # )
-    csv_path = "/home/majh/OpenYield/sim/20260125_013259_mc_6t/mc_read_16x8_rc0_tb.data.csv"
-    y = summarize_from_csv(csv_path)
-    print(y)
