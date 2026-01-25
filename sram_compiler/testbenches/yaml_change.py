@@ -71,7 +71,7 @@ def update_global_yaml_inplace(
 import pandas as pd
 import numpy as np
 
-def summarize_from_csv(csv_path):
+def summarize_from_csv(csv_path,operation):
     """
     从CSV文件中读取数据,计算Power和Delay
     
@@ -84,15 +84,22 @@ def summarize_from_csv(csv_path):
     # 读取CSV文件
     df = pd.read_csv(csv_path)
     
-    # 计算Power (PAVG + PDYN)
-    power = df['PAVG'] + df['PDYN']
+    # 计算Power (PSTC + PDYN)
+    power = df['PSTC'] + df['PDYN'] if operation == 'read' or operation == 'write' else df['PAVG']
     
-    # 计算Delay (TDECODER + TPRCH + TSA + TSWING + TS_EN + TWLDRV)
-    delay = (df['TDECODER'] + df['TPRCH'] + df['TSA'] + 
-             df['TSWING'] + df['TS_EN'] + df['TWLDRV'])
+    if operation == 'read':
+        # 计算Delay (TDECODER + TPRCH + TSA + TSWING + TS_EN + TWLDRV)
+        delay = (df['TDECODER'] + df['TPRCH'] + df['TSA'] + 
+                df['TSWING'] + df['TS_EN'] + df['TWLDRV'])
+    elif operation == 'write':
+        # 计算Delay (TDECODER + TPRCH + TSA + TSWING + TS_EN + TWLDRV)
+        delay = (df['TDECODER'] + df['TWDRV'] + df['TWLDRV'] + df['TWRITE_Q'] )
+    elif operation == 'read&write':
+        delay = (df['TVOUT_PERIOD'])
+    
+
     
     # 创建结果向量，y[0]为Delay，y[1]为Power
     y = np.column_stack((delay.values, power.values))
     
     return y
-
