@@ -1,14 +1,11 @@
 from PySpice.Spice.Netlist import Circuit 
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
-from sram_compiler.subcircuits.sram_6t_core_for_yield import ( # type: ignore
-    Sram6TCore, Sram6TCell,
-    Sram6TCoreForYield, Sram6TCellForYield  # Assuming SRAM_6T_Cell_RC is defined
-)
-from sram_compiler.subcircuits.standard_cell import Pbuff  # type: ignore
-from sram_compiler.subcircuits.wordline_driver import WordlineDriver  # type: ignore
-from sram_compiler.subcircuits.precharge_and_write_driver import Precharge, WriteDriver  # type: ignore
-from sram_compiler.subcircuits.mux_and_sa import ColumnMux,ColumnMux_simple,SenseAmp  # type: ignore
-from sram_compiler.subcircuits.decoder import DECODER_CASCADE # type: ignore
+from sram_compiler.subcircuits.standard_cell import AND2,D_latch  # type: ignore
+from sram_compiler.testbenches.parameter_factor import (TIMEFactory,ReplicaColumnFactory,DummyColumnFactory,
+                                                        DummyRowFactory,DecoderCascadeFactory,WordlineDriverFactory,
+                                                        PrechargeFactory,ColumnMuxFactory,SenseAmpFactory,WriteDriverFactory,
+                                                        Sram6TCellFactory,Sram6TCoreFactory)
+
 from utils import parse_spice_models  # type: ignore
 from sram_compiler.testbenches.base_testbench import BaseTestbench  # type: ignore
 from math import ceil, log2
@@ -16,26 +13,19 @@ from math import ceil, log2
 class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自BaseTestbench
     def __init__(self, sram_config,
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 custom_mc: bool = False,param_sweep: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
+                 custom_mc: bool = False,sweep_cell: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
                  sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,
                  q_init_val: int = 0
                  ):
         # 保存配置对象引用
         self.sram_config = sram_config  #包含所有子电路参数
         global_cfg = sram_config.global_config
-        cell_cfg = sram_config.sram_6t_cell
-
 
         super().__init__(
             f'SRAM_6T_CORE_{global_cfg.num_rows}x{global_cfg.num_cols}_TB',
             global_cfg.vdd, global_cfg.pdk_path_TT
             )
-        # transistor size info.
-        # self.pd_width = pd_width
-        # self.pu_width = pu_width
-        # self.pg_width = pg_width
-        # self.length = length
-        # array size
+        
         self.num_rows = global_cfg.num_rows #从global.yaml中读取行数列数
         self.num_cols =global_cfg.num_cols
         self.cell_inst_prefix = 'X'         #实例前缀
@@ -49,7 +39,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.choose_columnmux=choose_columnmux
         self.corner=corner#选择工艺角
         self.custom_mc = custom_mc  #是否启用mc
-        self.param_sweep = param_sweep #cell单元是否用参数扫描
+        self.sweep_cell = sweep_cell #cell单元是否用参数扫描
         self.sweep_precharge = sweep_precharge    #预充电电路是否用参数扫描
         self.sweep_senseamp = sweep_senseamp    #灵敏放大器电路是否用参数扫描
         self.sweep_wordlinrdriver = sweep_wordlinedriver     #字线驱动器电路是否用参数扫描
@@ -62,29 +52,246 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.mux_in = 1
         #self.set_vdd(5)
 
+    def create_time_circuit(self, circuit: Circuit,operation: str):
+        """Create time generation circuitry"""
+        # Create TIME circuit
+        self.operation=operation
+        time_circuit = TIMEFactory(
+            nmos_model="NMOS_VTG",
+            pmos_model="PMOS_VTG",
+            num_rows=self.num_rows,
+            num_cols=self.num_cols,
+            operation=self.operation,
+        ).create()
+        circuit.subcircuit(time_circuit)   # Add to main circuit
+        
+        # Calculate address bits
+        n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
+        
+        # Address nodes
+        address_input_nodes = [f'A{i}' for i in range(n_bits)]
+        address_output_nodes = [f'A_dff{i}' for i in range(n_bits)]
+        
+        if operation == 'write' or operation == 'read&write':
+            # Data nodes
+            data_input_nodes = [f'DIN{i}' for i in range(self.num_cols)]
+            data_output_nodes = [f'DIN_dff{i}' for i in range(self.num_cols)]
+        
+        # All TIME connections
+        time_connections = [
+            'VDD', 'VSS', 'clk', 'csb', 'web', 'clk_buf', 'clk_bar',
+            'cs_bar', 'cs', 'we_bar', 'we', 'gated_clk_bar', 'gated_clk_buf', 'wl_en'
+        ]
+        
+        # Add address nodes
+        time_connections.extend(address_input_nodes)
+        time_connections.extend(address_output_nodes)
+        if operation == 'write' or operation == 'read&write':
+            # Add data nodes
+            time_connections.extend(data_input_nodes)
+            time_connections.extend(data_output_nodes)
+        
+        # Add remaining nodes
+        time_connections.extend(['rbl', 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE'])
+        
+        # Instantiate TIME circuit
+        circuit.X(
+            'TIME', time_circuit.NAME,
+            *time_connections
+        )
+        return circuit
+    
+    def create_replica_column(self, circuit: Circuit):
+        """Create replica column circuitry"""
+        # Create Replica Column circuit
+        replica_column = ReplicaColumnFactory(
+            num_rows=self.num_rows,
+            pd_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
+            pu_pmos_model=self.sram_config.sram_6t_cell.pmos_model.value,
+            pg_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
+            pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
+            pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
+            pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
+            length=self.sram_config.sram_6t_cell.length.value,
+            sweep_replica= self.sweep_cell,
+            pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
+            nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices
+        ).create()
+        circuit.subcircuit(replica_column)   # Add to main circuit
+        
+        # All Replica Column connections
+        replica_connections = [
+            'VDD', 'VSS', 'RBL', 'RBLB','RWL',
+            *[f'WL{i}' for i in range(self.num_rows)]  # WL0 to WLn
+        ]
+        
+        # Instantiate Replica Column circuit
+        circuit.X(
+            'sram_17x1_replica_column', replica_column.NAME,
+            *replica_connections
+        )
+        return circuit
+    
+    def create_dummy_column(self, circuit: Circuit):
+        """Create dummy column circuitry"""
+        # Create Dummy Column circuit
+        dummy_column = DummyColumnFactory(
+            num_rows=self.num_rows,
+            pd_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
+            pu_pmos_model=self.sram_config.sram_6t_cell.pmos_model.value,
+            pg_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
+            pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
+            pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
+            pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
+            length=self.sram_config.sram_6t_cell.length.value
+        ).create()
+        circuit.subcircuit(dummy_column)   # Add to main circuit
+        
+        # All Dummy Column connections for left and right columns
+        dummy_connections_left = [
+            'VDD', 'VSS', 'dummy_left_bl', 'dummy_left_blb', 'VSS', 'RWL',
+            *[f'WL{i}' for i in range(self.num_rows)],'VSS'  # WL数量仍是行数，多的三行分别是VSS，RWL，VSS
+        ]
+        
+        dummy_connections_right = [
+            'VDD', 'VSS', 'dummy_right_bl', 'dummy_right_blb', 'VSS', 'RWL',
+            *[f'WL{i}' for i in range(self.num_rows)],'VSS' 
+        ]
+        
+        # Instantiate Dummy Column circuits
+        circuit.X(
+            'Dummy_column_left', dummy_column.NAME,
+            *dummy_connections_left
+        )
+        
+        circuit.X(
+            'Dummy_column_right', dummy_column.NAME,
+            *dummy_connections_right
+        )
+        return circuit
+    
+    def create_dummy_row(self, circuit: Circuit):
+        """Create dummy rows on top and bottom of the SRAM array"""
+        # Create dummy row instances
+        dummy_row = DummyRowFactory(
+            num_cols=self.num_cols,
+            pd_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
+            pu_pmos_model=self.sram_config.sram_6t_cell.pmos_model.value,
+            pg_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
+            pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
+            pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
+            pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
+            length=self.sram_config.sram_6t_cell.length.value,
+            w_rc=self.w_rc,
+        ).create()
+        # Add subcircuit definition to this testbench.
+        circuit.subcircuit(dummy_row)
+
+        # Connections for top dummy row (includes RBL/RBLB)
+        dummy_connections_top = [
+            self.power_node, self.gnd_node,  # VDD, VSS
+            'RBL',  # RBL as extra BL
+            *[f'BL{i}' for i in range(self.num_cols)],  # BL0 to BL(num_cols-1)
+            'RBLB',  # RBLB as extra BLB
+            *[f'BLB{i}' for i in range(self.num_cols)],  # BLB0 to BLB(num_cols-1)
+            self.gnd_node  # VSS接WL
+        ]
+
+        # Connections for bottom dummy row (includes RBL/RBLB)
+        dummy_connections_bottom = [
+            self.power_node, self.gnd_node,  # VDD, VSS
+            'RBL',  # RBL as extra BL
+            *[f'BL{i}' for i in range(self.num_cols)],  # BL0 to BL(num_cols-1)
+            'RBLB',  # RBLB as extra BLB
+            *[f'BLB{i}' for i in range(self.num_cols)],  # BLB0 to BLB(num_cols-1)
+            self.gnd_node  # VSS
+        ]
+
+        # Instantiate dummy rows
+        circuit.X(
+            'Dummy_row_top', dummy_row.NAME,
+            *dummy_connections_top
+        )
+        circuit.X(
+            'Dummy_row_bot', dummy_row.NAME,
+            *dummy_connections_bottom
+        )
+        return circuit
+    
+    def create_dummy_row_2(self, circuit: Circuit):
+        """Create dummy rows on RWL"""
+        # Create dummy row instances
+        dummy_row_2 = DummyRowFactory(
+            num_cols=self.num_cols-1,
+            pd_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
+            pu_pmos_model=self.sram_config.sram_6t_cell.pmos_model.value,
+            pg_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
+            pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
+            pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
+            pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
+            length=self.sram_config.sram_6t_cell.length.value,
+            w_rc=self.w_rc,
+        ).create()
+        # Add subcircuit definition to this testbench.
+        circuit.subcircuit(dummy_row_2)
+
+        # Connections for middle dummy row (connected to RWL)
+        dummy_connections = [
+            self.power_node, self.gnd_node,  # VDD, VSS
+            *[f'BL{i}' for i in range(self.num_cols)],  # BL0 to BL(num_cols-1)
+            *[f'BLB{i}' for i in range(self.num_cols)],  # BLB0 to BLB(num_cols-1)
+            'RWL'  # RWL as shared WL
+        ]
+
+        circuit.X(
+            'Dummy_row', dummy_row_2.NAME,
+            *dummy_connections
+        )
+        return circuit
+    
+    def create_and2_for_rwl(self, circuit: Circuit):
+        """Create AND2_FOR_RWL subcircuit and instance for RWL control"""
+        # Create AND2_FOR_RWL instance
+        and2_for_rwl = AND2(
+            nmos_model_nand="NMOS_VTG",
+            pmos_model_nand="PMOS_VTG",
+            nmos_model_inv="NMOS_VTG",
+            pmos_model_inv="PMOS_VTG",
+            )
+        
+        # Add subcircuit definition to this testbench
+        circuit.subcircuit(and2_for_rwl)
+        
+        # Connect XRWL instance to circuit
+        circuit.X(
+            'RWL', and2_for_rwl.NAME,
+            'VDD', 'VSS', 'wl_en', 'VDD', 'RWL'
+        )      
+        return circuit
 
     def create_decoder(self, circuit: Circuit):
         decoder_config = self.sram_config.decoder    #从总config类里提取decoder部分参数
-        decoder = DECODER_CASCADE(
-            nmos_model_name=decoder_config.nmos_model.value[0],
-            pmos_model_name=decoder_config.pmos_model.value[0],
+        decoder = DecoderCascadeFactory(
+            nmos_model_inv=decoder_config.nmos_model.value[0],
+            pmos_model_inv=decoder_config.pmos_model.value[0],
+            nmos_model_nand=decoder_config.nmos_model.value[0],
+            pmos_model_nand=decoder_config.pmos_model.value[0],
             num_rows=self.num_rows,
-            base_nand_pmos_width=decoder_config.pmos_width.value[0],
-            base_nand_nmos_width=decoder_config.nmos_width.value[0],
-            base_inv_pmos_width=decoder_config.pmos_width.value[1],
-            base_inv_nmos_width =decoder_config.nmos_width.value[1],
+            nand_pmos_width=decoder_config.pmos_width.value[0],
+            nand_nmos_width=decoder_config.nmos_width.value[0],
+            inv_pmos_width=decoder_config.pmos_width.value[1],
+            inv_nmos_width =decoder_config.nmos_width.value[1],
             length=decoder_config.length.value,
-            w_rc=self.w_rc,  # default `w_rc` is False
-            pi_res=self.pi_res, pi_cap=self.pi_cap,
+            w_rc=False,  # default `w_rc` is False,暂时不支持
             sweep_decoder=self.sweep_decoder,
-            pmos_model_choices = self.sram_config.senseamp.pmos_model.choices,
-            nmos_model_choices = self.sram_config.senseamp.nmos_model.choices
-        )
+            pmos_choices = self.sram_config.senseamp.pmos_model.choices,
+            nmos_choices = self.sram_config.senseamp.nmos_model.choices
+        ).create()
         circuit.subcircuit(decoder)   #添加到主电路
         # 计算地址位数
         n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
           # 地址节点
-        address_nodes = [f'A{i}' for i in range(n_bits)]
+        address_nodes = [f'A_dff{i}' for i in range(n_bits)]
         
         # # 设置地址信号（目标行地址）
         # address_nodes = []
@@ -118,46 +325,24 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     def create_wl_driver(self, circuit: Circuit, target_row: int):  #创造字线驱动电路函数
         """Create wordline driver for the target/standby row"""
         wl_config = self.sram_config.wordline_driver    #从总config类里提取wordline部分参数
-        wldrv = WordlineDriver(
-            nmos_model_name=wl_config.nmos_model.value[0],
-            pmos_model_name=wl_config.pmos_model.value[0],
-            base_nand_pmos_width=wl_config.pmos_width.value[0],
-            base_nand_nmos_width=wl_config.nmos_width.value[0],
-            base_inv_pmos_width=wl_config.pmos_width.value[1],
-            base_inv_nmos_width =wl_config.nmos_width.value[1],
+        wldrv = WordlineDriverFactory(
+            nmos_model=wl_config.nmos_model.value[0],
+            pmos_model=wl_config.pmos_model.value[0],
+            nand_pmos_width=wl_config.pmos_width.value[0],
+            nand_nmos_width=wl_config.nmos_width.value[0],
+            inv_pmos_width=wl_config.pmos_width.value[1],
+            inv_nmos_width =wl_config.nmos_width.value[1],
             length=wl_config.length.value,
             num_cols=self.num_cols,
-            w_rc=self.w_rc,  # default `w_rc` is False
-            # pi_res=self.pi_res, pi_cap=self.pi_cap,
+            w_rc=self.w_rc,  
             sweep_wordlinedriver = self.sweep_wordlinrdriver,
             pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
             nmos_modle_choices = self.sram_config.senseamp.nmos_model.choices
-        )
+        ).create()
         circuit.subcircuit(wldrv)   #添加到主电路
-
-                # Precharge control signal  添加字线驱动使能信号（脉冲电压源）
-        circuit.PulseVoltageSource(
-            'WL_EN', 'WL_EN', self.gnd_node,
-            initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-            delay_time=5 @ u_ns,
-            rise_time=self.t_rise,
-            fall_time=self.t_fall,
-            pulse_width=7e-09,
-            period=self.t_period,
-        )
 
         # Wordline control & drivers
         for row in range(self.num_rows):
-            # if row == target_row:   #目标行，在MC里初始为第0行
-            #     # Add WL enable source for the target row 添加脉冲电压源控制字线使能
-            #     circuit.PulseVoltageSource(
-            #         f'WLE_{row}', f'WLE{row}', self.gnd_node,
-            #         initial_value=0 @ u_V, pulsed_value=self.vdd,
-            #         delay_time=self.t_pulse,
-            #         rise_time=self.t_rise, fall_time=self.t_fall,
-            #         pulse_width=self.t_pulse,
-            #         period=self.t_period
-            #     )
             # 使用译码器输出作为使能信号
             decoder_enable = self.decoder_wl_nodes[row]
                 # Add pulse source for the target row 实例化字线驱动器
@@ -173,20 +358,36 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             #     # Tie idle wordlines to ground 非目标行将字线接地
             #     circuit.V(f'WL{row}_gnd', f'WL{row}', self.gnd_node, 0 @ u_V)
         return circuit
+    
+    def create_D_latch(self, circuit: Circuit, target_col: int):
+        """Create D_latch subcircuit and instance"""
+        # Create D_latch instance
+        d_latch = D_latch(
+            nmos_model="NMOS_VTG",
+            pmos_model="PMOS_VTG")
+        
+        # Add subcircuit definition to this testbench
+        circuit.subcircuit(d_latch)
+        
+        # Connect D_latch instance to circuit
+        circuit.X(
+            'D_LATCH', d_latch.NAME,
+            'VDD', 'VSS', f'SA_Q{target_col}', 'S_EN', 'OUT', 'OUT_B'
+        )      
+        return circuit
 
     def create_read_periphery(self, circuit: Circuit, target_col: int):#创造读外围电路
         """Create read periphery circuitry预充电+多路选择器+感测放大器"""
 
-        prch = Precharge(
-            pmos_model_name=self.sram_config.precharge.pmos_model.value,
-            base_pmos_width=self.sram_config.precharge.pmos_width.value,
+        prch = PrechargeFactory(
+            pmos_model=self.sram_config.precharge.pmos_model.value,
+            pmos_width=self.sram_config.precharge.pmos_width.value,
             length=self.sram_config.precharge.length.value,
-            w_rc=self.w_rc,  # default `w_rc` is False
-            # pi_res=self.pi_res, pi_cap=self.pi_cap,
+            w_rc=self.w_rc, 
             num_rows=self.num_rows,
             sweep_precharge = self.sweep_precharge,
             pmos_modle_choices = self.sram_config.precharge.pmos_model.choices
-        )
+        ).create()
         circuit.subcircuit(prch)    #添加预充电电路到主电路
         self.prch_inst_prefix = f"X{prch.name}"
 
@@ -197,17 +398,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 prch.name,
                 self.power_node, 'PRE', f'BL{col}', f'BLB{col}'
             )
-
-        # Precharge control signal  添加预充电控制信号（脉冲电压源）
-        circuit.PulseVoltageSource(
-            'PRE', 'PRE', self.gnd_node,
-            initial_value=self.vdd, pulsed_value=0 @ u_V,
-            delay_time=0 @ u_ns,
-            rise_time=self.t_rise,
-            fall_time=self.t_fall,
-            #pulse_width=self.t_pulse - 2 * self.t_rise, #不一样
-            pulse_width=5e-09,
-            period=self.t_period, dc_offset=self.vdd
+        # 新增一列，连接至 RBL 和 RBLB
+        circuit.X(
+            f'{prch.name}_RBL',
+            prch.name,
+            self.power_node, 'PRE', 'RBL', 'RBLB'
         )
 
         if self.choose_columnmux:
@@ -215,19 +410,19 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             self.mux_in = 2
 
             # Column Mux
-            cmux = ColumnMux_simple(
-                nmos_model_name=self.sram_config.column_mux.nmos_model.value,
-                pmos_model_name=self.sram_config.column_mux.pmos_model.value,
+            cmux = ColumnMuxFactory(
                 num_in=self.mux_in,
-                base_nmos_width=self.sram_config.column_mux.nmos_width.value,
-                base_pmos_width=self.sram_config.column_mux.pmos_width.value,
+                nmos_model=self.sram_config.column_mux.nmos_model.value,
+                pmos_model=self.sram_config.column_mux.pmos_model.value,
+                nmos_width=self.sram_config.column_mux.nmos_width.value,
+                pmos_width=self.sram_config.column_mux.pmos_width.value,
                 length=self.sram_config.column_mux.length.value,
                 w_rc=self.w_rc,
                 sweep_columnmux = self.sweep_columnmux,
-                # pi_res=self.pi_res, pi_cap=self.pi_cap,
+                use_external_selb=False, #选用哪种多路选择器
                 pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
                 nmos_modle_choices = self.sram_config.senseamp.nmos_model.choices
-            )
+            ).create()
             circuit.subcircuit(cmux)    #添加列多路选择器实例到主电路
             self.cmux_inst_prefix = f"X{cmux.name}"
 
@@ -262,7 +457,6 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             #     else:
             #         circuit.V(f'SEL_{i}', f'SEL{i}', self.gnd_node, 0 @ u_V)
 
-
             for i in range(self.mux_in):
                 if i == target_col % self.mux_in:   #目标列所在的目标组
                     # Pulse setting of select signal is the same as WLE
@@ -287,18 +481,17 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     circuit.V(f'SELB_{i}', f'SELB{i}', self.gnd_node, 1.0 @ u_V)
 
         # Sense Amplifer
-        sa = SenseAmp(
-            nmos_model_name=self.sram_config.senseamp.nmos_model.value,
-            pmos_model_name=self.sram_config.senseamp.pmos_model.value,
-            base_nmos_width=self.sram_config.senseamp.nmos_width.value,
-            base_pmos_width=self.sram_config.senseamp.pmos_width.value,
+        sa = SenseAmpFactory(
+            nmos_model=self.sram_config.senseamp.nmos_model.value,
+            pmos_model=self.sram_config.senseamp.pmos_model.value,
+            nmos_width=self.sram_config.senseamp.nmos_width.value,
+            pmos_width=self.sram_config.senseamp.pmos_width.value,
             length=self.sram_config.senseamp.length.value,
-            w_rc=self.w_rc,  # default `w_rc` is False
-            # pi_res=self.pi_res, pi_cap=self.pi_cap,
+            w_rc=self.w_rc, 
             sweep_senseamp = self.sweep_senseamp,
             pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
             nmos_modle_choices = self.sram_config.senseamp.nmos_model.choices
-        )
+        ).create()
         circuit.subcircuit(sa)  #添加灵敏放大器实例到主电路
         self.sa_inst_prefix = f'X{sa.name}'
 
@@ -309,51 +502,38 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     f'{sa.name}_{col}',
                     sa.name,
                     self.power_node, self.gnd_node,
-                    'SAE',  # SA Enable signal
+                    's_en',  # SA Enable signal
                     f'SA_IN{col}', f'SA_INB{col}',  # Inputs
                     f'SA_Q{col}', f'SA_QB{col}',  # Outputs
                 )
 
         else:
-            # Add SA circuitry for all columns  #为每组多路选择器下接灵敏放大器
+            # 直接连BL和BLB
             for col in range(self.num_cols):
                 circuit.X(
                     f'{sa.name}_{col}',
                     sa.name,
                     self.power_node, self.gnd_node,
-                    'SAE',  # SA Enable signal
+                    's_en',  # SA Enable signal
                     f'BL{col}', f'BLB{col}',  # Inputs
                     f'SA_Q{col}', f'SA_QB{col}',  # Outputs
                 )
-
-        # SA enable signal  添加灵敏放大器使能信号
-        circuit.PulseVoltageSource(
-            'SAE', 'SAE', self.gnd_node,
-            initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-            delay_time=2 * self.t_pulse,    #比多路选择器延迟一个t_pulse
-            rise_time=self.t_rise,
-            fall_time=self.t_fall,
-            pulse_width=self.t_pulse,
-            period=self.t_period,
-        )
-
         return circuit
 
-    def create_write_periphery(self, circuit: Circuit):#创造写外围电路
+    def create_write_periphery(self, circuit: Circuit, operation: str = 'write'):#创造写外围电路
         """Create write periphery circuitry, writing `1`s into a row,写驱动"""
-        write_drv = WriteDriver(
-            nmos_model_name=self.sram_config.write_driver.nmos_model.value,
-            pmos_model_name=self.sram_config.write_driver.pmos_model.value,
-            base_nmos_width=self.sram_config.write_driver.nmos_width.value,
-            base_pmos_width=self.sram_config.write_driver.pmos_width.value,
+        write_drv = WriteDriverFactory(
+            nmos_model=self.sram_config.write_driver.nmos_model.value,
+            pmos_model=self.sram_config.write_driver.pmos_model.value,
+            nmos_width=self.sram_config.write_driver.nmos_width.value,
+            pmos_width=self.sram_config.write_driver.pmos_width.value,
             length=self.sram_config.write_driver.length.value,
-            w_rc=self.w_rc,  # default `w_rc` is False
-            # pi_res=self.pi_res, pi_cap=self.pi_cap,
+            w_rc=self.w_rc, 
             num_rows=self.num_rows,
             sweep_writedriver = self.sweep_writedriver,
             pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
             nmos_modle_choices = self.sram_config.senseamp.nmos_model.choices
-        )
+        ).create()
 
         circuit.subcircuit(write_drv)   #添加写驱动子电路实例到主电路
         self.wdrv_inst_name = write_drv.name
@@ -366,36 +546,55 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 write_drv.name,
                 self.power_node,  # Power net
                 self.gnd_node,  # Ground net
-                'WE',  # Write Enable signal
-                f'DIN{col}',  # Data In
+                'w_en',  # Write Enable signal
+                f'DIN_dff{col}',  # Data In
                 f'BL{col}',  # Connect to column bitline
                 f'BLB{col}',  # Connect to column bitline bar
             )
 
-        # Write `1` into all columns    设置所有数据输入为高电平（写 1）
-        for col in range(self.num_cols):    
-            circuit.V(f'DIN{col}', f'DIN{col}', self.gnd_node, self.vdd @ u_V)
-            # circuit.PulseVoltageSource(
-            #     f'DIN{col}', f'DIN{col}', self.gnd_node,
-            #     initial_value=0 @ u_V, pulsed_value=self.vdd,
-            #     # data setup time
-            #     delay_time=0,
-            #     rise_time=self.t_rise, fall_time=self.t_fall,
-            #     # data hold time = 2*t_delay time
-            #     pulse_width=2*self.t_pulse + 2*self.t_delay,
-            #     period=self.t_period)
+        if operation == 'write':
+            # Write `1` into all columns    设置所有输入数据为高电平（写 1）
+            for col in range(self.num_cols):    
+                #circuit.V(f'DIN{col}', f'DIN{col}', self.gnd_node, self.vdd @ u_V)
+                circuit.PulseVoltageSource(
+                    f'DIN{col}', f'DIN{col}', self.gnd_node,
+                        initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
+                        delay_time=0.1 * self.t_period,  # 预充电开始后0.5ns
+                        rise_time=self.t_rise,fall_time=self.t_fall,
+                        pulse_width=0.2 * self.t_period , # 保持有效
+                        period=self.t_period)
+        elif operation =="read&write":
+            # Write `1` into all columns    设置输入数据为高低转换
+            for col in range(self.num_cols):    
+                #circuit.V(f'DIN{col}', f'DIN{col}', self.gnd_node, self.vdd @ u_V)
+                circuit.PulseVoltageSource(
+                    f'DIN{col}', f'DIN{col}', self.gnd_node,
+                        initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
+                        delay_time=0.1 * self.t_period,  # 预充电开始后0.5ns
+                        rise_time=self.t_rise,fall_time=self.t_fall,
+                        pulse_width=0.2 * self.t_period , # 保持有效
+                        period=4*self.t_period)
 
-        # WE: Write enable signal   添加写使能信号（脉冲电压源）
-        circuit.PulseVoltageSource(
-            f'WE', f'WE', self.gnd_node,
-            initial_value=0 @ u_V, pulsed_value=self.vdd,
-            # data on BL/BLB setup time = t_delay time
-            delay_time=0,
-            rise_time=self.t_rise, fall_time=self.t_fall,
-            # data on BL/BLB hold time = t_delay time
-            pulse_width=2 * self.t_pulse + self.t_delay,
-            period=self.t_period
-        )
+        if operation == 'write':
+            prch = PrechargeFactory(
+                pmos_model=self.sram_config.precharge.pmos_model.value,
+                pmos_width=self.sram_config.precharge.pmos_width.value,
+                length=self.sram_config.precharge.length.value,
+                w_rc=self.w_rc, 
+                num_rows=self.num_rows,
+                sweep_precharge = self.sweep_precharge,
+                pmos_modle_choices = self.sram_config.precharge.pmos_model.choices
+            ).create()
+            circuit.subcircuit(prch)    #添加预充电电路到主电路
+            self.prch_inst_prefix = f"X{prch.name}"
+
+            # 只需要一列，激活RBLB
+            
+            circuit.X(
+                    f'{prch.name}_RBL',
+                    prch.name,
+                    self.power_node, 'PRE', 'RBL', 'RBLB'
+            )
 
         return circuit
 
@@ -411,37 +610,42 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
 
         if self.custom_mc:
             # Instantiate 6T SRAM cell
-            sbckt_6t_cell = Sram6TCellForYield(
-                self.sram_config.sram_6t_cell.nmos_model.value[0],
-                self.sram_config.sram_6t_cell.pmos_model.value,
-                self.sram_config.sram_6t_cell.nmos_model.value[1],
+            sbckt_6t_cell = Sram6TCellFactory(
+                pd_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
+                pu_model=self.sram_config.sram_6t_cell.pmos_model.value,
+                pg_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
+                
+                pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
+                pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
+                pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
+                length=self.sram_config.sram_6t_cell.length.value,
+                w_rc=self.w_rc, 
+                disconnect=True,  # NOTE: Key argument to disconnect the internal data nodes!!
+                param_sweep = self.sweep_cell,
+                yield_mode=True,
                 # This function returns a Dict of MOS models
-                parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
-                self.sram_config.sram_6t_cell.nmos_width.value[0],
-                self.sram_config.sram_6t_cell.pmos_width.value,
-                self.sram_config.sram_6t_cell.nmos_width.value[1],
-                self.sram_config.sram_6t_cell.length.value,
-                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
-                disconnect=True,  # NOTE: Key argument to disconnect the internal data nodes!!
+                model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                 suffix='_0_0',
-                custom_mc=self.custom_mc,param_sweep = self.param_sweep
-            )
-        else:
-            # Instantiate 6T SRAM cell
-            sbckt_6t_cell = Sram6TCell(
-                self.sram_config.sram_6t_cell.nmos_model.value[0],
-                self.sram_config.sram_6t_cell.pmos_model.value,
-                self.sram_config.sram_6t_cell.nmos_model.value[1],
-                self.sram_config.sram_6t_cell.nmos_width.value[0],
-                self.sram_config.sram_6t_cell.pmos_width.value,
-                self.sram_config.sram_6t_cell.nmos_width.value[1],
-                self.sram_config.sram_6t_cell.length.value,
-                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
-                disconnect=True,  # NOTE: Key argument to disconnect the internal data nodes!!
-                param_sweep = self.param_sweep,
                 pmos_modle_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
                 nmos_modle_choices = self.sram_config.sram_6t_cell.nmos_model.choices
-            )
+            ).create()
+        else:
+            # Instantiate 6T SRAM cell
+            sbckt_6t_cell = Sram6TCellFactory(
+                pd_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
+                pu_model=self.sram_config.sram_6t_cell.pmos_model.value,
+                pg_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
+                pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
+                pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
+                pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
+                length=self.sram_config.sram_6t_cell.length.value,
+                w_rc=self.w_rc,
+                disconnect=True,  # NOTE: Key argument to disconnect the internal data nodes!!
+                sweep = self.sweep_cell,
+                yield_mode=False,
+                pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
+                nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices
+            ).create()
         # Add subcircuit definition to this testbench.
         circuit.subcircuit(sbckt_6t_cell)   #添加到主电路
         circuit.X(sbckt_6t_cell.name, sbckt_6t_cell.name, self.power_node, self.gnd_node,
@@ -549,21 +753,25 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
 
         # Instantiate 6T SRAM array 根据是否使用 MC 创建 SRAM Core
         if self.custom_mc:
-            sbckt_6t_array = Sram6TCoreForYield(
+            sbckt_6t_array = Sram6TCoreFactory(
                 self.num_rows, self.num_cols,
                 self.sram_config.sram_6t_cell.nmos_model.value[0],
                 self.sram_config.sram_6t_cell.pmos_model.value,
                 self.sram_config.sram_6t_cell.nmos_model.value[1],
-                # This function returns a Dict of MOS models
-                parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                 self.sram_config.sram_6t_cell.nmos_width.value[0],
                 self.sram_config.sram_6t_cell.pmos_width.value,
                 self.sram_config.sram_6t_cell.nmos_width.value[1],
                 self.sram_config.sram_6t_cell.length.value,
-                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,param_sweep=self.param_sweep
-            )
+                w_rc=self.w_rc,
+                sweep_core=self.sweep_cell,
+                yield_mode=True,
+                pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
+                nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
+                 # This function returns a Dict of MOS models
+                model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
+            ).create()
         else:
-            sbckt_6t_array = Sram6TCore(
+            sbckt_6t_array = Sram6TCoreFactory(
                 self.num_rows, self.num_cols,
                 self.sram_config.sram_6t_cell.nmos_model.value[0],
                 self.sram_config.sram_6t_cell.pmos_model.value,
@@ -572,11 +780,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 self.sram_config.sram_6t_cell.pmos_width.value,
                 self.sram_config.sram_6t_cell.nmos_width.value[1],
                 self.sram_config.sram_6t_cell.length.value,
-                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
-                param_sweep=self.param_sweep,
-                pmos_modle_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
-                nmos_modle_choices = self.sram_config.sram_6t_cell.nmos_model.choices
-            )
+                w_rc=self.w_rc,
+                sweep_core=self.sweep_cell,
+                yield_mode=False,
+                pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
+                nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices
+            ).create()
 
         # Add subcircuit definition to this testbench.
         circuit.subcircuit(sbckt_6t_array)  #添加到主电路
@@ -593,8 +802,39 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         print(f"[DEBUG] self.arr_inst_prefix = {self.arr_inst_prefix}")
         print(f"[DEBUG] self.cell_inst_prefix = {self.cell_inst_prefix} of {self.name}")
 
+        # Create Replica Column 
+        self.create_replica_column(circuit)
+        # Create AND2_FOR_RWL for RWL control
+        self.create_and2_for_rwl(circuit)
+        # # Create Dummy Columns
+        # self.create_dummy_column(circuit)
+        # # Create Dummy Rows
+        # self.create_dummy_row(circuit)
+        # # Create Dummy Rows_2
+        # self.create_dummy_row_2(circuit)
+        # Create TIME circuit for timing control
+        self.create_time_circuit(circuit, operation)
         # 创建译码器（输出连接到字线驱动器）
         self.create_decoder(circuit)
+        
+        # 创建字线驱动器（使用译码器输出作为使能）
+        self.create_wl_driver(circuit, target_row)
+        # Create D latch
+        self.create_D_latch(circuit, target_col)
+
+
+        # For read transient simulation, add pulse source to the array
+        if operation == 'read':
+            self.create_read_periphery(circuit, target_col)
+        # For write transient simulation, add pulse source to the array
+        elif operation == 'write':
+            self.create_write_periphery(circuit)
+        elif operation == 'read&write':
+            self.create_read_periphery(circuit, target_col)
+            self.create_write_periphery(circuit, operation)
+
+        else:
+            raise ValueError(f"Invalid test type {operation}. Use 'read' or 'write'")
         
         # 设置目标行地址
         n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
@@ -605,30 +845,63 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 circuit.PulseVoltageSource(
                     f'ADDR_{bit}', node_name, self.gnd_node,
                     initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-                    delay_time=5.0e-9,  # 预充电开始后5ns
+                    delay_time=0.1 * self.t_period,  # 预充电开始后0.5ns
                     rise_time=self.t_rise,fall_time=self.t_fall,
-                    pulse_width=7.5e-9 , # 保持有效
+                    pulse_width=0.2 * self.t_period , # 保持有效
                     period=self.t_period
                 )
             else:
                 circuit.V(f'ADDR_{bit}', node_name, self.gnd_node, 0 @ u_V)
-        
-        # 创建字线驱动器（使用译码器输出作为使能）
-        self.create_wl_driver(circuit, target_row)
 
+        # 添加时钟信号源 VCLK
+        circuit.PulseVoltageSource(
+            'CLK', 'clk', self.gnd_node,
+            initial_value=0 @ u_V, pulsed_value=1.0 @ u_V,
+            delay_time=0.2 * self.t_period,
+            rise_time=self.t_rise, fall_time=self.t_fall,
+            pulse_width=0.5 * self.t_period,
+            period=self.t_period
+        )
 
-        # For read transient simulation, add pulse source to the array
+        # 添加片选信号源 VCSB
+        circuit.PulseVoltageSource(
+            'CSB', 'csb', self.gnd_node,
+            initial_value=0 @ u_V, pulsed_value=1.0 @ u_V,
+            delay_time=0 @ u_ns,
+            rise_time=self.t_rise, fall_time=self.t_fall,
+            pulse_width=0.1 * self.t_period,
+            period=self.t_period
+        )
+
         if operation == 'read':
-            self.create_read_periphery(circuit, target_col)
-            # self.create_decoder(circuit, target_row)
-            # self.create_wl_driver(circuit, target_row)
-        # For write transient simulation, add pulse source to the array
+        # 添加写使能信号源 VWEB
+            circuit.PulseVoltageSource(
+                'WEB', 'web', self.gnd_node,
+                initial_value=0 @ u_V, pulsed_value=1.0 @ u_V,
+                delay_time=0.1 * self.t_period,
+                rise_time=self.t_rise, fall_time=self.t_fall,
+                pulse_width=0.98 * self.t_period,
+                period=self.t_period
+            )
         elif operation == 'write':
-            self.create_write_periphery(circuit)
-            # self.create_decoder(circuit, target_row)
-            # self.create_wl_driver(circuit, target_row)
-
-        else:
-            raise ValueError(f"Invalid test type {operation}. Use 'read' or 'write'")
+        # 添加写使能信号源 VWEB
+            circuit.PulseVoltageSource(
+                'WEB', 'web', self.gnd_node,
+                initial_value=1.0 @ u_V, pulsed_value=0 @ u_V,
+                delay_time=0.1 * self.t_period,
+                rise_time=self.t_rise, fall_time=self.t_fall,
+                pulse_width=0.98 * self.t_period,
+                period=self.t_period
+            )
+        elif operation == 'read&write':
+        # 添加写使能信号源 VWEB
+            circuit.PulseVoltageSource(
+                'WEB', 'web', self.gnd_node,
+                initial_value=1.0 @ u_V, pulsed_value=0 @ u_V,
+                delay_time=0.1 * self.t_period,
+                rise_time=self.t_rise, fall_time=self.t_fall,
+                pulse_width=0.98 * self.t_period,
+                period=2*self.t_period
+            )
 
         return circuit
