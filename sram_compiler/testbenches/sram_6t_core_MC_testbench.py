@@ -706,11 +706,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 print(f"[INFO] CLK(min) in this size and PVT : {((half_clk_sum+0.1e-9)*2):.3e}")
 
             data_csv_path=tb_path.replace('.sp', '.data.csv')
-            # Reture the performance metrics for yield analysis and sizing optimization
-            if operation == 'write':
-                return mc_df['TWRITE_Q'].to_numpy(), mc_df['PAVG'].to_numpy()
-            elif operation == 'read':
-                #return mc_df['TSWING'].to_numpy(), mc_df['PAVG'].to_numpy()
+           # Reture the performance metrics for yield analysis and sizing optimization
+            if operation == 'write' or operation == 'read&write' or operation == 'read':
                 return data_csv_path
             elif operation == 'hold_snm':
                 return mc_df['HOLD_SNM'].to_numpy()
@@ -718,7 +715,5 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 return mc_df['READ_SNM'].to_numpy()
             elif operation == 'write_snm':
                 return mc_df['WRITE_SNM'].to_numpy()
-            elif operation == 'read&write':
-                return mc_df['TVOUT_PERIOD'].to_numpy(),mc_df['PAVG'].to_numpy()
             else:
                 raise KeyError(f"Unkonwn operation {operation}")
