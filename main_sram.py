@@ -79,7 +79,7 @@ if __name__ == '__main__':
         q_init_val=0, sim_path=sim_path,
     )
 
-    operation = 'read' #operation can be 'write' or 'read' or 'read&write' or 'hold_snm' or 'write_snm' or 'read_snm'
+    operation = 'read&write' #operation can be 'write' or 'read' or 'read&write' or 'hold_snm' or 'write_snm' or 'read_snm'
     if operation == 'write' or operation == 'read' or operation == 'read&write':
         data_csv_path = mc_testbench.run_mc_simulation(
             operation=operation, target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc,temperature=temperature,
@@ -91,7 +91,7 @@ if __name__ == '__main__':
             vars=None, # Input your data table
         )
     
-    y = summarize_from_csv(os.path.join('/home/majh/OpenYield', data_csv_path));y = np.append(y, area)
+    y = summarize_from_csv(os.path.join('/home/majh/OpenYield', data_csv_path),operation);y = np.append(y, area)
 
     print(f"[INPUT] construct_param: num_rows={global_config_update[0]}, num_cols={global_config_update[1]}, choose_columnmux={global_config_update[2]}")
     print(f"[INPUT] sram6tcell_param: pd_width={sram6t_config_update[0]*1e9:.1f} nm, pg_width={sram6t_config_update[1]*1e9:.1f} nm, pu_width={sram6t_config_update[2]*1e9:.1f} nm, length={sram6t_config_update[3]*1e9:.1f} nm", 
