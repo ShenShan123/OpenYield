@@ -28,12 +28,13 @@ class BaseTestbench:#基础测试平台类
         self.data_node_prefix = 'X'
 
         # Define timing parameters for pulse sources设置时序参数
-        self.t_rise = 0.1 @ u_ns  # Rise time
-        self.t_fall = 0.1 @ u_ns  # Fall time
+        
         self.t_pulse = 6 @ u_ns  # Pulse width
-        self.t_period = 14 @ u_ns  # Period
+        self.t_period = 5 @ u_ns  # Period
         self.t_delay = 1 @ u_ns  # shift for write signal
-        self.t_step = self.t_rise * 0.1
+        self.t_rise = 0.01 * self.t_period  # Rise time
+        self.t_fall = 0.01 * self.t_period  # Fall time
+        self.t_step = 1.0000e-11
 
     def set_vdd(self, value):#允许修改电源电压，同时修改一半电源电压值
         self.vdd = value
