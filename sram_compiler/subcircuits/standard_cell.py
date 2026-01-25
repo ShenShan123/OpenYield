@@ -1,318 +1,117 @@
-# standard_cells.py
 from PySpice.Spice.Netlist import SubCircuitFactory, SubCircuit
 from PySpice.Unit import u_Ohm, u_pF, u_um, u_m
 from .base_subcircuit import BaseSubcircuit
 
-class Pinv_for_wordline_driver(BaseSubcircuit):
+class Pinv(BaseSubcircuit):
     """
-    CMOS Inverter based on sram_16x4_pinv netlist.
-    Widths can be dynamically scaled based on num_cols.
+    Standard CMOS Inverter
+    NODES: VDD, VSS, A (Input), Z (Output)
     """
-    NAME = "PINV"
     NODES = ('VDD', 'VSS', 'A', 'Z')
 
-    def __init__(self,
-                 nmos_model_name,
-                 pmos_model_name,
-                 base_pmos_width=0.27e-6,
-                 base_nmos_width=0.09e-6,
-                 length=0.05e-6,
-                 num_cols=4,
-                 w_rc=False,
-                 pi_res=100 @ u_Ohm,
-                 pi_cap=0.001 @ u_pF,
-                 sweep_wordlinedriver=False,
-                 pmos_modle_choices='PMOS_VTG',
-                 nmos_modle_choices='NMOS_VTG'
-                 ):
+    def __init__(self, nmos_model, pmos_model, 
+                 nmos_width, pmos_width, length,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,num=''):
+        
+        self.NAME = f"PINV{num}"
         super().__init__(
-            nmos_model_name,
-            pmos_model_name,
-            base_nmos_width,
-            base_pmos_width,
-            length,
-            w_rc=w_rc,
-            pi_res=pi_res,
-            pi_cap=pi_cap,
-        )
-        self.pmos_modle_choices = pmos_modle_choices
-        self.nmos_modle_choices = nmos_modle_choices
-        self.num_cols = num_cols
-        self.sweep_wordlinedriver = sweep_wordlinedriver
-
-        self.pmos_width = self.calculate_dynamic_width(base_pmos_width, num_cols)
-        self.nmos_width = self.calculate_dynamic_width(base_nmos_width, num_cols)
-
-        self.REQUIRED_COLUMNS = ['pmos_model_wld_invp', 'nmos_model_wld_invn']
-        self.mos_model_index = self.read_mos_model_from_param_file(self.REQUIRED_COLUMNS)
+            nmos_model, pmos_model, 
+            nmos_width, pmos_width, length, 
+            w_rc, pi_res, pi_cap)
+        
+        self.nmos_model = nmos_model
+        self.pmos_model = pmos_model
+        self.nmos_width = nmos_width
+        self.pmos_width = pmos_width
+        self.length = length
+        
         self.add_inverter_transistors()
 
-    # ------------------------------------------------------------------ #
-    def calculate_dynamic_width(self, base_width, num_cols_config):
-        num_cols_config = max(num_cols_config, 4)
-        scaling_factor = num_cols_config / 4.0
-        return base_width * scaling_factor
-
     def add_inverter_transistors(self):
-        if not self.sweep_wordlinedriver:
-            self.M('pinv_pmos', 'Z', 'A', 'VDD', 'VDD',
-                   model=self.pmos_pdk_model,
-                   w=self.pmos_width, l=self.length)
-            self.M('pinv_nmos', 'Z', 'A', 'VSS', 'VSS',
-                   model=self.nmos_pdk_model,
-                   w=self.nmos_width, l=self.length)
-        else:
-            self.M('pinv_pmos', 'Z', 'A', 'VDD', 'VDD',
-                   model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
-                   w='pmos_width_wld_invp', l='length_wld')
-            self.M('pinv_nmos', 'Z', 'A', 'VSS', 'VSS',
-                   model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
-                   w='nmos_width_wld_invn', l='length_wld')
-
-
-class PNAND2_for_wordline_driver(BaseSubcircuit):
+        self.M('pinv_pmos', 'Z', 'A', 'VDD', 'VDD', 
+            model=self.pmos_model, w=self.pmos_width, l=self.length)
+        self.M('pinv_nmos', 'Z', 'A', 'VSS', 'VSS', 
+            model=self.nmos_model, w=self.nmos_width, l=self.length)
+        
+class PNAND2(BaseSubcircuit):
+    """
+    Standard CMOS 2-input NAND Gate
+    NODES: VDD, VSS, A, B, Z
+    """
     NAME = "PNAND2"
     NODES = ('VDD', 'VSS', 'A', 'B', 'Z')
 
-    def __init__(self,
-                 nmos_model_name,
-                 pmos_model_name,
-                 base_pmos_width=0.27e-6,
-                 base_nmos_width=0.18e-6,
-                 length=0.05e-6,
-                 num_cols=4,
-                 w_rc=False,
-                 pi_res=100 @ u_Ohm,
-                 pi_cap=0.001 @ u_pF,
-                 sweep_wordlinedriver=False,
-                 pmos_modle_choices='PMOS_VTG',
-                 nmos_modle_choices='NMOS_VTG'):
+    def __init__(self, nmos_model, pmos_model, 
+                 nmos_width, pmos_width, length,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
+        
         super().__init__(
-            nmos_model_name,
-            pmos_model_name,
-            base_nmos_width,
-            base_pmos_width,
-            length,
-            w_rc=w_rc,
-            pi_res=pi_res,
-            pi_cap=pi_cap,
+            nmos_model, pmos_model, 
+            nmos_width, pmos_width, length, 
+            w_rc, pi_res, pi_cap
         )
-        self.pmos_modle_choices = pmos_modle_choices
-        self.nmos_modle_choices = nmos_modle_choices
-        self.sweep_wordlinedriver = sweep_wordlinedriver
-        self.REQUIRED_COLUMNS = ['pmos_model_wld_nandp', 'nmos_model_wld_nandn']
-        self.mos_model_index = self.read_mos_model_from_param_file(self.REQUIRED_COLUMNS)
+
+        self.nmos_model = nmos_model
+        self.pmos_model = pmos_model
+        self.nmos_width = nmos_width
+        self.pmos_width = pmos_width
+        self.length = length
+        
         self.add_nand2_transistors()
 
-    # ------------------------------------------------------------------ #
     def add_nand2_transistors(self):
-        if not self.sweep_wordlinedriver:
-            self.M('pnand2_pmos1', 'VDD', 'A', 'Z', 'VDD',
-                   model=self.pmos_pdk_model,
-                   w=self.base_pmos_width, l=self.length)
-            self.M('pnand2_pmos2', 'Z', 'B', 'VDD', 'VDD',
-                   model=self.pmos_pdk_model,
-                   w=self.base_pmos_width, l=self.length)
-
-            self.M('pnand2_nmos1', 'Z', 'B', 'net1_nand', 'VSS',
-                   model=self.nmos_pdk_model,
-                   w=self.base_nmos_width, l=self.length)
-            self.M('pnand2_nmos2', 'net1_nand', 'A', 'VSS', 'VSS',
-                   model=self.nmos_pdk_model,
-                   w=self.base_nmos_width, l=self.length)
-        else:
-            self.M('pnand2_pmos1', 'VDD', 'A', 'Z', 'VDD',
-                   model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
-                   w='pmos_width_wld_nandp', l='length_wld')
-            self.M('pnand2_pmos2', 'Z', 'B', 'VDD', 'VDD',
-                   model=self.pmos_modle_choices[int(self.mos_model_index['pmos'])],
-                   w='pmos_width_wld_nandp', l='length_wld')
-
-            self.M('pnand2_nmos1', 'Z', 'B', 'net1_nand', 'VSS',
-                   model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
-                   w='nmos_width_wld_nandn', l='length_wld')
-            self.M('pnand2_nmos2', 'net1_nand', 'A', 'VSS', 'VSS',
-                   model=self.nmos_modle_choices[int(self.mos_model_index['nmos'])],
-                   w='nmos_width_wld_nandn', l='length_wld')
-            
-class Pinv_for_decoder(BaseSubcircuit):  # 非门
-    """
-    CMOS Inverter based on sram_16x4_pinv netlist.
-    """
-    NAME = "PINV"
-    NODES = ('VDD', 'VSS', 'A', 'Z')
-
-    def __init__(self, nmos_model_name, pmos_model_name,
-                 base_pmos_width=0.27e-6, base_nmos_width=0.09e-6, length=0.05e-6,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,sweep_decoder=False,
-                 pmos_model_choices = 'PMOS_VTG',nmos_model_choices = 'NMOS_VTG'
-                 ):
-        super().__init__(
-            nmos_model_name, pmos_model_name,
-            base_nmos_width, base_pmos_width, length,
-            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
-        )
-        self.pmos_width = base_pmos_width
-        self.nmos_width = base_nmos_width
-        self.sweep_decoder=sweep_decoder
-        self.pmos_model_choices=pmos_model_choices
-        self.nmos_model_choices=nmos_model_choices
+        # PMOS (Parallel)
+        self.M('pnand2_pmos1', 'Z', 'A', 'VDD', 'VDD', 
+               model=self.pmos_model, w=self.pmos_width, l=self.length)
+        self.M('pnand2_pmos2', 'Z', 'B', 'VDD', 'VDD', 
+               model=self.pmos_model, w=self.pmos_width, l=self.length)
+        # NMOS (Series)
+        self.M('pnand2_nmos1', 'Z', 'B', 'net1', 'VSS', 
+               model=self.nmos_model, w=self.nmos_width, l=self.length)
+        self.M('pnand2_nmos2', 'net1', 'A', 'VSS', 'VSS', 
+               model=self.nmos_model, w=self.nmos_width, l=self.length)
         
-        # 定义该类需要读取的列名
-        self.REQUIRED_COLUMNS = ['pmos_model_decoder_invp', 'nmos_model_decoder_invn']
-        # 读取参数文件中的模型名
-        self.mos_model_index = self.read_mos_model_from_param_file(self.REQUIRED_COLUMNS)
-        self.add_inverter_transistors()  # 添加反相器单元函数
-
-        
-    def add_inverter_transistors(self):  # 反相器即一个pmos+一个nmos
-        # Mpinv_pmos Z A vdd vdd pmos_vtg m=1 w=0.27u l=0.05u
-        if not self.sweep_decoder:
-            self.M(f'pinv_pmos', 'Z', 'A', 'VDD', 'VDD',
-                model=self.pmos_pdk_model,
-                w=self.pmos_width, l=self.length)
-            # Mpinv_nmos Z A gnd gnd nmos_vtg m=1 w=0.09u l=0.05u
-            self.M(f'pinv_nmos', 'Z', 'A', 'VSS', 'VSS',
-                model=self.nmos_pdk_model,
-                w=self.nmos_width, l=self.length)
-        else:
-            self.M(f'pinv_pmos', 'Z', 'A', 'VDD', 'VDD',
-                model=self.pmos_model_choices[int(self.mos_model_index['pmos'])],
-                w='pmos_width_decoder_invp', l='length_decoder')
-            # Mpinv_nmos Z A gnd gnd nmos_vtg m=1 w=0.09u l=0.05u
-            self.M(f'pinv_nmos', 'Z', 'A', 'VSS', 'VSS',
-                model=self.nmos_model_choices[int(self.mos_model_index['nmos'])],
-                w='nmos_width_decoder_invn', l='length_decoder')
-
-class PNAND3_for_decoder(BaseSubcircuit):  # 3输入与非门
+class PNAND3(BaseSubcircuit):
     """
-    CMOS NAND3
+    Standard CMOS 3-input NAND Gate
+    NODES: VDD, VSS, A, B, C, Z
     """
     NAME = "PNAND3"
     NODES = ('VDD', 'VSS', 'A', 'B', 'C', 'Z')
 
-    def __init__(self, nmos_model_name, pmos_model_name,
-                 base_pmos_width=0.27e-6, base_nmos_width=0.18e-6, length=0.05e-6,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,sweep_decoder=False,
-                 pmos_model_choices = 'PMOS_VTG',nmos_model_choices = 'MOS_VTG'
-                 ):
+    def __init__(self, nmos_model, pmos_model, 
+                 nmos_width, pmos_width, length,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
+        
         super().__init__(
-            nmos_model_name, pmos_model_name,
-            base_nmos_width, base_pmos_width, length,
-            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
+            nmos_model, pmos_model, 
+            nmos_width, pmos_width, length, 
+            w_rc, pi_res, pi_cap
         )
-        self.sweep_decoder=sweep_decoder
-        self.pmos_model_choices=pmos_model_choices
-        self.nmos_model_choices=nmos_model_choices
-         # 定义该类需要读取的列名
-        self.REQUIRED_COLUMNS = ['pmos_model_decoder_nandp', 'nmos_model_decoder_nandn']
-        # 读取参数文件中的模型名
-        self.mos_model_index = self.read_mos_model_from_param_file(self.REQUIRED_COLUMNS)
+        self.nmos_model = nmos_model
+        self.pmos_model = pmos_model
+        self.nmos_width = nmos_width
+        self.pmos_width = pmos_width
+        self.length = length
+
         self.add_nand3_transistors()
 
-
-
     def add_nand3_transistors(self):
-        if not self.sweep_decoder:
-            self.M(f'pnand3_pmos1', 'Z', 'A', 'VDD', 'VDD',
-                model=self.pmos_pdk_model,
-                w=self.base_pmos_width, l=self.length)
-            self.M(f'pnand3_pmos2', 'Z', 'B', 'VDD', 'VDD',
-                model=self.pmos_pdk_model,
-                w=self.base_pmos_width, l=self.length)
-            self.M(f'pnand3_pmos3', 'Z', 'C', 'VDD', 'VDD',
-                model=self.pmos_pdk_model,
-                w=self.base_pmos_width, l=self.length)
+        # PMOS (Parallel)
+        self.M('pnand3_pmos1', 'Z', 'A', 'VDD', 'VDD', 
+               model=self.pmos_model, w=self.pmos_width, l=self.length)
+        self.M('pnand3_pmos2', 'Z', 'B', 'VDD', 'VDD', 
+               model=self.pmos_model, w=self.pmos_width, l=self.length)
+        self.M('pnand3_pmos3', 'Z', 'C', 'VDD', 'VDD', 
+               model=self.pmos_model, w=self.pmos_width, l=self.length)
+        # NMOS (Series)
+        self.M('pnand3_nmos1', 'Z', 'A', 'net1', 'VSS', 
+               model=self.nmos_model, w=self.nmos_width, l=self.length)
+        self.M('pnand3_nmos2', 'net1', 'B', 'net2', 'VSS', 
+               model=self.nmos_model, w=self.nmos_width, l=self.length)
+        self.M('pnand3_nmos3', 'net2', 'C', 'VSS', 'VSS', 
+               model=self.nmos_model, w=self.nmos_width, l=self.length)
 
-            self.M(f'pnand3_nmos1', 'Z', 'A', 'net1_nand', 'VSS',
-                model=self.nmos_pdk_model,
-                w=self.base_nmos_width, l=self.length)
-            self.M(f'pnand3_nmos2', 'net1_nand', 'B', 'net2_nand', 'VSS',
-                model=self.nmos_pdk_model,
-                w=self.base_nmos_width, l=self.length)
-            self.M(f'pnand3_nmos3', 'net2_nand', 'C', 'VSS', 'VSS',
-                model=self.nmos_pdk_model,
-                w=self.base_nmos_width, l=self.length)
-        else:
-            self.M(f'pnand3_pmos1', 'Z', 'A', 'VDD', 'VDD',
-                model=self.pmos_model_choices[int(self.mos_model_index['pmos'])],
-                w='pmos_width_decoder_nandp', l='length_decoder')
-            self.M(f'pnand3_pmos2', 'Z', 'B', 'VDD', 'VDD',
-                model=self.pmos_model_choices[int(self.mos_model_index['pmos'])],
-                w='pmos_width_decoder_nandp', l='length_decoder')
-            self.M(f'pnand3_pmos3', 'Z', 'C', 'VDD', 'VDD',
-                model=self.pmos_model_choices[int(self.mos_model_index['pmos'])],
-                w='pmos_width_decoder_nandp', l='length_decoder')
-
-            self.M(f'pnand3_nmos1', 'Z', 'A', 'net1_nand', 'VSS',
-                model=self.nmos_model_choices[int(self.mos_model_index['nmos'])],
-                w='nmos_width_decoder_nandn', l='length_decoder')
-            self.M(f'pnand3_nmos2', 'net1_nand', 'B', 'net2_nand', 'VSS',
-                model=self.nmos_model_choices[int(self.mos_model_index['nmos'])],
-                w='nmos_width_decoder_nandn', l='length_decoder')
-            self.M(f'pnand3_nmos3', 'net2_nand', 'C', 'VSS', 'VSS',
-                model=self.nmos_model_choices[int(self.mos_model_index['nmos'])],
-                w='nmos_width_decoder_nandn', l='length_decoder')
-            
-class PNAND2_for_decoder(BaseSubcircuit):  # 单个2输入与非门
-    """
-    CMOS NAND2 gate based on sram_16x4_pnand2 netlist in OpenRAM.
-    Widths can be dynamically scaled based on num_cols.
-    不需要晶体管宽度根据列数调整，因为不起驱动作用
-    """
-    NAME = "PNAND2"
-    NODES = ('VDD', 'VSS', 'A', 'B', 'Z')
-
-    def __init__(self, nmos_model_name, pmos_model_name,
-                 base_pmos_width=0.27e-6, base_nmos_width=0.18e-6, length=0.05e-6,
-                 num_cols=4,  # Number of columns in the SRAM array configuration
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,sweep_decoder=False,
-                 pmos_model_choices = 'PMOS_VTG',nmos_model_choices = 'MOS_VTG'
-                 ):
-        super().__init__(
-            nmos_model_name, pmos_model_name,
-            base_nmos_width, base_pmos_width, length,
-            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
-        )
-        self.sweep_decoder=sweep_decoder
-        self.pmos_model_choices=pmos_model_choices
-        self.nmos_model_choices=nmos_model_choices
-        self.REQUIRED_COLUMNS = ['pmos_model_decoder_nandp', 'nmos_model_decoder_nandn']
-        # 读取参数文件中的模型名
-        self.mos_model_index = self.read_mos_model_from_param_file(self.REQUIRED_COLUMNS)
-        self.add_nand2_transistors()
-
-
-    def add_nand2_transistors(self):
-        if not self.sweep_decoder:
-            self.M('pnand2_pmos1', 'Z', 'A', 'VDD', 'VDD',
-                model=self.pmos_pdk_model,
-                w=self.base_pmos_width, l=self.length)
-            self.M('pnand2_pmos2', 'Z', 'B', 'VDD', 'VDD',
-                model=self.pmos_pdk_model,
-                w=self.base_pmos_width, l=self.length)
-
-            self.M('pnand2_nmos1', 'Z', 'B', 'net1_nand', 'VSS',
-                model=self.nmos_pdk_model,
-                w=self.base_nmos_width, l=self.length)
-            self.M('pnand2_nmos2', 'net1_nand', 'A', 'VSS', 'VSS',
-                model=self.nmos_pdk_model,
-                w=self.base_nmos_width, l=self.length)
-        else:
-            self.M('pnand2_pmos1', 'Z', 'A', 'VDD', 'VDD',
-                model=self.pmos_model_choices[int(self.mos_model_index['pmos'])],
-                w='pmos_width_decoder_nandp', l='length_decoder')
-            self.M('pnand2_pmos2', 'Z', 'B', 'VDD', 'VDD',
-                model=self.pmos_model_choices[int(self.mos_model_index['pmos'])],
-                w='pmos_width_decoder_nandp', l='length_decoder')
-
-            self.M('pnand2_nmos1', 'Z', 'B', 'net1_nand', 'VSS',
-                model=self.nmos_model_choices[int(self.mos_model_index['nmos'])],
-                w='nmos_width_decoder_nandn', l='length_decoder')
-            self.M('pnand2_nmos2', 'net1_nand', 'A', 'VSS', 'VSS',
-                model=self.nmos_model_choices[int(self.mos_model_index['nmos'])],
-                w='nmos_width_decoder_nandn', l='length_decoder')
-            
 class Pbuff(BaseSubcircuit):  # 两个反相器级联构成的缓冲器
     """
     CMOS Buffer (2-stage inverter chain) based on PINV.
@@ -320,37 +119,242 @@ class Pbuff(BaseSubcircuit):  # 两个反相器级联构成的缓冲器
     NAME = "PBUFF"
     NODES = ('VDD', 'VSS', 'A', 'Z')
 
-    def __init__(self, nmos_model_name, pmos_model_name,
-                 base_pmos_width=1e-07, base_nmos_width=1e-07, length=5e-08,
+    def __init__(self, nmos_model, pmos_model,
+                 nmos_width, pmos_width, length,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
         super().__init__(
-            nmos_model_name, pmos_model_name,
-            base_nmos_width, base_pmos_width, length,
+            nmos_model, pmos_model,
+            nmos_width, pmos_width, length,
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
-        # 第一级：同PINV
-        self.pmos_width_1 = base_pmos_width
-        self.nmos_width_1 = base_nmos_width
-        self.pmos_width_2 = base_pmos_width 
-        self.nmos_width_2 = base_nmos_width 
+        
+        self.nmos_model = nmos_model
+        self.pmos_model = pmos_model
+        self.pmos_width = pmos_width
+        self.nmos_width = nmos_width
+        self.length = length
+
         self.add_buffer_transistors()
 
     def add_buffer_transistors(self):
-        # 内部节点命名为Z_int（第一级输出/第二级输入）
-        # 第一级反相器：输入A，输出Z_int
+        # The internal node is named Z_int (first-level output / second-level input)
+        # First-level inverter: Input A, Output Z_int
         self.M('buff_pmos_1', 'Z_int', 'A', 'VDD', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.pmos_width_1, l=self.length)
+               model=self.pmos_model,
+               w=self.pmos_width, l=self.length)
 
         self.M('buff_nmos_1', 'Z_int', 'A', 'VSS', 'VSS',
-               model=self.nmos_pdk_model,
-               w=self.nmos_width_1, l=self.length)
+               model=self.nmos_model,
+               w=self.nmos_width, l=self.length)
 
-        # 第二级反相器：输入Z_int，输出Z
+        # Second-level inverter: Input Z_int, Output Z
         self.M('buff_pmos_2', 'Z', 'Z_int', 'VDD', 'VDD',
-               model=self.pmos_pdk_model,
-               w=self.pmos_width_2, l=self.length)
+               model=self.pmos_model,
+               w=self.pmos_width, l=self.length)
 
         self.M('buff_nmos_2', 'Z', 'Z_int', 'VSS', 'VSS',
-               model=self.nmos_pdk_model,
-               w=self.nmos_width_2, l=self.length)
+               model=self.nmos_model,
+               w=self.nmos_width, l=self.length)
+
+class AND2(BaseSubcircuit):
+    """
+    AND2 gate  generation based on SPICE netlist.
+    Consists of a PNAND2 followed by a PINV.
+    """
+    NAME = "AND2"
+    NODES = ('VDD', 'VSS', 'A', 'B', 'Z')
+
+    def __init__(self, nmos_model_nand, pmos_model_nand,
+                 nmos_model_inv, pmos_model_inv,
+                 # Base widths for NAND gate transistors
+                 nand_pmos_width=0.27e-6, nand_nmos_width=0.18e-6,
+                 # Base widths for Inverter transistors
+                 inv_pmos_width=0.27e-6, inv_nmos_width=0.09e-6, length=0.05e-6,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 ):
+
+        super().__init__(
+            nmos_model_nand, pmos_model_nand,
+            nand_nmos_width, nand_pmos_width, length,
+            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
+        )
+   
+        self.nmos_model_nand = nmos_model_nand
+        self.pmos_model_nand = pmos_model_nand
+        self.nmos_model_inv = nmos_model_inv
+        self.pmos_model_inv = pmos_model_inv
+
+        self.nand_pmos_width = nand_pmos_width
+        self.nand_nmos_width = nand_nmos_width
+        self.inv_pmos_width = inv_pmos_width
+        self.inv_nmos_width = inv_nmos_width
+        self.length = length
+
+        self.w_rc = w_rc
+
+        # This is the nand gate
+        self.nand_gate = PNAND2(nmos_model=self.nmos_model_nand,
+                                pmos_model=self.pmos_model_nand,
+                                pmos_width=self.nand_pmos_width,
+                                nmos_width=self.nand_nmos_width,
+                                length=self.length,                                
+                                )
+        self.subcircuit(self.nand_gate)  # Add a NAND gate circuit
+
+        # This is the inverter for driving WLs
+        self.inv_driver =  Pinv(nmos_model=self.nmos_model_inv,
+                                pmos_model=self.pmos_model_inv,
+                                pmos_width=self.inv_pmos_width,
+                                nmos_width=self.inv_nmos_width,
+                                length=self.length,
+                                )
+        self.subcircuit(self.inv_driver)  # Add an inverter circuit
+
+        self.add_and3_components()
+
+    def add_and3_components(self):
+        if self.w_rc:  # 字线要考虑是否添加rc网络，
+            a_node = self.add_rc_networks_to_node('A', num_segs=2)  # 调用base里的rc网络函数
+            b_node = self.add_rc_networks_to_node('B', num_segs=2)  # 4条线每条分成两段加rc
+            zb_node = self.add_rc_networks_to_node('zb_int', num_segs=2)
+            z_node = self.add_rc_networks_to_node('Z', num_segs=2)
+        else:
+            a_node = 'A'
+            b_node = "B"
+            zb_node = "zb_int"
+            z_node = "Z"
+        """ Instantiate the `PNAND3` and `Pinv` gates """ 
+        self.X(f'PNAND3', self.nand_gate.name,
+               'VDD', 'VSS', a_node,b_node, zb_node)
+        self.X(f'PINV', self.inv_driver.name,
+               'VDD', 'VSS', zb_node,z_node)
+
+class AND3(BaseSubcircuit):
+    """
+    AND3 gate generation based on SPICE netlist.
+    Consists of a PNAND3 followed by a PINV.
+    """
+    NAME = "AND3"
+    NODES = ('VDD', 'VSS', 'A', 'B', 'C', 'Z')
+
+    def __init__(self, nmos_model_nand, pmos_model_nand,
+                 nmos_model_inv, pmos_model_inv,
+                 # Base widths for NAND gate transistors
+                 nand_pmos_width=0.27e-6, nand_nmos_width=0.18e-6,
+                 # Base widths for Inverter transistors
+                 inv_pmos_width=0.27e-6, inv_nmos_width=0.09e-6, length=0.05e-6,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 ):
+
+        super().__init__(
+            nmos_model_nand, pmos_model_nand,
+            nand_nmos_width, nand_pmos_width, length,
+            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
+        )
+   
+        self.nmos_model_nand = nmos_model_nand
+        self.pmos_model_nand = pmos_model_nand
+        self.nmos_model_inv = nmos_model_inv
+        self.pmos_model_inv = pmos_model_inv
+        self.nand_pmos_width = nand_pmos_width
+        self.nand_nmos_width = nand_nmos_width
+        self.inv_pmos_width = inv_pmos_width
+        self.inv_nmos_width = inv_nmos_width
+        self.length = length
+
+        # This is the 3-input nand gate
+        self.nand3_gate = PNAND3(nmos_model=self.nmos_model_nand,
+                                 pmos_model=self.pmos_model_nand,
+                                 pmos_width=self.nand_pmos_width,
+                                 nmos_width=self.nand_nmos_width,
+                                 length=self.length,                                
+                                 )
+        self.subcircuit(self.nand3_gate)  # Add a 3-input NAND gate circuit
+
+        # This is the inverter to convert NAND to AND
+        self.inv_driver =  Pinv(nmos_model=self.nmos_model_inv,
+                                pmos_model=self.pmos_model_inv,
+                                pmos_width=self.inv_pmos_width,
+                                nmos_width=self.inv_nmos_width,
+                                length=self.length,
+                                )
+        self.subcircuit(self.inv_driver)  # Add an inverter circuit
+
+        self.add_and3_components()
+
+    def add_and3_components(self):
+        """ Instantiate the `PNAND3` and `Pinv` gates """ 
+        self.X('PNAND3', self.nand3_gate.name,
+               'VDD', 'VSS', 'A', 'B', 'C', "zb_int")
+        self.X('PINV', self.inv_driver.name,
+               'VDD', 'VSS',"zb_int", 'Z')
+        
+class D_latch(BaseSubcircuit):
+    """
+    D latch implemented using Pinv_for_latch and PNAND2_for_latch components.
+    This is a transparent latch that captures the data when CLK is high.
+    """
+    NAME = "D_LATCH"
+    NODES = ('VDD', 'VSS', 'D', 'EN', 'Q', 'QB')
+
+    def __init__(self, nmos_model, pmos_model,
+                 pmos_width=0.27e-6, nmos_width=0.18e-6, length=0.05e-6,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                ):
+        super().__init__(
+            nmos_model, pmos_model,
+            nmos_width, pmos_width, length,
+            w_rc, pi_res, pi_cap,
+        )
+        
+        # Store parameters for subcircuits
+        self.nmos_model = nmos_model
+        self.pmos_model = pmos_model
+        self.pmos_width = pmos_width
+        self.nmos_width = nmos_width
+        self.length = length
+
+        
+        # Create the required subcircuits
+        # NAND gates for the master latch
+        self.nand1 = PNAND2(
+                            nmos_model=self.nmos_model,
+                            pmos_model=self.pmos_model,
+                            pmos_width=self.pmos_width,
+                            nmos_width=self.nmos_width,
+                            length=self.length,
+                            )
+        
+        # Two inverters for the slave latch
+        self.inv1  =     Pinv(
+                            nmos_model=self.nmos_model,
+                            pmos_model=self.pmos_model,
+                            pmos_width=self.pmos_width,
+                            nmos_width=self.nmos_width,
+                            length=self.length,
+                            )
+        
+        # Add subcircuits to the main circuit
+        self.subcircuit(self.nand1)
+        self.subcircuit(self.inv1)
+        # Connect the components
+        self.add_d_latch_components()
+
+    def add_d_latch_components(self):
+        # Define node names
+        d_node = 'D'
+        db_node = 'DB'
+        en_node = 'EN'
+        q_node = 'Q'
+        qb_node = 'QB'
+        int1_node = 'INT1'  # Internal node between nand1 and nand2
+        int2_node = 'INT2'  # Internal node between nand2 and inv1
+        
+        # Instantiate the NAND gates
+        # First NAND: inputs D and CLK, output INT1
+                # First inverter: input INT2, output Q
+        self.X('INV1', self.inv1.name, 'VDD', 'VSS', d_node, db_node)
+        self.X('NAND1', self.nand1.name, 'VDD', 'VSS', d_node, en_node, int1_node)
+        self.X('NAND2', self.nand1.name, 'VDD', 'VSS', db_node, en_node, int2_node)
+        self.X('NAND3', self.nand1.name, 'VDD', 'VSS', int1_node, qb_node, q_node)
+        self.X('NAND4', self.nand1.name, 'VDD', 'VSS', int2_node, q_node, qb_node)
