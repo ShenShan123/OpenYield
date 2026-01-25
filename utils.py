@@ -65,8 +65,19 @@ def parse_mc_measurements(netlist_prefix: str = "simulation",
                 if var_name and value is not None:
                     run_data[var_name] = value
                     measurement_cache[var_name] = True
-
-        raw_data.append(run_data)
+        
+        if num_runs>1:
+            # 只跑一次的话正常显示，跑多次蒙卡时要检查TSA、TS_EN、TSWING是否为负数，如果是则跳过此次结果，否则会影响结果
+            skip_run = False
+            for param in ['TSA', 'TS_EN', 'TSWING']:
+                if param in run_data and run_data[param] < 0:
+                    print(f"Skipping run {run_id} due to negative {param} value: {run_data[param]}")
+                    skip_run = True
+                    break
+            if not skip_run:
+                raw_data.append(run_data)
+        else:
+            raw_data.append(run_data)
 
     # Build complete dataframe
     all_vars = sorted(measurement_cache.keys())
@@ -264,7 +275,7 @@ def split_blocks(df, analysis_type, num_mc):
     else:
         raise ValueError(f"Unsupported analysis type: {analysis_type}")
 
-def visualize_results(blocks, analysis_type, output_file):
+def visualize_results(blocks, analysis_type, output_file, selected_columns=None):
     """
     Visualization function for large-scale Monte Carlo simulations with variable time steps
     
@@ -330,8 +341,18 @@ def visualize_results(blocks, analysis_type, output_file):
     # Get signal list
     base_block = blocks[0]
     x_label = base_block.columns[0]
-    signals = base_block.columns[1:]
-    
+    #signals = base_block.columns[1:]
+    # Filter signals based on selected_columns
+    all_signals = base_block.columns[1:]
+    if selected_columns is not None:
+        # Only plot signals that exist in the data and are requested
+        signals = [s for s in selected_columns if s in all_signals]
+        if not signals:
+            print(f"Warning: None of the selected columns {selected_columns} found in data. Plotting all columns instead.")
+            signals = all_signals
+    else:
+        signals = all_signals
+
     # Create plot object
     fig, ax = plt.subplots()
     colors = plt.cm.tab10(np.linspace(0, 1, len(signals)))
@@ -407,7 +428,7 @@ def visualize_results(blocks, analysis_type, output_file):
     print(f"[DEBUG] Waveform file generated: {output_path.resolve()}")
     print(f"[DEBUG] Plot parameters: line alpha={LINE_ALPHA}, line width={LINE_WIDTH}, total samples={sum(len(b) for b in blocks)}")
 
-def process_simulation_data(prn_path, num_mc=None, output="results"):
+def process_simulation_data(prn_path, num_mc=None, output="results", selected_columns=None):
     """
     Main processing function for simulation data
     
@@ -439,7 +460,7 @@ def process_simulation_data(prn_path, num_mc=None, output="results"):
         # print("data_blocks", data_blocks)
         # assert 0
         # Results visualization
-        visualize_results(data_blocks, analysis_type, output)
+        visualize_results(data_blocks, analysis_type, output, selected_columns)
         # assert 0
         print(f"[DEBUG] Successfully data processed!")
         return True
@@ -469,7 +490,8 @@ def estimate_bitcell_area(
       2. Vertical dimension: Based on metal pitch (MMP) and peripheral routing
       3. Includes spacing/overhang from design rules
     """
-    
+    w_pd = float(w_pd)
+    w_pu = float(w_pu)
     # --- Horizontal Dimension (Width) ---
     # Effective width per cell column (sum of parallel transistors)
     access_width = w_access + 2 * gate_contact_spacing
