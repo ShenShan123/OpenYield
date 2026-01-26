@@ -621,7 +621,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 length=self.sram_config.sram_6t_cell.length.value,
                 w_rc=self.w_rc, 
                 disconnect=True,  # NOTE: Key argument to disconnect the internal data nodes!!
-                param_sweep = self.sweep_cell,
+                sweep = self.sweep_cell,
                 yield_mode=True,
                 # This function returns a Dict of MOS models
                 model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
