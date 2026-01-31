@@ -7,14 +7,13 @@ from utils import (  # type: ignore
     parse_spice_models, write_spice_models
 )
 from sram_compiler.testbenches.sram_6t_core_testbench import Sram6TCoreTestbench  # type: ignore
-from sram_compiler.param_sweep_data.sweep_config import SWEEP_CONFIGS
+from sram_compiler.config_yaml.sweep_config import SWEEP_CONFIGS
 import numpy as np
-import csv
 from PySpice.Spice.Netlist import SubCircuitFactory
 from math import ceil, log2
 
 class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
-    def __init__(self, sram_config,
+    def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  vth_std=0.05, custom_mc=False,sweep_cell=False,sweep_precharge=False,sweep_senseamp=True,sweep_wordlinedriver=False,
                  sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,corner='TT',choose_columnmux=True,
@@ -22,7 +21,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         """
                蒙特卡洛测试平台初始化
                参数:
-                   sram_config: SRAM配置对象（包含所有设计参数）
+                   sram_config: SRAM配置对象(包含所有设计参数)
                    w_rc: 是否添加RC网络
                    pi_res: PI模型电阻
                    pi_cap: PI模型电容
@@ -32,10 +31,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                    sim_path: 仿真结果保存路径
                """
         super().__init__(#父类
-            sram_config,
+            sram_config, sram_cell_type,
             w_rc, pi_res, pi_cap,
-            custom_mc, sweep_cell,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,corner,choose_columnmux,q_init_val,
+            custom_mc, sweep_cell,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,
+            corner,choose_columnmux,q_init_val,sim_path
         )
+        self.sram_cell_type=sram_cell_type
         self.choose_columnmux=choose_columnmux
         self.corner=corner
         self.sweep_decoder=sweep_decoder
@@ -372,8 +373,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'.STEP data=table\n'
          # Whether we use sweep
         if self.sweep_cell:
-            circuit.raw_spice += \
-                f'.STEP data=SRAM_6T_CELL\n'
+            if self.sram_cell_type == 'SRAM_6T_CELL':
+                circuit.raw_spice += \
+                    f'.STEP data=SRAM_6T_CELL\n'
+            elif self.sram_cell_type == 'SRAM_10T_CELL':
+                circuit.raw_spice += \
+                    f'.STEP data=SRAM_10T_CELL\n'
         if self.sweep_precharge:
             circuit.raw_spice += \
                 f'.STEP data=PRECHARGE\n'
@@ -392,7 +397,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         if self.sweep_decoder:
             circuit.raw_spice += \
                 f'.STEP data=DECODER\n'
-        if not self.sweep_cell and not self.sweep_precharge and not self.sweep_senseamp and not self.sweep_wordlinedriver and not self.sweep_columnmux and not self.sweep_writedriver and not self.sweep_decoder:
+        if not self.custom_mc and not self.sweep_cell and not self.sweep_precharge and not self.sweep_senseamp and not self.sweep_wordlinedriver and not self.sweep_columnmux and not self.sweep_writedriver and not self.sweep_decoder:
             # Use build-in sampling method in Xyce
             circuit.raw_spice += \
                 f'.SAMPLING useExpr=true\n.options samples numsamples={num_mc}\n'
@@ -405,143 +410,204 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def gen_process_params(self, circuit: SubCircuitFactory,
                            operation: str, num_mc: int,
                            vars: np.array = None):
-        """ Add process parameters' data table for STEP
-            生成工艺参数数据表
-        Args:
-        ---
-            circuit (SubCircuitFactory): simulator's circuits
-            operation (string): can be `read`, `write`, `hold_snm`, `read_snm`, `write_snm`
-            num_mc (int): number of MC runs
-            vars (numpy.ndarray): parameters in data table
+        """ 
+        统一生成工艺参数数据表 (支持 6T 和 10T)
         """
-        # Order of transistors in bitcell can not be changed
-        mos_names = ['PGL', 'PGR', 'PDL', 'PUL', 'PDR', 'PUR']
-        # This version only takes 3 params into consideration
         param_names = ['vth0', 'u0', 'voff']
         self.table_head = '.data table\n+ '
         table_content = '\n'
         num_params = 0
 
-        # Define params
+        # --- 1. 根据 Cell 类型配置差异化参数 ---
+        if self.sram_cell_type == 'SRAM_10T_CELL':
+            cell_config = self.sram_config.sram_10t_cell
+            # 晶体管顺序不能变
+            mos_names = ['PGL', 'PGR', 'PDL1', 'PDL2', 'PUL', 'PDR1', 'PDR2', 'PUR', 'FD_L', 'FD_R']
+            # 定义模型映射集合
+            pmos_set = {'PUL', 'PUR'}
+            pg_nmos_set = {'PGL', 'PGR'}
+            fd_nmos_set = {'FD_L', 'FD_R'} # 10T 特有
+            # 默认调试数据 (30个值)
+            default_vars_list = [
+                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, # N
+                -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126, # P/N/N/P
+                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13 # FD
+            ]
+        else: # 默认为 SRAM_6T_CELL
+            cell_config = self.sram_config.sram_6t_cell
+            mos_names = ['PGL', 'PGR', 'PDL', 'PUL', 'PDR', 'PUR']
+            pmos_set = {'PUL', 'PUR'}
+            pg_nmos_set = {'PGL', 'PGR'}
+            fd_nmos_set = set() # 空集合
+            # 默认调试数据 (18个值)
+            default_vars_list = [
+                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, # PGL, PGR, PDL
+                -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126 # PUL, PDR, PUR
+            ]
+
+        # --- 2. 统一生成参数逻辑 ---
         for row in range(self.num_rows):
             for col in range(self.num_cols):
-                # Only 1 cell's params are generated
                 if ('snm' in operation) and (row > 0 or col > 0):
                     continue
-                # Each transistor has 6 process variables
+                
                 for mos in mos_names:
+                    # 确定当前晶体管使用的模型值字符串
+                    if mos in pmos_set:
+                        model_val = cell_config.pmos_model.value
+                    elif mos in pg_nmos_set:
+                        model_val = cell_config.nmos_model.value[1] # PG 位于 index 1
+                    elif mos in fd_nmos_set:
+                        model_val = cell_config.nmos_model.value[2] # FD 位于 index 2
+                    else:
+                        model_val = cell_config.nmos_model.value[0] # PD 位于 index 0 (默认)
+
                     for param in param_names:
-                        if mos in ['PUL', 'PUR']:
-                            # Parameter definitions for PMOS
-                            circuit.raw_spice += \
-                                f'.param {param}_{self.sram_config.sram_6t_cell.pmos_model.value}_{mos}_{row:d}_{col:d}=0.0\n'
-                            # Data table head
-                            self.table_head += f'{param}_{self.sram_config.sram_6t_cell.pmos_model.value}_{mos}_{row:d}_{col:d} '
-                        elif mos in ['PGL','PGR']:
-                            circuit.raw_spice += \
-                                f'.param {param}_{self.sram_config.sram_6t_cell.nmos_model.value[1]}_{mos}_{row:d}_{col:d}=0.0\n'
-                            # Data table head
-                            self.table_head += f'{param}_{self.sram_config.sram_6t_cell.nmos_model.value[1]}_{mos}_{row:d}_{col:d} '
-                        else:
-                            # Parameter definitions for NMOS
-                            circuit.raw_spice += \
-                                f'.param {param}_{self.sram_config.sram_6t_cell.nmos_model.value[0]}_{mos}_{row:d}_{col:d}=0.0\n'
-                            # Data table head
-                            self.table_head += f'{param}_{self.sram_config.sram_6t_cell.nmos_model.value[0]}_{mos}_{row:d}_{col:d} '
-
+                        # 写入 SPICE 参数定义
+                        param_def = f'{param}_{model_val}_{mos}_{row:d}_{col:d}'
+                        circuit.raw_spice += f'.param {param_def}=0.0\n'
+                        self.table_head += f'{param_def} '
                         num_params += 1
-        # Just for debugging
+
+        # --- 3. 处理 Vars 数据 ---
         if vars is None:
-            vars = [0.4106, 0.045, -0.13,  # PGL
-                    0.4106, 0.045, -0.13,  # PGR
-                    0.4106, 0.045, -0.13,  # PDL
-                    -0.3842, 0.02, -0.126,  # PUL
-                    0.4106, 0.045, -0.13,  # PDR
-                    -0.3842, 0.02, -0.126]  # PUR
+            vars = default_vars_list
+        vars = np.array(vars)
 
-            if operation == 'read' or operation == 'write':
-                vars = np.array([vars * self.num_rows * self.num_cols])
-                vars = np.repeat(vars, num_mc, axis=0)
-            else:
-                vars = np.array([vars])
-                vars = np.repeat(vars, num_mc, axis=0)
-
-            print(f"[DEBUG] Generated vars.shape={vars.shape}")
-        else:
-            assert num_mc == vars.shape[0], f"num_mc={num_mc} mismatches {vars.shape[0]} row number in the data table"
-            print(f"[DEBUG] Input vars.shape={vars.shape}")
+        # 根据行列数扩展
+        if operation in ['read', 'write', 'read&write']:
+            vars = np.tile(vars, self.num_rows * self.num_cols)
+        
+        vars = np.array([vars]) # 转为二维
+        vars = np.repeat(vars, num_mc, axis=0) # 扩展 MC 次数
+        print(f"[DEBUG] Generated vars.shape={vars.shape}")
 
         assert len(vars.shape) == 2
-        assert num_params == vars.shape[
-            1], f'num_params={num_params} mismatches {vars.shape[1]} column number in the data table'
+        assert num_params == vars.shape[1], f'Cols mismatch: expected {num_params}, got {vars.shape[1]}'
 
+        # 格式化数据表
         table_content += "\n".join([
             "+ " + " ".join([f"{x:.4f}" for x in row])
             for row in vars
         ])
 
-        # Generate and run Xyce netlist
+        # 保存并包含
         table_path = os.path.join(self.sim_path, f'mc_{operation}_table.data')
         with open(table_path, 'w') as f:
             f.write(self.table_head + table_content)
         circuit.include(table_path)
         print(f'[DEBUG] Data table has been saved to {table_path}')
 
+
+    def _extract_sweep_rows(self, module_config, module_name, target_params):
+            sweep_lists = []
+            for req_param in target_params:
+                matched = False
+                for yaml_key, param_obj in module_config.parameters.items():
+                    yaml_names = param_obj.instance_names if isinstance(param_obj.instance_names, list) else [param_obj.instance_names]
+                    yaml_sweeps = param_obj.value_sweep if isinstance(param_obj.instance_names, list) else [param_obj.value_sweep]
+                    
+                    for idx, inst_name in enumerate(yaml_names):
+                        if req_param == f"{yaml_key}_{inst_name}" or req_param == yaml_key:
+                            val = yaml_sweeps[idx]
+                            sweep_lists.append(val if isinstance(val, list) else [val])
+                            matched = True
+                            break
+                    if matched: break
+                if not matched: raise ValueError(f"模块 {module_name} 中未找到参数 {req_param}")
+
+            # 长度校验与自动对齐
+            lens = [len(x) for x in sweep_lists]
+            max_len = max(lens)
+            if len(set(lens)) > 1:
+                sweep_lists = [x * max_len if len(x) == 1 else x for x in sweep_lists]
+                
+            return list(zip(*sweep_lists)) # 返回对齐后的行数据 [(val1, val2), ...]
+
+        # 2. 修改原方法：只处理普通参数
     def gen_param_sweep_generic(self, circuit: SubCircuitFactory, module_name: str,
-                                param_names: list, csv_filename: str, operation: str,
-                                ):
-        """通用参数扫描方法
-        Args:
-            circuit: 电路
-            module_name: 模块名称（用于数据表标识）
-            param_names: 参数名称列表
-            csv_filename: CSV文件名
-            operation: 操作类型
-        """
-        csv_path = f"sram_compiler/param_sweep_data/{csv_filename}"
-        if csv_path is None:
-            raise ValueError("必须指定 csv_path 参数")
+                                param_names: list, module_config=None):
+        """处理普通参数，生成独立的模块数据文件.data"""
+        if not param_names: return
         
-        vars = []
-        with open(csv_path, newline='') as f:
-            reader = csv.DictReader(f, skipinitialspace=True)
-            # 检查表头是否包含需要的列
-            missing = set(param_names) - set(reader.fieldnames or [])
-            if missing:
-                raise KeyError(f"CSV 缺少列: {missing}")
-            for row in reader:
-                vars.append([float(row[p]) for p in param_names])
+        if module_config is None and hasattr(self.sram_config, module_name):
+            module_config = getattr(self.sram_config, module_name)
 
-         # 构建数据表内容
-        table_content = f".data {module_name}\n"
-        table_content += "+ " + " ".join(param_names) + "\n"
-
-        # 在网表中添加参数定义
-        for param in param_names:
-            circuit.raw_spice += f'.param {param}=0.0\n'
+        rows = self._extract_sweep_rows(module_config, module_name, param_names)
         
-        # 验证参数维度
-        expected_len = len(param_names)
-        for i, row in enumerate(vars):
-            assert len(row) == expected_len, f"Row {i} has {len(row)} values, expected {expected_len}"
+        # 写入模块独立文件
+        content = f".data {module_name}\n+ " + " ".join(param_names) + "\n"
+        for row in rows:
+            content += "+ " + " ".join([f"{float(x):.4e}" for x in row]) + "\n"
+        
+        path = os.path.join(self.sim_path, f'param_sweep_{module_name}.data')
+        with open(path, 'w') as f: f.write(content)
+        circuit.include(path)
+        
+        for p in param_names: 
+            circuit.raw_spice += f'.param {p}=0.0\n'
 
-        for row in vars:
-            # 使用科学计数法格式化
-            formatted_row = [f"{x:.3e}" for x in row]
-            table_content += "+ " + " ".join(formatted_row) + "\n"
+    # 3. 新增方法：独立处理模型参数 (全局累积)
+    def gen_model_sweep_generic(self, module_name: str, 
+                                param_model_names: list, module_config=None):
+        """处理模型参数，生成 param_sweep_models.data 文件"""
+        if not param_model_names: return
 
-        # 生成并保存参数表文件
-        include_path = os.path.join(self.sim_path, f'param_sweep_{module_name}.data')
-        with open(include_path, 'w') as f:
-            f.write(table_content)
-    
-        # 在网表中包含参数表
-        circuit.include(include_path)
-        print(f'[DEBUG] Parameter sweep table saved to {include_path}')
+        if module_config is None and hasattr(self.sram_config, module_name):
+            module_config = getattr(self.sram_config, module_name)
+
+        # 初始化全局缓存
+        if not hasattr(self, '_global_model_data'):
+            self._global_model_data = {'names': [], 'cols': []}
+
+        # 提取数据
+        rows = self._extract_sweep_rows(module_config, module_name, param_model_names)
+        cols = list(zip(*rows)) # 转置为列以便追加
+
+        # 更新缓存
+        self._global_model_data['names'].extend(param_model_names)
+        self._global_model_data['cols'].extend(cols)
+
+        # 重写文件 (包含所有已收集的列)
+        full_names = self._global_model_data['names']
+        full_rows = list(zip(*self._global_model_data['cols']))
+        
+        content = f" ".join(full_names) + "\n"
+        for row in full_rows:
+            content += " ".join([str(x) for x in row]) + "\n"
+
+        path = os.path.join(self.sim_path, 'param_sweep_models.data')
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as f: f.write(content)
+
 
 
     def run_mc_simulation(self, operation='read', target_row=0, target_col=0, mc_runs=100, temperature=27,vars=None):
         """Run Xyce Monte Carlo simulation"""
+        # 定义扫描开关与配置键名的对应关系
+        # 元组结构: (Config Key, Boolean Switch)
+        # 这里的 Boolean Switch 来自 __init__ 中定义的 self.sweep_xxx
+        check_list = [
+            ('cell', self.sweep_cell) if self.sram_cell_type == 'SRAM_6T_CELL' else ('cell_10T', self.sweep_cell),
+            ('precharge', self.sweep_precharge),
+            ('senseamp', self.sweep_senseamp),
+            ('wordlinedriver', self.sweep_wordlinedriver),
+            ('columnmux', self.sweep_columnmux),
+            ('writedriver', self.sweep_writedriver),
+            ('decoder', self.sweep_decoder)
+        ]
+        for key, is_enabled in check_list:
+            if is_enabled:
+                # 从外部文件导入的配置中获取参数
+                if key not in SWEEP_CONFIGS:
+                    print(f"[WARNING] 配置 '{key}' 在 sram_mc_config.py 中未定义，跳过。")
+                    continue            
+                cfg = SWEEP_CONFIGS[key]        
+                self.gen_model_sweep_generic(
+                    module_name=cfg['name'],
+                    param_model_names=cfg['model_params']
+                )
+        
         circuit = self.create_testbench(operation, target_row, target_col)
         simulator = circuit.simulator(
         temperature=temperature,           # 通过 **kwargs 传递
@@ -557,20 +623,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # Add process parameters
         if self.custom_mc:
             self.gen_process_params(simulator.circuit, operation, vars=vars, num_mc=mc_runs)
-        
-        # 定义扫描开关与配置键名的对应关系
-        # 元组结构: (Config Key, Boolean Switch)
-        # 这里的 Boolean Switch 来自 __init__ 中定义的 self.sweep_xxx
-        check_list = [
-            ('cell', self.sweep_cell),
-            ('precharge', self.sweep_precharge),
-            ('senseamp', self.sweep_senseamp),
-            ('wordlinedriver', self.sweep_wordlinedriver),
-            ('columnmux', self.sweep_columnmux),
-            ('writedriver', self.sweep_writedriver),
-            ('decoder', self.sweep_decoder)
-        ]
-
+ 
         # 遍历检查并在需要时调用通用方法
         for key, is_enabled in check_list:
             if is_enabled:
@@ -580,11 +633,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                     continue            
                 cfg = SWEEP_CONFIGS[key]        
                 self.gen_param_sweep_generic(
-                    circuit=simulator.circuit,
-                    operation=operation,
+                    circuit=simulator.circuit,                  
                     module_name=cfg['name'],
                     param_names=cfg['params'],
-                    csv_filename=cfg['csv'],
                 )
 
         print("[DEBUG] Printing generated netlists...")
@@ -623,9 +674,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                     f'V(S_EN)',
                     f'V(WL{target_row})',
                     f'V(BL{target_col})',
-                    f'V(BLB{target_col})',
-                    f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:Q)',
-                    f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:QB)',
+                    f'V(BLB{target_col})',                   
+                    f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:Q)' if self.sram_cell_type == 'SRAM_6T_CELL' else f'V(XSRAM_10T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_10T_CELL_{target_row}_{target_col}:Q)',
+                    f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:QB)'if self.sram_cell_type == 'SRAM_6T_CELL' else f'V(XSRAM_10T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_10T_CELL_{target_row}_{target_col}:QB)',
                     f'V(SA_Q{target_col})',
                     f'V(SA_QB{target_col})',
                 ]
@@ -635,8 +686,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                     f'V(WL{target_row})',
                     f'V(BL{target_col})',
                     f'V(BLB{target_col})',
-                    f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:Q)',
-                    f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:QB)',
+                    f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:Q)'if self.sram_cell_type == 'SRAM_6T_CELL' else f'V(XSRAM_10T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_10T_CELL_{target_row}_{target_col}:Q)',
+                    f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:QB)'if self.sram_cell_type == 'SRAM_6T_CELL' else f'V(XSRAM_10T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_10T_CELL_{target_row}_{target_col}:QB)',
                 ]
             elif operation == 'read&write':
                 selected_columns = [
@@ -706,7 +757,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 print(f"[INFO] CLK(min) in this size and PVT : {((half_clk_sum+0.1e-9)*2):.3e}")
 
             data_csv_path=tb_path.replace('.sp', '.data.csv')
-           # Reture the performance metrics for yield analysis and sizing optimization
+            # Reture the performance metrics for yield analysis and sizing optimization
             if operation == 'write' or operation == 'read&write' or operation == 'read':
                 return data_csv_path
             elif operation == 'hold_snm':
