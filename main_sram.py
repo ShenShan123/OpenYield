@@ -1,5 +1,4 @@
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench # type: ignore
-#from sram_compiler_beifen.sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench # type: ignore
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 import numpy as np
 from utils import estimate_bitcell_area # type: ignore
