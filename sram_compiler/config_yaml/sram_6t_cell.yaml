@@ -9,6 +9,7 @@ SRAM_6T_CELL:
       upper: 1.0e-6               # 参数范围上界 / Parameter upper bounds
       lower: 0.01e-6              # 参数范围下界 / Parameter lower bounds 0.01um-1um
       value: 9e-08                # 默认值：基准pu宽度 / Default value: base pd width
+      value_sweep: [9.1e-08, 9.2e-08, 9.3e-08] # 参数扫描向量 
       description: "Pull-up MOS width / 上拉晶体管宽度"
     nmos_width:
       type: "continuous list"     # 参数类型：连续型列表 / Parameter type: continuous list
@@ -16,6 +17,7 @@ SRAM_6T_CELL:
       upper: [1.35e-7, 2.025e-7]  # 参数范围上界 / Parameter upper bounds pd范围：45nm-135nnm
       lower: [4.5e-8, 6.75e-8]    # 参数范围下界 / Parameter lower bounds pg范围:67.5nm-202.5nm
       value: [9e-08, 1.35e-07]    # 默认值  pd默认90nm,pg默认135nm
+      value_sweep: [[9.1e-08, 9.2e-08, 9.3e-08], [1.35e-07, 1.36e-07, 1.37e-07]] # 参数扫描向量
       description: "0:Pull-up MOS width, 1:Pass MOS width / 0:下拉, 1:传输NMOS晶体管宽度"
     length: # 这个版本先使用同一个沟道长度 / In this version, we use a unified gate length
       type: "continuous scalar"   # 参数类型：连续型标量 / Parameter type: continuous scalar
@@ -23,6 +25,7 @@ SRAM_6T_CELL:
       upper: 1.0e-7                 # 参数范围上界 / Parameter upper bounds
       lower: 3.0e-8                 # 参数范围下界 / Parameter lower bounds 30-100nm
       value: 5e-08                  # 默认值50nm
+      value_sweep: [5.1e-08, 5.2e-08, 5.3e-08] # 参数扫描向量
       description: "MOS gate length / 晶体管沟道长度"
     pmos_model:
       type: "discrete scalar"     # 参数类型：离散型标量 / Parameter type: categorical scalar阈值电压
@@ -30,12 +33,24 @@ SRAM_6T_CELL:
       # 选项：低阈值、标准阈值、高阈值 / Choices: low Vt, regular Vt, high Vt
       choices: ["PMOS_VTL", "PMOS_VTG", "PMOS_VTH"]
       value: "PMOS_VTG"           # 默认值：标准阈值 / Default value: regular Vt
+      value_sweep: [1]      # 参数扫描向量
       description: "PMOS transistor model / PMOS晶体管模型"
     nmos_model:
       type: "categorical list"    # 参数类型：分类型列表 / Parameter type: categorical list
       names: ['pd', 'pg']         # 对应器件实例名称 / The corresponding device instance names
       # 选项：低阈值、标准阈值、高阈值 / Choices: low Vt, regular Vt, high Vt MOS
       choices: ["NMOS_VTL", "NMOS_VTG", "NMOS_VTH"]
-      # 默认值：标准阈值 / Default value: regular Vt
-      value: ["NMOS_VTG", "NMOS_VTG"]
+      value: ["NMOS_VTG", "NMOS_VTG"] # 默认值：标准阈值 / Default value: regular Vt
+      value_sweep: [[1], [1]] # 参数扫描向量
       description: "0:PD NMOS type, 1:PG NMOS type / 0: 下拉, 1:传输 NMOS晶体管模型"
+  # 工艺参数变量列表 (用于 gen_process_params 中的 vars)
+  # 顺序: PGL(3), PGR(3), PDL(3), PUL(3), PDR(3), PUR(3) -> 每个管子对应 vth0, u0, voff
+  process_parameters:
+    vars: [
+          0.4106, 0.045, -0.13,   # PGL
+          0.4106, 0.045, -0.13,   # PGR
+          0.4106, 0.045, -0.13,   # PDL
+          -0.3842, 0.02, -0.126,  # PUL
+          0.4106, 0.045, -0.13,   # PDR
+          -0.3842, 0.02, -0.126   # PUR
+          ]
