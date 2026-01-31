@@ -168,6 +168,7 @@ class Parameter:
             instance_names: Union[str, List[str]],
             description: str,
             value: Any,
+            value_sweep:Any,
             upper: Optional[Union[float, List[float]]] = None,
             lower: Optional[Union[float, List[float]]] = None,
             choices: Optional[List[str]] = None
@@ -177,6 +178,7 @@ class Parameter:
         self.instance_names = instance_names
         self.description = description
         self.value = value
+        self.value_sweep = value_sweep
         self.upper = upper
         self.lower = lower
         self.choices = choices
@@ -218,9 +220,10 @@ class Parameter:
 class CircuitConfig:
     """表示任意电路的完整配置"""
 
-    def __init__(self, config_name: str, parameters: Dict[str, Parameter]):
+    def __init__(self, config_name: str, parameters: Dict[str, Parameter],process_parameters: AttrDict = None):
         self.config_name = config_name
         self.parameters = parameters
+        self.process_parameters =process_parameters
 
     def get_parameter(self, name: str) -> Parameter:
         """按名称获取参数"""
@@ -234,7 +237,10 @@ class CircuitConfig:
 
     def __repr__(self):
         params = "\n  ".join([f"{k}: {v}" for k, v in self.parameters.items()])
-        return f"{self.config_name}配置:\n  {params}"
+        pp_info = "无"
+        if hasattr(self.process_parameters, 'vars'):
+             pp_info = f"vars({len(self.process_parameters.vars)} items)"
+        return f"{self.config_name}配置:\n  process_parameters: {pp_info}\n  {params}"
 
 
 class ConfigLoader:
@@ -261,8 +267,12 @@ class ConfigLoader:
             circuit_config = config_data.get(config_name, {})
             if not circuit_config:
                 raise ValueError(f"YAML文件中未找到 {config_name} 配置")
+            
+            #  读取 process_parameters 并转换为 AttrDict
+            process_params_data = circuit_config.get("process_parameters", {})
+            process_parameters = AttrDict(process_params_data)
 
-            # 解析参数
+            # 解析设计参数
             parameters = {}
             for param_name, param_data in circuit_config.get("parameters", {}).items():
                 param = Parameter(
@@ -271,6 +281,7 @@ class ConfigLoader:
                     instance_names=param_data["names"],
                     description=param_data["description"],
                     value=param_data["value"],
+                    value_sweep=param_data["value_sweep"],
                     upper=param_data.get("upper"),
                     lower=param_data.get("lower"),
                     choices=param_data.get("choices")
@@ -278,7 +289,7 @@ class ConfigLoader:
                 parameters[param_name] = param
 
             # 创建并存储配置对象
-            config = CircuitConfig(config_name, parameters)
+            config = CircuitConfig(config_name, parameters, process_parameters)
             self.configs[config_name] = config
             return config
 
@@ -311,6 +322,7 @@ class SRAM_CONFIG:
     def __init__(self):
         self.global_config = None
         self.sram_6t_cell = None
+        self.sram_10t_cell = None
         self.wordline_driver = None
         self.precharge = None
         self.column_mux = None
@@ -332,11 +344,12 @@ class SRAM_CONFIG:
 
         # 将加载的配置分配给各个属性
         self.sram_6t_cell = loader.get_config("SRAM_6T_CELL")
-        self.wordline_driver = loader.get_config("WORDLINEDRIVER")
+        self.sram_10t_cell = loader.get_config("SRAM_10T_CELL")
+        self.wordlinedriver = loader.get_config("WORDLINEDRIVER")
         self.precharge = loader.get_config("PRECHARGE")
-        self.column_mux = loader.get_config("COLUMNMUX")
+        self.columnmux = loader.get_config("COLUMNMUX")
         self.senseamp = loader.get_config("SENSEAMP")
-        self.write_driver = loader.get_config("WRITEDRIVER")
+        self.writedriver = loader.get_config("WRITEDRIVER")
         self.decoder = loader.get_config("DECODER")
         
 
@@ -359,6 +372,7 @@ class SRAM_CONFIG:
         configs = [
             f"全局配置: {self.global_config is not None}",
             f"SRAM单元: {self.sram_6t_cell is not None}",
+            f"SRAM单元10T: {self.sram_10t_cell is not None}",
             f"字线驱动器: {self.wordline_driver is not None}",
             f"预充电: {self.precharge is not None}",
             f"列选择器: {self.column_mux is not None}",
