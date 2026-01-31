@@ -5,37 +5,42 @@ WRITEDRIVER:
   parameters:
     pmos_width:
       type: "continuous scalar"   # 参数类型：连续型标量 / Parameter type: continuous scalar
-      names: 'p'                  # 对应器件实例名称 / The corresponding device instance names
+      names: 'wrd'                  # 对应器件实例名称 / The corresponding device instance names
       upper: 1.0e-6               # 参数范围上界 / Parameter upper bounds
       lower: 1.0e-8               # 参数范围下界 / Parameter lower bounds
       value: 0.36e-6              # 默认值：基准pu宽度 / Default value: base pd width
+      value_sweep: [0.361e-6, 0.362e-6, 0.363e-6] # 参数扫描向量
       description: "PMOS width"
     nmos_width:
       type: "continuous scalar"   # 参数类型：连续型标量 / Parameter type: continuous scalar
-      names: 'n'                  # 对应器件实例名称 / The corresponding device instance names
+      names: 'wrd'                  # 对应器件实例名称 / The corresponding device instance names
       upper: 1.0e-6               # 参数范围上界 / Parameter upper bounds
       lower: 1.0e-8               # 参数范围下界 / Parameter lower bounds
       value: 0.18e-6              # 默认值
+      value_sweep: [0.181e-6, 0.182e-6, 0.183e-6] # 参数扫描向量
       description: "0:NAND NMOS width, 1:INV NMOS width"
     length: # 这个版本先使用同一个沟道长度 / In this version, we use a unified gate length
       type: "continuous scalar"   # 参数类型：连续型标量 / Parameter type: continuous scalar
-      names: 'l'                  #
+      names: 'wrd'                  #
       upper: 1.0e-7                 # 参数范围上界 / Parameter upper bounds
       lower: 3.0e-8                 # 参数范围下界 / Parameter lower bounds
       value: 50.0e-9                # 默认值
+      value_sweep: [50.1e-9, 50.2e-9, 50.3e-9] # 参数扫描向量
       description: "MOS gate length / 晶体管沟道长度"
     pmos_model:
       type: "discrete scalar"     # 参数类型：离散型标量 / Parameter type: categorical scalar
-      names: 'p'                  # 对应器件实例名称 / The corresponding device instance names
+      names: 'writedriver'                  # 对应器件实例名称 / The corresponding device instance names
       # 选项：低阈值、标准阈值、高阈值 / Choices: low Vt, regular Vt, high Vt
       choices: ["PMOS_VTL", "PMOS_VTG", "PMOS_VTH"]
       value: 'PMOS_VTG'           # 默认值：标准阈值 / Default value: regular Vt
+      value_sweep: [1] # 参数扫描向量
       description: "PMOS type"
     nmos_model:
       type: "discrete scalar"     # 参数类型：离散型标量 / Parameter type: categorical scalar
-      names: 'n'                  # 对应器件实例名称 / The corresponding device instance names
+      names: 'writedriver'                  # 对应器件实例名称 / The corresponding device instance names
       # 选项：低阈值、标准阈值、高阈值 / Choices: low Vt, regular Vt, high Vt MOS
       choices: ["NMOS_VTL", "NMOS_VTG", "NMOS_VTH"]
       # 默认值：标准阈值 / Default value: regular Vt
       value: 'NMOS_VTG'
+      value_sweep: [1] # 参数扫描向量
       description: "NMOS type"
