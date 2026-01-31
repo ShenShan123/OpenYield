@@ -2,15 +2,16 @@ from sram_compiler.subcircuits.mux_and_sa import SenseAmp, ColumnMux
 from sram_compiler.subcircuits.precharge_and_write_driver import Precharge,WriteDriver
 from sram_compiler.subcircuits.wordline_driver import WordlineDriver
 from sram_compiler.subcircuits.sram_6t_core import Sram6TCell, Sram6TCore
+from sram_compiler.subcircuits.sram_10t_core import Sram10TCell, Sram10TCore
 from sram_compiler.subcircuits.decoder import DECODER_CASCADE
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Row, Dummy_Column
 from sram_compiler.subcircuits.replica_column import Replica_Column
 from sram_compiler.subcircuits.time_generate import TIME
-def read_mos_model_from_param_file(names):
+def read_mos_model_from_param_file(names,param_file):
     """
     Read MOS models from parameter file
     """
-    param_file="sram_compiler/param_sweep_data/param_sweep_model_name.txt"
+    #param_file="sram_compiler/param_sweep_data/param_sweep_models.data"
     try:
         with open(param_file, 'r') as f:
             lines = f.readlines()
@@ -39,7 +40,7 @@ class SenseAmpFactory:
                  nmos_width, pmos_width, length,
                  w_rc=False, 
                  sweep_senseamp=False,
-                 pmos_modle_choices=None, nmos_modle_choices=None,
+                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None
                  ):
         
         self.nmos_model = nmos_model
@@ -49,11 +50,11 @@ class SenseAmpFactory:
         self.length = length
         self.w_rc = w_rc
         self.sweep = sweep_senseamp
-
-        self.pmos_choices = pmos_modle_choices
-        self.nmos_choices = nmos_modle_choices
-        self.REQUIRED_COLUMNS = ['pmos_model_senseamp', 'nmos_model_senseamp']
-        self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS)
+        if self.sweep:
+            self.pmos_choices = pmos_modle_choices
+            self.nmos_choices = nmos_modle_choices
+            self.REQUIRED_COLUMNS = ['pmos_model_senseamp', 'nmos_model_senseamp']
+            self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS,param_model_file)
         
     def _get_config(self):
         """Based on whether the parameters are scanned, determine 
@@ -105,7 +106,7 @@ class ColumnMuxFactory:
                  w_rc=False, 
                  sweep_columnmux=False,
                  use_external_selb=False,
-                 pmos_modle_choices=None, nmos_modle_choices=None,
+                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None
                  ):
         
         self.num_in = num_in
@@ -118,11 +119,11 @@ class ColumnMuxFactory:
         self.w_rc = w_rc
         self.sweep = sweep_columnmux
         self.use_external_selb = use_external_selb
-        
-        self.pmos_choices = pmos_modle_choices
-        self.nmos_choices = nmos_modle_choices
-        self.REQUIRED_COLUMNS = ['pmos_model_columnmux', 'nmos_model_columnmux']
-        self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS)
+        if self.sweep:
+            self.pmos_choices = pmos_modle_choices
+            self.nmos_choices = nmos_modle_choices
+            self.REQUIRED_COLUMNS = ['pmos_model_columnmux', 'nmos_model_columnmux']
+            self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS,param_model_file)
 
     def _get_config(self):
         """The parameters ultimately transmitted to the circuit"""
@@ -164,18 +165,18 @@ class PrechargeFactory:
                 pmos_model, pmos_width=0.27e-6, length=50e-9, num_rows=16,
                 w_rc=False, 
                 sweep_precharge=False, 
-                pmos_modle_choices=None):
+                pmos_modle_choices=None, param_model_file=None):
         
         self.pmos_model = pmos_model
         self.pmos_width = pmos_width
         self.length = length
         self.num_rows = num_rows
         self.w_rc = w_rc
-        
         self.sweep = sweep_precharge
-        self.pmos_choices = pmos_modle_choices
-        self.REQUIRED_COLUMNS = ['pmos_model_precharge']
-        self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS)
+        if self.sweep:
+            self.pmos_choices = pmos_modle_choices
+            self.REQUIRED_COLUMNS = ['pmos_model_precharge']
+            self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS,param_model_file)
 
     def _calculate_dynamic_width(self):
         #The width of the transistor needs to 
@@ -213,7 +214,7 @@ class WriteDriverFactory:
                  length=50e-9, num_rows=16,
                  w_rc=False, 
                  sweep_writedriver=False,
-                 pmos_modle_choices=None, nmos_modle_choices=None,
+                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None
                 ):
         
         self.nmos_model = nmos_model
@@ -225,11 +226,11 @@ class WriteDriverFactory:
         
         self.w_rc = w_rc
         self.sweep = sweep_writedriver
-        
-        self.pmos_choices = pmos_modle_choices
-        self.nmos_choices = nmos_modle_choices
-        self.REQUIRED_COLUMNS = ['pmos_model_writedriver', 'nmos_model_writedriver']
-        self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS)
+        if self.sweep:
+            self.pmos_choices = pmos_modle_choices
+            self.nmos_choices = nmos_modle_choices
+            self.REQUIRED_COLUMNS = ['pmos_model_writedriver', 'nmos_model_writedriver']
+            self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS,param_model_file)
 
     def _calculate_dynamic_width(self, base_width):
         """Dynamically adjust the transistor width based on the number of rows.
@@ -283,7 +284,7 @@ class WordlineDriverFactory:
                  num_cols=16,  # Load parameter
                  w_rc=False, 
                  sweep_wordlinedriver=False,
-                 pmos_modle_choices=None, nmos_modle_choices=None,
+                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None
                  ):
         
         self.nmos_model = nmos_model
@@ -298,12 +299,13 @@ class WordlineDriverFactory:
         
         self.w_rc = w_rc
         self.sweep = sweep_wordlinedriver
-        self.pmos_choices = pmos_modle_choices
-        self.nmos_choices = nmos_modle_choices
-        self.REQUIRED_COLUMNS1 = ['pmos_model_wld_invp', 'nmos_model_wld_invn']
-        self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1)
-        self.REQUIRED_COLUMNS2 = ['pmos_model_wld_nandp', 'nmos_model_wld_nandn']
-        self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2)
+        if self.sweep:
+            self.pmos_choices = pmos_modle_choices
+            self.nmos_choices = nmos_modle_choices
+            self.REQUIRED_COLUMNS1 = ['pmos_model_wld_invp', 'nmos_model_wld_invn']
+            self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1,param_model_file)
+            self.REQUIRED_COLUMNS2 = ['pmos_model_wld_nandp', 'nmos_model_wld_nandn']
+            self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2,param_model_file)
 
     def _calculate_inv_width(self):
         """
@@ -380,7 +382,7 @@ class Sram6TCellFactory:
                  # 附加数据
                  model_dict=None,  
                  suffix='',        
-                 pmos_choices=None, nmos_choices=None,
+                 pmos_choices=None, nmos_choices=None,param_model_file=None
                  ):
         
         self.pd_model = pd_model
@@ -394,13 +396,13 @@ class Sram6TCellFactory:
         self.yield_mode = yield_mode
         self.model_dict = model_dict
         self.suffix = suffix
-        
-        self.pmos_choices = pmos_choices
-        self.nmos_choices = nmos_choices
-        self.REQUIRED_COLUMNS1 = ['pmos_model_pu', 'nmos_model_pd']
-        self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1)
-        self.REQUIRED_COLUMNS2 = ['nmos_model_pg']
-        self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2)
+        if self.sweep:
+            self.pmos_choices = pmos_choices
+            self.nmos_choices = nmos_choices
+            self.REQUIRED_COLUMNS1 = ['pmos_model_pu', 'nmos_model_pd']
+            self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1,param_model_file)
+            self.REQUIRED_COLUMNS2 = ['nmos_model_pg']
+            self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2,param_model_file)
 
     def _get_config(self):
         """给定 StandardSram6T 参数"""
@@ -476,7 +478,8 @@ class Sram6TCoreFactory:
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
                  # --- Yield 模式专用 ---
-                 model_dict=None            # Mismatch 参数字典
+                 model_dict=None,            # Mismatch 参数字典
+                 param_model_file=None
                  ):
         
         self.num_rows = num_rows
@@ -500,13 +503,13 @@ class Sram6TCoreFactory:
         self.sweep = sweep_core
         self.yield_mode = yield_mode
         self.model_dict = model_dict
-        
-        self.pmos_choices = pmos_choices
-        self.nmos_choices = nmos_choices
-        self.REQUIRED_COLUMNS1 = ['pmos_model_pu', 'nmos_model_pd']
-        self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1)
-        self.REQUIRED_COLUMNS2 = ['nmos_model_pg']
-        self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2)
+        if self.sweep:
+            self.pmos_choices = pmos_choices
+            self.nmos_choices = nmos_choices
+            self.REQUIRED_COLUMNS1 = ['pmos_model_pu', 'nmos_model_pd']
+            self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1,param_model_file)
+            self.REQUIRED_COLUMNS2 = ['nmos_model_pg']
+            self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2,param_model_file)
 
     def _get_config(self):
         """
@@ -588,6 +591,7 @@ class DecoderCascadeFactory:
                  # --- Sweep 模式专用 ---
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
+                 param_model_file=None
                  ):
         
         self.num_rows = num_rows
@@ -610,12 +614,13 @@ class DecoderCascadeFactory:
         
         # Sweep 控制
         self.sweep = sweep_decoder
-        self.pmos_model_choices = pmos_choices
-        self.nmos_model_choices = nmos_choices
-        self.REQUIRED_COLUMNS1 = ['pmos_model_decoder_invp', 'nmos_model_decoder_invn']
-        self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1)
-        self.REQUIRED_COLUMNS2 = ['pmos_model_decoder_nandp', 'nmos_model_decoder_nandn']
-        self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2)
+        if self.sweep:
+            self.pmos_model_choices = pmos_choices
+            self.nmos_model_choices = nmos_choices
+            self.REQUIRED_COLUMNS1 = ['pmos_model_decoder_invp', 'nmos_model_decoder_invn']
+            self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1,param_model_file)
+            self.REQUIRED_COLUMNS2 = ['pmos_model_decoder_nandp', 'nmos_model_decoder_nandn']
+            self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2,param_model_file)
 
     def _get_config(self):
         """
@@ -782,7 +787,8 @@ class ReplicaColumnFactory:
                  w_rc=False,
                  # Sweep 参数
                  sweep_replica=False,
-                 pmos_choices=None, nmos_choices=None,
+                 pmos_choices=None, nmos_choices=None,param_model_file=None,
+                 sram_cell_type=None,
                  ):
         
         self.num_rows = num_rows
@@ -796,12 +802,14 @@ class ReplicaColumnFactory:
         self.w_rc = w_rc
         
         self.sweep = sweep_replica
-        self.pmos_choices = pmos_choices
-        self.nmos_choices = nmos_choices
-        self.REQUIRED_COLUMNS1 = ['pmos_model_pu', 'nmos_model_pd']
-        self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1)
-        self.REQUIRED_COLUMNS2 = ['nmos_model_pg']
-        self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2)
+        if self.sweep:
+            self.pmos_choices = pmos_choices
+            self.nmos_choices = nmos_choices
+            self.sram_cell_type = sram_cell_type
+            self.REQUIRED_COLUMNS1 = ['pmos_model_pu', 'nmos_model_pd'] if self.sram_cell_type == 'SRAM_6T_CELL' else ['pmos_model_pu_10T', 'nmos_model_pd_10T']
+            self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1,param_model_file)
+            self.REQUIRED_COLUMNS2 = ['nmos_model_pg'] if self.sram_cell_type == 'SRAM_6T_CELL' else ['nmos_model_pg_10T']
+            self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2,param_model_file)
 
     def _get_config(self):
         if self.sweep:
@@ -874,3 +882,224 @@ class TIMEFactory:
             w_rc=self.w_rc,
             operation=self.operation
         )
+    
+class Sram10TCellFactory:
+    def __init__(self, 
+                 pd_model, pu_model, pg_model, fd_model,
+                 pd_width, pu_width, pg_width, fd_width, length,
+                 w_rc=False, disconnect=False,
+                 # 模式控制
+                 sweep=False,
+                 yield_mode=False, # 用于控制是否传入 model_dict
+                 # 附加数据
+                 model_dict=None,  
+                 suffix='',        
+                 pmos_choices=None, nmos_choices=None,param_model_file=None
+                 ):
+        
+        self.pd_model = pd_model
+        self.pu_model = pu_model
+        self.pg_model = pg_model
+        self.fd_model = fd_model
+        self.dims = {'pd': pd_width, 'pu': pu_width, 'pg': pg_width, 'fd': fd_width, 'l': length}
+        
+        self.w_rc = w_rc
+        self.disconnect = disconnect
+        self.sweep = sweep
+        self.yield_mode = yield_mode
+        self.model_dict = model_dict
+        self.suffix = suffix
+        if self.sweep:
+            self.pmos_choices = pmos_choices
+            self.nmos_choices = nmos_choices
+            self.REQUIRED_COLUMNS1 = ['pmos_model_pu_10T', 'nmos_model_pd_10T']
+            self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1,param_model_file)
+            self.REQUIRED_COLUMNS2 = ['nmos_model_pg_10T']
+            self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2,param_model_file)
+            self.REQUIRED_COLUMNS3 = ['nmos_model_fd_10T']
+            self.mos_model_index3 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS3,param_model_file)
+
+    def _get_config(self):
+        """给定 StandardSram10TCell 参数"""
+        
+        # 1. 确定宽度 (Widths)
+        # 如果是 sweep 模式，传入字符串变量名；否则传入数值
+        if self.sweep:
+            pd_width = 'nmos_width_pd'
+            pu_width = 'pmos_width_pu'
+            pg_width = 'nmos_width_pg'
+            fd_width = 'nmos_width_fd'
+            length = 'length'
+        else:
+            pd_width = self.dims['pd']
+            pu_width = self.dims['pu']
+            pg_width = self.dims['pg']
+            fd_width = self.dims['fd']
+            length = self.dims['l']
+
+        # 2. 确定模型 (Models)
+        # 如果是 sweep 模式，从 choices 中取模型名；否则用默认名
+        if self.sweep:
+            pd_model = self.nmos_choices[int(self.mos_model_index1['nmos'])]
+            pg_model = self.nmos_choices[int(self.mos_model_index2['nmos'])] 
+            fd_model = self.nmos_choices[int(self.mos_model_index3['nmos'])]
+            pu_model = self.pmos_choices[int(self.mos_model_index1['pmos'])]
+        else:
+            pd_model = self.pd_model
+            pg_model = self.pg_model
+            fd_model = self.fd_model
+            pu_model = self.pu_model
+
+        # 3. 确定是否启用 Yield 模式
+        # 只有当开启 yield_mode 且提供了字典时，才传给电路类
+        model_dict = self.model_dict if (self.yield_mode and self.model_dict) else None
+        suffix = self.suffix if self.yield_mode else ''
+
+        # 4. 实例化
+        return  {
+            'pd_model': pd_model,
+            'pu_model': pu_model,
+            'pg_model': pg_model,
+            'fd_model': fd_model,
+            'pd_width': pd_width,
+            'pu_width': pu_width,
+            'pg_width': pg_width,
+            'fd_width': fd_width,
+            'length': length,
+            'w_rc': self.w_rc,
+            'disconnect': self.disconnect,
+            'suffix': suffix,
+            'model_dict': model_dict
+        }
+            
+        
+    def create(self):
+        """
+        Instantiate the Sram10TCell with the configured parameters.
+        """
+        config = self._get_config()
+        return Sram10TCell(**config)
+    
+class Sram10TCoreFactory:
+    """
+    Sram10TCore 的工厂类。
+    负责根据配置（Sweep 或 Fixed）准备参数，并实例化 Sram10TCore。
+    """
+    def __init__(self, 
+                 num_rows: int, num_cols: int,
+                 # 默认模型名 (Fixed 模式用)
+                 pd_nmos_model: str, pu_pmos_model: str, pg_nmos_model: str, fd_nmos_model: str,
+                 # 默认尺寸 (Fixed 模式用)
+                 pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, fd_width=0.135e-6, length=50e-9,
+                 w_rc=False,
+                 # --- 控制参数 ---
+                 sweep_core=False,          # 是否开启扫描模式
+                 yield_mode=False,          # 是否开启良率/Mismatch模式
+                 # --- Sweep 模式专用 ---
+                 pmos_choices=None,         # PMOS 模型列表
+                 nmos_choices=None,         # NMOS 模型列表
+                 # --- Yield 模式专用 ---
+                 model_dict=None,            # Mismatch 参数字典
+                 param_model_file=None
+                 ):
+        
+        self.num_rows = num_rows
+        self.num_cols = num_cols
+        
+        # 保存基础参数
+        self.pd_nmos_model = pd_nmos_model
+        self.pu_pmos_model = pu_pmos_model
+        self.pg_nmos_model = pg_nmos_model
+        self.fd_nmos_model = fd_nmos_model
+        
+        self.dims = {
+            'pd_width': pd_width,
+            'pu_width': pu_width,
+            'pg_width': pg_width,
+            'fd_width': fd_width,
+            'length': length
+        }
+        
+        self.w_rc = w_rc
+        
+        # 保存控制参数
+        self.sweep = sweep_core
+        self.yield_mode = yield_mode
+        self.model_dict = model_dict
+        if self.sweep:
+            self.pmos_choices = pmos_choices
+            self.nmos_choices = nmos_choices
+            self.REQUIRED_COLUMNS1 = ['pmos_model_pu_10T', 'nmos_model_pd_10T']
+            self.mos_model_index1 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS1,param_model_file)
+            self.REQUIRED_COLUMNS2 = ['nmos_model_pg_10T']
+            self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2,param_model_file)
+            self.REQUIRED_COLUMNS3 = ['nmos_model_fd_10T']
+            self.mos_model_index3 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS3,param_model_file)
+
+    def _get_config(self):
+        """
+        内部方法：计算最终传给 Sram10TCore 的参数字典。
+        根据 self.sweep 决定是传数值还是传字符串变量名。
+        """
+
+        # 1. 处理尺寸 (Widths & Length)
+        if self.sweep:
+            # 扫描模式：使用 SPICE 变量名字符串
+            pd_width = 'nmos_width_pd'
+            pu_width = 'pmos_width_pu'
+            pg_width = 'nmos_width_pg'
+            fd_width = 'nmos_width_fd'
+            length = 'length'
+        else:
+            # 固定模式：使用具体数值
+            pd_width = self.dims['pd_width']
+            pu_width = self.dims['pu_width']
+            pg_width = self.dims['pg_width']
+            fd_width = self.dims['fd_width']
+            length = self.dims['length']
+
+        # 2. 处理模型 (Models)
+        if self.sweep:
+            # 扫描模式：从 choices 列表中根据 index 选取
+            pd_model = self.nmos_choices[int(self.mos_model_index1['nmos'])]
+            pg_model = self.nmos_choices[int(self.mos_model_index2['nmos'])]
+            fd_model = self.nmos_choices[int(self.mos_model_index3['nmos'])]
+            pu_model = self.pmos_choices[int(self.mos_model_index1['pmos'])]
+        else:
+            # 固定模式：使用初始化时传入的模型名
+            pd_model = self.pd_nmos_model
+            pg_model = self.pg_nmos_model
+            fd_model = self.fd_nmos_model
+            pu_model = self.pu_pmos_model
+
+        # 3. 处理良率/Mismatch (Yield)
+        # 只有在 yield_mode=True 且 model_dict 存在时才传递字典
+        # 否则传 None，对应 Sram10TCore 里的默认行为
+        if self.yield_mode and self.model_dict:
+            model_dict = self.model_dict
+        else:
+            model_dict = None
+
+        return {
+            'num_rows': self.num_rows,
+            'num_cols': self.num_cols,
+            'pd_nmos_model': pd_model,
+            'pu_pmos_model': pu_model,
+            'pg_nmos_model': pg_model,
+            'fd_nmos_model': fd_model,
+            'pd_width': pd_width,
+            'pu_width': pu_width,
+            'pg_width': pg_width,
+            'fd_width': fd_width,
+            'length': length,
+            'w_rc': self.w_rc,
+            'model_dict': model_dict
+        }
+
+    def create(self):
+        """
+        创建并返回配置好的 Sram10TCore 实例
+        """
+        config = self._get_config()
+        # 将准备好的参数解包传入 Sram10TCore 的构造函数
+        return Sram10TCore(**config)
