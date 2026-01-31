@@ -1,4 +1,0 @@
- pmos_model_precharge  pmos_model_pu  nmos_model_pd  nmos_model_pg pmos_model_senseamp nmos_model_senseamp pmos_model_columnmux nmos_model_columnmux pmos_model_wld_nandp nmos_model_wld_nandn pmos_model_wld_invp nmos_model_wld_invn pmos_model_decoder_nandp nmos_model_decoder_nandn pmos_model_decoder_invp nmos_model_decoder_invn pmos_model_writedriver nmos_model_writedriver 
- 1                     1              1              1             1                   1                   1                    1                    2                    1                    1                    0                  1                        1                        1                       1                       0                       2
- 
- 
