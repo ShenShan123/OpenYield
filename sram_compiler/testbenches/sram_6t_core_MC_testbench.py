@@ -358,7 +358,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         else:
             if operation == 'read&write':
                 circuit.raw_spice += \
-                    f'.TRAN {float(self.t_step):.4e} {12*float(self.t_period):.4e}\n'
+                    f'.TRAN {float(self.t_step):.4e} {8*float(self.t_period):.4e}\n'
             else:
                 circuit.raw_spice += \
                     f'.TRAN {float(self.t_step):.4e} {2*float(self.t_period):.4e}\n'
@@ -407,11 +407,115 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def get_table_head(self):
         return self.table_head
 
+    # def gen_process_params(self, circuit: SubCircuitFactory,
+    #                        operation: str, num_mc: int,
+    #                        vars: np.array = None):
+    #     """ 
+    #     统一生成工艺参数数据表 (支持 6T 和 10T)
+    #     """
+    #     param_names = ['vth0', 'u0', 'voff']
+    #     self.table_head = '.data table\n+ '
+    #     table_content = '\n'
+    #     num_params = 0
+
+    #     # --- 1. 根据 Cell 类型配置差异化参数 ---
+    #     if self.sram_cell_type == 'SRAM_10T_CELL':
+    #         cell_config = self.sram_config.sram_10t_cell
+    #         # 晶体管顺序不能变
+    #         mos_names = ['PGL', 'PGR', 'PDL1', 'PDL2', 'PUL', 'PDR1', 'PDR2', 'PUR', 'FD_L', 'FD_R']
+    #         # 定义模型映射集合
+    #         pmos_set = {'PUL', 'PUR'}
+    #         pg_nmos_set = {'PGL', 'PGR'}
+    #         fd_nmos_set = {'FD_L', 'FD_R'} # 10T 特有
+    #         # 默认调试数据 (30个值)
+    #         default_vars_list = [
+    #             0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, # N
+    #             -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126, # P/N/N/P
+    #             0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13 # FD
+    #         ]
+    #     else: # 默认为 SRAM_6T_CELL
+    #         cell_config = self.sram_config.sram_6t_cell
+    #         mos_names = ['PGL', 'PGR', 'PDL', 'PUL', 'PDR', 'PUR']
+    #         pmos_set = {'PUL', 'PUR'}
+    #         pg_nmos_set = {'PGL', 'PGR'}
+    #         fd_nmos_set = set() # 空集合
+    #         # 默认调试数据 (18个值)
+    #         default_vars_list = [
+    #             0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, # PGL, PGR, PDL
+    #             -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126 # PUL, PDR, PUR
+    #         ]
+
+    #     # --- 2. 统一生成参数逻辑 ---
+    #     for row in range(self.num_rows):
+    #         for col in range(self.num_cols):
+    #             if ('snm' in operation) and (row > 0 or col > 0):
+    #                 continue
+                
+    #             for mos in mos_names:
+    #                 # 确定当前晶体管使用的模型值字符串
+    #                 if mos in pmos_set:
+    #                     model_val = cell_config.pmos_model.value
+    #                 elif mos in pg_nmos_set:
+    #                     model_val = cell_config.nmos_model.value[1] # PG 位于 index 1
+    #                 elif mos in fd_nmos_set:
+    #                     model_val = cell_config.nmos_model.value[2] # FD 位于 index 2
+    #                 else:
+    #                     model_val = cell_config.nmos_model.value[0] # PD 位于 index 0 (默认)
+
+    #                 for param in param_names:
+    #                     # 写入 SPICE 参数定义
+    #                     param_def = f'{param}_{model_val}_{mos}_{row:d}_{col:d}'
+    #                     circuit.raw_spice += f'.param {param_def}=0.0\n'
+    #                     self.table_head += f'{param_def} '
+    #                     num_params += 1
+
+    #     # --- 3. 处理 Vars 数据 ---
+    #     if vars is None:
+    #         vars = default_vars_list
+    #     vars = np.array(vars)
+
+    #     # 根据行列数扩展
+    #     if operation in ['read', 'write', 'read&write']:
+    #         vars = np.tile(vars, self.num_rows * self.num_cols)
+        
+    #     vars = np.array([vars]) # 转为二维
+    #     vars = np.repeat(vars, num_mc, axis=0) # 扩展 MC 次数
+    #     print(f"[DEBUG] Generated vars.shape={vars.shape}")
+
+    #     assert len(vars.shape) == 2
+    #     assert num_params == vars.shape[1], f'Cols mismatch: expected {num_params}, got {vars.shape[1]}'
+
+    #     # 格式化数据表
+    #     table_content += "\n".join([
+    #         "+ " + " ".join([f"{x:.4f}" for x in row])
+    #         for row in vars
+    #     ])
+
+    #     # 保存并包含
+    #     table_path = os.path.join(self.sim_path, f'mc_{operation}_table.data')
+    #     with open(table_path, 'w') as f:
+    #         f.write(self.table_head + table_content)
+    #     circuit.include(table_path)
+    #     print(f'[DEBUG] Data table has been saved to {table_path}')
+
     def gen_process_params(self, circuit: SubCircuitFactory,
-                           operation: str, num_mc: int,
-                           vars: np.array = None):
-        """ 
+                        operation: str, num_mc: int,
+                        vars: np.array = None):
+        """
         统一生成工艺参数数据表 (支持 6T 和 10T)
+
+        说明：
+        1. vars 必须为二维数组，shape = (num_mc, n)
+        2. 每一行对应一次 MC 的参数
+        3. n 可以是：
+        - 单个 cell 的参数数目
+            6T: 18
+            10T: 30
+        - 所有 active cell 展开后的参数总数
+            6T: 18 * active_cell_num
+            10T: 30 * active_cell_num
+        4. 若传入的是单 cell 参数（每行 18 或 30 个值），
+        对于多 cell 阵列会自动复制到所有 active cell
         """
         param_names = ['vth0', 'u0', 'voff']
         self.table_head = '.data table\n+ '
@@ -421,80 +525,118 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # --- 1. 根据 Cell 类型配置差异化参数 ---
         if self.sram_cell_type == 'SRAM_10T_CELL':
             cell_config = self.sram_config.sram_10t_cell
-            # 晶体管顺序不能变
-            mos_names = ['PGL', 'PGR', 'PDL1', 'PDL2', 'PUL', 'PDR1', 'PDR2', 'PUR', 'FD_L', 'FD_R']
-            # 定义模型映射集合
+            mos_names = ['PGL', 'PGR', 'PDL1', 'PDL2', 'PUL',
+                        'PDR1', 'PDR2', 'PUR', 'FD_L', 'FD_R']
             pmos_set = {'PUL', 'PUR'}
             pg_nmos_set = {'PGL', 'PGR'}
-            fd_nmos_set = {'FD_L', 'FD_R'} # 10T 特有
-            # 默认调试数据 (30个值)
-            default_vars_list = [
-                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, # N
-                -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126, # P/N/N/P
-                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13 # FD
-            ]
-        else: # 默认为 SRAM_6T_CELL
+            fd_nmos_set = {'FD_L', 'FD_R'}
+
+            # 默认调试数据：1组 10T 参数，注意这里只是 1 行
+            default_vars_list = [[
+                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13,
+                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13,
+                -0.3842, 0.02, -0.126,
+                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13,
+                -0.3842, 0.02, -0.126,
+                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13
+            ]]
+        else:
             cell_config = self.sram_config.sram_6t_cell
             mos_names = ['PGL', 'PGR', 'PDL', 'PUL', 'PDR', 'PUR']
             pmos_set = {'PUL', 'PUR'}
             pg_nmos_set = {'PGL', 'PGR'}
-            fd_nmos_set = set() # 空集合
-            # 默认调试数据 (18个值)
-            default_vars_list = [
-                0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, # PGL, PGR, PDL
-                -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126 # PUL, PDR, PUR
-            ]
+            fd_nmos_set = set()
 
-        # --- 2. 统一生成参数逻辑 ---
+            # 默认调试数据：1组 6T 参数，注意这里只是 1 行
+            default_vars_list = [[
+                0.4106, 0.045, -0.13,
+                0.4106, 0.045, -0.13,
+                0.4106, 0.045, -0.13,
+                -0.3842, 0.02, -0.126,
+                0.4106, 0.045, -0.13,
+                -0.3842, 0.02, -0.126
+            ]]
+
+        # --- 2. 统一生成参数表头 ---
         for row in range(self.num_rows):
             for col in range(self.num_cols):
                 if ('snm' in operation) and (row > 0 or col > 0):
                     continue
-                
+
                 for mos in mos_names:
-                    # 确定当前晶体管使用的模型值字符串
                     if mos in pmos_set:
                         model_val = cell_config.pmos_model.value
                     elif mos in pg_nmos_set:
-                        model_val = cell_config.nmos_model.value[1] # PG 位于 index 1
+                        model_val = cell_config.nmos_model.value[1]  # PG
                     elif mos in fd_nmos_set:
-                        model_val = cell_config.nmos_model.value[2] # FD 位于 index 2
+                        model_val = cell_config.nmos_model.value[2]  # FD
                     else:
-                        model_val = cell_config.nmos_model.value[0] # PD 位于 index 0 (默认)
+                        model_val = cell_config.nmos_model.value[0]  # PD
 
                     for param in param_names:
-                        # 写入 SPICE 参数定义
                         param_def = f'{param}_{model_val}_{mos}_{row:d}_{col:d}'
                         circuit.raw_spice += f'.param {param_def}=0.0\n'
                         self.table_head += f'{param_def} '
                         num_params += 1
 
-        # --- 3. 处理 Vars 数据 ---
+        # --- 3. 处理 vars 数据 ---
         if vars is None:
             vars = default_vars_list
-        vars = np.array(vars)
 
-        # 根据行列数扩展
-        if operation in ['read', 'write', 'read&write']:
-            vars = np.tile(vars, self.num_rows * self.num_cols)
-        
-        vars = np.array([vars]) # 转为二维
-        vars = np.repeat(vars, num_mc, axis=0) # 扩展 MC 次数
+        vars = np.array(vars, dtype=float)
+
+        if vars.ndim != 2:
+            raise ValueError(
+                f'vars must be a 2D array with shape (num_mc, n), got ndim={vars.ndim}'
+            )
+
+        if vars.shape[0] != num_mc:
+            raise ValueError(
+                f'vars row mismatch: expected num_mc={num_mc}, got {vars.shape[0]}'
+            )
+
+        params_per_cell = len(mos_names) * len(param_names)
+
+        if 'snm' in operation:
+            active_cell_num = 1
+        else:
+            active_cell_num = self.num_rows * self.num_cols
+
+        expected_total_params = params_per_cell * active_cell_num
+
+        # 每行只给 1 个 cell 的参数：自动复制到所有 active cell
+        if vars.shape[1] == params_per_cell:
+            if active_cell_num > 1:
+                vars = np.tile(vars, (1, active_cell_num))
+
+        # 每行已经给了所有 active cell 展开后的完整参数：直接使用
+        elif vars.shape[1] == expected_total_params:
+            pass
+
+        else:
+            raise ValueError(
+                f'vars col mismatch: expected {params_per_cell} '
+                f'(one cell) or {expected_total_params} (all active cells), '
+                f'got {vars.shape[1]}'
+            )
+
         print(f"[DEBUG] Generated vars.shape={vars.shape}")
 
         assert len(vars.shape) == 2
-        assert num_params == vars.shape[1], f'Cols mismatch: expected {num_params}, got {vars.shape[1]}'
+        assert num_params == vars.shape[1], \
+            f'Cols mismatch: expected {num_params}, got {vars.shape[1]}'
 
-        # 格式化数据表
+        # --- 4. 格式化数据表 ---
         table_content += "\n".join([
-            "+ " + " ".join([f"{x:.4f}" for x in row])
-            for row in vars
+            "+ " + " ".join([f"{x:.4f}" for x in row_data])
+            for row_data in vars
         ])
 
-        # 保存并包含
+        # --- 5. 保存并包含 ---
         table_path = os.path.join(self.sim_path, f'mc_{operation}_table.data')
         with open(table_path, 'w') as f:
             f.write(self.table_head + table_content)
+
         circuit.include(table_path)
         print(f'[DEBUG] Data table has been saved to {table_path}')
 
@@ -691,7 +833,22 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 ]
             elif operation == 'read&write':
                 selected_columns = [
-                    f'V(OUT)'
+                    f'V(CLK)',
+                    # f'V(CSB)',
+                    # f'V(WEB)',
+                    # f'V(A0)',
+                    # f'V(A_DFF0)',
+                    f'V(DIN0)',
+                    f'V(DIN_DFF0)',
+                    # f'V(OUT)',
+                    # f'V(S_EN)',
+                    # f'V(WL{target_row})',
+                    # f'V(BL{target_col})',
+                    # f'V(BLB{target_col})',                   
+                    # f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:Q)' if self.sram_cell_type == 'SRAM_6T_CELL' else f'V(XSRAM_10T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_10T_CELL_{target_row}_{target_col}:Q)',
+                    # f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:QB)'if self.sram_cell_type == 'SRAM_6T_CELL' else f'V(XSRAM_10T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_10T_CELL_{target_row}_{target_col}:QB)',
+                    # f'V(SA_Q{target_col})',
+                    # f'V(SA_QB{target_col})',
                 ]
             elif operation in ['hold_snm', 'write_snm', 'read_snm']:
                 selected_columns = [
