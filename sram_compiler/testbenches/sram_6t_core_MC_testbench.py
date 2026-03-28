@@ -6,6 +6,7 @@ from utils import (  # type: ignore
     save_mc_results, process_simulation_data,
     parse_spice_models, write_spice_models
 )
+from sram_compiler.testbenches.snm import process_xyce_montecarlo_prn
 from sram_compiler.testbenches.sram_6t_core_testbench import Sram6TCoreTestbench  # type: ignore
 from sram_compiler.config_yaml.sweep_config import SWEEP_CONFIGS
 import numpy as np
@@ -101,8 +102,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             init_cond[f'BL'] = self.vdd @ u_V   #设置位线初始电压
             init_cond[f'BLB'] = self.vdd @ u_V
             simulator.initial_condition(**init_cond)    #读入初始电压设置
-            simulator.measure('DC', 'MAXVD', 'MAX V(VD)')   #测量最大对角线电压
-            simulator.measure('DC', operation.upper(), f"PARAM='1/sqrt(2)*MAXVD'")  #计算静态噪声容限
+            #simulator.measure('DC', 'MAXVD', 'MAX V(VD)')   #测量最大对角线电压
+            #simulator.measure('DC', operation.upper(), f"PARAM='1/sqrt(2)*MAXVD'")  #计算静态噪声容限
             # Add print for SNM
             simulator.circuit.raw_spice += \
                 f'.PRINT DC FORMAT=NOINDEX {{U}} V(V1) V(V2)\n'
@@ -168,22 +169,31 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             
             simulator.measure(
                 'TRAN', 'Ts_en',
-                f'TRIG V(S_EN)=0.01 RISE=2 ' +
+                f'TRIG V(S_EN)=0.02 RISE=2 ' +
                 f'TARG V(S_EN)=0.5 RISE=1')
-
+            
+            #总读延迟
+            simulator.measure(
+                'TRAN', 'TREAD_TOTAL',
+                f'TRIG V(WL_EN)={self.half_vdd} RISE=1 ' +
+                f'TARG V(SA_Q{self.target_col // self.mux_in})={float(self.vdd) * 0.01} FALL=1')
             # Add measurements for average power, static power and dynamic power    测量功耗(平均、动态、静态)
             simulator.measure(
-                'TRAN', 'PAVG',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(10.0 @ u_ns)}'
+                'TRAN', 'EREAD',
+                f'INTEG {{-V(VDD)*I(VVDD)}} FROM={float(2.0 @ u_ns)} TO={float(2.0 @ u_ns +self.t_period @ u_ns)}'
             )
             simulator.measure(
-                'TRAN', 'PDYN',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(4.0 @ u_ns)} TO={float(6.0 @ u_ns)}'
+                'TRAN', 'PAVG',
+                f'PARAM={{EREAD/{float(self.t_period @ u_ns)}}}'
             )
             simulator.measure(
                 'TRAN', 'PSTC',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(6.0 @ u_ns)} ' +
-                f'TO={float(10.0 @ u_ns)}'
+                f'AVG {{-V(VDD)*I(VVDD)}} FROM={float(0.1 @ u_ns)} ' +
+                f'TO={float(0.9 @ u_ns)}'
+            )
+            simulator.measure(
+                'TRAN', 'PDYN',
+                f'PARAM={{PAVG-PSTC}}'
             )
 
              # Add additional print statements for clock and control signals
@@ -208,7 +218,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.circuit.raw_spice += \
                 f'.PRINT TRAN V(SA_Q{self.target_col // self.mux_in}) ' + \
                 f'V(SA_QB{self.target_col // self.mux_in})' + \
-                f'V(OUT)\n'
+                f' V(OUT)\n'
             
         # The write operation
         elif operation == 'write':
@@ -240,7 +250,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
             simulator.measure(
                 'TRAN', 'TWLDRV',
-                f'TRIG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1 ' +
+                f'TRIG V(WL_EN)={self.half_vdd} RISE=1 ' +
                 f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
             #写驱动延迟
             # Measurements for write driver delay (TWDRV), defined as the time from the WE assertion to V(BL)=VDD/2
@@ -259,20 +269,28 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 'TRAN', 'TWRITE_QB',
                 f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1',
                 f"TARG V({target_node_qb})={float(self.vdd) * 0.1:.2f} FALL=1")
-
+            #总延迟
+            simulator.measure(
+                'TRAN', 'TWRITE_TOTAL',
+                f'TRIG V(WL_EN)={self.half_vdd} RISE=1',
+                f"TARG V({target_node_q})={float(self.vdd) * 0.9:.2f} RISE=1")
             # Add measurements for average power, static power and dynamic power    功耗
             simulator.measure(
-                'TRAN', 'PAVG',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={float(10.0 @ u_ns)}'
+                'TRAN', 'EWRITE',
+                f'INTEG {{-V(VDD)*I(VVDD)}} FROM={float(2.0 @ u_ns)} TO={float(2.0 @ u_ns +self.t_period @ u_ns)}'
             )
             simulator.measure(
-                'TRAN', 'PDYN',
-                f'MIN {{V(VDD)*I(VVDD)}} FROM={float(4.0 @ u_ns)} TO={float(6.0 @ u_ns)}'
+                'TRAN', 'PAVG',
+                f'PARAM={{EWRITE/{float(self.t_period @ u_ns)}}}'
             )
             simulator.measure(
                 'TRAN', 'PSTC',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(6.0 @ u_ns)} ' +
-                f'TO={float(10.0 @ u_ns)}'
+                f'AVG {{-V(VDD)*I(VVDD)}} FROM={float(0.1 @ u_ns)} ' +
+                f'TO={float(0.9 @ u_ns)}'
+            )
+            simulator.measure(
+                'TRAN', 'PDYN',
+                f'PARAM={{PAVG-PSTC}}'
             )
             # Add print for write operation
             simulator.circuit.raw_spice += \
@@ -280,7 +298,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f' V(BLB{self.target_col}) V({target_node_q}) V({target_node_qb})\n'
             simulator.circuit.raw_spice += \
                 f'.PRINT TRAN FORMAT=NOINDEX V(gated_clk_bar) V(DIN0) V(DIN_dff0)' + \
-                f' V(w_en) V(RBL) V(RBL_DELAY_BAR)\n'
+                f' V(w_en) V(web) V(RBL) V(RBL_DELAY_BAR)\n'
             
         elif operation == 'read&write':
             # .ic conditions
@@ -340,7 +358,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'TARG V(OUT)={self.half_vdd} RISE=2')
             simulator.measure(
                 'TRAN', 'PAVG',
-                f'AVG {{V(VDD)*I(VVDD)}} FROM={float(0.0 @ u_ns)} TO={12*float(self.t_period)}'
+                f'AVG {{-V(VDD)*I(VVDD)}} FROM={float(1.0 @ u_ns)} TO={1.0 @ u_ns +12*float(self.t_period @ u_ns)}'
             )
         else:
             raise ValueError(f"Invalid operation: {operation}")
@@ -358,10 +376,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         else:
             if operation == 'read&write':
                 circuit.raw_spice += \
-                    f'.TRAN {float(self.t_step):.4e} {8*float(self.t_period):.4e}\n'
+                    f'.TRAN {float(self.t_step):.4e} {1.0 @ u_ns + 8*float(self.t_period):.4e}\n'
             else:
                 circuit.raw_spice += \
-                    f'.TRAN {float(self.t_step):.4e} {2*float(self.t_period):.4e}\n'
+                    f'.TRAN {float(self.t_step):.4e} {1.0 @ u_ns + 2*float(self.t_period):.4e}\n'
             # Timing interval option is set only in .TRAN analysis.
             circuit.raw_spice += \
                 f'.OPTIONS OUTPUT INITIAL_INTERVAL={float(self.t_step):.4e}\n'
@@ -406,97 +424,6 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
     def get_table_head(self):
         return self.table_head
-
-    # def gen_process_params(self, circuit: SubCircuitFactory,
-    #                        operation: str, num_mc: int,
-    #                        vars: np.array = None):
-    #     """ 
-    #     统一生成工艺参数数据表 (支持 6T 和 10T)
-    #     """
-    #     param_names = ['vth0', 'u0', 'voff']
-    #     self.table_head = '.data table\n+ '
-    #     table_content = '\n'
-    #     num_params = 0
-
-    #     # --- 1. 根据 Cell 类型配置差异化参数 ---
-    #     if self.sram_cell_type == 'SRAM_10T_CELL':
-    #         cell_config = self.sram_config.sram_10t_cell
-    #         # 晶体管顺序不能变
-    #         mos_names = ['PGL', 'PGR', 'PDL1', 'PDL2', 'PUL', 'PDR1', 'PDR2', 'PUR', 'FD_L', 'FD_R']
-    #         # 定义模型映射集合
-    #         pmos_set = {'PUL', 'PUR'}
-    #         pg_nmos_set = {'PGL', 'PGR'}
-    #         fd_nmos_set = {'FD_L', 'FD_R'} # 10T 特有
-    #         # 默认调试数据 (30个值)
-    #         default_vars_list = [
-    #             0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, # N
-    #             -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126, # P/N/N/P
-    #             0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13 # FD
-    #         ]
-    #     else: # 默认为 SRAM_6T_CELL
-    #         cell_config = self.sram_config.sram_6t_cell
-    #         mos_names = ['PGL', 'PGR', 'PDL', 'PUL', 'PDR', 'PUR']
-    #         pmos_set = {'PUL', 'PUR'}
-    #         pg_nmos_set = {'PGL', 'PGR'}
-    #         fd_nmos_set = set() # 空集合
-    #         # 默认调试数据 (18个值)
-    #         default_vars_list = [
-    #             0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, # PGL, PGR, PDL
-    #             -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126 # PUL, PDR, PUR
-    #         ]
-
-    #     # --- 2. 统一生成参数逻辑 ---
-    #     for row in range(self.num_rows):
-    #         for col in range(self.num_cols):
-    #             if ('snm' in operation) and (row > 0 or col > 0):
-    #                 continue
-                
-    #             for mos in mos_names:
-    #                 # 确定当前晶体管使用的模型值字符串
-    #                 if mos in pmos_set:
-    #                     model_val = cell_config.pmos_model.value
-    #                 elif mos in pg_nmos_set:
-    #                     model_val = cell_config.nmos_model.value[1] # PG 位于 index 1
-    #                 elif mos in fd_nmos_set:
-    #                     model_val = cell_config.nmos_model.value[2] # FD 位于 index 2
-    #                 else:
-    #                     model_val = cell_config.nmos_model.value[0] # PD 位于 index 0 (默认)
-
-    #                 for param in param_names:
-    #                     # 写入 SPICE 参数定义
-    #                     param_def = f'{param}_{model_val}_{mos}_{row:d}_{col:d}'
-    #                     circuit.raw_spice += f'.param {param_def}=0.0\n'
-    #                     self.table_head += f'{param_def} '
-    #                     num_params += 1
-
-    #     # --- 3. 处理 Vars 数据 ---
-    #     if vars is None:
-    #         vars = default_vars_list
-    #     vars = np.array(vars)
-
-    #     # 根据行列数扩展
-    #     if operation in ['read', 'write', 'read&write']:
-    #         vars = np.tile(vars, self.num_rows * self.num_cols)
-        
-    #     vars = np.array([vars]) # 转为二维
-    #     vars = np.repeat(vars, num_mc, axis=0) # 扩展 MC 次数
-    #     print(f"[DEBUG] Generated vars.shape={vars.shape}")
-
-    #     assert len(vars.shape) == 2
-    #     assert num_params == vars.shape[1], f'Cols mismatch: expected {num_params}, got {vars.shape[1]}'
-
-    #     # 格式化数据表
-    #     table_content += "\n".join([
-    #         "+ " + " ".join([f"{x:.4f}" for x in row])
-    #         for row in vars
-    #     ])
-
-    #     # 保存并包含
-    #     table_path = os.path.join(self.sim_path, f'mc_{operation}_table.data')
-    #     with open(table_path, 'w') as f:
-    #         f.write(self.table_head + table_content)
-    #     circuit.include(table_path)
-    #     print(f'[DEBUG] Data table has been saved to {table_path}')
 
     def gen_process_params(self, circuit: SubCircuitFactory,
                         operation: str, num_mc: int,
@@ -840,7 +767,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                     # f'V(A_DFF0)',
                     f'V(DIN0)',
                     f'V(DIN_DFF0)',
-                    # f'V(OUT)',
+                    f'V(OUT)',
                     # f'V(S_EN)',
                     # f'V(WL{target_row})',
                     # f'V(BL{target_col})',
@@ -862,23 +789,31 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 selected_columns=selected_columns
             )
 
-            # Get all `.mtX` or `.msX` files from MC
-            mc_df = parse_mc_measurements(
-                netlist_prefix=tb_path,
-                file_suffix='ms' if 'snm' in operation else 'mt',
-                num_runs=mc_runs,
-                # value_threshold=1e-9
-            )
-            print("[DEBUG] Printing mc_df")
-            print(mc_df)
-            # Generate statistics
-            stats = generate_mc_statistics(mc_df)
-            # Save results
-            save_mc_results(
-                mc_df, stats,
-                data_file=tb_path.replace('.sp', '.data.csv'),
-                stats_file=tb_path.replace('.sp', '.stats.csv')
-            )
+            if operation == 'read' or operation == 'write' or operation == 'read&write':
+                # Get all `.mtX` or `.msX` files from MC
+                mc_df = parse_mc_measurements(
+                    netlist_prefix=tb_path,
+                    file_suffix='ms' if 'snm' in operation else 'mt',
+                    num_runs=mc_runs,
+                    # value_threshold=1e-9
+                )
+                print("[DEBUG] Printing mc_df")
+                print(mc_df)
+                # Generate statistics
+                stats = generate_mc_statistics(mc_df)
+                # Save results
+                save_mc_results(
+                    mc_df, stats,
+                    data_file=tb_path.replace('.sp', '.data.csv'),
+                    stats_file=tb_path.replace('.sp', '.stats.csv')
+                )
+            elif operation in ['hold_snm', 'write_snm', 'read_snm']:
+                process_xyce_montecarlo_prn(
+                    prn_path=tb_path + '.prn',
+                    metric_name = operation,
+                    operation=operation,
+                )
+
             if operation == 'read' or operation == 'write':
                 # Calculate and print half clock cycle time (1/2CLK)
                 # Read the statistics CSV file
@@ -889,7 +824,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 stats_df = pd.read_csv(stats_csv_path, index_col=0)
                 
                 # Define the parameters we need
-                params = ['TSA', 'TSWING', 'TS_EN', 'TWLDRV']
+                if operation == 'read':
+                    params = ['TSA', 'TSWING', 'TS_EN', 'TWLDRV']
+                elif operation == 'write':
+                    params = ['TWLDRV', 'TWDRV', 'TWRITE_Q']
                 
                 # Initialize sum for 1/2CLK calculation
                 half_clk_sum = 0.0
@@ -918,10 +856,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             if operation == 'write' or operation == 'read&write' or operation == 'read':
                 return data_csv_path
             elif operation == 'hold_snm':
-                return mc_df['HOLD_SNM'].to_numpy()
+                return data_csv_path
             elif operation == 'read_snm':
-                return mc_df['READ_SNM'].to_numpy()
+                return data_csv_path
             elif operation == 'write_snm':
-                return mc_df['WRITE_SNM'].to_numpy()
+                return data_csv_path
             else:
                 raise KeyError(f"Unkonwn operation {operation}")
