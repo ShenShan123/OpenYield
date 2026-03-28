@@ -569,7 +569,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 circuit.PulseVoltageSource(
                     f'DIN{col}', f'DIN{col}', self.gnd_node,
                         initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-                        delay_time=0.1 * self.t_period,  # 预充电开始后0.5ns
+                        delay_time=1.0 @ u_ns +0.1 * self.t_period,  # 预充电开始后0.5ns,留1s静默
                         rise_time=self.t_rise,fall_time=self.t_fall,
                         pulse_width=0.2 * self.t_period , # 保持有效
                         period=self.t_period)
@@ -580,7 +580,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 circuit.PulseVoltageSource(
                     f'DIN{col}', f'DIN{col}', self.gnd_node,
                         initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-                        delay_time=0.1 * self.t_period,  # 预充电开始后0.5ns
+                        delay_time=1.0 @ u_ns +0.1 * self.t_period,  # 预充电开始后0.5ns，,留1s静默
                         rise_time=self.t_rise,fall_time=self.t_fall,
                         pulse_width=0.2 * self.t_period , # 保持有效
                         period=4*self.t_period)
@@ -949,7 +949,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 circuit.PulseVoltageSource(
                     f'ADDR_{bit}', node_name, self.gnd_node,
                     initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-                    delay_time=0.1 * self.t_period,  # 预充电开始后0.5ns
+                    delay_time=1.0 @ u_ns+0.1 * self.t_period,  # 预充电开始后0.5ns
                     rise_time=self.t_rise,fall_time=self.t_fall,
                     pulse_width=0.2 * self.t_period , # 保持有效
                     period=self.t_period
@@ -961,7 +961,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         circuit.PulseVoltageSource(
             'CLK', 'clk', self.gnd_node,
             initial_value=0 @ u_V, pulsed_value=1.0 @ u_V,
-            delay_time=0.2 * self.t_period,
+            delay_time=1.0 @ u_ns+0.2 * self.t_period,
             rise_time=self.t_rise, fall_time=self.t_fall,
             pulse_width=0.5 * self.t_period,
             period=self.t_period
@@ -971,7 +971,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         circuit.PulseVoltageSource(
             'CSB', 'csb', self.gnd_node,
             initial_value=0 @ u_V, pulsed_value=1.0 @ u_V,
-            delay_time=0 @ u_ns,
+            delay_time=1.0 @ u_ns,
             rise_time=self.t_rise, fall_time=self.t_fall,
             pulse_width=0.1 * self.t_period,
             period=self.t_period
@@ -982,7 +982,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             circuit.PulseVoltageSource(
                 'WEB', 'web', self.gnd_node,
                 initial_value=0 @ u_V, pulsed_value=1.0 @ u_V,
-                delay_time=0.1 * self.t_period,
+                delay_time=1.0 @ u_ns + 0.1 * self.t_period,
                 rise_time=self.t_rise, fall_time=self.t_fall,
                 pulse_width=0.98 * self.t_period,
                 period=self.t_period
@@ -992,7 +992,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             circuit.PulseVoltageSource(
                 'WEB', 'web', self.gnd_node,
                 initial_value=1.0 @ u_V, pulsed_value=0 @ u_V,
-                delay_time=0.1 * self.t_period,
+                delay_time=1.0 @ u_ns + 0.1 * self.t_period,
                 rise_time=self.t_rise, fall_time=self.t_fall,
                 pulse_width=0.98 * self.t_period,
                 period=self.t_period
@@ -1002,7 +1002,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             circuit.PulseVoltageSource(
                 'WEB', 'web', self.gnd_node,
                 initial_value=1.0 @ u_V, pulsed_value=0 @ u_V,
-                delay_time=0.1 * self.t_period,
+                delay_time=1.0 @ u_ns + 0.1 * self.t_period,
                 rise_time=self.t_rise, fall_time=self.t_fall,
                 pulse_width=0.98 * self.t_period,
                 period=2*self.t_period
