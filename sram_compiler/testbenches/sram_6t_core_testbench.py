@@ -14,7 +14,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  custom_mc: bool = False,sweep_cell: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
-                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,
+                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,use_equivalent:bool = False,
                  q_init_val: int = 0, sim_path: str = ''
                  ):
         # 保存配置对象引用
@@ -47,6 +47,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.sweep_columnmux = sweep_columnmux  #列多路选择器电路是否用参数扫描
         self.sweep_writedriver = sweep_writedriver  #写驱动电路是否用参数扫描
         self.sweep_decoder = sweep_decoder  #译码器电路是否用参数扫描
+        self.use_equivalent = use_equivalent  #是否使用等效模型
         # init internal data q
         self.q_init_val = q_init_val
         self.sim_path = sim_path
@@ -103,23 +104,82 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         )
         return circuit
     
+    def add_cs_startup_clamp(self, circuit: Circuit):
+        """上电时把 CS/CS_BAR 强制钳在非使能态，避免 DFF 随机起态。"""
+        release_time = 1.0 @ u_ns + 0.2 * self.t_period + 2 * self.t_rise
+
+        # circuit.raw_spice += (
+        #     '* Hold CS inactive until just after the first valid clock capture.\n'
+        #     'MCSINIT_P cs_bar cs_init_bar VDD VDD PMOS_VTG l=5e-08 w=4.32e-06\n'
+        #     'MCSINIT_N cs cs_init VSS VSS NMOS_VTG l=5e-08 w=1.44e-06\n'
+        # )
+        circuit.M(
+            'CSINIT_P', 'cs_bar', 'cs_init_bar', 'VDD', 'VDD',
+            model='PMOS_VTG', l=5e-08, w=4.32e-06
+        )
+        circuit.M(
+            'CSINIT_N', 'cs', 'cs_init', 'VSS', 'VSS',
+            model='NMOS_VTG', l=5e-08, w=1.44e-06
+        )
+
+        circuit.PulseVoltageSource(
+            'CSINIT', 'cs_init', self.gnd_node,
+            initial_value=self.vdd @ u_V, pulsed_value=0 @ u_V,
+            delay_time=release_time,
+            rise_time=0.2 * self.t_rise, fall_time=0.2 * self.t_fall,
+            pulse_width=2 * self.t_period,
+            period=4 * self.t_period
+        )
+
+        circuit.PulseVoltageSource(
+            'CSINITB', 'cs_init_bar', self.gnd_node,
+            initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
+            delay_time=release_time,
+            rise_time=0.2 * self.t_rise, fall_time=0.2 * self.t_fall,
+            pulse_width=2 * self.t_period,
+            period=4 * self.t_period
+        )
+
     def create_replica_column(self, circuit: Circuit):
         """Create replica column circuitry"""
         # Create Replica Column circuit
+        if self.sram_cell_type == 'SRAM_10T_CELL':
+            cell_cfg = self.sram_config.sram_10t_cell
+            replica_kwargs = {
+                'pd_nmos_model': cell_cfg.nmos_model.value[0],
+                'pu_pmos_model': cell_cfg.pmos_model.value,
+                'pg_nmos_model': cell_cfg.nmos_model.value[1],
+                'fd_nmos_model': cell_cfg.nmos_model.value[2],
+                'pd_width': cell_cfg.nmos_width.value[0],
+                'pu_width': cell_cfg.pmos_width.value,
+                'pg_width': cell_cfg.nmos_width.value[1],
+                'fd_width': cell_cfg.nmos_width.value[2],
+                'pmos_choices': cell_cfg.pmos_model.choices,
+                'nmos_choices': cell_cfg.nmos_model.choices,
+                'length': cell_cfg.length.value,
+            }
+        else:
+            cell_cfg = self.sram_config.sram_6t_cell
+            replica_kwargs = {
+                'pd_nmos_model': cell_cfg.nmos_model.value[0],
+                'pu_pmos_model': cell_cfg.pmos_model.value,
+                'pg_nmos_model': cell_cfg.nmos_model.value[1],
+                'pd_width': cell_cfg.nmos_width.value[0],
+                'pu_width': cell_cfg.pmos_width.value,
+                'pg_width': cell_cfg.nmos_width.value[1],
+                'pmos_choices': cell_cfg.pmos_model.choices,
+                'nmos_choices': cell_cfg.nmos_model.choices,
+                'length': cell_cfg.length.value,
+            }
+
         replica_column = ReplicaColumnFactory(
             num_rows=self.num_rows,
-            pd_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
-            pu_pmos_model=self.sram_config.sram_6t_cell.pmos_model.value,
-            pg_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
-            pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
-            pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
-            pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
-            length=self.sram_config.sram_6t_cell.length.value,
-            sweep_replica= self.sweep_cell,
-            pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
-            nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
-            param_model_file =self.sim_path + '/param_sweep_models.data',
-            sram_cell_type=self.sram_cell_type
+            num_cols=self.num_cols,
+            w_rc=self.w_rc,
+            sweep_replica=self.sweep_cell,
+            param_model_file=self.sim_path + '/param_sweep_models.data',
+            sram_cell_type=self.sram_cell_type,
+            **replica_kwargs
         ).create()
         circuit.subcircuit(replica_column)   # Add to main circuit
         
@@ -758,7 +818,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # assert 0
         return circuit
 
-    def data_init(self):    #初始化数据节点 在MC_testbench2里用到
+    def data_init(self):    #初始化数据节点 在MC_testbench里用到
         init_dict = {}
         vq = self.vdd @ u_V if self.q_init_val else 0 @ u_V
         vqb = 0 @ u_V if self.q_init_val else self.vdd @ u_V
@@ -801,7 +861,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         circuit.V(self.power_node, self.power_node, self.gnd_node, self.vdd @ u_V)
         circuit.V(self.gnd_node, self.gnd_node, circuit.gnd, 0 @ u_V)
 
-        # if it is a SNM test   #operation里包含字母snm，operation取决于main2.py里
+        # if it is a SNM test   #operation里包含字母snm，operation取决于main_sram.py里
         #  mc_testbench.run_mc_simulation的输入
         if 'snm' in operation:
             self.create_single_cell_for_snm(circuit, operation)
@@ -812,7 +872,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             # Instantiate 6T SRAM array 根据是否使用 MC 创建 SRAM Core
             if self.custom_mc:
                 sbckt_array = Sram6TCoreFactory(
-                    self.num_rows, self.num_cols,
+                    self.num_rows, self.num_cols, target_row, target_col,
                     self.sram_config.sram_6t_cell.nmos_model.value[0],
                     self.sram_config.sram_6t_cell.pmos_model.value,
                     self.sram_config.sram_6t_cell.nmos_model.value[1],
@@ -823,15 +883,17 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     w_rc=self.w_rc,
                     sweep_core=self.sweep_cell,
                     yield_mode=True,
+                    use_equivalent=self.use_equivalent,
                     pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
                     nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                     # This function returns a Dict of MOS models
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
+                    q_init_val=self.q_init_val,
                 ).create()
             else:
                 sbckt_array = Sram6TCoreFactory(
-                    self.num_rows, self.num_cols,
+                    self.num_rows, self.num_cols,target_row, target_col,
                     self.sram_config.sram_6t_cell.nmos_model.value[0],
                     self.sram_config.sram_6t_cell.pmos_model.value,
                     self.sram_config.sram_6t_cell.nmos_model.value[1],
@@ -842,15 +904,17 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     w_rc=self.w_rc,
                     sweep_core=self.sweep_cell,
                     yield_mode=False,
+                    use_equivalent=self.use_equivalent,
                     pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
                     nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
+                    q_init_val=self.q_init_val,
                 ).create()
         elif self.sram_cell_type == 'SRAM_10T_CELL':
             # Instantiate 10T SRAM array 根据是否使用 MC 创建 SRAM Core
             if self.custom_mc:
                 sbckt_array = Sram10TCoreFactory(
-                    self.num_rows, self.num_cols,
+                    self.num_rows, self.num_cols,target_row, target_col,
                     self.sram_config.sram_10t_cell.nmos_model.value[0],
                     self.sram_config.sram_10t_cell.pmos_model.value,
                     self.sram_config.sram_10t_cell.nmos_model.value[1],
@@ -863,15 +927,17 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     w_rc=self.w_rc,
                     sweep_core=self.sweep_cell,
                     yield_mode=True,
+                    use_equivalent=self.use_equivalent,
                     pmos_choices = self.sram_config.sram_10t_cell.pmos_model.choices,
                     nmos_choices = self.sram_config.sram_10t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
+                    q_init_val=self.q_init_val,
                     # This function returns a Dict of MOS models
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                 ).create()
             else:
                 sbckt_array = Sram10TCoreFactory(
-                    self.num_rows, self.num_cols,
+                    self.num_rows, self.num_cols,target_row, target_col,
                     self.sram_config.sram_10t_cell.nmos_model.value[0],
                     self.sram_config.sram_10t_cell.pmos_model.value,
                     self.sram_config.sram_10t_cell.nmos_model.value[1],
@@ -884,9 +950,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     w_rc=self.w_rc,
                     sweep_core=self.sweep_cell,
                     yield_mode=False,
+                    use_equivalent=self.use_equivalent,
                     pmos_choices = self.sram_config.sram_10t_cell.pmos_model.choices,
                     nmos_choices = self.sram_config.sram_10t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
+                    q_init_val=self.q_init_val,
                 ).create()
         else:
             raise ValueError(f"Unknown SRAM cell type: {self.sram_cell_type}")
@@ -918,6 +986,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # self.create_dummy_row_2(circuit)
         # Create TIME circuit for timing control
         self.create_time_circuit(circuit, operation)
+        self.add_cs_startup_clamp(circuit)
         # 创建译码器（输出连接到字线驱动器）
         self.create_decoder(circuit)
         
