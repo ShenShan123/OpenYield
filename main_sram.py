@@ -10,7 +10,7 @@ import os
 if __name__ == '__main__':
        # ================== 0. 更新YAML配置文件 ==================
     # 更新全局配置
-    global_config_update = [16, 8, False ]      # num_rows.num_cols ,choose_columnmux   
+    global_config_update = [16, 16, False ]      # num_rows.num_cols ,choose_columnmux   
     update_global_yaml_inplace(
         global_config_update,
         yaml_path="/home/majh/OpenYield/sram_compiler/config_yaml/global.yaml"
@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     # 更新SRAM 6T单元配置
     sram6t_config_update = [
-        9.0e-8, 1.35e-7, 9.0e-8,50.0e-9,     # pd_width pg_width  pu_width length
+        2.05e-7, 1.35e-7, 9.0e-8,50.0e-9,     # pd_width pg_width  pu_width length
         "NMOS_VTG", "NMOS_VTG",  "PMOS_VTG"] # pd_model pg_model  pu_model 
     update_sram6t_yaml_inplace(
         sram6t_config_update,
@@ -41,9 +41,9 @@ if __name__ == '__main__':
     )
 
     # 2. 生成时间戳子目录
-    sram_cell_type="SRAM_6T_CELL"
+    sram_cell_type=sram_config.global_config.sram_cell_type
     time_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    sim_path = os.path.join('sim', f"{time_str}_mc_6t") if sram_cell_type == "SRAM_6T_CELL" else os.path.join('sim', f"{time_str}_mc_10t")  # 例如 sim/20250928_153045_mc_6t
+    sim_path = os.path.join('sim1', f"{time_str}_mc_6t") if sram_cell_type == "SRAM_6T_CELL" else os.path.join('sim1', f"{time_str}_mc_10t")  # 例如 sim/20250928_153045_mc_6t
     os.makedirs(sim_path, exist_ok=True)
 
     # FreePDK45 default transistor sizes
@@ -67,9 +67,10 @@ if __name__ == '__main__':
     mc_testbench = Sram6TCoreMcTestbench(
         sram_config,
         sram_cell_type=sram_cell_type, #or "SRAM_10T_CELL"
-        w_rc=False, # Whether add RC to nets
+        w_rc=True, # Whether add RC to nets
         pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
         vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
+        mc=True, #是否开启随机工艺波动
         custom_mc=False, # Use your own process params?
         sweep_cell=False,
         sweep_precharge=False,
@@ -80,10 +81,11 @@ if __name__ == '__main__':
         sweep_decoder=False,
         corner=corner,#or FF or SS or FS or SF
         choose_columnmux=choose_columnmux,# Whether choose column mux or not
+        use_equivalent=True, # Whether use equivalent model
         q_init_val=0, sim_path=sim_path,
     )
 
-    operation = 'read' #operation can be 'write' or 'read' or 'read&write' or 'hold_snm' or 'write_snm' or 'read_snm'
+    operation = 'write' #operation can be 'write' or 'read' or 'read&write' or 'hold_snm' or 'write_snm' or 'read_snm'
     if operation == 'write' or operation == 'read' or operation == 'read&write':
         data_csv_path = mc_testbench.run_mc_simulation(
             operation=operation, target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc,temperature=temperature,
