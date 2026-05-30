@@ -2,6 +2,10 @@ import os
 from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF
 
+
+# from utils import plot_results, measure_delay
+# from utils import parse_mt0, analyze_mt0
+
 class BaseTestbench:#基础测试平台类
     def __init__(self, tb_name, vdd, pdk_path):
         self.name = tb_name
@@ -26,7 +30,7 @@ class BaseTestbench:#基础测试平台类
         # Define timing parameters for pulse sources设置时序参数
         
         self.t_pulse = 6 @ u_ns  # Pulse width
-        self.t_period = 5 @ u_ns  # Period
+        self.t_period = 10 @ u_ns  # Period
         self.t_delay = 1 @ u_ns  # shift for write signal
         self.t_rise = 0.01 * self.t_period  # Rise time
         self.t_fall = 0.01 * self.t_period  # Fall time
