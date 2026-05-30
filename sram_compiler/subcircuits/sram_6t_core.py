@@ -1,7 +1,8 @@
 from PySpice.Spice.Netlist import SubCircuitFactory, Circuit
 from PySpice.Unit import u_Ohm, u_pF
 from .base_subcircuit import BaseSubcircuit
-from typing import Dict, Any, Union
+from .sram_cell_add_equivalent import add_6t_equivalent_circuit
+
 
 class Sram6TCell(BaseSubcircuit):
     NAME = 'SRAM_6T_CELL'
@@ -135,12 +136,15 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
     # SRAM Array SubCircuitFactory class.
     # Configurable number of rows and columns.
     ###
-
+    add_equivalent_circuit = add_6t_equivalent_circuit
     def __init__(self, num_rows: int, num_cols: int,
                  pd_nmos_model: str, pu_pmos_model: str, pg_nmos_model: str,
                  pd_width=0.205e-6, pu_width=0.09e-6,pg_width=0.135e-6, length=50e-9,
                  model_dict=None ,
                  w_rc=False,
+                 target_row=0, target_col=0,
+                 use_equivalent=False,  
+                 q_init_val=0,
                  ):
         #  disconnect=False, target_row=None, target_col=None):
 
@@ -165,6 +169,10 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
         self.length = length
         # other config
         self.w_rc = w_rc
+        self.target_row = target_row
+        self.target_col = target_col
+        self.use_equivalent = use_equivalent
+        self.q_init_val = q_init_val
         self.model_dict = model_dict
 
         # Build the array
@@ -172,6 +180,7 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
         # set instance prefix and the name of 6t cell
         self.inst_prefix = "XSRAM_6T_CELL"          #设置实例的前缀
 
+    
     def build_array(self, num_rows, num_cols):
         # Generate SRAM cells   #创建单个sram单元子电路
         if self.model_dict is None:
@@ -202,12 +211,18 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
                     )                    
                     self.subcircuit(subckt_6t_cell)
 
-                self.X(
-                    subckt_6t_cell.name + f"_{row}_{col}"  if self.model_dict is None else subckt_6t_cell.name,#实例的名称
-                    subckt_6t_cell.name,                    #引用的子电路类型，即Sram6TCell
-                    self.NODES[0],  # Power net             #连接的节点名
-                    self.NODES[1],  # Ground net
-                    f'BL{col}',  # Connect to column bitline
-                    f'BLB{col}',  # Connect to column bitline bar
-                    f'WL{row}',  # Connect to row wordline
-                )
+                if not self.use_equivalent or row == self.target_row or col == self.target_col:
+                    #如果不开启等效电路或开启等效电路但轮到了目标行和列，都需要添加实际单元
+                    self.X(
+                        subckt_6t_cell.name + f"_{row}_{col}"  if self.model_dict is None else subckt_6t_cell.name,#实例的名称
+                        subckt_6t_cell.name,                    #引用的子电路类型，即Sram6TCell
+                        self.NODES[0],  # Power net             #连接的节点名
+                        self.NODES[1],  # Ground net
+                        f'BL{col}',  # Connect to column bitline
+                        f'BLB{col}',  # Connect to column bitline bar
+                        f'WL{row}',  # Connect to row wordline
+                    )
+
+        if self.use_equivalent:#对开启等效电路但非目标行列添加等效模型
+            print(f"[DEBUG] generating equivalent circuit for unused cells")
+            self.add_equivalent_circuit()  # 添加等效电路
