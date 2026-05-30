@@ -1,16 +1,21 @@
 from PySpice.Spice.Netlist import SubCircuitFactory, SubCircuit, Circuit
 from PySpice.Unit import u_Ohm, u_pF
 
+DEFAULT_PI_RES = 100 @ u_Ohm
+DEFAULT_PI_CAP = 0.001 @ u_pF
+
 class BaseSubcircuit(SubCircuit):
     ###6T SRAM Cell SubCircuitFactory with debug capabilities###
     NAME = 'BASE_SUBCKT'
     # The first and second nodes are always power and ground nodes,VDD and VSS
     NODES = ('VDD', 'VSS')
+    DEFAULT_PI_RES = DEFAULT_PI_RES
+    DEFAULT_PI_CAP = DEFAULT_PI_CAP
     
     def __init__(self, #接受晶体管参数和rc参数
                  nmos_model, pmos_model,
                  nmos_width, pmos_width, length,
-                 w_rc, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 w_rc, pi_res=DEFAULT_PI_RES, pi_cap=DEFAULT_PI_CAP,
                  ):
         super().__init__(self.NAME, *self.NODES)
         
