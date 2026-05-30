@@ -16,8 +16,8 @@ from math import ceil, log2
 class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 vth_std=0.05, custom_mc=False,sweep_cell=False,sweep_precharge=False,sweep_senseamp=True,sweep_wordlinedriver=False,
-                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,corner='TT',choose_columnmux=True,
+                 vth_std=0.05, mc=True,custom_mc=False,sweep_cell=False,sweep_precharge=False,sweep_senseamp=True,sweep_wordlinedriver=False,
+                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,corner='TT',choose_columnmux=True,use_equivalent=False,
                  q_init_val=0, sim_path='sim'):
         """
                蒙特卡洛测试平台初始化
@@ -35,9 +35,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             sram_config, sram_cell_type,
             w_rc, pi_res, pi_cap,
             custom_mc, sweep_cell,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,
-            corner,choose_columnmux,q_init_val,sim_path
+            corner,choose_columnmux,use_equivalent,q_init_val,sim_path
         )
         self.sram_cell_type=sram_cell_type
+        self.mc=mc
         self.choose_columnmux=choose_columnmux
         self.corner=corner
         self.sweep_decoder=sweep_decoder
@@ -85,9 +86,13 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         #调用父类里的create_testbench函数
         # Standard MC needs a model lib with variables,
         # otherwise, process parameters are defined by user
-        if not self.custom_mc:  #不需要自定义的MC时
-            # Replace original included model lib with new path 替换为包含随机变量的模型文件
-            circuit._includes[0] = self.create_mc_model_file()
+        if not self.mc:
+            pdk_path = getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")
+            circuit._includes[0] = pdk_path
+        else:
+            if not self.custom_mc:  #不需要自定义的MC时
+                # Replace original included model lib with new path 替换为包含随机变量的模型文件
+                circuit._includes[0] = self.create_mc_model_file()
 
         return circuit
 
@@ -113,6 +118,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # .ic conditions
             for col in range(self.num_cols):
                 # Initial V(BL) and V(BLB) for all columns
+                init_cond[f'OUT'] = 0 @ u_V
                 init_cond[f'BL{col}'] = 0 @ u_V
                 init_cond[f'RBL'] = 0 @ u_V
                 init_cond[f'SA_Q{col}'] = 0 @ u_V
@@ -127,6 +133,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # 为其他控制信号设置初始条件
             init_cond['we'] = self.vdd @ u_V  # we初始化为高电平
             init_cond['cs_bar'] = self.vdd @ u_V  # cs_bar初始化为高电平
+            #init_cond['cs'] = 0 @ u_V
 
             simulator.initial_condition(**init_cond)
 
@@ -143,6 +150,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 'TRAN', 'TDECODER',
                 f'TRIG V(A_dff0)={self.half_vdd} RISE=1 ' +
                 f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
+            
             simulator.measure(
                 'TRAN', 'TWLDRV',
                 f'TRIG V(wl_en)={self.half_vdd} RISE=1 ' +
@@ -164,14 +172,14 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             #SA延迟（TSA）的测量，定义为从SAE断言到V(Q)=VDD/2的时间
             simulator.measure(
                 'TRAN', 'TSA',
-                f'TRIG V(s_en)={self.half_vdd} RISE=1 ' +
+                f'TRIG V(s_en)={self.vdd / 2.5} RISE=1 ' +
                 f'TARG V(SA_Q{self.target_col // self.mux_in})={float(self.vdd) * 0.01} FALL=1')
-            
+
             simulator.measure(
                 'TRAN', 'Ts_en',
                 f'TRIG V(S_EN)=0.02 RISE=2 ' +
-                f'TARG V(S_EN)=0.5 RISE=1')
-            
+                f'TARG V(S_EN)=0.25 RISE=1')
+        
             #总读延迟
             simulator.measure(
                 'TRAN', 'TREAD_TOTAL',
@@ -208,7 +216,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             
             # Add print for read operation
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX V(S_EN) V(WL{self.target_row}) ' + \
+                f'.PRINT TRAN FORMAT=NOINDEX V(S_EN) V(WL{self.target_row}) V(DEC_WL{self.target_row})' + \
                 f'V(BL{self.target_col}) V(BLB{self.target_col}) ' + \
                 f'V({target_node_q}) V({target_node_qb}) \n'
             if self.choose_columnmux:
@@ -225,6 +233,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # .ic conditions
             for col in range(self.num_cols):
                 # Initial V(BL) and V(BLB) for all columns
+                init_cond[f'OUT'] = 0 @ u_V
                 init_cond[f'BL{col}'] = 0 @ u_V
                 init_cond[f'BLB{col}'] = self.vdd @ u_V
                 init_cond[f'RBL'] = 0 @ u_V
@@ -293,12 +302,13 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'PARAM={{PAVG-PSTC}}'
             )
             # Add print for write operation
+            address_signals = ' '.join([f'V(A{i}) V(A_DFF{i})' for i in range(ceil(log2(self.num_rows)))])
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX V(we) V(WL{self.target_row}) V(BL{self.target_col})' + \
+                f'.PRINT TRAN FORMAT=NOINDEX {address_signals} V(we) V(WL{self.target_row}) V(DEC_WL{self.target_row}) V(BL{self.target_col})' + \
                 f' V(BLB{self.target_col}) V({target_node_q}) V({target_node_qb})\n'
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX V(gated_clk_bar) V(DIN0) V(DIN_dff0)' + \
-                f' V(w_en) V(web) V(RBL) V(RBL_DELAY_BAR)\n'
+                f'.PRINT TRAN FORMAT=NOINDEX V(cs) V(clk_buf) V(clk_bar) V(gated_clk_bar) V(DIN0) V(DIN_dff0)' + \
+                f' V(w_en) V(wl_en) V(web) V(RBL) V(RBL_DELAY_BAR)\n'
             
         elif operation == 'read&write':
             # .ic conditions
@@ -417,7 +427,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'.STEP data=DECODER\n'
         if not self.custom_mc and not self.sweep_cell and not self.sweep_precharge and not self.sweep_senseamp and not self.sweep_wordlinedriver and not self.sweep_columnmux and not self.sweep_writedriver and not self.sweep_decoder:
             # Use build-in sampling method in Xyce
-            circuit.raw_spice += \
+            if not self.mc:
+                circuit.raw_spice += \
+                f'.options samples numsamples={num_mc}\n'
+            else:
+                circuit.raw_spice += \
                 f'.SAMPLING useExpr=true\n.options samples numsamples={num_mc}\n'
 
         print(f"[DEBUG] Custom_MC={self.custom_mc}, numsamples={num_mc}")
