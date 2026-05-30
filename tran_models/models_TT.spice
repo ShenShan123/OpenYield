@@ -95,7 +95,8 @@
   
 +ll      = 0               wl      = 0               lln     = 1               wln     = 1             
 +lw      = 0               ww      = 0               lwn     = 1               wwn     = 1             
-+lwl     = 0               wwl     = 0               xpart   = 0               toxref  = 1.3e-009      
++lwl     = 0               wwl     = 0               xpart   = 0               
+* toxref  = 1.3e-009      
 +xl	   = -20e-9
 
 +k1      = 0.4             k2      = -0.01           k3      = 0             
@@ -242,9 +243,9 @@
 * parameters customized by the user
 +toxe = 1.63e-09    toxp = 1.0e-09    toxm = 1.63e-09    toxref = 1.63e-09
 +dtox = 6.3e-10    lint = 3.75e-09 
-+vth0 = 0.6078   k1 = 0.4   u0 = 0.05    vsat = 170000  
++vth0 = 0.6078   k1 = 0.4     vsat = 170000  
 +rdsw = 155    ndep = 3.24e+018   xj = 1.98e-08
-
+* u0 = 0.05
 
 
 +version = 4.8             binunit = 1               paramchk= 1               mobmod  = 0             
