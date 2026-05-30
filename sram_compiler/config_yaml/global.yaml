@@ -8,8 +8,10 @@
 vdd: 1.0                         # 供电电压(V) / Supply voltage (V)
 temperature: 25                   # 温度(摄氏度) / Temperature (Celsius)
 corner: "TT"                        # PDK工艺角 / PDK process corner/SS/FF/SF/FS
-num_rows: 16                     # SRAM行数 / Number of SRAM rows
-num_cols: 8                      # SRAM列数 / Number of SRAM columns
+sram_cell_type: "SRAM_6T_CELL"      # 可选: "SRAM_6T_CELL" / "SRAM_10T_CELL"
+TOTAL_capacity_KB: 32
+num_rows: 16                      # SRAM行数 / Number of SRAM rows
+num_cols: 16                        # SRAM列数 / Number of SRAM columns
 monte_carlo_runs: 1               # 蒙特卡洛仿真次数 / Monte Carlo simulation runs/设计参数有几行就改成几
 timeout: 120                      # 仿真超时时间(秒) / Simulation timeout (seconds)
 choose_columnmux: false             # 是否选择列复用器 / Whether to choose column mux
