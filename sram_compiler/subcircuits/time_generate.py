@@ -1,7 +1,7 @@
 from PySpice.Unit import u_Ohm, u_pF
 from .base_subcircuit import BaseSubcircuit
 from math import ceil, log2
-from .standard_cell import Pinv,AND2,PNAND2,AND3
+from .standard_cell import Pinv,AND2,PNAND2,AND3,PNAND3
         
 class TransmissionGate(BaseSubcircuit):
     """
@@ -47,6 +47,7 @@ class pdrive(BaseSubcircuit):  # ////////缓冲器链，由一系列尺寸逐渐
     def __init__(self, nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
                  pmos_width=0.27e-6, nmos_width=0.18e-6,
                  length=0.05e-6,
+                 drive_scale=1.0,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  ):
 
@@ -55,12 +56,16 @@ class pdrive(BaseSubcircuit):  # ////////缓冲器链，由一系列尺寸逐渐
             nmos_width, pmos_width, length,
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
-        
+        drive_scale = max(1.0, float(drive_scale))
+        s1 = drive_scale ** 0.25
+        s2 = drive_scale ** 0.50
+        s3 = drive_scale ** 0.75
+        s4 = drive_scale
         # 创建不同尺寸的反相器
-        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6,0.27e-6,0.05e-6,num=1)
-        self.inv2 = Pinv(nmos_model, pmos_model,0.27e-6,0.81e-6,0.05e-6,num=2)
-        self.inv3 = Pinv(nmos_model, pmos_model,0.36e-6,1.08e-6,0.05e-6,num=3)
-        self.inv4 = Pinv(nmos_model, pmos_model,0.56e-6,1.69e-6,0.05e-6,num=4)
+        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6 * s1,0.27e-6 * s1,0.05e-6,num=1)
+        self.inv2 = Pinv(nmos_model, pmos_model,0.27e-6 * s2,0.81e-6 * s2,0.05e-6,num=2)
+        self.inv3 = Pinv(nmos_model, pmos_model,0.91e-6 * s3,2.43e-6 * s3,0.05e-6,num=3)
+        self.inv4 = Pinv(nmos_model, pmos_model,2.43e-6 * s4,7.29e-6 * s4,0.05e-6,num=4)
         
         # 添加子电路
         self.subcircuit(self.inv1)
@@ -102,6 +107,7 @@ class pdrive2_for_pre(BaseSubcircuit):  # ////////缓冲器链，由一系列尺
     def __init__(self, nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
                  pmos_width=0.27e-6, nmos_width=0.18e-6,
                  length=0.05e-6,
+                 drive_scale=1.0,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  ):
 
@@ -110,10 +116,14 @@ class pdrive2_for_pre(BaseSubcircuit):  # ////////缓冲器链，由一系列尺
             nmos_width, pmos_width, length,
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
+
+        drive_scale = max(1.0, float(drive_scale))
+        stage1_scale = max(1.0, drive_scale ** 0.5)
+        stage2_scale = drive_scale
         
         # 创建不同尺寸的反相器
-        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6,0.27e-6,0.05e-6,num=1)
-        self.inv2 = Pinv(nmos_model, pmos_model,0.27e-6,0.81e-6,0.05e-6,num=2)
+        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6 * stage1_scale,0.27e-6 * stage1_scale,0.05e-6,num=1)
+        self.inv2 = Pinv(nmos_model, pmos_model,0.27e-6 * stage2_scale,0.81e-6 * stage2_scale,0.05e-6,num=2)
         
         # 添加子电路
         self.subcircuit(self.inv1)
@@ -345,6 +355,52 @@ class DelayChain(BaseSubcircuit):#用于复制位线延迟的延迟链
         for j in range(4):
             self.X(f'dload_8_{j}', self.inv.NAME, 
                    'VDD', 'VSS', 'out', f'n_8_{j}')
+            
+class WenDelayChain(BaseSubcircuit):
+    NAME = "wen_delay_chain"
+    NODES = ('VDD', 'VSS', 'in', 'out')
+
+    def __init__(self, nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
+                 length=0.05e-6, stages=4, loads_per_stage=4,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
+
+        stages = max(2, int(stages))
+        if stages % 2:
+            stages += 1
+
+        self.stages = stages
+        self.loads_per_stage = loads_per_stage
+
+        super().__init__(
+            nmos_model, pmos_model,
+            0.09e-6, 0.27e-6, length,
+            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
+        )
+
+        self.inv = Pinv(
+            nmos_model, pmos_model,
+            nmos_width=0.09e-6,
+            pmos_width=0.27e-6,
+            length=length,
+            num='_wen_delay'
+        )
+        self.subcircuit(self.inv)
+        self.add_delay_chain()
+
+    def add_delay_chain(self):
+        prev = 'in'
+
+        for i in range(self.stages):
+            out = 'out' if i == self.stages - 1 else f'wen_dly_{i + 1}'
+
+            self.X(f'winv{i}', self.inv.NAME,
+                   'VDD', 'VSS', prev, out)
+
+            for j in range(self.loads_per_stage):
+                self.X(f'wload_{i}_{j}', self.inv.NAME,
+                       'VDD', 'VSS', out, f'wn_{i}_{j}')
+
+            prev = out
 
 class ADDR_DFF(BaseSubcircuit):
     """D Flip-Flop for address"""
@@ -500,9 +556,24 @@ class TIME(BaseSubcircuit):
 
 
         #产生内部时钟
+        # 让 clkbuf 按实际 DFF 负载自动放大
+        ref_rows = 16
+        ref_cols = 16
+        ref_bits = ceil(log2(ref_rows))
+
+        clk_dff_count = self.n_bits + 2  # 地址DFF + CS_DFF + WE_DFF
+        ref_dff_count = ref_bits + 2
+
+        if operation == 'write' or operation == 'read&write':
+            clk_dff_count += self.num_cols
+            ref_dff_count += ref_cols
+
+        clk_drive_scale = max(1.0, clk_dff_count / ref_dff_count)
+
         clkbuf = pdrive(
             nmos_model="NMOS_VTG",
-            pmos_model="PMOS_VTG"
+            pmos_model="PMOS_VTG",
+            drive_scale=clk_drive_scale
         )
         self.subcircuit(clkbuf)
         self.X('clkbuf',
@@ -548,8 +619,8 @@ class TIME(BaseSubcircuit):
                                 )
         self.subcircuit(and2_gated_clk_bar)
         self.X('and2_gated_clk_bar',
-               and2_gated_clk_bar.NAME,
-               'VDD', 'VSS', 'cs', 'clk_bar','gated_clk_bar')
+            and2_gated_clk_bar.NAME,
+            'VDD', 'VSS', 'cs', 'clk_bar','gated_clk_bar')
         #门控时钟
         and2_gated_clk_buf=AND2(nmos_model_nand="NMOS_VTG",
                                 pmos_model_nand="PMOS_VTG",
@@ -572,6 +643,19 @@ class TIME(BaseSubcircuit):
         self.X('wl_en',
                wl_en.NAME,
                'VDD', 'VSS', 'gated_clk_bar', 'wl_en')
+        inv_wl_en_bar = Pinv(
+            nmos_model="NMOS_VTG",
+            pmos_model="PMOS_VTG",
+            nmos_width=0.09e-6,
+            pmos_width=0.27e-6,
+            length=0.05e-6,
+            num='_wl_en_bar'
+        )
+        self.subcircuit(inv_wl_en_bar)
+        self.X('inv_wl_en_bar',
+            inv_wl_en_bar.NAME,
+            'VDD', 'VSS', 'wl_en', 'wl_en_bar')
+
         #复制位线延迟链
         delaychain=DelayChain()
         self.subcircuit(delaychain)
@@ -591,22 +675,33 @@ class TIME(BaseSubcircuit):
                inv_rbl_delay_bar.NAME,
                'VDD', 'VSS', 'rbl_delay', 'rbl_delay_bar')
         
-         #产生写使能
+        w_en_rbl_input = 'rbl_delay_bar'
+
+        if operation == 'write' and self.num_rows == 16 and self.num_cols == 512:
+            wen_delaychain = WenDelayChain(stages=6, loads_per_stage=4, w_rc=w_rc)
+            self.subcircuit(wen_delaychain)
+            self.X('wen_delaychain',
+                wen_delaychain.NAME,
+                'VDD', 'VSS', 'rbl_delay_bar', 'rbl_delay_bar_wen')
+            w_en_rbl_input = 'rbl_delay_bar_wen'
+        #产生写使能
+        w_en_ref_cols = 64
+        w_en_scale = max(1, ceil(self.num_cols / w_en_ref_cols))#按列数放大驱动晶体管尺寸
         w_en=AND3(nmos_model_nand="NMOS_VTG",
                 pmos_model_nand="PMOS_VTG",
                 nmos_model_inv="NMOS_VTG",
                 pmos_model_inv="PMOS_VTG",
                 nand_pmos_width=0.27e-6,
                 nand_nmos_width=0.18e-6,
-                inv_pmos_width=1.08e-6,
-                inv_nmos_width=0.36e-6,
+                inv_pmos_width=1.08e-6 * w_en_scale,
+                inv_nmos_width=0.36e-6 * w_en_scale,
                 length=0.05e-6,
                 w_rc=w_rc
                 )
         self.subcircuit(w_en)
         self.X('w_en',
                w_en.NAME,
-               'VDD','VSS' ,'rbl_delay_bar', 'gated_clk_bar' ,'we', 'w_en' )
+               'VDD','VSS' , w_en_rbl_input , 'gated_clk_bar' ,'we', 'w_en' )
         #产生灵敏放大器
         s_en=AND3(nmos_model_nand="NMOS_VTG",
                 pmos_model_nand="PMOS_VTG",
@@ -614,8 +709,8 @@ class TIME(BaseSubcircuit):
                 pmos_model_inv="PMOS_VTG",
                 nand_pmos_width=0.27e-6,
                 nand_nmos_width=0.18e-6,
-                inv_pmos_width=1.08e-6,
-                inv_nmos_width=0.36e-6,
+                inv_pmos_width=1.08e-6 * w_en_scale,
+                inv_nmos_width=0.36e-6 * w_en_scale,
                 length=0.05e-6,
                 w_rc=w_rc
             )
@@ -625,20 +720,48 @@ class TIME(BaseSubcircuit):
                'VDD','VSS' ,'rbl_delay', 'gated_clk_bar' ,'we_bar' ,'s_en' )
 
         #产生预充电使能
-        pre_unbuf=PNAND2(nmos_model="NMOS_VTG",
-                        pmos_model="PMOS_VTG",
-                        nmos_width=0.18e-6,
-                        pmos_width=0.27e-6,
-                        length=0.05e-6,
-                        w_rc=w_rc
-                        )
+        # pre_unbuf=PNAND2(nmos_model="NMOS_VTG",
+        #                 pmos_model="PMOS_VTG",
+        #                 nmos_width=0.18e-6,
+        #                 pmos_width=0.27e-6,
+        #                 length=0.05e-6,
+        #                 w_rc=w_rc
+        #                 )
+        # self.subcircuit(pre_unbuf)
+        # self.X('pre_unbuf',
+        #        pre_unbuf.NAME,
+        #        'VDD','VSS', 'gated_clk_buf', 'rbl_delay', 'PRE_UNBUF')
+
+        pre_unbuf = PNAND3(nmos_model="NMOS_VTG",
+                   pmos_model="PMOS_VTG",
+                   nmos_width=0.27e-6,
+                   pmos_width=0.27e-6,
+                   length=0.05e-6,
+                   w_rc=w_rc
+                   )
         self.subcircuit(pre_unbuf)
         self.X('pre_unbuf',
-               pre_unbuf.NAME,
-               'VDD','VSS', 'gated_clk_buf', 'rbl_delay', 'PRE_UNBUF')
-        pre=pdrive2_for_pre()
+            pre_unbuf.NAME,
+            'VDD', 'VSS', 'gated_clk_buf', 'rbl_delay', 'wl_en_bar', 'PRE_UNBUF')
+
+        
+        pre_ref_cols = 64
+        pre_col_scale = (self.num_cols + 1) / (pre_ref_cols + 1)
+        pre_pmos_scale = max(0.5, self.num_rows / 16)
+        pre_drive_scale = max(1, ceil(pre_col_scale * pre_pmos_scale))
+        pre = pdrive2_for_pre(drive_scale=pre_drive_scale)
         self.subcircuit(pre)
         self.X('pre',
                pre.NAME,
                'VDD','VSS', 'PRE_UNBUF', 'PRE')
        
+
+
+        
+        
+if __name__ == '__main__':
+    top = TIME()
+    with open('time.sp', 'w') as f:
+        f.write(str(top))
+    print("已生成 time.sp")
+    print(top)
