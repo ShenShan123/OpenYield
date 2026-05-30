@@ -28,6 +28,9 @@ class GlobalConfig:
         # 基础配置
         self.vdd = config_data.get("vdd", 1.0)
         self.temperature = config_data.get("temperature", 27)
+        self.corner = config_data.get("corner", "TT")
+        self.sram_cell_type = config_data.get("sram_cell_type", "SRAM_6T_CELL")
+        self.TOTAL_capacity_KB = config_data.get("TOTAL_capacity_KB", 32)
         self.num_rows = config_data.get("num_rows", 32)
         self.num_cols = config_data.get("num_cols", 1)
         self.monte_carlo_runs = config_data.get("monte_carlo_runs", 1)
@@ -99,6 +102,9 @@ class GlobalConfig:
             f"GlobalConfig:\n"
             f"  VDD: {self.vdd} V\n"
             f"  温度: {self.temperature} °C\n"
+            f"  工艺角: {self.corner}\n"
+            f"  SRAM类型: {self.sram_cell_type}\n"
+            f"  总容量: {self.TOTAL_capacity_KB} KB\n"
             f"  阵列: {self.num_rows}×{self.num_cols}\n"
             f"  蒙特卡洛次数: {self.monte_carlo_runs}\n"
             f"  超时: {self.timeout} 秒\n"
