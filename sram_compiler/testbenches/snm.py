@@ -5,6 +5,7 @@ from typing import List, Dict, Tuple
 
 import numpy as np
 import pandas as pd
+from regex import T
 
 
 def split_xyce_prn_runs(prn_path: str) -> List[pd.DataFrame]:
@@ -88,6 +89,9 @@ def find_crossings(u: np.ndarray, d: np.ndarray, merge_tol: float = 1e-4) -> np.
 def extract_classical_snm_from_run(
     df_run: pd.DataFrame,
     merge_tol: float = 1e-4,
+    allow_endpoint_fallback: bool = False,
+    endpoint_left: float = -0.41,
+    endpoint_right: float = 0.41,
 ) -> Dict:
     """
     基于定义：
@@ -111,6 +115,19 @@ def extract_classical_snm_from_run(
 
     d = v1 - v2
     crossings = find_crossings(u, d, merge_tol=merge_tol)
+    # 对低压 hold SNM 的非闭合 butterfly 曲线做边界补点：
+    # 若只有一个中间交点，则人为加入左右端点，形成两个有界区间。
+    if allow_endpoint_fallback and len(crossings) == 1:
+        u_min = float(np.min(u))
+        u_max = float(np.max(u))
+
+        if u_min <= endpoint_left and u_max >= endpoint_right:
+            crossings = np.array(
+                [endpoint_left, float(crossings[0]), endpoint_right],
+                dtype=float,
+            )
+            crossings = np.array(sorted(crossings), dtype=float)
+            endpoint_fallback_used = True
 
     if len(crossings) < 2:
         return {
@@ -160,10 +177,15 @@ def extract_classical_snm_from_run(
         "snm": float(best["snm_candidate"]),
         "maxvd": float(best["max_abs_d"]),
         "crossings": crossings.tolist(),
-        "status": "ok",
-        "reason": "",
+        "status": "ok_endpoint_fallback" if endpoint_fallback_used else "ok",
+        "reason": (
+            f"Only one physical crossing found; endpoint bounds "
+            f"{endpoint_left} and {endpoint_right} were used."
+            if endpoint_fallback_used else ""
+        ),
         "candidates": candidates,
     }
+
 
 
 def build_stats_table(df_data: pd.DataFrame, value_columns: List[str]) -> pd.DataFrame:
@@ -288,7 +310,12 @@ def process_xyce_montecarlo_prn(
 
     for run_id, df_run in enumerate(runs):
         if operation == "hold_snm" or operation == "read_snm":
-            result = extract_classical_snm_from_run(df_run, merge_tol=merge_tol)
+            result = extract_classical_snm_from_run(
+                df_run, merge_tol=merge_tol,
+                allow_endpoint_fallback=True,
+                endpoint_left=-0.41,
+                endpoint_right=0.41,
+            )
         elif operation == "write_snm":
             result = extract_write_snm_from_run(df_run)
 
