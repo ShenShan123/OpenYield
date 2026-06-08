@@ -1,7 +1,3 @@
-from hmac import new
-from more_itertools import last
-from regex import T
-from sympy import use
 import sys, os
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
@@ -37,19 +33,22 @@ if __name__ == "__main__":
     # 创建结果文件夹，名字为时间
     output_dir = "equivalent_modeling/results/" + datetime.now().strftime("%Y%m%d_%H%M%S")
     os.makedirs(output_dir)
-    columns = ["time_usage", "use_mc", "custom_mc", "num_rows", "num_cols", "gen_unused_cells"]
+    columns = ["time_usage", "use_mc", "custom_mc", "num_rows", "num_cols", "real_cell_mode"]
     relative_diff = ["r_delay", "r_pavg", "r_pstc", "r_pdyn", "w_delay", "w_pavg", "w_pstc", "w_pdyn"]
     columns.extend(relative_diff)
     result = pd.DataFrame(columns=columns)
     result_diff = pd.DataFrame(columns=columns)
+
+    # real_cell_mode: 0=全真实(基准), 1=等效十字, 2=仅目标行, 3=仅目标列, 4=仅目标cell
+    mode_values = list(range(5))
 
     print("===== 6T SRAM Array Monte Carlo Simulation Debug Session =====")
     for use_mc in [False]:
         for custom_mc in [False]:
             # for sram_6t_cell_yaml in ["sram_compiler/config_yaml/sram_6t_cell_nochange.yaml", "sram_compiler/config_yaml/sram_6t_cell.yaml"]:
             for num_rows, num_cols in [(16, 16), (16, 32), (32, 32)]:
-                last_index = None
-                for gen_unused_cells in [True, False]:
+                baseline_index = None
+                for real_cell_mode in mode_values:
 
                     start_time = time.time()
 
@@ -106,9 +105,9 @@ if __name__ == "__main__":
                         choose_columnmux=False,
                         q_init_val=0,
                         sim_path=sim_path,
-                        # gen_unused_cells=True  → real circuit (full array)
-                        # gen_unused_cells=False → equivalent circuit (only target row/col)
-                        real_cell_mode=1 if gen_unused_cells else 0,
+                        # real_cell_mode: 0=全真实(基准), 1=等效十字,
+                        #                 2=仅目标行, 3=仅目标列, 4=仅目标cell
+                        real_cell_mode=real_cell_mode,
                     )
                     # vars = np.random.rand(num_mc,num_rows*num_cols*18)
 
@@ -130,17 +129,22 @@ if __name__ == "__main__":
 
                     print(r_delay, r_pavg, r_pstc, r_pdyn)
 
-                    w_delay, w_pavg, w_pstc, w_pdyn = mc_testbench.run_mc_simulation(
-                        operation="write",
-                        target_row=num_rows - 1,
-                        target_col=num_cols - 1,
-                        mc_runs=num_mc if use_mc else 1,
-                        temperature=temperature,
-                        vars=None,  # Input your data table
-                    )
+                    # 模式 3/4（仅目标列 / 仅目标 cell）目标行未完整实例化，跳过写仿真
+                    if real_cell_mode in (3, 4):
+                        print("[INFO] real_cell_mode 3/4：跳过 write 操作仿真")
+                        w_delay, w_pavg, w_pstc, w_pdyn = [0.0], [0.0], [0.0], [0.0]
+                    else:
+                        w_delay, w_pavg, w_pstc, w_pdyn = mc_testbench.run_mc_simulation(
+                            operation="write",
+                            target_row=num_rows - 1,
+                            target_col=num_cols - 1,
+                            mc_runs=num_mc if use_mc else 1,
+                            temperature=temperature,
+                            vars=None,  # Input your data table
+                        )
                     """
                     r_delay, r_pavg, r_pstc, r_pdyn = [1.43, 2], [2, 3], [3, 4], [4, 5]
-                    time.sleep((use_mc + custom_mc + gen_unused_cells) / 100)"""
+                    time.sleep((use_mc + custom_mc + real_cell_mode) / 100)"""
 
                     time_usage = time.time() - start_time
                     # print(time_usage)
@@ -150,8 +154,9 @@ if __name__ == "__main__":
 
                     new_line = pd.DataFrame({i: str(eval(i)) for i in columns}, index=[datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d %H:%M:%S")])
 
-                    if gen_unused_cells:
-                        last_index = new_line.index[0]
+                    # mode 0（全真实）作为相对误差基准
+                    if real_cell_mode == 0:
+                        baseline_index = new_line.index[0]
 
                     result = pd.concat([result, new_line])
                     result.to_csv(os.path.join(output_dir, "result.csv"))
@@ -159,14 +164,20 @@ if __name__ == "__main__":
 
                     print("[DEBUG] Monte Carlo simulation completed")
 
-                # 计算相对误差
-                result_diff = pd.concat([result_diff, new_line])
-                for col in relative_diff:
-                    result_diff.loc[new_line.index[0], col] = (string_to_float_list(result.loc[new_line.index[0], col]) - string_to_float_list(result.loc[last_index, col])) / string_to_float_list(result.loc[last_index, col])
+                    # 计算该模式相对基准(mode 0)的误差
+                    if baseline_index is not None and new_line.index[0] != baseline_index:
+                        result_diff = pd.concat([result_diff, new_line])
+                        for col in relative_diff:
+                            base_vals = string_to_float_list(result.loc[baseline_index, col])
+                            cur_vals = string_to_float_list(result.loc[new_line.index[0], col])
+                            with np.errstate(divide="ignore", invalid="ignore"):
+                                result_diff.loc[new_line.index[0], col] = np.where(base_vals != 0, (cur_vals - base_vals) / base_vals, 0.0)
 
-                # time usage
-                col = "time_usage"
-                result_diff.loc[new_line.index[0], col] = (time_str_to_float(result.loc[new_line.index[0], col]) - time_str_to_float(result.loc[last_index, col])) / time_str_to_float(result.loc[last_index, col])
-                print(result_diff.loc[new_line.index[0], :])
+                        # time usage
+                        col = "time_usage"
+                        base_t = time_str_to_float(result.loc[baseline_index, col])
+                        cur_t = time_str_to_float(result.loc[new_line.index[0], col])
+                        result_diff.loc[new_line.index[0], col] = (cur_t - base_t) / base_t if base_t else 0.0
+                        print(result_diff.loc[new_line.index[0], :])
 
-                result_diff.to_csv(os.path.join(output_dir, "result_diff.csv"))
+                        result_diff.to_csv(os.path.join(output_dir, "result_diff.csv"))

@@ -25,3 +25,6 @@ equivalent_modeling/results/
 equivalent_modeling/images/
 equivalent_modeling/EQUIVALENT_CIRCUIT_ANALYSIS.md
 equivalent_modeling/使用说明.md
+size_optimization/smac3_output/
+size_optimization/smac3_output
+size_optimization/sim/

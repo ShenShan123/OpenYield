@@ -475,7 +475,7 @@ class Sram6TCoreFactory:
                  # --- 控制参数 ---
                  sweep_core=False,          # 是否开启扫描模式
                  yield_mode=False,          # 是否开启良率/Mismatch模式
-                 real_cell_mode=0,           # 0=等效十字, 1=全真实
+                 real_cell_mode=0,           # 0=全真实, 1=等效十字, 2-4=部分真实
                  # --- Sweep 模式专用 ---
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
@@ -1037,7 +1037,7 @@ class Sram10TCoreFactory:
                  # --- 控制参数 ---
                  sweep_core=False,          # 是否开启扫描模式
                  yield_mode=False,          # 是否开启良率/Mismatch模式
-                 real_cell_mode=0,           # 0=等效十字, 1=全真实
+                 real_cell_mode=0,           # 0=全真实, 1=等效十字, 2-4=部分真实
                  # --- Sweep 模式专用 ---
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表

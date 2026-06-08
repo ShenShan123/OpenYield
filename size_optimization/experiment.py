@@ -161,19 +161,22 @@ class JointParameterSpace:
         return self.base_space.print_params(params)
 
 
-def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=120, *, stage_label="stage_eval", iteration_index=None, temperature=None, corner="TT", gen_unused_cells=True):
+def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=120, *, stage_label="stage_eval", iteration_index=None, temperature=None, corner="TT", gen_unused_cells=True, real_cell_mode=None):
     """
     Execute SRAM evaluation with given parameters and specific row-column configuration
     使用给定参数和特定行列配置执行SRAM评估
 
-    This function is copied from demo_joint_optimization.py to make two_stage_optimization.py
-    independent of demo_joint_optimization.py
-    此函数从demo_joint_optimization.py复制而来，使two_stage_optimization.py不依赖demo_joint_optimization.py
+    real_cell_mode 显式指定电路模式（0=全真实, 1=等效十字, 2=仅目标行, 3=仅目标列, 4=仅目标cell）。
+    若为 None，则按旧的 gen_unused_cells 布尔参数映射：True→0（全真实）, False→1（等效十字）。
     """
     # 获取项目根目录路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # 项目根目录为 size_optimization/ 的父目录，动态计算无需硬编码
     project_root = os.path.dirname(current_dir)
+
+    # 兼容旧的 gen_unused_cells 布尔参数，默认映射为：True→0, False→1
+    if real_cell_mode is None:
+        real_cell_mode = 0 if gen_unused_cells else 1
 
     # 依据阶段标签确定仿真输出目录：sim/stage1 或 sim/stage2
     sim_subdir = "stage1" if str(stage_label).startswith("stage1") else "stage2" if str(stage_label).startswith("stage2") else str(stage_label)
@@ -346,7 +349,7 @@ def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=12
             sweep_decoder=False,
             corner=corner,
             choose_columnmux=False,  # 电路无MUX，多阵列延迟/功耗由惩罚项补偿
-            real_cell_mode=1 if gen_unused_cells else 0,
+            real_cell_mode=real_cell_mode,  # 0=全真实,1=等效十字,2=仅目标行,3=仅目标列,4=仅目标cell
             q_init_val=0,
             sim_path=str(sim_dir_path),
             enable_mc=False,
@@ -357,6 +360,8 @@ def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=12
         try:
             # Run simulation directly
             # 直接运行仿真
+            # 模式 3/4（仅目标列 / 仅目标 cell）下目标行未完整实例化，跳过写仿真
+            skip_write_simulation = real_cell_mode in (3, 4)
             if stage_label == "stage1":
                 print("Running stage 1 simulation...")
             else:
@@ -379,23 +384,31 @@ def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=12
                     vars=None,
                 )
 
-                write_snm = mc_testbench.run_mc_simulation(
-                    operation="write_snm",
+                if skip_write_simulation:
+                    print("[INFO] real_cell_mode 3/4：跳过 write_snm 仿真")
+                    write_snm = None
+                else:
+                    write_snm = mc_testbench.run_mc_simulation(
+                        operation="write_snm",
+                        target_row=num_rows - 1,
+                        target_col=num_cols - 1,
+                        mc_runs=num_mc,
+                        temperature=temperature,
+                        vars=None,
+                    )
+
+            if skip_write_simulation:
+                print("[INFO] real_cell_mode 3/4：跳过 write 操作仿真")
+                w_delay, w_pavg, w_pstc, w_pdyn = 0.0, 0.0, 0.0, 0.0
+            else:
+                w_delay, w_pavg, w_pstc, w_pdyn = mc_testbench.run_mc_simulation(
+                    operation="write",
                     target_row=num_rows - 1,
                     target_col=num_cols - 1,
                     mc_runs=num_mc,
                     temperature=temperature,
                     vars=None,
                 )
-
-            w_delay, w_pavg, w_pstc, w_pdyn = mc_testbench.run_mc_simulation(
-                operation="write",
-                target_row=num_rows - 1,
-                target_col=num_cols - 1,
-                mc_runs=num_mc,
-                temperature=temperature,
-                vars=None,
-            )
 
             r_delay, r_pavg, r_pstc, r_pdyn = mc_testbench.run_mc_simulation(
                 operation="read",
@@ -421,8 +434,10 @@ def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=12
             else:
                 hold_snm_val = get_float_value(hold_snm)
                 read_snm_val = get_float_value(read_snm)
-                write_snm_val = get_float_value(write_snm)
-                min_snm = min(hold_snm_val, read_snm_val, write_snm_val)
+                # 模式 3/4 跳过了写仿真，write_snm 为 None
+                write_snm_val = get_float_value(write_snm) if write_snm is not None else None
+                snm_candidates = [v for v in (hold_snm_val, read_snm_val, write_snm_val) if v is not None]
+                min_snm = min(snm_candidates) if snm_candidates else None
 
             # 提取原始延迟标量
             raw_read_delay = float(r_delay[0]) if isinstance(r_delay, np.ndarray) else float(r_delay)

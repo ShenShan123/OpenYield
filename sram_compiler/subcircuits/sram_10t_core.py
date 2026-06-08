@@ -257,19 +257,47 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
                         f'BLB{col}',  # Connect to column bitline bar
                         f'WL{row}',  # Connect to row wordline
                     )
-        if self.real_cell_mode == 0:#对开启等效电路但非目标行列添加等效模型
+        if self.real_cell_mode != 0:#非全真实模式：对未实例化的单元添加等效电路
             print(f"[DEBUG] generating equivalent circuit for unused cells")
             self.add_equivalent_circuit()  # 添加等效电路
 
     def _normalize_real_cell_mode(self, mode):
+        # 与 OpenYield2.5 对齐：
+        #   0 = 全真实（所有 cell）
+        #   1 = 十字（目标行或目标列为真实，其余等效）
+        #   2 = 仅目标行真实
+        #   3 = 仅目标列真实
+        #   4 = 仅目标 cell 真实
+        # bool 兼容旧 use_equivalent: True→1(十字), False→0(全真实)
         if isinstance(mode, bool):
             return 1 if mode else 0
         mode = int(mode)
-        if mode not in {0, 1}:
-            raise ValueError(f"Invalid real_cell_mode: {mode}. Valid values are 0 (equivalent) or 1 (all real).")
+        if mode not in {0, 1, 2, 3, 4}:
+            raise ValueError(f"Invalid real_cell_mode: {mode}. Valid values are 0-4.")
         return mode
 
     def _should_instantiate_real_cell(self, row, col):
         if self.real_cell_mode == 0:
+            return True
+        if self.real_cell_mode == 1:
             return row == self.target_row or col == self.target_col
-        return True  # real_cell_mode == 1: all real cells
+        if self.real_cell_mode == 2:
+            return row == self.target_row
+        if self.real_cell_mode == 3:
+            return col == self.target_col
+        if self.real_cell_mode == 4:
+            return row == self.target_row and col == self.target_col
+        return False
+
+    def _is_unused_cell(self, row, col):
+        return not self._should_instantiate_real_cell(row, col)
+
+    def _count_unused_cells_in_row(self, row):
+        return sum(1 for col in range(self.num_cols) if self._is_unused_cell(row, col))
+
+    def _count_unused_cells_in_col(self, col):
+        return sum(1 for row in range(self.num_rows) if self._is_unused_cell(row, col))
+
+    def _count_total_unused_cells(self):
+        return sum(1 for row in range(self.num_rows) for col in range(self.num_cols)
+                   if self._is_unused_cell(row, col))
