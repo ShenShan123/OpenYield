@@ -130,6 +130,6 @@ if __name__ == "__main__":
     #     x2,
     #     yaml_path="global.yaml"
     # )
-    csv_path = "/home/majh/OpenYield/sim/20260125_013259_mc_6t/mc_read_16x8_rc0_tb.data.csv"
+    csv_path = "sim/mc_read_16x8_rc0_tb.data.csv"  # replace with actual sim output path
     y = summarize_from_csv(csv_path)
     print(y)

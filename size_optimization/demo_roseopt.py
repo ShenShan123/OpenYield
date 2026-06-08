@@ -34,10 +34,13 @@ sys.path.append(project_root)
 # 从exp_utils导入工具函数
 from size_optimization.exp_utils import (
     seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
+    CompositeSRAMParameterSpace,
     OptimizationLogger, save_pareto_front, save_best_result, plot_merit_history,
-    plot_pareto_frontier, update_pareto_front, save_optimization_history
+    plot_pareto_frontier, update_pareto_front, save_optimization_history,
+    get_default_normalized_vector, estimate_scaled_total_area,
+    get_composite_initial_params,
 )
-from utils import estimate_bitcell_area
+from size_optimization.borl_model.ppo import PPO
 
 # Set device
 # 设置设备
@@ -199,63 +202,6 @@ class SRAMCircuitEnv(gym.Env):
         return state.astype(np.float32), reward, done, False, {}
 
 
-# Simple PPO implementation to avoid import issues
-# 简单的PPO实现以避免导入问题
-class SimplePPO:
-    """
-    Simplified PPO implementation
-    简化的PPO实现
-    """
-    
-    def __init__(self, state_dim, action_dim, lr_actor=3e-4, lr_critic=1e-3, 
-                 gamma=0.99, K_epochs=10, eps_clip=0.2, hidden_dim=64):
-        """
-        Initialize PPO
-        初始化PPO
-        """
-        self.lr_actor = lr_actor
-        self.lr_critic = lr_critic
-        self.gamma = gamma
-        self.eps_clip = eps_clip
-        self.K_epochs = K_epochs
-        
-        # Create simple networks
-        # 创建简单网络
-        self.actor = torch.nn.Sequential(
-            torch.nn.Linear(state_dim, hidden_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_dim, hidden_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_dim, action_dim),
-            torch.nn.Tanh()
-        )
-        
-        self.critic = torch.nn.Sequential(
-            torch.nn.Linear(state_dim, hidden_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_dim, hidden_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_dim, 1)
-        )
-        
-        # Initialize optimizers
-        # 初始化优化器
-        self.optimizer_actor = torch.optim.Adam(self.actor.parameters(), lr=lr_actor)
-        self.optimizer_critic = torch.optim.Adam(self.critic.parameters(), lr=lr_critic)
-        
-    def select_action(self, state):
-        """Select action"""
-        with torch.no_grad():
-            action = self.actor(state)
-        return action.cpu().numpy()
-    
-    def update(self, states, actions, rewards):
-        """Update PPO networks"""
-        # Simplified update (placeholder)
-        # 简化的更新（占位符）
-        pass
-
-
 class SRAM_BORL:
     """
     SRAM Bayesian Optimization with Reinforcement Learning (RoSE-Opt)
@@ -279,23 +225,18 @@ class SRAM_BORL:
         # 创建保存目录
         Path(save_dir).mkdir(parents=True, exist_ok=True)
 
-        # Initialize PPO agent: Use simplified PPO
-        # 初始化PPO智能体 - 修复：使用简化的PPO
-        state_dim = env.observation_space.shape[0]
-        action_dim = env.action_space.shape[0]
-        
-        # FIXED: Use SimplePPO instead of imported PPO
-        # 修复：使用SimplePPO而不是导入的PPO
-        self.ppo = SimplePPO(
-            state_dim=state_dim, 
-            action_dim=action_dim, 
-            lr_actor=lr,  # FIXED: correct parameter name
-            lr_critic=lr * 0.3,
+        state_dim = parameter_space.bounds.shape[1]
+        self.ppo = PPO(
+            state_spec_dim=state_dim,
+            action_dim=3,
+            hidden_dim=hidden_dim,
+            lr=lr,
+            betas=betas,
             gamma=gamma,
             K_epochs=K_epochs,
-            eps_clip=eps_clip,
-            hidden_dim=hidden_dim
+            eps_clip=eps_clip
         )
+        self.rl_step_size = 0.05
 
         # Data storage
         # 数据存储
@@ -330,6 +271,10 @@ class SRAM_BORL:
                     initial_result['read']['power'],
                     initial_result['write']['power']
                 )
+                initial_max_delay = max(
+                    initial_result['read']['delay'],
+                    initial_result['write']['delay']
+                )
             else:
                 # Direct format: {'hold_snm': value}
                 initial_min_snm = min(
@@ -341,15 +286,14 @@ class SRAM_BORL:
                     abs(initial_result['read_power']),
                     abs(initial_result['write_power'])
                 )
+                initial_max_delay = max(
+                    initial_result['read_delay'],
+                    initial_result['write_delay']
+                )
             
-            initial_area = estimate_bitcell_area(
-                w_access=initial_params['pg_width'],
-                w_pd=initial_params['pd_width'],
-                w_pu=initial_params['pu_width'],
-                l_transistor=initial_params['length']
-            )
+            initial_area = estimate_scaled_total_area(initial_params)
             
-            self.initial_merit = np.log10(initial_min_snm / (initial_max_power * np.sqrt(initial_area)))
+            self.initial_merit = np.log10(initial_min_snm / (initial_max_power * np.sqrt(initial_area) * initial_max_delay))
             print(f"Initial Merit: {self.initial_merit:.6e}")
 
         # Normalizer for parameters
@@ -359,7 +303,7 @@ class SRAM_BORL:
         high_bounds = bounds[1].numpy()
         self.normalizer = Normalizer(low_bounds, high_bounds)
 
-    def _init_gp_model(self, n_initial_samples=20):
+    def _init_gp_model(self, n_initial_samples=40):
         """
         Initialize GP model with random sampling
         使用随机采样初始化GP模型
@@ -442,7 +386,7 @@ class SRAM_BORL:
             kernel=kernel,
             alpha=1e-6,
             normalize_y=False,
-            n_restarts_optimizer=5,
+            n_restarts_optimizer=10,
             random_state=42
         )
         gp.fit(X_train_normalized, Y_train_normalized)
@@ -479,9 +423,9 @@ class SRAM_BORL:
         # Track repeated suggestions
         # 跟踪重复建议
         recent_suggestions = []
-        max_history = 10
+        max_history = 20
         repeat_count = 0
-        max_repeat_allowed = 3
+        max_repeat_allowed = 2
 
         # Set task ID (1 indicates power optimization)
         # 设置任务ID（1表示功耗优化）
@@ -504,7 +448,7 @@ class SRAM_BORL:
 
                 # Expected improvement acquisition function
                 # 期望改进获取函数
-                def expected_improvement(X, Y_mean, Y_std, gp, xi=0.01):
+                def expected_improvement(X, Y_mean, Y_std, gp, xi=0.005):
                     Y_train_pred = np.array(self.Y_data)
                     if len(Y_train_pred) == 0:
                         return np.ones(X.shape[0])
@@ -531,10 +475,11 @@ class SRAM_BORL:
 
                 # Generate candidate points and select best
                 # 生成候选点并选择最佳
-                n_candidates = 1000
+                n_candidates = 5000
                 X_candidates = np.random.uniform(0, 1, size=(n_candidates, self.parameter_space.bounds.shape[1]))
-                
-                ei_values = expected_improvement(X_candidates, Y_mean, Y_std, gp)
+
+                ei_xi = max(1e-3, 0.1 / (1 + len(self.Y_data)))
+                ei_values = expected_improvement(X_candidates, Y_mean, Y_std, gp, xi=ei_xi)
                 best_idx = np.argmax(ei_values)
                 x_next_bo = X_candidates[best_idx]
 
@@ -542,7 +487,7 @@ class SRAM_BORL:
                 # 检查重复建议
                 is_repeat = False
                 for prev_x in recent_suggestions:
-                    if np.linalg.norm(x_next_bo - prev_x) < 0.05:
+                    if np.linalg.norm(x_next_bo - prev_x) < 0.03:
                         repeat_count += 1
                         is_repeat = True
                         break
@@ -568,9 +513,14 @@ class SRAM_BORL:
                 print(f"\n===== RoSE-Opt iteration {total_iterations + 1} =====")
                 print(f"\n===== RoSE-Opt迭代 {total_iterations + 1} =====")
 
+                rl_state = torch.tensor(x_next_bo, dtype=torch.float32).unsqueeze(0)
+                rl_action = self.ppo.policy_old.act(rl_state).squeeze(0).cpu().numpy()
+                rl_delta = np.where(rl_action == 0, -self.rl_step_size, np.where(rl_action == 2, self.rl_step_size, 0.0))
+                x_next = np.clip(x_next_bo + rl_delta[:x_next_bo.shape[0]], 0, 1)
+
                 # Convert to actual parameters
                 # 转换为实际参数
-                x_tensor = torch.tensor(x_next_bo, dtype=torch.float32)
+                x_tensor = torch.tensor(x_next, dtype=torch.float32)
                 params = self.parameter_space.convert_params(x_tensor)
 
                 print("BO suggested parameters:")
@@ -589,10 +539,14 @@ class SRAM_BORL:
 
                     # Store data
                     # 存储数据
-                    self.X_data.append(x_next_bo)
+                    self.X_data.append(x_next)
                     self.Y_data.append(merit)
                     self.constraint_data.append(constraint_values)
                     self.results_data.append(result)
+                    self.ppo.policy_old.memory.rewards.append(float(merit))
+                    self.ppo.policy_old.memory.is_terminals.append(True)
+                    if len(self.ppo.policy_old.memory.rewards) >= 8:
+                        self.ppo.update(self.ppo.policy_old.memory)
 
                     print(f"Merit: {merit:.6e}")
                     print(f"SNM: Hold={result['hold_snm']:.6f}, Read={result['read_snm']:.6f}, Write={result['write_snm']:.6f}")
@@ -622,6 +576,10 @@ class SRAM_BORL:
                 else:
                     print("Simulation failed!")
                     print("仿真失败！")
+                    self.ppo.policy_old.memory.rewards.append(-10.0)
+                    self.ppo.policy_old.memory.is_terminals.append(True)
+                    if len(self.ppo.policy_old.memory.rewards) >= 8:
+                        self.ppo.update(self.ppo.policy_old.memory)
 
                 total_iterations += 1
 
@@ -689,10 +647,15 @@ class SRAM_BORL:
 
 # Main function to run the RoSE-Opt algorithm for SRAM optimization
 # 运行RoSE-Opt算法进行SRAM优化的主函数 
-def main(config_path="config_sram.yaml"):  # 添加config_path参数
+def main(config_path="config_sram.yaml", problem=None, max_iter=400):  # 统一接口：接受 problem 与 max_iter
     """
     Main function to run RoSE-Opt optimization
     运行RoSE-Opt优化的主函数 
+
+    Args:
+        config_path: 配置文件路径（用于默认参数空间）
+        problem: 三元组 (param_space, eval_fn, extra)，与 experiment 阶段2接口一致
+        max_iter: 最大迭代次数（默认为400，若 experiment 传入则使用其值）
     """
     print("===== SRAM Optimization using RoSE-Opt Algorithm =====")
     print("===== 使用RoSE-Opt算法的SRAM优化 =====")
@@ -701,29 +664,34 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
     # 创建目录
     create_directories()
 
-    # Create parameter space - use modified parameter space class
-    # 创建参数空间 - 使用修改的参数空间类
-    parameter_space = ModifiedSRAMParameterSpace(config_path)  # 支持配置文件
+    # Resolve parameter space and evaluation backend
+    # 解析参数空间与评估后端
+    if problem is not None:
+        try:
+            parameter_space, eval_fn, _ = problem
+        except Exception:
+            # 兼容不规范的 problem 传参
+            parameter_space = CompositeSRAMParameterSpace(config_path)
+            eval_fn = evaluate_sram
+    else:
+        parameter_space = CompositeSRAMParameterSpace(config_path)
+        eval_fn = evaluate_sram
 
-    # Define initial parameters (same as in main.py)
-    # 定义初始参数（与main.py中相同）
-    initial_params = {
-        'nmos_model_name': 'NMOS_VTG',
-        'pmos_model_name': 'PMOS_VTG',
-        'pd_width': 0.205e-6,
-        'pu_width': 0.09e-6,
-        'pg_width': 0.135e-6,
-        'length': 50e-9,
-        'length_nm': 50
-    }
-    
+    # Define initial parameters (bitcell + peripheral circuits from YAML)
+    # 定义初始参数（从YAML获取bitcell + 外围电路参数）
+    initial_params = get_composite_initial_params()
+
     print("Running initial point simulation to get baseline performance...")
     print("运行初始点仿真以获得基准性能...")
-    
-    # Use evaluate_sram function to evaluate initial parameters
-    # 使用evaluate_sram函数评估初始参数
-    objectives, constraints, initial_result, success = evaluate_sram(initial_params)
-    
+
+    # Evaluate initial parameters using selected backend
+    # 使用选定评估后端评估初始参数
+    try:
+        objectives, constraints, initial_result, success = eval_fn(initial_params)
+    except TypeError:
+        # 某些评估器可能需要显式超时等命名参数，尝试无参调用失败时回退
+        objectives, constraints, initial_result, success = eval_fn(initial_params)
+
     if not success:
         print("Warning: Initial point simulation failed, using default values as initial point")
         print("警告：初始点仿真失败，使用默认值作为初始点")
@@ -747,28 +715,31 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
 
     # Create SRAM environment
     # 创建SRAM环境
-    env = SRAMCircuitEnv(parameter_space, max_steps=2)
+    # 增强：增加RL环境步数以允许更充分的策略探索
+    env = SRAMCircuitEnv(parameter_space, max_steps=5)
 
-    # Create optimizer and pass initial feasible point: use direct format
-    # 创建优化器并传递初始可行点 - 修复：使用直接格式
+    # Create optimizer and pass initial feasible point: use selected backend
+    # 创建优化器并传递初始可行点 - 与阶段2接口对齐
     optimizer = SRAM_BORL(
         env=env,
         parameter_space=parameter_space,
-        objective_function=evaluate_sram,
+        objective_function=eval_fn,
         save_dir='sim/opt/results',
-        hidden_dim=64,
-        lr=3e-4,  # FIXED: ensure lr is float
+        # 增强：加宽网络容量、适当降低学习率，增加更新轮次
+        hidden_dim=128,
+        lr=2e-4,
         betas=(0.9, 0.999),
-        gamma=0.99,
-        K_epochs=10,
+        gamma=0.995,
+        K_epochs=20,
         eps_clip=0.2,
-        initial_result=initial_result,  # Use direct format
+        initial_result=initial_result,
         initial_params=initial_params
     )
 
     # Run RoSE-Opt training
     # 运行RoSE-Opt训练
-    results = optimizer.train(num_iterations=5, debug_interval=2)
+    debug_interval = max(1, int(max_iter // 20))
+    results = optimizer.train(num_iterations=int(max_iter), debug_interval=debug_interval)
 
     # Print final results
     # 打印最终结果
@@ -785,6 +756,13 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
 
     print("\nOptimization completed!")
     print("\n优化完成！")
+
+    # 统一返回字段：增加 'fom' 与其他算法一致
+    if isinstance(results, dict) and ('fom' not in results):
+        try:
+            results['fom'] = results.get('merit', None)
+        except Exception:
+            pass
 
     return results  # 返回结果供总控文件使用
 

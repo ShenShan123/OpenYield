@@ -30,11 +30,11 @@ subcircuit:
       pmos_width:
         type: "continuous list"   # 参数类型：连续型列表 / Parameter type: continuous list
         names: ["pu"]           # PMOS device names
-        upper: [1.0e-6]         # 参数范围上界 
-        lower: [0.01e-6]        # 参数范围下界 
+        upper: [1.0e-6]         # 参数范围上界
+        lower: [4.5e-8]         # 参数范围下界 (min ~45nm, matching PMOS_VTL min width)
         default: [9e-8]           # 默认值：基准pu宽度 / Default value: base pd width
         description: "Pull-up transistor width / 上拉晶体管宽度"
-        other_default: 1.0e-9     # 其他PMOS名字不为'pu'时候的设置
+        other_default: 4.5e-8     # 其他PMOS名字不为'pu'时候的设置
         
       nmos_width:
         type: "continuous list"               # 参数类型：连续型 / Parameter type: continuous
@@ -43,7 +43,7 @@ subcircuit:
         lower: [4.5e-8, 6.75e-8]            # 参数范围下界
         default: [9.0e-8, 1.35e-7]            # 默认值
         description: "Pull-up, pull-down transistor width / 上拉晶体管宽度"
-        other_default: 1.0e-9     # 其他PMOS名字不为'pd' 或 'pg' 时候的设置
+        other_default: 4.5e-8     # 其他NMOS名字不为'pd' 或 'pg' 时候的设置
 
         
       length:

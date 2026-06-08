@@ -389,7 +389,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     
     def create_wl_driver(self, circuit: Circuit, target_row: int):  #创造字线驱动电路函数
         """Create wordline driver for the target/standby row"""
-        wl_config = self.sram_config.wordlinedriver    #从总config类里提取wordline部分参数
+        wl_config = self.sram_config.wordline_driver    #从总config类里提取wordline部分参数
         wldrv = WordlineDriverFactory(
             nmos_model=wl_config.nmos_model.value[0],
             pmos_model=wl_config.pmos_model.value[0],
@@ -592,16 +592,16 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     def create_write_periphery(self, circuit: Circuit, operation: str = 'write'):#创造写外围电路
         """Create write periphery circuitry, writing `1`s into a row,写驱动"""
         write_drv = WriteDriverFactory(
-            nmos_model=self.sram_config.writedriver.nmos_model.value,
-            pmos_model=self.sram_config.writedriver.pmos_model.value,
-            nmos_width=self.sram_config.writedriver.nmos_width.value,
-            pmos_width=self.sram_config.writedriver.pmos_width.value,
-            length=self.sram_config.writedriver.length.value,
+            nmos_model=self.sram_config.write_driver.nmos_model.value,
+            pmos_model=self.sram_config.write_driver.pmos_model.value,
+            nmos_width=self.sram_config.write_driver.nmos_width.value,
+            pmos_width=self.sram_config.write_driver.pmos_width.value,
+            length=self.sram_config.write_driver.length.value,
             w_rc=self.w_rc, 
             num_rows=self.num_rows,
             sweep_writedriver = self.sweep_writedriver,
-            pmos_modle_choices = self.sram_config.writedriver.pmos_model.choices,
-            nmos_modle_choices = self.sram_config.writedriver.nmos_model.choices,
+            pmos_modle_choices = self.sram_config.write_driver.pmos_model.choices,
+            nmos_modle_choices = self.sram_config.write_driver.nmos_model.choices,
             param_model_file =self.sim_path + '/param_sweep_models.data',
         ).create()
 
@@ -650,10 +650,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 pmos_model=self.sram_config.precharge.pmos_model.value,
                 pmos_width=self.sram_config.precharge.pmos_width.value,
                 length=self.sram_config.precharge.length.value,
-                w_rc=self.w_rc, 
+                w_rc=self.w_rc,
                 num_rows=self.num_rows,
-                sweep_precharge = self.sweep_precharge,
-                pmos_modle_choices = self.sram_config.precharge.pmos_model.choices
+                sweep_precharge=self.sweep_precharge,
+                pmos_modle_choices=self.sram_config.precharge.pmos_model.choices,
+                param_model_file=self.sim_path + '/param_sweep_models.data',
             ).create()
             circuit.subcircuit(prch)    #添加预充电电路到主电路
             self.prch_inst_prefix = f"X{prch.name}"
@@ -890,6 +891,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     # This function returns a Dict of MOS models
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                     q_init_val=self.q_init_val,
+                    global_config=self.sram_config.global_config,
+                    pi_res=self.pi_res,
+                    pi_cap=self.pi_cap,
                 ).create()
             else:
                 sbckt_array = Sram6TCoreFactory(
@@ -909,6 +913,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                     q_init_val=self.q_init_val,
+                    global_config=self.sram_config.global_config,
+                    pi_res=self.pi_res,
+                    pi_cap=self.pi_cap,
                 ).create()
         elif self.sram_cell_type == 'SRAM_10T_CELL':
             # Instantiate 10T SRAM array 根据是否使用 MC 创建 SRAM Core
@@ -934,6 +941,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     q_init_val=self.q_init_val,
                     # This function returns a Dict of MOS models
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
+                    global_config=self.sram_config.global_config,
                 ).create()
             else:
                 sbckt_array = Sram10TCoreFactory(
@@ -955,6 +963,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     nmos_choices = self.sram_config.sram_10t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                     q_init_val=self.q_init_val,
+                    global_config=self.sram_config.global_config,
                 ).create()
         else:
             raise ValueError(f"Unknown SRAM cell type: {self.sram_cell_type}")

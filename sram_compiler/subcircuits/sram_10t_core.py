@@ -170,8 +170,11 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
                  model_dict=None ,
                  w_rc=False,
                  target_row=0, target_col=0,
-                 use_equivalent=False,  
+                 use_equivalent=False,
                  q_init_val=0,
+                 global_config=None,
+                 pi_res=None,
+                 pi_cap=None,
                  ):
         #  disconnect=False, target_row=None, target_col=None):
 
@@ -203,6 +206,10 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
         self.use_equivalent = use_equivalent
         self.q_init_val = q_init_val
         self.model_dict = model_dict
+        self.global_config = global_config
+        from .base_subcircuit import BaseSubcircuit
+        self.pi_res = pi_res if pi_res is not None else BaseSubcircuit.DEFAULT_PI_RES
+        self.pi_cap = pi_cap if pi_cap is not None else BaseSubcircuit.DEFAULT_PI_CAP
 
         # Build the array
         self.build_array(num_rows, num_cols)        #构建阵列

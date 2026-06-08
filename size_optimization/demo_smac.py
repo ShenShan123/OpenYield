@@ -33,7 +33,9 @@ sys.path.append(project_root)
 # 从exp_utils导入工具函数
 from size_optimization.exp_utils import (
     seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
-    BaseOptimizer, get_default_initial_params, run_initial_evaluation
+    CompositeSRAMParameterSpace,
+    BaseOptimizer, get_default_initial_params, run_initial_evaluation,
+    get_default_normalized_vector, get_composite_initial_params,
 )
 
 
@@ -43,14 +45,17 @@ class SMACOptimizer(BaseOptimizer):
     SMAC优化器类
     """
     
-    def __init__(self, parameter_space, num_objectives=3, num_constraints=2, 
-                 initial_result=None, initial_params=None):
+    def __init__(self, parameter_space, num_objectives=4, num_constraints=2, 
+                 initial_result=None, initial_params=None, evaluate_backend=None):
         """
         Initialize SMAC optimizer
         初始化SMAC优化器
         """
         super().__init__(parameter_space, "SMAC", num_objectives, num_constraints, 
                          initial_result, initial_params)
+        # Optional external evaluation function
+        # 可选外部评估函数
+        self.evaluate_backend = evaluate_backend
 
         # Initialize configuration space
         # 初始化配置空间
@@ -93,7 +98,8 @@ class SMACOptimizer(BaseOptimizer):
         self.parameter_space.print_params(params)
         
         start_time = time.time()
-        objectives, constraints, result, success = evaluate_sram(params)
+        eval_func = self.evaluate_backend if self.evaluate_backend is not None else evaluate_sram
+        objectives, constraints, result, success = eval_func(params)
         end_time = time.time()
         print(f"评估用时: {end_time - start_time:.2f} 秒")
         
@@ -173,7 +179,7 @@ class SMACOptimizer(BaseOptimizer):
             }
 
 
-def main(config_path="config_sram.yaml"):
+def main(config_path="config_sram.yaml", problem=None, max_iter=None):
     """
     Main function to run SMAC optimization
     运行SMAC优化的主函数
@@ -187,18 +193,40 @@ def main(config_path="config_sram.yaml"):
 
     # Create parameter space - use modified parameter space class with config support
     # 创建参数空间 - 使用支持配置的修改参数空间类
-    parameter_space = ModifiedSRAMParameterSpace(config_path)
+    if problem is not None and isinstance(problem, (tuple, list)) and len(problem) >= 2:
+        parameter_space = problem[0]
+        external_eval_fn = problem[1]
+    else:
+        parameter_space = CompositeSRAMParameterSpace(config_path)
+        external_eval_fn = None
 
-    # Define initial parameters
-    # 定义初始参数
-    initial_params = get_default_initial_params()
+    # Define initial parameters (bitcell + peripheral circuits from YAML)
+    # 定义初始参数（从YAML获取bitcell + 外围电路参数）
+    initial_params = get_composite_initial_params()
     
     print("Running initial point simulation to get baseline performance...")
     print("运行初始点仿真以获得基准性能...")
     
     # Run initial evaluation
     # 运行初始评估
-    initial_result, initial_params = run_initial_evaluation(initial_params)
+    if external_eval_fn is None:
+        initial_result, initial_params = run_initial_evaluation(initial_params)
+    else:
+        # When external eval is provided, evaluate initial params using it
+        # 若提供外部评估函数，使用其评估初始参数
+        objectives, constraints, direct_result, success = external_eval_fn(initial_params)
+        # Convert to formatted result expected by BaseOptimizer
+        if success and direct_result:
+            formatted_result = {
+                'hold_snm': {'success': True, 'snm': direct_result['hold_snm']},
+                'read_snm': {'success': True, 'snm': direct_result['read_snm']},
+                'write_snm': {'success': True, 'snm': direct_result['write_snm']},
+                'read': {'success': True, 'delay': direct_result['read_delay'], 'power': abs(direct_result['read_power'])},
+                'write': {'success': True, 'delay': direct_result['write_delay'], 'power': abs(direct_result['write_power'])}
+            }
+            initial_result = formatted_result
+        else:
+            initial_result = None
     
     if initial_result:
         print(f"Initial point simulation successful!")
@@ -212,12 +240,14 @@ def main(config_path="config_sram.yaml"):
     optimizer = SMACOptimizer(
         parameter_space,
         initial_result=initial_result,
-        initial_params=initial_params
+        initial_params=initial_params,
+        evaluate_backend=external_eval_fn
     )
 
     # Run SMAC optimization
     # 运行SMAC优化
-    best_result = optimizer.run_optimization(max_iter=5)
+    _max_iter = max_iter if isinstance(max_iter, int) and max_iter > 0 else 5
+    best_result = optimizer.run_optimization(max_iter=_max_iter)
 
     # Output best results
     # 输出最佳结果

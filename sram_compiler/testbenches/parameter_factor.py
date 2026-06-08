@@ -481,16 +481,21 @@ class Sram6TCoreFactory:
                  nmos_choices=None,         # NMOS 模型列表
                  # --- Yield 模式专用 ---
                  model_dict=None,            # Mismatch 参数字典
-                 param_model_file=None,               
+                 param_model_file=None,
                  q_init_val=0,
+                 global_config=None,         # GlobalConfig — passed to core for equiv circuit
+                 pi_res=None,               # PI network resistance
+                 pi_cap=None,               # PI network capacitance
                  ):
-        
+
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.target_row = target_row
         self.target_col = target_col
-        
-        
+        self.global_config = global_config
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
+
         # 保存基础参数
         self.pd_nmos_model = pd_nmos_model
         self.pu_pmos_model = pu_pmos_model
@@ -573,6 +578,9 @@ class Sram6TCoreFactory:
             'target_col': self.target_col,
             'use_equivalent': self.use_equivalent,
             'q_init_val': self.q_init_val,
+            'global_config': self.global_config,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
         }
 
     def create(self):
@@ -1036,14 +1044,16 @@ class Sram10TCoreFactory:
                  # --- Yield 模式专用 ---
                  model_dict=None,            # Mismatch 参数字典
                  q_init_val=0,
-                 param_model_file=None
+                 param_model_file=None,
+                 global_config=None,         # GlobalConfig — for equiv circuit tester
                  ):
-        
+
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.target_row = target_row
         self.target_col = target_col
-        
+        self.global_config = global_config
+
         # 保存基础参数
         self.pd_nmos_model = pd_nmos_model
         self.pu_pmos_model = pu_pmos_model
@@ -1138,6 +1148,9 @@ class Sram10TCoreFactory:
             'target_col': self.target_col,
             'use_equivalent': self.use_equivalent,
             'q_init_val': self.q_init_val,
+            'global_config': self.global_config,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
         }
 
     def create(self):

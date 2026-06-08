@@ -15,23 +15,19 @@ import warnings
 from pathlib import Path
 import traceback
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 # Import path handling
 # 导入路径处理
 import sys
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 sys.path.append(project_root)
 
 # Import utilities from exp_utils
 # 从exp_utils导入工具函数
-from size_optimization.exp_utils import (
-    seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
-    OptimizationLogger, save_pareto_front, save_best_result, plot_merit_history,
-    plot_pareto_frontier, update_pareto_front, save_optimization_history
-)
-from utils import estimate_bitcell_area
+from size_optimization.exp_utils import seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace, CompositeSRAMParameterSpace, OptimizationLogger, save_pareto_front, save_best_result, plot_merit_history, plot_pareto_frontier, update_pareto_front, save_optimization_history, estimate_scaled_total_area, get_composite_initial_params
 
 
 def format_initial_result(result):
@@ -41,23 +37,15 @@ def format_initial_result(result):
     """
     if result is None:
         return None
-    
-    formatted_result = {
-        'hold_snm': {'success': True, 'snm': result['hold_snm']},
-        'read_snm': {'success': True, 'snm': result['read_snm']},
-        'write_snm': {'success': True, 'snm': result['write_snm']},
-        'read': {'success': True, 'delay': result['read_delay'], 
-                 'power': abs(result['read_power'])},
-        'write': {'success': True, 'delay': result['write_delay'], 
-                  'power': abs(result['write_power'])}
-    }
+
+    formatted_result = {"hold_snm": {"success": True, "snm": result["hold_snm"]}, "read_snm": {"success": True, "snm": result["read_snm"]}, "write_snm": {"success": True, "snm": result["write_snm"]}, "read": {"success": True, "delay": result["read_delay"], "power": abs(result["read_power"])}, "write": {"success": True, "delay": result["write_delay"], "power": abs(result["write_power"])}}
     return formatted_result
 
 
 # SA optimizer class
 # SA优化器类
 class SAOptimizer:
-    def __init__(self, parameter_space, num_objectives=3, num_constraints=2, initial_result=None, initial_params=None):
+    def __init__(self, parameter_space, num_objectives=4, num_constraints=2, initial_result=None, initial_params=None, evaluate_backend=None):
         """
         Initialize SA optimizer
         初始化SA优化器
@@ -65,8 +53,11 @@ class SAOptimizer:
         self.parameter_space = parameter_space
         self.bounds = parameter_space.bounds
         self.dim = self.bounds.shape[1]
-        self.num_objectives = num_objectives  
-        self.num_constraints = num_constraints  
+        self.num_objectives = num_objectives
+        self.num_constraints = num_constraints
+        # Optional external evaluation function (e.g., Stage 2)
+        # 可选的外部评估函数（例如第二阶段评估）
+        self.evaluate_backend = evaluate_backend
 
         # Record all evaluation results
         # 记录所有评估结果
@@ -86,45 +77,27 @@ class SAOptimizer:
         if initial_result:
             # Extract values from initial results: handle both formats
             # 从初始结果中提取值
-            if isinstance(initial_result.get('hold_snm'), dict):
+            if isinstance(initial_result.get("hold_snm"), dict):
                 # New format: {'hold_snm': {'snm': value}}
-                initial_min_snm = min(
-                    initial_result['hold_snm']['snm'],
-                    initial_result['read_snm']['snm'],
-                    initial_result['write_snm']['snm']
-                )
-                initial_max_power = max(
-                    initial_result['read']['power'],
-                    initial_result['write']['power']
-                )
+                initial_min_snm = min(initial_result["hold_snm"]["snm"], initial_result["read_snm"]["snm"], initial_result["write_snm"]["snm"])
+                initial_max_power = max(initial_result["read"]["power"], initial_result["write"]["power"])
+                initial_max_delay = max(initial_result["read"]["delay"], initial_result["write"]["delay"])
             else:
                 # Direct format: {'hold_snm': value}
-                initial_min_snm = min(
-                    initial_result['hold_snm'],
-                    initial_result['read_snm'],
-                    initial_result['write_snm']
-                )
-                initial_max_power = max(
-                    abs(initial_result['read_power']),
-                    abs(initial_result['write_power'])
-                )
-            
+                initial_min_snm = min(initial_result["hold_snm"], initial_result["read_snm"], initial_result["write_snm"])
+                initial_max_power = max(abs(initial_result["read_power"]), abs(initial_result["write_power"]))
+                initial_max_delay = max(initial_result["read_delay"], initial_result["write_delay"])
+
             # Calculate area using initial parameters
             # 使用初始参数计算面积
             if initial_params:
-                initial_area = estimate_bitcell_area(
-                    w_access=initial_params['pg_width'],
-                    w_pd=initial_params['pd_width'],
-                    w_pu=initial_params['pu_width'],
-                    l_transistor=initial_params['length']
-                )
-                
-                self.initial_merit = np.log10(initial_min_snm / (initial_max_power * np.sqrt(initial_area)))
+                initial_area = estimate_scaled_total_area(initial_params)
+                self.initial_merit = np.log10(initial_min_snm / (initial_max_power * np.sqrt(initial_area) * initial_max_delay))
                 print(f"Initial Merit: {self.initial_merit:.6e}")
 
         # Initialize Merit tracking state
         # 初始化Merit跟踪状态
-        self.best_merit = float('-inf')
+        self.best_merit = float("-inf")
         self.best_x = None
         self.best_result = None
 
@@ -156,12 +129,13 @@ class SAOptimizer:
 
         # Evaluate SRAM performance
         # 评估SRAM性能
-        objectives, constraints, result, success = evaluate_sram(params)
+        eval_func = self.evaluate_backend if self.evaluate_backend is not None else evaluate_sram
+        objectives, constraints, result, success = eval_func(params)
 
         # Calculate optimization objective: Merit = log10(min_snm / (max_power * (area**0.5)))
         # 计算优化目标：Merit = log10(min_snm / (max_power * (area**0.5)))
         if success and result:
-            merit = result['merit']
+            merit = result["merit"]
 
             # Return negative Merit, because SA is a minimization problem
             # 返回负Merit，因为SA是最小化问题
@@ -194,7 +168,7 @@ class SAOptimizer:
         print("Searching for valid initial point...")
         print("搜索有效的初始点...")
         best_init_x = None
-        best_init_merit = float('-inf')
+        best_init_merit = float("-inf")
         best_init_success = False
 
         # Try to find a good starting point (try at most 10 initial points)
@@ -213,7 +187,7 @@ class SAOptimizer:
             # If it's a successful simulation, check if it's the best initial point
             # 如果是成功的仿真，检查是否为最佳初始点
             if success and result:
-                init_merit = result['merit']
+                init_merit = result["merit"]
                 if init_merit > best_init_merit:
                     best_init_x = init_x.copy()
                     best_init_merit = init_merit
@@ -268,7 +242,8 @@ class SAOptimizer:
             self.parameter_space.print_params(params)
 
             start_time = time.time()
-            objectives, constraints, result, success = evaluate_sram(params)
+            eval_func = self.evaluate_backend if self.evaluate_backend is not None else evaluate_sram
+            objectives, constraints, result, success = eval_func(params)
             end_time = time.time()
             print(f"Evaluation time: {end_time - start_time:.2f} seconds")
             print(f"评估用时: {end_time - start_time:.2f} 秒")
@@ -282,8 +257,8 @@ class SAOptimizer:
             accepted = False
 
             if success and result:
-                new_merit = result['merit']
-                current_merit = self.best_merit if self.best_merit != float('-inf') else 0.0
+                new_merit = result["merit"]
+                current_merit = self.best_merit if self.best_merit != float("-inf") else 0.0
 
                 print(f"New solution Merit: {new_merit:.6e}")
                 print(f"新解Merit: {new_merit:.6e}")
@@ -301,7 +276,7 @@ class SAOptimizer:
                 else:
                     # Accept worse solution with probability
                     # 以一定概率接受较差的解
-                    delta = (current_merit - new_merit)  # Energy difference (Merit difference)
+                    delta = current_merit - new_merit  # Energy difference (Merit difference)
                     if T > 0:
                         prob = np.exp(-delta / T)
                         if np.random.random() < prob:
@@ -347,24 +322,14 @@ class SAOptimizer:
 
         print("\n===== SA optimization completed =====")
         print("\n===== SA优化完成 =====")
-        
+
         # Return best result
         # 返回最佳结果
-        if self.best_merit != float('-inf'):
+        if self.best_merit != float("-inf"):
             best_params = self.parameter_space.convert_params(torch.tensor(self.best_x, dtype=torch.float32))
-            return {
-                'params': best_params,
-                'merit': self.best_merit,
-                'result': self.best_result,
-                'iteration': max_iter
-            }
+            return {"params": best_params, "merit": self.best_merit, "result": self.best_result, "iteration": max_iter}
         else:
-            return {
-                'params': None,
-                'merit': None,
-                'result': None,
-                'iteration': -1
-            }
+            return {"params": None, "merit": None, "result": None, "iteration": -1}
 
     def observe(self, x, objectives, constraints, result, success, iteration, opt_type="SA"):
         """
@@ -380,7 +345,7 @@ class SAOptimizer:
         self.all_success.append(success)
 
         if success and result:
-            merit = result['merit']
+            merit = result["merit"]
             self.all_merit.append(merit)
 
             # Update best result
@@ -392,12 +357,12 @@ class SAOptimizer:
 
         # Record history
         # 记录历史
-        self.best_history.append(self.best_merit if self.best_merit != float('-inf') else float('-inf'))
+        self.best_history.append(self.best_merit if self.best_merit != float("-inf") else float("-inf"))
 
 
 # Main function
 # 主函数
-def main(config_path="config_sram.yaml"):
+def main(config_path="config_sram.yaml", problem=None, max_iter=None):
     """
     Main function to run SA optimization
     运行SA优化的主函数
@@ -409,43 +374,40 @@ def main(config_path="config_sram.yaml"):
     # 创建目录
     create_directories()
 
-    # Create parameter space - use modified parameter space class
-    # 创建参数空间 - 使用修改的参数空间类
-    parameter_space = ModifiedSRAMParameterSpace(config_path)  # 支持配置文件
+    # Create parameter space
+    # 创建参数空间
+    if problem is not None and isinstance(problem, (tuple, list)) and len(problem) >= 2:
+        parameter_space = problem[0]
+        external_eval_fn = problem[1]
+    else:
+        parameter_space = CompositeSRAMParameterSpace(config_path)  # 支持配置文件
+        external_eval_fn = None
 
-    # Define initial parameters (same as in main.py)
-    # 定义初始参数（与main.py中相同）
-    initial_params = {
-        'nmos_model_name': 'NMOS_VTG',
-        'pmos_model_name': 'PMOS_VTG',
-        'pd_width': 0.205e-6,
-        'pu_width': 0.09e-6,
-        'pg_width': 0.135e-6,
-        'length': 50e-9,
-        'length_nm': 50
-    }
-    
+    # Define initial parameters (bitcell + peripheral circuits from YAML)
+    # 定义初始参数（从YAML获取bitcell + 外围电路参数）
+    initial_params = get_composite_initial_params()
+
     print("Running initial point simulation to get baseline performance...")
     print("运行初始点仿真以获得基准性能...")
-    
-    # Use evaluate_sram function to evaluate initial parameters
-    # 使用evaluate_sram函数评估初始参数
-    objectives, constraints, initial_result, success = evaluate_sram(initial_params)
-    
+
+    # Evaluate initial parameters
+    # 评估初始参数
+    eval_func = external_eval_fn if external_eval_fn is not None else evaluate_sram
+    try:
+        objectives, constraints, initial_result, success = eval_func(initial_params)
+    except TypeError as e:
+        # 兼容外部评估函数签名为 (params, timeout=None) 的情况
+        try:
+            objectives, constraints, initial_result, success = eval_func(initial_params, timeout=None)
+        except Exception:
+            raise
+
     if not success:
         print("Warning: Initial point simulation failed, using default values as initial point")
         print("警告：初始点仿真失败，使用默认值作为初始点")
         # Use default values as fallback
         # 使用默认值作为后备
-        initial_result = {
-            'hold_snm': 0.30173446708423357,
-            'read_snm': 0.12591724230394877,
-            'write_snm': 0.3732610863628419,
-            'read_delay': 2.0883543988703797e-10,
-            'read_power': 4.024476625792127e-05,
-            'write_delay': 6.086260190977158e-11,
-            'write_power': 3.975272388991992e-05
-        }
+        initial_result = {"hold_snm": 0.30173446708423357, "read_snm": 0.12591724230394877, "write_snm": 0.3732610863628419, "read_delay": 2.0883543988703797e-10, "read_power": 4.024476625792127e-05, "write_delay": 6.086260190977158e-11, "write_power": 3.975272388991992e-05}
     else:
         print(f"Initial point simulation successful!")
         print(f"初始点仿真成功！")
@@ -455,27 +417,26 @@ def main(config_path="config_sram.yaml"):
 
     # Create SA optimizer, pass initial parameters and results
     # 创建SA优化器，传递初始参数和结果
-    optimizer = SAOptimizer(
-        parameter_space, 
-        initial_result=initial_result,  # Pass direct format
-        initial_params=initial_params
-    )
+    optimizer = SAOptimizer(parameter_space, initial_result=initial_result, initial_params=initial_params, evaluate_backend=external_eval_fn)  # Pass direct format
 
     # Run SA optimization
     # 运行SA优化
-    best_result = optimizer.run_optimization(max_iter=5, T_max=100, T_min=1e-3)
+    # Use provided max_iter if available
+    # 若提供了 max_iter 则使用该值
+    _max_iter = max_iter if isinstance(max_iter, int) and max_iter > 0 else 5
+    best_result = optimizer.run_optimization(max_iter=_max_iter, T_max=100, T_min=1e-3)
 
     # Output best results
     # 输出最佳结果
     print("\n===== SA Optimization Best Results =====")
     print("\n===== SA优化最佳结果 =====")
-    if best_result['params'] is not None:
+    if best_result["params"] is not None:
         print(f"Best Merit: {best_result['merit']:.6e}")
         print(f"Iteration count: {best_result['iteration']}")
         print("Best parameters:")
         print("最佳参数:")
-        parameter_space.print_params(best_result['params'])
-        if best_result['result']:
+        parameter_space.print_params(best_result["params"])
+        if best_result["result"]:
             print(f"Min SNM: {best_result['result']['min_snm']:.6f}")
             print(f"Max power: {best_result['result']['max_power']:.6e}")
             print(f"Area: {best_result['result']['area']*1e12:.2f} µm²")

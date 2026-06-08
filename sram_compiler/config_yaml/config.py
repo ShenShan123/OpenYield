@@ -1,6 +1,16 @@
+import os
 import yaml
 from typing import List, Dict, Union, Any, Optional
-#from parameters import ConfigLoader
+
+# Project root: two directories up from this file (sram_compiler/config_yaml -> sram_compiler -> project root)
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def _abs_path(p: str) -> str:
+    """Convert a possibly-relative PDK path to an absolute path."""
+    if p and not os.path.isabs(p):
+        return os.path.join(_PROJECT_ROOT, p)
+    return p
 
 
 class AttrDict:
@@ -36,11 +46,11 @@ class GlobalConfig:
         self.monte_carlo_runs = config_data.get("monte_carlo_runs", 1)
         self.choose_columnmux = config_data.get("choose_columnmux", False)
         self.timeout = config_data.get("timeout", 120)
-        self.pdk_path_TT = config_data.get("pdk_path_TT", "tran_models/models_TT.spice")
-        self.pdk_path_FF = config_data.get("pdk_path_FF", "tran_models/models_FF.spice")
-        self.pdk_path_SS = config_data.get("pdk_path_SS", "tran_models/models_SS.spice")
-        self.pdk_path_FS = config_data.get("pdk_path_FS", "tran_models/models_FS.spice")
-        self.pdk_path_SF = config_data.get("pdk_path_SF", "tran_models/models_SF.spice")
+        self.pdk_path_TT = _abs_path(config_data.get("pdk_path_TT", "tran_models/models_TT.spice"))
+        self.pdk_path_FF = _abs_path(config_data.get("pdk_path_FF", "tran_models/models_FF.spice"))
+        self.pdk_path_SS = _abs_path(config_data.get("pdk_path_SS", "tran_models/models_SS.spice"))
+        self.pdk_path_FS = _abs_path(config_data.get("pdk_path_FS", "tran_models/models_FS.spice"))
+        self.pdk_path_SF = _abs_path(config_data.get("pdk_path_SF", "tran_models/models_SF.spice"))
         # 将嵌套字典转换为支持点号访问的对象
         self.evaluator = AttrDict(config_data.get("evaluator", {}))
         self.simulator = AttrDict(config_data.get("simulator", {}))
@@ -183,12 +193,24 @@ class Parameter:
         self.param_type = param_type
         self.instance_names = instance_names
         self.description = description
-        self.value = value
-        self.value_sweep = value_sweep
-        self.upper = upper
-        self.lower = lower
+        self.value = self._coerce_numeric_like(value)
+        self.value_sweep = self._coerce_numeric_like(value_sweep)
+        self.upper = self._coerce_numeric_like(upper)
+        self.lower = self._coerce_numeric_like(lower)
         self.choices = choices
         self._validate_types()
+
+    @staticmethod
+    def _coerce_numeric_like(value: Any) -> Any:
+        """Convert numeric-looking YAML strings like '9e-8' into floats."""
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return value
+        if isinstance(value, list):
+            return [Parameter._coerce_numeric_like(item) for item in value]
+        return value
 
     def _validate_types(self):
         """验证参数类型一致性"""
@@ -350,14 +372,21 @@ class SRAM_CONFIG:
 
         # 将加载的配置分配给各个属性
         self.sram_6t_cell = loader.get_config("SRAM_6T_CELL")
-        self.sram_10t_cell = loader.get_config("SRAM_10T_CELL")
-        self.wordlinedriver = loader.get_config("WORDLINEDRIVER")
+        try:
+            self.sram_10t_cell = loader.get_config("SRAM_10T_CELL")
+        except KeyError:
+            self.sram_10t_cell = None
+        self.wordline_driver = loader.get_config("WORDLINEDRIVER")
         self.precharge = loader.get_config("PRECHARGE")
-        self.columnmux = loader.get_config("COLUMNMUX")
+        self.column_mux = loader.get_config("COLUMNMUX")
         self.senseamp = loader.get_config("SENSEAMP")
-        self.writedriver = loader.get_config("WRITEDRIVER")
+        self.write_driver = loader.get_config("WRITEDRIVER")
         self.decoder = loader.get_config("DECODER")
-        
+
+        # Backward-compatible aliases
+        self.wordlinedriver = self.wordline_driver
+        self.columnmux = self.column_mux
+        self.writedriver = self.write_driver
 
         print("\n所有配置加载完成!")
 

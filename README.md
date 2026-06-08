@@ -14,196 +14,268 @@ This enhanced level of detail enables more realistic and reliable yield analysis
 * **Monte Carlo Simulation Support:**
     * Built-in Monte Carlo simulations within Xyce.
     * Support for user-defined Monte Carlo simulations, allowing for custom process parameter generation.
+* **SRAM Cell Types:** Supports 6T and 10T SRAM cells.
+* **Equivalent Circuit Modeling:** Fast approximate equivalent circuits for unused SRAM cells (5-capacitor parasitic model: `c_bl`, `c_blb`, `c_wl`, `c_wl_bl`, `c_wl_blb`) to speed up large-array simulation.
 * **Performance Metrics Analysis:** Evaluates critical SRAM performance metrics:
-    * Hold Static Noise Margin (SNM)
-    * Read Static Noise Margin (SNM)
-    * Write Static Noise Margin (SNM)
-    * Read Delay
-    * Write Delay
+    * Hold / Read / Write Static Noise Margin (SNM)
+    * Read and Write Delay
+    * Static and Dynamic Power
+* **SRAM Sizing Optimization:** Integrated two-stage optimization for transistor sizing and architecture configuration.
 * **Output Parsing and Waveform Plotting:** Includes parsers to extract simulation results and tools to visualize signal waveforms.
-* **Extensible Design:** The project is under active development with plans to integrate various yield analysis and sizing optimization algorithms.
 
 ![](img/openyield_all-overall.drawio.png)
 
 ## Dependencies
+
 * **[FreePDK45](https://eda.ncsu.edu/freepdk/freepdk45/):** Required by SRAM circuit generator and Xyce simulator.
 
-* **[PySpice](https://pyspice.fabrice-salvaire.fr/releases/v1.4/overview.html):** Required by SRAM circuit generator. Install using pip:
+* **[PySpice](https://pyspice.fabrice-salvaire.fr/releases/v1.4/overview.html):** Required by SRAM circuit generator:
 
     ```bash
     pip install PySpice
     ```
-    
+
 * **[Xyce](https://xyce.sandia.gov/about-xyce/):** A SPICE simulator for fast simulation. Install using conda through vlsida channel (built for [OpenRAM](https://github.com/VLSIDA/OpenRAM.git)):
 
     ```bash
     conda install -q -y -c vlsida-eda trilinos
     conda install -q -y -c vlsida-eda xyce
     ```
-    For building your own Xyce please refers to this [guide](https://xyce.sandia.gov/documentation-tutorials/building-guide/)
+    For building your own Xyce please refer to this [guide](https://xyce.sandia.gov/documentation-tutorials/building-guide/)
+
+* **Python packages for optimization** (install via pip):
+
+    ```bash
+    pip install numpy scipy matplotlib pandas torch botorch gpytorch smac
+    ```
 
 ## Usage Examples
 
-### 0.  Conda Environment  Creation
-create the conda environment from our `yml` file:
+### 0. Conda Environment Creation
+
+Create the conda environment from the `yml` file:
 ```bash
 conda env create -f environment.yml
-```
-If you success, then activate the env
-```bash
 conda activate openyield
 ```
-otherwise, check the environment and update it
+
+Or update an existing environment:
 ```bash
 conda env update -f environment.yml
 ```
-### 1. sram circuit generator 
-The generation modules of each sub-circuit are located at (sram_compiler/subcircuits);
 
-The simulation code is located at (sram_compiler/testbenches);
+### 1. SRAM Circuit Generator
 
-The header file for circuit generation and simulation is main_sram.py;
-#### 0.  Using the `Testbench` Class
-Define some  related parameters.
-The modifications of the number of rows num, the number of columns col, the temperature temp, and the power supply voltage vdd are all in global.config.
+The generation modules of each sub-circuit are located in `sram_compiler/subcircuits/`.
 
-The w and l values and types of each transistor are all in the yaml files of each sub-circuit
+The simulation code is in `sram_compiler/testbenches/`.
+
+Circuit and simulation parameters are configured through YAML files in `sram_compiler/config_yaml/`.
+
+The main simulation entry point is `main_sram.py`.
+
+#### Configuration via YAML
+
+Key parameters in `sram_compiler/config_yaml/global.yaml`:
+```yaml
+vdd: 1.0            # Supply voltage (V)
+temperature: 27     # Temperature (Celsius)
+num_rows: 16        # Number of SRAM rows
+num_cols: 16        # Number of SRAM columns
+monte_carlo_runs: 2 # Monte Carlo simulation runs
+corner: TT          # Process corner (TT/FF/SS/FS/SF)
+```
+
+Transistor widths and models for each cell type are in:
+- `sram_compiler/config_yaml/sram_6t_cell.yaml`
+- `sram_compiler/config_yaml/sram_10t_cell.yaml`
+- `sram_compiler/config_yaml/precharge.yaml`, `wordline_driver.yaml`, etc.
+
+#### Running a Simulation
+
+```bash
+python main_sram.py
+```
+
+Or programmatically:
 ```python
-# your pdk_path is `'tran_models/models_TT.spice'` by default 
-pdk_path = 'tran_models/models_TT.spice' 
-vdd: 1.0                          #  Supply voltage (V)
-temperature: 27                   #  Temperature (Celsius)
-num_rows: 8                      #  Number of SRAM rows
-num_cols: 4                       #  Number of SRAM columns
-monte_carlo_runs: 2               #  Monte Carlo simulation runs
-```
+from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from config import SRAM_CONFIG
+from PySpice.Unit import u_Ohm, u_pF
 
-The `Sram6TCoreMcTestbench` class in `sram_compiler/testbenches/sram_6t_core_MC_testbench.py` facilitates Monte Carlo simulations of the SRAM core. Here's a basic example of how to instantiate and use it:
-
-```python
-from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
-
-# Create an instance of the testbench
- mc_testbench = Sram6TCoreMcTestbench(
-        sram_config,
-        w_rc=True, # Whether add RC to nets
-        pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-        vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
-        custom_mc=False, # Use your own process params?
-        param_sweep=False,
-        sweep_precharge=False,
-        sweep_senseamp=False,
-        sweep_wordlinedriver=False,
-        sweep_columnmux=False,
-        sweep_writedriver=False,
-        sweep_decoder=False,
-        coner='TT',#or FF or SS or FS or SF
-        q_init_val=0, sim_path=sim_path,
-)
-```
-Instantiate the simulation class.
-
-w_rc indicates whether an rc network is added during simulation, and pi_res and pi_cap represent the values of rc.
-
-vth_std represents the percentage change in process parameters.
-
-"custom_mc" indicates whether to use one's own Monka simulation parameters.
-
-The Sweep-related interface indicates whether parameter scanning is performed on the corresponding sub-circuit. If not, that is, the sweep-related variable is False, the basic parameters of the transistor are derived from the yaml file of each sub-circuit (sram_compiler/config_yaml).
-
-If parameter scanning is required, then enter each sub-circuit in (sram_compiler/param_sweep_data).Add several lines of parameters in the csv file.
-
-"Coner" represents the process Angle.
-
-
-
-#### 2. Using the `run_mc_simulation` Method
-The `run_mc_simulation` method within the `SRAM_6T_Array_MC_Testbench` class executes Monte Carlo simulations.  Here's an example demonstrating its usage:
-
-```python 
-# Continue with instantiation of Sram6TCoreMcTestbench
-# Define the number of Monte Carlo samples
-num_samples = 10
-
-# Run the Monte Carlo simulation
-# For using DC analysis, operation can be 'write_snm' 'hold_snm' 'read_snm'
-read_snm = mc_testbench.run_mc_simulation(
-    operation='write_snm', 
-    target_row=num_rows-1, target_col=num_cols-1, 
-    mc_runs=num_mc, vars=None, # Input your data table
+sram_config = SRAM_CONFIG()
+sram_config.load_all_configs(
+    global_file="sram_compiler/config_yaml/global.yaml",
+    circuit_configs={
+        "SRAM_6T_CELL": "sram_compiler/config_yaml/sram_6t_cell.yaml",
+        "WORDLINEDRIVER": "sram_compiler/config_yaml/wordline_driver.yaml",
+        "PRECHARGE": "sram_compiler/config_yaml/precharge.yaml",
+        "COLUMNMUX": "sram_compiler/config_yaml/mux.yaml",
+        "SENSEAMP": "sram_compiler/config_yaml/sa.yaml",
+        "WRITEDRIVER": "sram_compiler/config_yaml/write_driver.yaml",
+        "DECODER": "sram_compiler/config_yaml/decoder.yaml",
+    }
 )
 
-# For using TRAN analysis, operation can be 'write' or 'read'
-w_delay, w_pavg = mc_testbench.run_mc_simulation(
-    operation='write', 
-    target_row=num_rows-1, target_col=num_cols-1, 
-    mc_runs=num_mc, temperature=temperature,vars=None, # Input your data table
+mc_testbench = Sram6TCoreMcTestbench(
+    sram_config,
+    sram_cell_type="SRAM_6T_CELL",  # or "SRAM_10T_CELL"
+    w_rc=True,
+    pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+    vth_std=0.05,
+    mc=True,
+    use_equivalent=True,  # use equivalent circuit for unused cells
+    corner='TT',
+    sim_path='sim/',
+)
+
+# Transient analysis: 'write', 'read', or 'read&write'
+delay, pavg, pstc, pdyn = mc_testbench.run_mc_simulation(
+    operation='write',
+    target_row=15, target_col=15,
+    mc_runs=10,
+    temperature=27,
+)
+
+# DC analysis: 'write_snm', 'hold_snm', 'read_snm'
+snm = mc_testbench.run_mc_simulation(
+    operation='read_snm',
+    target_row=15, target_col=15,
+    mc_runs=10,
+    temperature=27,
 )
 ```
-Optional TRAN analysis or DC analysis is available. The specific operation options can be adjusted to obtain the desired circuit network table and simulation results.
 
-#### 3.results
-The results of each run are in the sim/, including netlist files, waveform diagrams, timing and power consumption results. By entering the.sp network meter, you can view the specific network meter and directly modify it. When cd enters this folder, the Xyce netlist name can be used to simulate the netlist independently.
+Simulation outputs (netlists, waveforms, results) are saved to the `sim_path` directory.
 
-### 3. Using the Optimization Algorithms
+### 2. Equivalent Circuit Modeling
 
-OpenYield includes integrated SRAM circuit optimization algorithms that can be accessed after running Monte Carlo simulations.
+For large arrays, unused SRAM cells can be replaced with a compact 5-capacitor equivalent circuit to dramatically reduce simulation time.
+
+Enable with `use_equivalent=True` when creating the testbench (shown above).
+
+To analyze and characterize the equivalent model for different array sizes:
+
+```bash
+python equivalent_modeling/main_sram.py
+```
+
+This compares simulation results with and without the equivalent model across different array configurations. See [`equivalent_modeling/EQUIVALENT_CIRCUIT_ANALYSIS.md`](equivalent_modeling/EQUIVALENT_CIRCUIT_ANALYSIS.md) for a detailed explanation of the model.
+
+### 3. SRAM Sizing Optimization
+
+OpenYield includes a suite of optimization algorithms for SRAM transistor sizing and architecture configuration. All algorithms share a common interface via `size_optimization/exp_utils.py`.
 
 #### Available Algorithms
 
-* **PSO** - Particle Swarm Optimization
-* **SA** - Simulated Annealing  
-* **CBO** - Constrained Bayesian Optimization
-* **RoSE-Opt** - Reinforcement Learning Enhanced Bayesian Optimization
-* **SMAC** - Sequential Model-based Algorithm Configuration
+| Algorithm | Script | Description |
+|-----------|--------|-------------|
+| SA | `demo_sa.py` | Simulated Annealing |
+| PSO | `demo_pso.py` | Particle Swarm Optimization |
+| CBO | `demo_cbo.py` | Constrained Bayesian Optimization |
+| RoSE-Opt | `demo_roseopt.py` | Reinforcement Learning Enhanced BO |
+| CMA-ES | `demo_cmaes.py` | Covariance Matrix Adaptation Evolution Strategy |
+| SMAC | `demo_smac.py` | Sequential Model-based Algorithm Configuration |
+| NSGA-II | `demo_nsgaii.py` | Multi-Objective Genetic Algorithm |
+| MOEAD | `demo_moead.py` | Multi-Objective Evolutionary Algorithm based on Decomposition |
+| MOBO | `demo_mobo.py` | Multi-Objective Bayesian Optimization |
+| CPN | `demo_cpn.py` | TabPFN-based Bayesian Optimization (requires `tabpfn`) |
+| tSS-BO | `demo_tssbo.py` | Truncated Subspace Sampling BO (requires separate tSS-BO repo) |
+| Random | `demo_random.py` | Random Search (baseline) |
 
+#### Running an Optimization
 
+```bash
+cd /path/to/OpenYield
+python size_optimization/demo_sa.py        # Simulated Annealing
+python size_optimization/demo_pso.py       # PSO
+python size_optimization/demo_cbo.py       # Constrained BO
+```
 
-### 4. Using the SRAM Yield Estimation Alogrithms
+#### Two-Stage Optimization (Architecture + Sizing)
 
-OpenYield provides integrated SRAM yield estimation algorithms based on Monte Carlo and advanced importance sampling techniques. These algorithms help quantify failure probability under process variations with high efficiency and accuracy.
+For joint architecture and transistor sizing optimization:
+
+```bash
+python size_optimization/experiment.py
+```
+
+This runs a two-stage flow:
+1. Stage 1 (SMAC): Search over architecture configurations (rows, cols, arrays).
+2. Stage 2: Optimize transistor sizing for the best architecture candidates.
+
+#### Optimization Parameter Space
+
+The parameter space is defined in `size_optimization/exp_utils.py`:
+- **`ModifiedSRAMParameterSpace`**: 7-dimensional bitcell transistor sizing space.
+- **`CompositeSRAMParameterSpace`**: 24-dimensional joint space (bitcell + peripheral circuits).
+
+#### Multi-Seed Result Visualization
+
+To plot convergence curves with standard deviation across multiple seeds, use the scripts in `size_optimization/guidance/`:
+
+```bash
+python size_optimization/guidance/plot_with_std.py
+```
+
+See [`size_optimization/guidance/README_multi_seed.md`](size_optimization/guidance/README_multi_seed.md) for detailed instructions.
+
+### 4. SRAM Yield Estimation Algorithms
+
+OpenYield provides integrated SRAM yield estimation algorithms based on Monte Carlo and advanced importance sampling techniques.
 
 #### Available Algorithms
-- **MC** ：Monte Carlo
-- **MNIS** ： Mean-shifted Importance Sampling
-- **ACS** : Adaptive Compressed Sampling
-- **AIS** : Adaptive Importance Sampling
+- **MC**: Monte Carlo
+- **MNIS**: Mean-shifted Importance Sampling
+- **ACS**: Adaptive Compressed Sampling
+- **AIS**: Adaptive Importance Sampling
 - **HSCS**: High-dimensional Sparse Compressed Sampling
 
-#### Usage
-
-Run the main script which includes the optimization module:
-
-```python
-python main2.py
-```
-
-After the Monte Carlo simulation completes, you'll be prompted to select optimization algorithms:
+## Project Structure
 
 ```
-Select optimization algorithm(s) to run:
-  Enter number(s) separated by commas (e.g., 1,3,5)
-  Enter 'all' to run all algorithms
-  Enter 'none' to skip optimization
+OpenYield/
+├── main_sram.py                  # Main simulation entry point
+├── config.py                     # Centralized YAML config loader
+├── utils.py                      # Area estimation utilities
+├── environment.yml               # Conda environment specification
+├── sram_compiler/
+│   ├── config_yaml/              # YAML configuration files for all circuits
+│   ├── subcircuits/              # Circuit generation modules (6T, 10T, peripherals)
+│   └── testbenches/              # Simulation testbench classes
+├── size_optimization/
+│   ├── exp_utils.py              # Shared optimization utilities and parameter spaces
+│   ├── experiment.py             # Two-stage optimization driver
+│   ├── demo_sa.py                # Simulated Annealing
+│   ├── demo_pso.py               # Particle Swarm Optimization
+│   ├── demo_cbo.py               # Constrained Bayesian Optimization
+│   ├── demo_roseopt.py           # RoSE-Opt
+│   ├── demo_cmaes.py             # CMA-ES
+│   ├── demo_smac.py              # SMAC
+│   ├── demo_nsgaii.py            # NSGA-II
+│   ├── demo_moead.py             # MOEAD
+│   ├── demo_mobo.py              # Multi-Objective BO
+│   ├── demo_cpn.py               # CPN (TabPFN-based BO)
+│   ├── demo_tssbo.py             # tSS-BO
+│   ├── demo_random.py            # Random search baseline
+│   ├── NSGA-II/                  # NSGA-II implementation
+│   ├── MOBO/                     # MOBO implementation
+│   ├── moead/                    # MOEAD implementation
+│   └── guidance/                 # Multi-seed experiment scripts and plotting
+├── equivalent_modeling/
+│   ├── main_sram.py              # Equivalent circuit analysis script
+│   └── EQUIVALENT_CIRCUIT_ANALYSIS.md
+├── tran_models/                  # FreePDK45 transistor model files
+└── yield_estimation/             # Yield estimation algorithms
 ```
 
-#### Output
+## Important Notes
 
-Results are saved in:
-* `sim/opt/results/` - Optimization results and statistics
-* `sim/opt/plots/` - Convergence plots and visualizations
-
-## Important Notes:
-
-* Ensure that you have Xyce installed and configured correctly. OpenYield assumes Xyce is available in your system's PATH.
-* The netlist parameter should point to the SPICE netlist file describing your SRAM cell.
-* The structure of the mc_results will depend on the specific analyses performed in the Monte Carlo simulation. You'll need to inspect the output to understand how to access the desired metrics.
-* Refer to main.py for more complete examples and usage patterns.
-
-## Future Development
-This project is actively being developed.  Planned future enhancements include:
-* Integration of advanced yield analysis algorithms.
-* Implementation of SRAM cell sizing optimization techniques.
+* Ensure Xyce is installed and available in your system PATH.
+* All paths in the codebase are relative to the project root — the repository can be cloned and run from any location.
+* FreePDK45 model files are included in `tran_models/`.
+* Simulation output directories (`sim/`) are created automatically and are excluded from git.
 
 ## Contributing
+
 Contributions to OpenYield are welcome! Please refer to the contribution guidelines for details on how to get involved.

@@ -115,6 +115,7 @@ def extract_classical_snm_from_run(
 
     d = v1 - v2
     crossings = find_crossings(u, d, merge_tol=merge_tol)
+    endpoint_fallback_used = False
     # 对低压 hold SNM 的非闭合 butterfly 曲线做边界补点：
     # 若只有一个中间交点，则人为加入左右端点，形成两个有界区间。
     if allow_endpoint_fallback and len(crossings) == 1:
@@ -352,9 +353,9 @@ def process_xyce_montecarlo_prn(
 
 
 if __name__ == "__main__":
-    # 例子1：hold
+    # 例子1：hold — replace with actual sim output path
     process_xyce_montecarlo_prn(
-        prn_path="/home/majh/OpenYield/sim/20260318_191048_mc_6t/mc_hold_snm_16x8_rc0_tb.sp.prn",
+        prn_path="sim/mc_hold_snm_16x8_rc0_tb.sp.prn",
         metric_name="HOLD_SNM",
     )
 

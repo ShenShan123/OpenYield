@@ -7,22 +7,25 @@ from datetime import datetime
 from sram_compiler.testbenches.yaml_change import summarize_from_csv, update_global_yaml_inplace, update_sram6t_yaml_inplace
 import os
 
+# Dynamic project root — works regardless of which directory the script is run from
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
 if __name__ == '__main__':
        # ================== 0. 更新YAML配置文件 ==================
     # 更新全局配置
-    global_config_update = [16, 16, False ]      # num_rows.num_cols ,choose_columnmux   
+    global_config_update = [16, 16, False ]      # num_rows.num_cols ,choose_columnmux
     update_global_yaml_inplace(
         global_config_update,
-        yaml_path="/home/majh/OpenYield/sram_compiler/config_yaml/global.yaml"
+        yaml_path=os.path.join(_PROJECT_ROOT, "sram_compiler/config_yaml/global.yaml")
     )
 
     # 更新SRAM 6T单元配置
     sram6t_config_update = [
         2.05e-7, 1.35e-7, 9.0e-8,50.0e-9,     # pd_width pg_width  pu_width length
-        "NMOS_VTG", "NMOS_VTG",  "PMOS_VTG"] # pd_model pg_model  pu_model 
+        "NMOS_VTG", "NMOS_VTG",  "PMOS_VTG"] # pd_model pg_model  pu_model
     update_sram6t_yaml_inplace(
         sram6t_config_update,
-        yaml_path="/home/majh/OpenYield/sram_compiler/config_yaml/sram_6t_cell.yaml"
+        yaml_path=os.path.join(_PROJECT_ROOT, "sram_compiler/config_yaml/sram_6t_cell.yaml")
     )
     # ================== 1. 加载所有配置 ==================
     sram_config = SRAM_CONFIG()
@@ -87,13 +90,17 @@ if __name__ == '__main__':
 
     operation = 'write' #operation can be 'write' or 'read' or 'read&write' or 'hold_snm' or 'write_snm' or 'read_snm'
     if operation == 'write' or operation == 'read' or operation == 'read&write':
-        data_csv_path = mc_testbench.run_mc_simulation(
+        # run_mc_simulation now returns (delay, pavg, pstc, pdyn)
+        delay, pavg, pstc, pdyn = mc_testbench.run_mc_simulation(
             operation=operation, target_row=num_rows-1, target_col=num_cols-1, mc_runs=num_mc,temperature=temperature,
             vars=vars, # Input your data table
         )
-        y = summarize_from_csv(os.path.join('/home/majh/OpenYield', data_csv_path),operation);y = np.append(y, area)
+        import numpy as _np
+        _delay = float(delay[0]) if hasattr(delay, '__len__') else float(delay)
+        _power = float((pstc + pdyn)[0]) if hasattr(pstc, '__len__') else float(pstc + pdyn)
+        y = _np.array([_delay, _power, area])
         print(f"[INPUT] construct_param: num_rows={global_config_update[0]}, num_cols={global_config_update[1]}, choose_columnmux={global_config_update[2]}")
-        print(f"[INPUT] sram6tcell_param: pd_width={sram6t_config_update[0]*1e9:.1f} nm, pg_width={sram6t_config_update[1]*1e9:.1f} nm, pu_width={sram6t_config_update[2]*1e9:.1f} nm, length={sram6t_config_update[3]*1e9:.1f} nm", 
+        print(f"[INPUT] sram6tcell_param: pd_width={sram6t_config_update[0]*1e9:.1f} nm, pg_width={sram6t_config_update[1]*1e9:.1f} nm, pu_width={sram6t_config_update[2]*1e9:.1f} nm, length={sram6t_config_update[3]*1e9:.1f} nm",
           f"pd_model={sram6t_config_update[4]}, pg_model={sram6t_config_update[5]}, pu_model={sram6t_config_update[6]}")
         print(f"[OUTPUT] y[0]=Delay({y[0]*1e9:.2f} ns), y[1]=Power({y[1]*1e6:.2f} mW), y[2]=Area({y[2]*1e12:.2f} µm²)")
     

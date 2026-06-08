@@ -1,41 +1,62 @@
-# 随机搜索算法
+"""
+Random Search baseline for SRAM circuit optimization.
+随机搜索基线算法
+"""
 
-from testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
+import os
+import sys
 import numpy as np
+import torch
+import warnings
 
-candidate_i = np.random.randint(0, 100, 100)
+warnings.filterwarnings("ignore")
 
-# generate random parameters
-params = {
-    'nmos_model_name': 'NMOS_VTG',
-    'pmos_model_name': 'PMOS_VTG',
-    'pd_width': 0.205e-6,
-    'pu_width': 0.09e-6,
-    'pg_width': 0.135e-9,
-    'length': 50e-9,
-}
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.append(project_root)
 
-mc_testbench = Sram6TCoreMcTestbench(
-    vdd,
-    pdk_path,
-    params['nmos_model_name'],
-    params['pmos_model_name'],
-    num_rows=num_rows,
-    num_cols=num_cols,
-    pd_width=params['pd_width'],
-    pu_width=params['pu_width'],
-    pg_width=params['pg_width'],
-    length=params['length'],
-    w_rc=False,
-    pi_res=10 @ u_Ohm,
-    pi_cap=0.001 @ u_pF,
-    custom_mc=False,
-    q_init_val=0,
-    sim_path='sim',
+from size_optimization.exp_utils import (
+    seed_set, create_directories, evaluate_sram,
+    CompositeSRAMParameterSpace, get_composite_initial_params,
 )
 
-# generate random parameters
 
-result = mc_testbench.run_mc_simulation()
+def main(config_path="config_sram.yaml", problem=None, max_iter=None):
+    """Random search over SRAM parameter space."""
+    print("===== SRAM optimization using Random Search =====")
+    create_directories()
 
-print(result)
+    if problem is not None and isinstance(problem, (tuple, list)) and len(problem) >= 2:
+        parameter_space = problem[0]
+        external_eval_fn = problem[1]
+    else:
+        parameter_space = CompositeSRAMParameterSpace(config_path)
+        external_eval_fn = None
+
+    _max_iter = max_iter if isinstance(max_iter, int) and max_iter > 0 else 5
+
+    best_merit = float("-inf")
+    best_params = None
+    best_result = None
+    eval_fn = external_eval_fn if external_eval_fn is not None else evaluate_sram
+
+    for i in range(_max_iter):
+        x = np.random.uniform(0, 1, parameter_space.bounds.shape[1])
+        params = parameter_space.convert_params(torch.tensor(x, dtype=torch.float32))
+        print(f"\n[Random search] Iteration {i+1}/{_max_iter}")
+        objectives, constraints, result, success = eval_fn(params)
+        if success and result:
+            merit = result.get("merit", result.get("fom", float("-inf")))
+            if merit > best_merit:
+                best_merit = merit
+                best_params = params
+                best_result = result
+                print(f"  New best merit: {best_merit:.6e}")
+
+    print("\n===== Random Search completed =====")
+    return {"params": best_params, "merit": best_merit, "result": best_result, "iteration": _max_iter}
+
+
+if __name__ == "__main__":
+    seed_set(42)
+    main()

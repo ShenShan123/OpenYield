@@ -13,12 +13,15 @@ import numpy as np
 import pandas as pd
 import torch
 from botorch.models import SingleTaskGP
+from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.fit import fit_gpytorch_model
 from botorch.acquisition import ConstrainedExpectedImprovement
 from botorch.acquisition.multi_objective.monte_carlo import qExpectedHypervolumeImprovement
 from botorch.optim import optimize_acqf
-from botorch.utils.multi_objective.box_decompositions.dominated import DominatedPartitioning
+from botorch.utils.multi_objective.box_decompositions.non_dominated import NondominatedPartitioning
+from botorch.utils.transforms import normalize, unnormalize
 from gpytorch.mlls import ExactMarginalLogLikelihood
+from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 import random
@@ -42,10 +45,12 @@ sys.path.append(project_root)
 # 从exp_utils导入工具函数
 from size_optimization.exp_utils import (
     seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
+    CompositeSRAMParameterSpace,
     OptimizationLogger, save_pareto_front, save_best_result, plot_merit_history,
-    plot_pareto_frontier, update_pareto_front, save_optimization_history
+    plot_pareto_frontier, update_pareto_front, save_optimization_history,
+    get_default_normalized_vector, estimate_scaled_total_area,
+    get_composite_initial_params,
 )
-from utils import estimate_bitcell_area
 
 warnings.filterwarnings('ignore')
 
@@ -62,54 +67,14 @@ class SRAMParameterSpace:
         Initialize SRAM parameter space
         初始化SRAM参数空间
         """
-        # 添加配置文件支持
+        # 使用复合参数空间（bitcell + 外围电路）
         try:
-            self._modified_space = ModifiedSRAMParameterSpace(config_path)
+            self._modified_space = CompositeSRAMParameterSpace(config_path)
             self.bounds = self._modified_space.bounds
-            # 从配置中获取参数信息
-            self.base_pd_width = self._modified_space.base_pd_width
-            self.base_pu_width = self._modified_space.base_pu_width
-            self.base_pg_width = self._modified_space.base_pg_width
-            self.base_length_nm = self._modified_space.base_length_nm
-        except:
+        except Exception:
             # 如果配置加载失败，使用原始默认值
             print("Warning: Config loading failed, using default parameters")
-            # Reference parameter values
-            # 参考参数值
-            self.base_pd_width = 0.205e-6
-            self.base_pu_width = 0.09e-6
-            self.base_pg_width = 0.135e-6
-            self.base_length_nm = 50
-
-            # Parameter ranges
-            # 参数范围
-            self.nmos_models = ['NMOS_VTL', 'NMOS_VTG', 'NMOS_VTH']
-            self.pmos_models = ['PMOS_VTL', 'PMOS_VTG', 'PMOS_VTH']
-
-            # Width ranges - range coefficients can be modified here
-            # 宽度范围 - 范围系数可以在这里修改
-            self.pd_width_coef_min = 0.5
-            self.pd_width_coef_max = 1.5
-            self.pd_width_min = self.base_pd_width * self.pd_width_coef_min
-            self.pd_width_max = self.base_pd_width * self.pd_width_coef_max
-
-            self.pu_width_coef_min = 0.5
-            self.pu_width_coef_max = 1.5
-            self.pu_width_min = self.base_pu_width * self.pu_width_coef_min
-            self.pu_width_max = self.base_pu_width * self.pu_width_coef_max
-
-            self.pg_width_coef_min = 0.5
-            self.pg_width_coef_max = 1.5
-            self.pg_width_min = self.base_pg_width * self.pg_width_coef_min
-            self.pg_width_max = self.base_pg_width * self.pg_width_coef_max
-
-            self.length_coef_min = 0.6
-            self.length_coef_max = 2.0
-            self.length_min = self.base_length_nm * 1e-9 * self.length_coef_min
-            self.length_max = self.base_length_nm * 1e-9 * self.length_coef_max
-
-            # Create optimization bounds
-            # 创建优化边界
+            self._modified_space = None
             lower_bounds = [0, 0, 0, 0, 0, 0]
             upper_bounds = [1, 1, 1, 1, 1, 1]
             self.bounds = torch.tensor([lower_bounds, upper_bounds], dtype=torch.float)
@@ -119,46 +84,20 @@ class SRAMParameterSpace:
         Convert normalized parameters [0,1] to actual parameter values
         将归一化参数[0,1]转换为实际参数值
         """
-        # 如果有配置文件支持则使用，否则使用原始逻辑
-        if hasattr(self, '_modified_space'):
+        if self._modified_space is not None:
             return self._modified_space.convert_params(x)
-        
-        # 原始转换逻辑
-        params = {}
-        
-        # Convert model parameters
-        # 转换模型参数
-        nmos_idx = int(x[0].item() * len(self.nmos_models))
-        nmos_idx = min(nmos_idx, len(self.nmos_models) - 1)
-        params['nmos_model_name'] = self.nmos_models[nmos_idx]
-        
-        pmos_idx = int(x[1].item() * len(self.pmos_models))
-        pmos_idx = min(pmos_idx, len(self.pmos_models) - 1)
-        params['pmos_model_name'] = self.pmos_models[pmos_idx]
-        
-        # Convert width parameters
-        # 转换宽度参数
-        params['pd_width'] = self.pd_width_min + x[2].item() * (self.pd_width_max - self.pd_width_min)
-        params['pu_width'] = self.pu_width_min + x[3].item() * (self.pu_width_max - self.pu_width_min)
-        params['pg_width'] = self.pg_width_min + x[4].item() * (self.pg_width_max - self.pg_width_min)
-        
-        # Convert length parameter
-        # 转换长度参数
-        params['length'] = self.length_min + x[5].item() * (self.length_max - self.length_min)
-        params['length_nm'] = params['length'] * 1e9
-        
-        return params
+
+        # Fallback: should not reach here in normal operation
+        raise RuntimeError("CompositeSRAMParameterSpace not initialized")
 
     def print_params(self, params):
         """
         Print parameter information
         打印参数信息
         """
-        # 如果有配置文件支持则使用，否则使用原始逻辑
-        if hasattr(self, '_modified_space'):
+        if self._modified_space is not None:
             return self._modified_space.print_params(params)
-        
-        # 原始打印逻辑
+
         print("Parameters / 参数:")
         for key, value in params.items():
             print(f"  {key}: {value}")
@@ -167,7 +106,7 @@ class SRAMParameterSpace:
 # Constrained optimizer
 # 约束优化器
 class ConstrainedBayesianOptimizer:
-    def __init__(self, parameter_space, num_objectives=3, num_constraints=2, initial_result=None, initial_params=None):
+    def __init__(self, parameter_space, num_objectives=4, num_constraints=2, initial_result=None, initial_params=None):
         """
         Initialize constrained Bayesian optimizer
         初始化约束贝叶斯优化器
@@ -211,18 +150,16 @@ class ConstrainedBayesianOptimizer:
                 initial_result['read']['power'],
                 initial_result['write']['power']
             )
+            initial_max_delay = max(
+                initial_result['read']['delay'],
+                initial_result['write']['delay']
+            )
             
             # Calculate area using initial parameters
             # 使用初始参数计算面积
             if initial_params:
-                initial_area = estimate_bitcell_area(
-                    w_access=initial_params['pg_width'],
-                    w_pd=initial_params['pd_width'],
-                    w_pu=initial_params['pu_width'],
-                    l_transistor=initial_params['length']
-                )
-                
-                self.initial_merit = np.log10(initial_min_snm / (initial_max_power * np.sqrt(initial_area)))
+                initial_area = estimate_scaled_total_area(initial_params)
+                self.initial_merit = np.log10(initial_min_snm / (initial_max_power * np.sqrt(initial_area) * initial_max_delay))
                 print(f"Initial Merit: {self.initial_merit:.6e}")
 
         # Initialize Merit tracking state
@@ -241,7 +178,8 @@ class ConstrainedBayesianOptimizer:
         Generate next batch of points to evaluate
         生成下一批要评估的点
         """
-        if len(self.train_x) < 10:
+        # 增强：在成功样本较少时加大准随机探索阈值
+        if len(self.train_x) < 30:
             print(f"Training set size: {len(self.train_x)}, using quasi-random sequence")
             print(f"训练集大小: {len(self.train_x)}, 使用准随机序列")
 
@@ -262,31 +200,49 @@ class ConstrainedBayesianOptimizer:
 
             return points
         else:
-            # Use Bayesian optimization
-            # 使用贝叶斯优化
+            # Use multi-objective Bayesian optimization (qEHVI)
+            # 使用多目标贝叶斯优化 (qEHVI)
             try:
-                # Construct GP model
-                # 构建GP模型
-                gp = SingleTaskGP(self.train_x, self.train_obj.mean(dim=-1, keepdim=True))
-                mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
+                # Build independent GP for each objective
+                # 为每个目标构建独立GP
+                models = []
+                for i in range(self.num_objectives):
+                    gp_i = SingleTaskGP(self.train_x, self.train_obj[:, i:i+1])
+                    models.append(gp_i)
+                model = ModelListGP(*models)
+                mll = SumMarginalLogLikelihood(model.likelihood, model)
                 fit_gpytorch_model(mll)
 
-                # Use Expected Improvement acquisition function
-                # 使用期望改进获取函数
-                from botorch.acquisition import ExpectedImprovement
-                acq_func = ExpectedImprovement(gp, self.train_obj.mean(dim=-1).max())
+                # Reference point: slightly worse than worst observed per objective
+                # 参考点: 每个目标略差于观测到的最差值
+                ref_point = self.train_obj.max(dim=0).values * 1.1
+                # Ensure ref_point is at least as large as penalty values
+                ref_point = torch.max(ref_point, torch.tensor([0.0, 10.0, 5e-6, 5e-8]))
+
+                # Use qEHVI acquisition function
+                # 使用 qEHVI 获取函数
+                partitioning = NondominatedPartitioning(ref_point=ref_point, Y=self.train_obj)
+                acq_func = qExpectedHypervolumeImprovement(
+                    model=model,
+                    ref_point=ref_point.tolist(),
+                    partitioning=partitioning,
+                )
 
                 # Optimize acquisition function
                 # 优化获取函数
                 bounds = torch.stack([torch.zeros(self.dim), torch.ones(self.dim)])
                 candidate, acq_value = optimize_acqf(
-                    acq_func, bounds=bounds, q=1, num_restarts=10, raw_samples=200,
+                    acq_func,
+                    bounds=bounds,
+                    q=1,
+                    num_restarts=20,
+                    raw_samples=1024,
                 )
 
                 print(f"BO suggested point: {candidate.tolist()}")
-                print(f"Acquisition value: {acq_value.item():.6e}")
+                print(f"Acquisition value (EHVI): {acq_value.item():.6e}")
                 print(f"BO建议点: {candidate.tolist()}")
-                print(f"获取函数值: {acq_value.item():.6e}")
+                print(f"获取函数值 (EHVI): {acq_value.item():.6e}")
 
                 return candidate
 
@@ -336,7 +292,7 @@ class ConstrainedBayesianOptimizer:
 
 # Random search phase
 # 随机搜索阶段
-def random_search(parameter_space, num_iterations=20):
+def random_search(parameter_space, eval_fn=evaluate_sram, num_iterations=20):
     """
     Random search phase
     随机搜索阶段
@@ -355,6 +311,11 @@ def random_search(parameter_space, num_iterations=20):
         # Generate random point
         # 生成随机点
         x = torch.rand(optimizer.dim)
+        if i == 0:
+            default_x = get_default_normalized_vector(parameter_space)
+            if default_x:
+                for j in range(min(len(default_x), optimizer.dim)):
+                    x[j] = default_x[j]
 
         # Map parameters to actual values
         # 将参数映射到实际值
@@ -364,7 +325,7 @@ def random_search(parameter_space, num_iterations=20):
         # Evaluate parameter performance
         # 评估参数性能
         start_time = time.time()
-        objectives, constraints, result, success = evaluate_sram(params)
+        objectives, constraints, result, success = eval_fn(params)
         end_time = time.time()
         print(f"Evaluation time: {end_time - start_time:.2f} seconds")
         print(f"评估用时: {end_time - start_time:.2f} 秒")
@@ -375,6 +336,7 @@ def random_search(parameter_space, num_iterations=20):
             print(f"Min SNM = {-objectives[0]:.6f}")
             print(f"Max power = {objectives[1]:.6e}")
             print(f"Area = {objectives[2]*1e12:.2f} µm²")
+            print(f"Delay = {objectives[3]:.6e} s")
             print(f"Constraints: {['satisfied' if c <= 0 else 'violated' for c in constraints]}")
             print(f"约束: {['满足' if c <= 0 else '违反' for c in constraints]}")
             if result:
@@ -394,7 +356,7 @@ def random_search(parameter_space, num_iterations=20):
 
 # Bayesian optimization phase
 # 贝叶斯优化阶段
-def bayesian_optimization(optimizer, parameter_space, num_iterations=380):
+def bayesian_optimization(optimizer, parameter_space, eval_fn=evaluate_sram, num_iterations=380, iteration_offset=20):
     """
     Bayesian optimization phase
     贝叶斯优化阶段
@@ -405,9 +367,10 @@ def bayesian_optimization(optimizer, parameter_space, num_iterations=380):
     # Track repeated suggestions
     # 跟踪重复建议
     recent_suggestions = []
-    max_history = 10
+    # 增强：加长重复建议历史与降低重复容忍度
+    max_history = 20
     repeat_count = 0
-    max_repeat_allowed = 3
+    max_repeat_allowed = 2
 
     for i in range(num_iterations):
         print(f"\n===== BO iteration {i + 1}/{num_iterations} =====")
@@ -421,7 +384,8 @@ def bayesian_optimization(optimizer, parameter_space, num_iterations=380):
         # 检查是否与最近的建议太相似
         is_repeat = False
         for prev_x in recent_suggestions:
-            if torch.norm(next_x - prev_x) < 0.05:  # If Euclidean distance is very small
+            # 增强：更严格的重复检测阈值
+            if torch.norm(next_x - prev_x) < 0.03:  # If Euclidean distance is very small
                 repeat_count += 1
                 is_repeat = True
                 print(f"Warning: Current suggestion very similar to previous suggestions (repeat count: {repeat_count})")
@@ -452,7 +416,7 @@ def bayesian_optimization(optimizer, parameter_space, num_iterations=380):
         # Evaluate parameter performance
         # 评估参数性能
         start_time = time.time()
-        objectives, constraints, result, success = evaluate_sram(params)
+        objectives, constraints, result, success = eval_fn(params)
         end_time = time.time()
         print(f"Evaluation time: {end_time - start_time:.2f} seconds")
         print(f"评估用时: {end_time - start_time:.2f} 秒")
@@ -463,6 +427,7 @@ def bayesian_optimization(optimizer, parameter_space, num_iterations=380):
             print(f"Min SNM = {-objectives[0]:.6f}")
             print(f"Max power = {objectives[1]:.6e}")
             print(f"Area = {objectives[2]*1e12:.2f} µm²")
+            print(f"Delay = {objectives[3]:.6e} s")
             print(f"Constraints: {['satisfied' if c <= 0 else 'violated' for c in constraints]}")
             print(f"约束: {['满足' if c <= 0 else '违反' for c in constraints]}")
             if result:
@@ -473,7 +438,7 @@ def bayesian_optimization(optimizer, parameter_space, num_iterations=380):
 
         # Observe results (index after RS iterations end)
         # 观察结果（RS迭代结束后的索引）
-        iteration = i + 20  # Assume first 20 times are RS
+        iteration = i + iteration_offset  # RS阶段后的索引偏移
         optimizer.observe(next_x, objectives, constraints, result, success, iteration, "BO")
 
     print("\n===== Bayesian optimization completed =====")
@@ -483,7 +448,7 @@ def bayesian_optimization(optimizer, parameter_space, num_iterations=380):
 
 # Main function
 # 主函数
-def main(config_path="config_sram.yaml"):  # 添加config_path参数
+def main(config_path="config_sram.yaml", problem=None, max_iter=400):  # 统一接口：接受 problem 与 max_iter
     """
     Main function to run CBO optimization
     运行CBO优化的主函数
@@ -495,28 +460,28 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
     # 创建目录
     create_directories()
 
-    # Create parameter space - use original class with config support
-    # 创建参数空间 - 使用支持配置的原始类
-    parameter_space = SRAMParameterSpace(config_path)  # 支持配置文件
+    # Resolve parameter space and evaluation backend
+    # 解析参数空间与评估后端
+    if problem is not None:
+        try:
+            parameter_space, eval_fn, _ = problem
+        except Exception:
+            parameter_space = SRAMParameterSpace(config_path)
+            eval_fn = evaluate_sram
+    else:
+        parameter_space = SRAMParameterSpace(config_path)
+        eval_fn = evaluate_sram
 
-    # Define initial parameters (same as in main.py)
-    # 定义初始参数（与main.py中相同）
-    initial_params = {
-        'nmos_model_name': 'NMOS_VTG',
-        'pmos_model_name': 'PMOS_VTG',
-        'pd_width': 0.205e-6,
-        'pu_width': 0.09e-6,
-        'pg_width': 0.135e-6,
-        'length': 50e-9,
-        'length_nm': 50
-    }
+    # Define initial parameters (bitcell + peripheral circuits from YAML)
+    # 定义初始参数（从YAML获取bitcell + 外围电路参数）
+    initial_params = get_composite_initial_params()
     
     print("Running initial point simulation to get baseline performance...")
     print("运行初始点仿真以获得基准性能...")
     
-    # Use evaluate_sram function to evaluate initial parameters
-    # 使用evaluate_sram函数评估初始参数
-    objectives, constraints, initial_result, success = evaluate_sram(initial_params)
+    # Evaluate initial parameters using selected backend
+    # 使用选定评估后端评估初始参数
+    objectives, constraints, initial_result, success = eval_fn(initial_params)
     
     if not success:
         print("Warning: Initial point simulation failed, using default values as initial point")
@@ -537,13 +502,19 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
         print(f"Delay: Read={initial_result['read_delay']*1e12:.2f}ps, Write={initial_result['write_delay']*1e12:.2f}ps")
         print(f"Power: Read={initial_result['read_power']:.2e}W, Write={initial_result['write_power']:.2e}W")
 
+    # Split iterations: small RS + remaining BO
+    # 划分迭代：少量随机搜索 + 其余贝优化
+    # 增强：增加随机搜索占比并放宽上限
+    rs_iters = max(10, min(50, int(max_iter * 0.10)))
+    bo_iters = max(1, int(max_iter) - rs_iters)
+
     # Run random search phase
     # 运行随机搜索阶段
-    optimizer = random_search(parameter_space, num_iterations=2)
+    optimizer = random_search(parameter_space, eval_fn=eval_fn, num_iterations=rs_iters)
 
     # Run Bayesian optimization phase
     # 运行贝叶斯优化阶段
-    optimizer = bayesian_optimization(optimizer, parameter_space, num_iterations=3)
+    optimizer = bayesian_optimization(optimizer, parameter_space, eval_fn=eval_fn, num_iterations=bo_iters, iteration_offset=rs_iters)
 
     # Output best results
     # 输出最佳结果
@@ -564,12 +535,15 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
         
         # Return result
         # 返回结果
-        return {
+        ret = {
             'params': optimizer.best_params,
             'merit': optimizer.best_merit,
             'result': optimizer.best_result,
-            'iteration': 400
+            'iteration': rs_iters + bo_iters
         }
+        # 统一返回字段：增加 'fom' 与其他算法一致
+        ret['fom'] = ret.get('merit')
+        return ret
     else:
         print("No valid solution found")
         print("未找到有效解")

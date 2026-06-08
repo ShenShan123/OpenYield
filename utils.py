@@ -578,6 +578,14 @@ def estimate_bitcell_area(
 
     return cell_width * cell_height
 
+def estimate_total_area(num_rows, num_cols, num_arrays):
+    """
+    估算多阵列 SRAM 总面积 (µm²)。
+    使用 OpenRAM FreePDK45nm 单阵列面积回归公式乘以阵列数。
+    """
+    return estimate_array_area(num_cols, num_rows) * num_arrays
+
+
 def estimate_array_area(word_size, num_words):
     width = 31.3547 + word_size * 2.9918 + num_words * 0.0568
     height = 49.9556 + word_size * 1.0801 + num_words * 0.0830

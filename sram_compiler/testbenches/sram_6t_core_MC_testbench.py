@@ -16,9 +16,11 @@ from math import ceil, log2
 class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 vth_std=0.05, mc=True,custom_mc=False,sweep_cell=False,sweep_precharge=False,sweep_senseamp=True,sweep_wordlinedriver=False,
-                 sweep_columnmux=False,sweep_writedriver=False,sweep_decoder=False,corner='TT',choose_columnmux=True,use_equivalent=False,
-                 q_init_val=0, sim_path='sim'):
+                 vth_std=0.05, mc=True, enable_mc=None, custom_mc=False,
+                 sweep_cell=False, sweep_precharge=False, sweep_senseamp=True, sweep_wordlinedriver=False,
+                 sweep_columnmux=False, sweep_writedriver=False, sweep_decoder=False,
+                 corner='TT', choose_columnmux=True, use_equivalent=False,
+                 q_init_val=0, sim_path='sim', enable_waveform=True):
         """
                蒙特卡洛测试平台初始化
                参数:
@@ -38,7 +40,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             corner,choose_columnmux,use_equivalent,q_init_val,sim_path
         )
         self.sram_cell_type=sram_cell_type
+        # enable_mc is an alias for mc (backward compatibility with experiment.py)
+        if enable_mc is not None:
+            mc = enable_mc
         self.mc=mc
+        self.enable_mc = mc  # backward-compat alias
+        self.enable_waveform = enable_waveform
         self.choose_columnmux=choose_columnmux
         self.corner=corner
         self.sweep_decoder=sweep_decoder
@@ -742,15 +749,18 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 # ['hspice', '-i', tb_path, '-o', self.sim_path],
                 ['Xyce', tb_path, '-o', tb_path],
                 capture_output=True,
-                text=True, check=True
+                text=True, check=False
             )
 
             if result.returncode != 0:
                 raise RuntimeError(
-                    f"Xyce error:\n{result.stderr}, please check the log file {tb_path.replace('.sp', '.lis')}.")
+                    f"Xyce simulation failed (exit {result.returncode}):\n{result.stderr.strip()}\n"
+                    f"Check log: {tb_path.replace('.sp', '.lis')}")
             else:
                 print("[DEBUG] Simulation run successfully.")
-        finally:
+        except Exception:
+            raise
+        else:
             # 根据操作类型选择要在波形图中显示的信号
             if operation == 'read':
                 selected_columns = [
@@ -822,37 +832,30 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                     stats_file=tb_path.replace('.sp', '.stats.csv')
                 )
             elif operation in ['hold_snm', 'write_snm', 'read_snm']:
-                process_xyce_montecarlo_prn(
+                snm_df_data, _ = process_xyce_montecarlo_prn(
                     prn_path=tb_path + '.prn',
-                    metric_name = operation,
+                    metric_name=operation,
                     operation=operation,
                 )
 
             if operation == 'read' or operation == 'write':
                 # Calculate and print half clock cycle time (1/2CLK)
-                # Read the statistics CSV file
                 stats_csv_path = tb_path.replace('.sp', '.stats.csv')
                 import pandas as pd
-                
-                # Load the statistics data
+
                 stats_df = pd.read_csv(stats_csv_path, index_col=0)
-                
-                # Define the parameters we need
+
                 if operation == 'read':
-                    params = ['TSA', 'TSWING', 'TS_EN', 'TWLDRV']
+                    clk_params = ['TSA', 'TSWING', 'TS_EN', 'TWLDRV']
                 elif operation == 'write':
-                    params = ['TWLDRV', 'TWDRV', 'TWRITE_Q']
-                
-                # Initialize sum for 1/2CLK calculation
+                    clk_params = ['TWLDRV', 'TWDRV', 'TWRITE_Q']
+
                 half_clk_sum = 0.0
-                
-                # Extract mean and std for each parameter and add to sum
-                for param in params:
+                for param in clk_params:
                     if param in stats_df.index:
                         mean_val = stats_df.loc[param, 'mean']
                         std_val = stats_df.loc[param, 'std']
-                        #如果标准差大于0.1ns，则只加均值，否则均值和标准差都加上
-                        if std_val > 0.1e-9 or pd.isna(std_val) or std_val == float('inf') or std_val == float('-inf'):  # 0.1ns = 0.1e-9 seconds
+                        if std_val > 0.1e-9 or pd.isna(std_val) or std_val == float('inf') or std_val == float('-inf'):
                             half_clk_sum += mean_val
                             print(f"[DEBUG] {param} - Mean: {mean_val:.3e}, Std: {std_val:.3e} (>0.1ns or (mc=1 so no std, only mean used)")
                         else:
@@ -860,20 +863,42 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                             print(f"[DEBUG] {param} - Mean: {mean_val:.3e}, Std: {std_val:.3e}")
                     else:
                         print(f"[WARNING] Parameter {param} not found in statistics")
-                
-                # Print the calculated 1/2CLK value
+
                 print(f"[INFO] Calculated 1/2CLK : {half_clk_sum:.3e}")
                 print(f"[INFO] CLK(min) in this size and PVT : {((half_clk_sum+0.1e-9)*2):.3e}")
 
-            data_csv_path=tb_path.replace('.sp', '.data.csv')
-            # Reture the performance metrics for yield analysis and sizing optimization
-            if operation == 'write' or operation == 'read&write' or operation == 'read':
-                return data_csv_path
-            elif operation == 'hold_snm':
-                return data_csv_path
-            elif operation == 'read_snm':
-                return data_csv_path
-            elif operation == 'write_snm':
-                return data_csv_path
+            data_csv_path = tb_path.replace('.sp', '.data.csv')
+
+            # ── Return format compatible with experiment.py / exp_utils.py ──
+            # write/read  → (delay, pavg, pstc, pdyn)  all numpy scalar arrays
+            # SNM         → scalar SNM value
+            import pandas as pd, numpy as np
+
+            if operation in ('write', 'read', 'read&write'):
+                df = pd.read_csv(data_csv_path)
+
+                def _col(name, default=0.0):
+                    return df[name].values if name in df.columns else np.array([default])
+
+                if operation == 'read':
+                    delay = (_col('TDECODER') + _col('TPRCH') + _col('TSA') +
+                             _col('TSWING') + _col('TS_EN') + _col('TWLDRV'))
+                else:  # write / read&write
+                    delay = (_col('TDECODER') + _col('TWDRV') + _col('TWLDRV') +
+                             _col('TWRITE_Q'))
+
+                pavg = _col('PAVG')
+                pstc = _col('PSTC')
+                pdyn = _col('PDYN')
+                return delay, pavg, pstc, pdyn
+
+            elif operation in ('hold_snm', 'read_snm', 'write_snm'):
+                # snm_df_data was returned from process_xyce_montecarlo_prn above
+                if operation in snm_df_data.columns:
+                    snm_vals = snm_df_data[operation].values
+                else:
+                    snm_vals = np.array([float('nan')])
+                return snm_vals
+
             else:
-                raise KeyError(f"Unkonwn operation {operation}")
+                raise KeyError(f"Unknown operation {operation}")

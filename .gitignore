@@ -16,5 +16,12 @@ outputs
 technology/
 open_pdks/
 sim/
+sim1/
 miniconda/
 **/__pycache__
+size_optimization/experiment/
+size_optimization/smac_output/
+equivalent_modeling/results/
+equivalent_modeling/images/
+equivalent_modeling/EQUIVALENT_CIRCUIT_ANALYSIS.md
+equivalent_modeling/使用说明.md

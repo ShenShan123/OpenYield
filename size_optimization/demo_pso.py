@@ -26,10 +26,12 @@ sys.path.append(project_root)
 # 从exp_utils导入工具函数
 from size_optimization.exp_utils import (
     seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
+    CompositeSRAMParameterSpace,
     OptimizationLogger, save_pareto_front, save_best_result, plot_merit_history,
-    plot_pareto_frontier, update_pareto_front, save_optimization_history
+    plot_pareto_frontier, update_pareto_front, save_optimization_history,
+    get_default_normalized_vector, estimate_scaled_total_area,
+    get_composite_initial_params,
 )
-from utils import estimate_bitcell_area
 
 
 def format_initial_result(result):
@@ -55,7 +57,7 @@ def format_initial_result(result):
 # PSO optimizer class
 # PSO优化器类
 class PSOOptimizer:
-    def __init__(self, parameter_space, num_objectives=3, num_constraints=2, initial_result=None, initial_params=None):
+    def __init__(self, parameter_space, num_objectives=4, num_constraints=2, initial_result=None, initial_params=None, evaluate_backend=None):
         """
         Initialize PSO optimizer
         初始化PSO优化器
@@ -65,6 +67,9 @@ class PSOOptimizer:
         self.dim = self.bounds.shape[1]
         self.num_objectives = num_objectives 
         self.num_constraints = num_constraints
+        # Optional external evaluation function (e.g., Stage 2)
+        # 可选的外部评估函数（例如第二阶段评估）
+        self.evaluate_backend = evaluate_backend
 
         # Record all evaluation results
         # 记录所有评估结果
@@ -95,6 +100,10 @@ class PSOOptimizer:
                     initial_result['read']['power'],
                     initial_result['write']['power']
                 )
+                initial_max_delay = max(
+                    initial_result['read']['delay'],
+                    initial_result['write']['delay']
+                )
             else:
                 # Direct format: {'hold_snm': value}
                 initial_min_snm = min(
@@ -106,18 +115,16 @@ class PSOOptimizer:
                     abs(initial_result['read_power']),
                     abs(initial_result['write_power'])
                 )
+                initial_max_delay = max(
+                    initial_result['read_delay'],
+                    initial_result['write_delay']
+                )
             
             # Calculate area using initial parameters
             # 使用初始参数计算面积
             if initial_params:
-                initial_area = estimate_bitcell_area(
-                    w_access=initial_params['pg_width'],
-                    w_pd=initial_params['pd_width'],
-                    w_pu=initial_params['pu_width'],
-                    l_transistor=initial_params['length']
-                )
-                
-                self.initial_merit = np.log10(initial_min_snm / (initial_max_power * np.sqrt(initial_area)))
+                initial_area = estimate_scaled_total_area(initial_params)
+                self.initial_merit = np.log10(initial_min_snm / (initial_max_power * np.sqrt(initial_area) * initial_max_delay))
                 print(f"Initial Merit: {self.initial_merit:.6e}")
 
         # Initialize history data
@@ -144,7 +151,8 @@ class PSOOptimizer:
 
         # Evaluate SRAM performance
         # 评估SRAM性能
-        objectives, constraints, result, success = evaluate_sram(params)
+        eval_func = self.evaluate_backend if self.evaluate_backend is not None else evaluate_sram
+        objectives, constraints, result, success = eval_func(params)
 
         # Calculate optimization objective: Merit = log10(min_snm / (max_power * (area**0.5)))
         # 计算优化目标：Merit = log10(min_snm / (max_power * (area**0.5)))
@@ -174,14 +182,20 @@ class PSOOptimizer:
 
         # PSO parameters
         # PSO参数
-        w = 0.8  # Inertia weight
-        c1 = 0.5  # Individual learning factor
-        c2 = 0.5  # Social learning factor
+        w = 0.7
+        c1 = 1.4
+        c2 = 1.4
+        jitter_std = 0.02
+        reinit_prob = 0.03
 
         # Initialize particle swarm
         # 初始化粒子群
         particles = np.random.uniform(lb, ub, (population_size, self.dim))
         velocities = np.random.uniform(-0.5, 0.5, (population_size, self.dim))
+        default_x = get_default_normalized_vector(self.parameter_space)
+        if default_x:
+            for i in range(min(len(default_x), self.dim)):
+                particles[0, i] = default_x[i]
 
         # Initialize fitness
         # 初始化适应度
@@ -216,9 +230,13 @@ class PSOOptimizer:
                 velocities[particle_idx] = (w * velocities[particle_idx] +
                                             c1 * r1 * (p_best[particle_idx] - particles[particle_idx]) +
                                             c2 * r2 * (g_best - particles[particle_idx]))
+                velocities[particle_idx] = velocities[particle_idx] + np.random.normal(0, jitter_std, self.dim)
 
                 particles[particle_idx] = particles[particle_idx] + velocities[particle_idx]
                 particles[particle_idx] = np.clip(particles[particle_idx], lb, ub)
+            if np.random.random() < reinit_prob:
+                particles[particle_idx] = np.random.uniform(lb, ub, self.dim)
+                velocities[particle_idx] = np.random.uniform(-0.5, 0.5, self.dim)
 
             # Evaluate current particle
             # 评估当前粒子
@@ -237,7 +255,8 @@ class PSOOptimizer:
             # Detailed evaluation, get complete results
             # 详细评估，获得完整结果
             start_time = time.time()
-            objectives, constraints, result, success = evaluate_sram(params)
+            eval_func = self.evaluate_backend if self.evaluate_backend is not None else evaluate_sram
+            objectives, constraints, result, success = eval_func(params)
             end_time = time.time()
             print(f"Evaluation time: {end_time - start_time:.2f} seconds")
             print(f"评估用时: {end_time - start_time:.2f} 秒")
@@ -322,7 +341,7 @@ class PSOOptimizer:
 
 # Main function
 # 主函数
-def main(config_path="config_sram.yaml"):  # 添加config_path参数
+def main(config_path="config_sram.yaml", problem=None, max_iter=None):  # 添加config_path参数
     """
     Main function to run PSO optimization
     运行PSO优化的主函数
@@ -336,26 +355,26 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
 
     # Create parameter space - use modified parameter space class
     # 创建参数空间 - 使用修改的参数空间类
-    parameter_space = ModifiedSRAMParameterSpace(config_path)  # 支持配置文件
+    if problem is not None and isinstance(problem, (tuple, list)) and len(problem) >= 2:
+        parameter_space = problem[0]
+        external_eval_fn = problem[1]
+    else:
+        parameter_space = CompositeSRAMParameterSpace(config_path)  # 支持配置文件
+        external_eval_fn = None
 
-    # Define initial parameters (same as in main.py)
-    # 定义初始参数（与main.py中相同）
-    initial_params = {
-        'nmos_model_name': 'NMOS_VTG',
-        'pmos_model_name': 'PMOS_VTG',
-        'pd_width': 0.205e-6,
-        'pu_width': 0.09e-6,
-        'pg_width': 0.135e-6,
-        'length': 50e-9,
-        'length_nm': 50
-    }
+    # Define initial parameters (bitcell + peripheral circuits from YAML)
+    # 定义初始参数（从YAML获取bitcell + 外围电路参数）
+    initial_params = get_composite_initial_params()
     
     print("Running initial point simulation to get baseline performance...")
     print("运行初始点仿真以获得基准性能...")
     
-    # Use evaluate_sram function to evaluate initial parameters
-    # 使用evaluate_sram函数评估初始参数
-    objectives, constraints, initial_result, success = evaluate_sram(initial_params)
+    # Evaluate initial parameters
+    # 评估初始参数
+    if external_eval_fn is not None:
+        objectives, constraints, initial_result, success = external_eval_fn(initial_params)
+    else:
+        objectives, constraints, initial_result, success = evaluate_sram(initial_params)
     
     if not success:
         print("Warning: Initial point simulation failed, using default values as initial point")
@@ -383,12 +402,14 @@ def main(config_path="config_sram.yaml"):  # 添加config_path参数
     optimizer = PSOOptimizer(
         parameter_space,
         initial_result=initial_result,  # Use direct format
-        initial_params=initial_params
+        initial_params=initial_params,
+        evaluate_backend=external_eval_fn
     )
 
     # Run PSO optimization
     # 运行PSO优化
-    best_result = optimizer.run_optimization(max_iter=5, population_size=3)
+    _max_iter = max_iter if isinstance(max_iter, int) and max_iter > 0 else 5
+    best_result = optimizer.run_optimization(max_iter=_max_iter, population_size=10)
 
     # Output best results
     # 输出最佳结果
