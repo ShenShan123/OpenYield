@@ -750,7 +750,14 @@ def _add_equivalent_circuit_impl(core, cell_type):
     total_unused = len(rows_equiv) * len(cols_equiv)
 
     if total_unused > 0:
-        vdd_r = tester.get_static_power_r()["R"]
+        write_power_model = getattr(core, "write_power_model", False)
+        if write_power_model:
+            fit_info = tester.fit_static_power_vs_wl()
+            # R at WL=0 (hold state)
+            hold_current = fit_info["fit_func"](0.0)
+            vdd_r = tester.config.vdd / hold_current if hold_current > 0 else 1e12
+        else:
+            vdd_r = tester.get_static_power_r()["R"]
         core.R(
             "res_static_power",
             core.NODES[0],          # VDD

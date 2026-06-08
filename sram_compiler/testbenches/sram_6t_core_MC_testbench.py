@@ -19,7 +19,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                  vth_std=0.05, mc=True, enable_mc=None, custom_mc=False,
                  sweep_cell=False, sweep_precharge=False, sweep_senseamp=True, sweep_wordlinedriver=False,
                  sweep_columnmux=False, sweep_writedriver=False, sweep_decoder=False,
-                 corner='TT', choose_columnmux=True, use_equivalent=False,
+                 corner='TT', choose_columnmux=True, real_cell_mode=0,
                  q_init_val=0, sim_path='sim', enable_waveform=True):
         """
                蒙特卡洛测试平台初始化
@@ -37,7 +37,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             sram_config, sram_cell_type,
             w_rc, pi_res, pi_cap,
             custom_mc, sweep_cell,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,
-            corner,choose_columnmux,use_equivalent,q_init_val,sim_path
+            corner,choose_columnmux,real_cell_mode,q_init_val,sim_path
         )
         self.sram_cell_type=sram_cell_type
         # enable_mc is an alias for mc (backward compatibility with experiment.py)

@@ -84,7 +84,7 @@ if __name__ == '__main__':
         sweep_decoder=False,
         corner=corner,#or FF or SS or FS or SF
         choose_columnmux=choose_columnmux,# Whether choose column mux or not
-        use_equivalent=True, # Whether use equivalent model
+        real_cell_mode=0, # 0=等效十字模型, 1=全真实
         q_init_val=0, sim_path=sim_path,
     )
 

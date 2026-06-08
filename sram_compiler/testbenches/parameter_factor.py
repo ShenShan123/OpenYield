@@ -475,7 +475,7 @@ class Sram6TCoreFactory:
                  # --- 控制参数 ---
                  sweep_core=False,          # 是否开启扫描模式
                  yield_mode=False,          # 是否开启良率/Mismatch模式
-                 use_equivalent=False,      # 是否使用等效模型
+                 real_cell_mode=0,           # 0=等效十字, 1=全真实
                  # --- Sweep 模式专用 ---
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
@@ -512,7 +512,7 @@ class Sram6TCoreFactory:
         self.w_rc = w_rc
         self.sweep = sweep_core
         self.yield_mode = yield_mode
-        self.use_equivalent = use_equivalent
+        self.real_cell_mode = real_cell_mode
         self.model_dict = model_dict
         if self.sweep:
             self.pmos_choices = pmos_choices
@@ -576,7 +576,7 @@ class Sram6TCoreFactory:
             'model_dict': model_dict,
             'target_row': self.target_row,
             'target_col': self.target_col,
-            'use_equivalent': self.use_equivalent,
+            'real_cell_mode': self.real_cell_mode,
             'q_init_val': self.q_init_val,
             'global_config': self.global_config,
             'pi_res': self.pi_res,
@@ -1037,7 +1037,7 @@ class Sram10TCoreFactory:
                  # --- 控制参数 ---
                  sweep_core=False,          # 是否开启扫描模式
                  yield_mode=False,          # 是否开启良率/Mismatch模式
-                 use_equivalent=False,      # 是否使用等效模型
+                 real_cell_mode=0,           # 0=等效十字, 1=全真实
                  # --- Sweep 模式专用 ---
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
@@ -1072,7 +1072,7 @@ class Sram10TCoreFactory:
         self.w_rc = w_rc
         self.pi_res = pi_res
         self.pi_cap = pi_cap
-        self.use_equivalent = use_equivalent
+        self.real_cell_mode = real_cell_mode
         self.sweep = sweep_core
         self.yield_mode = yield_mode
         self.model_dict = model_dict
@@ -1146,7 +1146,7 @@ class Sram10TCoreFactory:
             'model_dict': model_dict,
             'target_row': self.target_row,
             'target_col': self.target_col,
-            'use_equivalent': self.use_equivalent,
+            'real_cell_mode': self.real_cell_mode,
             'q_init_val': self.q_init_val,
             'global_config': self.global_config,
             'pi_res': self.pi_res,

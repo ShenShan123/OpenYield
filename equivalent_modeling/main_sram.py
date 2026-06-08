@@ -108,8 +108,7 @@ if __name__ == "__main__":
                         sim_path=sim_path,
                         # gen_unused_cells=True  → real circuit (full array)
                         # gen_unused_cells=False → equivalent circuit (only target row/col)
-                        # OpenYield API: use_equivalent = not gen_unused_cells
-                        use_equivalent=not gen_unused_cells,
+                        real_cell_mode=1 if gen_unused_cells else 0,
                     )
                     # vars = np.random.rand(num_mc,num_rows*num_cols*18)
 

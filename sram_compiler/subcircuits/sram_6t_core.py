@@ -143,7 +143,8 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
                  model_dict=None ,
                  w_rc=False,
                  target_row=0, target_col=0,
-                 use_equivalent=False,
+                 real_cell_mode=0,
+                 write_power_model=False,
                  q_init_val=0,
                  global_config=None,
                  pi_res=None,
@@ -174,7 +175,8 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
         self.w_rc = w_rc
         self.target_row = target_row
         self.target_col = target_col
-        self.use_equivalent = use_equivalent
+        self.real_cell_mode = self._normalize_real_cell_mode(real_cell_mode)
+        self.write_power_model = write_power_model
         self.q_init_val = q_init_val
         self.model_dict = model_dict
         # Optional: global config and PI network params for equivalent circuit
@@ -219,7 +221,7 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
                     )                    
                     self.subcircuit(subckt_6t_cell)
 
-                if not self.use_equivalent or row == self.target_row or col == self.target_col:
+                if self._should_instantiate_real_cell(row, col):
                     #如果不开启等效电路或开启等效电路但轮到了目标行和列，都需要添加实际单元
                     self.X(
                         subckt_6t_cell.name + f"_{row}_{col}"  if self.model_dict is None else subckt_6t_cell.name,#实例的名称
@@ -231,6 +233,19 @@ class Sram6TCore(SubCircuitFactory):    #构建sram阵列
                         f'WL{row}',  # Connect to row wordline
                     )
 
-        if self.use_equivalent:#对开启等效电路但非目标行列添加等效模型
+        if self.real_cell_mode == 0:  #对开启等效电路但非目标行列添加等效模型
             print(f"[DEBUG] generating equivalent circuit for unused cells")
             self.add_equivalent_circuit()  # 添加等效电路
+
+    def _normalize_real_cell_mode(self, mode):
+        if isinstance(mode, bool):
+            return 1 if mode else 0
+        mode = int(mode)
+        if mode not in {0, 1}:
+            raise ValueError(f"Invalid real_cell_mode: {mode}. Valid values are 0 (equivalent) or 1 (all real).")
+        return mode
+
+    def _should_instantiate_real_cell(self, row, col):
+        if self.real_cell_mode == 0:
+            return row == self.target_row or col == self.target_col
+        return True  # real_cell_mode == 1: all real cells

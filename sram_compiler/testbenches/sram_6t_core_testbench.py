@@ -14,7 +14,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  custom_mc: bool = False,sweep_cell: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
-                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,use_equivalent:bool = False,
+                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,real_cell_mode:int = 0,
                  q_init_val: int = 0, sim_path: str = ''
                  ):
         # 保存配置对象引用
@@ -47,7 +47,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.sweep_columnmux = sweep_columnmux  #列多路选择器电路是否用参数扫描
         self.sweep_writedriver = sweep_writedriver  #写驱动电路是否用参数扫描
         self.sweep_decoder = sweep_decoder  #译码器电路是否用参数扫描
-        self.use_equivalent = use_equivalent  #是否使用等效模型
+        self.real_cell_mode = real_cell_mode  #是否使用等效模型
         # init internal data q
         self.q_init_val = q_init_val
         self.sim_path = sim_path
@@ -884,7 +884,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     w_rc=self.w_rc,
                     sweep_core=self.sweep_cell,
                     yield_mode=True,
-                    use_equivalent=self.use_equivalent,
+                    real_cell_mode=self.real_cell_mode,
                     pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
                     nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
@@ -908,7 +908,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     w_rc=self.w_rc,
                     sweep_core=self.sweep_cell,
                     yield_mode=False,
-                    use_equivalent=self.use_equivalent,
+                    real_cell_mode=self.real_cell_mode,
                     pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
                     nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
@@ -934,7 +934,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     w_rc=self.w_rc,
                     sweep_core=self.sweep_cell,
                     yield_mode=True,
-                    use_equivalent=self.use_equivalent,
+                    real_cell_mode=self.real_cell_mode,
                     pmos_choices = self.sram_config.sram_10t_cell.pmos_model.choices,
                     nmos_choices = self.sram_config.sram_10t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
@@ -958,7 +958,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     w_rc=self.w_rc,
                     sweep_core=self.sweep_cell,
                     yield_mode=False,
-                    use_equivalent=self.use_equivalent,
+                    real_cell_mode=self.real_cell_mode,
                     pmos_choices = self.sram_config.sram_10t_cell.pmos_model.choices,
                     nmos_choices = self.sram_config.sram_10t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
