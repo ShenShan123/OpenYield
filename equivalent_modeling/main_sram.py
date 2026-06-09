@@ -93,6 +93,7 @@ if __name__ == "__main__":
                         pi_res=100 @ u_Ohm,
                         pi_cap=0.001 @ u_pF,
                         vth_std=0.05,  # Process parameter variation is a percentage of its value in model lib
+                        enable_mc=use_mc,  # use_mc=False → 关闭 AGAUSS 随机，各模式用同一确定性模型，保证误差只来自等效
                         custom_mc=custom_mc,  # Use your own process params?
                         sweep_cell=False,
                         sweep_precharge=False,

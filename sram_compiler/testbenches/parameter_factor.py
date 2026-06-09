@@ -476,6 +476,7 @@ class Sram6TCoreFactory:
                  sweep_core=False,          # 是否开启扫描模式
                  yield_mode=False,          # 是否开启良率/Mismatch模式
                  real_cell_mode=0,           # 0=全真实, 1=等效十字, 2-4=部分真实
+                 write_power_model=False,    # 写操作时启用 WL 受控静态功耗源
                  # --- Sweep 模式专用 ---
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
@@ -513,6 +514,7 @@ class Sram6TCoreFactory:
         self.sweep = sweep_core
         self.yield_mode = yield_mode
         self.real_cell_mode = real_cell_mode
+        self.write_power_model = write_power_model
         self.model_dict = model_dict
         if self.sweep:
             self.pmos_choices = pmos_choices
@@ -577,6 +579,7 @@ class Sram6TCoreFactory:
             'target_row': self.target_row,
             'target_col': self.target_col,
             'real_cell_mode': self.real_cell_mode,
+            'write_power_model': self.write_power_model,
             'q_init_val': self.q_init_val,
             'global_config': self.global_config,
             'pi_res': self.pi_res,
@@ -1038,6 +1041,7 @@ class Sram10TCoreFactory:
                  sweep_core=False,          # 是否开启扫描模式
                  yield_mode=False,          # 是否开启良率/Mismatch模式
                  real_cell_mode=0,           # 0=全真实, 1=等效十字, 2-4=部分真实
+                 write_power_model=False,    # 写操作时启用 WL 受控静态功耗源
                  # --- Sweep 模式专用 ---
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
@@ -1073,6 +1077,7 @@ class Sram10TCoreFactory:
         self.pi_res = pi_res
         self.pi_cap = pi_cap
         self.real_cell_mode = real_cell_mode
+        self.write_power_model = write_power_model
         self.sweep = sweep_core
         self.yield_mode = yield_mode
         self.model_dict = model_dict
@@ -1147,6 +1152,7 @@ class Sram10TCoreFactory:
             'target_row': self.target_row,
             'target_col': self.target_col,
             'real_cell_mode': self.real_cell_mode,
+            'write_power_model': self.write_power_model,
             'q_init_val': self.q_init_val,
             'global_config': self.global_config,
             'pi_res': self.pi_res,
