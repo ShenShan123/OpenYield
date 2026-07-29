@@ -266,17 +266,19 @@ class BayesianOptimizer:
         candidates = []
         max_attempts = self.n_candidates_per_iter * 10  # 最多尝试10倍次数
         attempts = 0
+
+        def sample_dimension(index):
+            lower, upper = self.problem.variables_range[index]
+            variable_types = getattr(self.problem, "variables_type", None)
+            variable_type = variable_types[index] if variable_types else "float"
+            if variable_type == "int":
+                return int(np.random.randint(int(np.ceil(lower)), int(np.floor(upper)) + 1))
+            return float(np.random.uniform(float(lower), float(upper)))
         
         # 动态生成候选点
         while len(candidates) < self.n_candidates_per_iter and attempts < max_attempts:
             # 随机生成一个候选点
-            candidate = tuple(
-                np.random.randint(
-                    self.problem.variables_range[i][0],
-                    self.problem.variables_range[i][1] + 1
-                )
-                for i in range(self.problem.num_of_variables)
-            )
+            candidate = tuple(sample_dimension(i) for i in range(self.problem.num_of_variables))
             
             # 检查是否已评估过
             if candidate not in evaluated_set and candidate not in [tuple(c) for c in candidates]:
@@ -286,12 +288,6 @@ class BayesianOptimizer:
         
         if len(candidates) == 0:
             # 如果实在找不到，就随机生成一个
-            candidates = [[
-                np.random.randint(
-                    self.problem.variables_range[i][0],
-                    self.problem.variables_range[i][1] + 1
-                )
-                for i in range(self.problem.num_of_variables)
-            ]]
+            candidates = [[sample_dimension(i) for i in range(self.problem.num_of_variables)]]
         
         return candidates

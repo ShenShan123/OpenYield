@@ -1,103 +1,42 @@
-# SRAM Optimization Algorithms
+# SRAM sizing optimization
 
-This directory implements various optimization algorithms for SRAM circuit parameter tuning, optimizing SNM (Static Noise Margin), power consumption, and area subject to timing constraints.
+This directory contains the original circuit-backed optimization scripts and the separate OpenYield V2 offline optimizer package.
 
-## Algorithms
+## Circuit-backed scripts
 
-### 1. Constrained Bayesian Optimization (CBO)
-**File**: `sram_cbo.py`
+The original scripts call the current OpenYield configuration and evaluation code through `exp_utils.py`.
 
-Primary algorithm using Gaussian Process surrogate models with constrained multi-objective optimization.
-- Constrained Expected Improvement acquisition
-- Pareto front tracking
-- 20 random + 380 BO iterations
+| Method | Entry point |
+|---|---|
+| Simulated annealing | `demo_sa.py` |
+| Particle swarm optimization | `demo_pso.py` |
+| Constrained Bayesian optimization | `demo_cbo.py` |
+| RoSE-Opt | `demo_roseopt.py` |
+| CMA-ES | `demo_cmaes.py` |
+| SMAC | `demo_smac.py` |
+| NSGA-II | `demo_nsgaii.py` |
+| MOEA/D | `demo_moead.py` |
+| Multi-objective BO | `demo_mobo.py` |
+| Random search | `demo_random.py` |
 
-**Dependencies**:
+Run scripts from the repository root so the YAML and model-card paths resolve consistently:
+
 ```bash
-pip install torch botorch gpytorch
+python size_optimization/demo_sa.py
+python size_optimization/demo_pso.py
+python size_optimization/demo_cbo.py
 ```
 
-### 2. Particle Swarm Optimization (PSO)
-**File**: `pso.py`
+`experiment.py` runs the existing two-stage architecture and transistor-sizing flow. Parameter ranges are read from `config_sram.yaml` and the circuit YAML files.
 
-Swarm intelligence approach with velocity-based particle updates.
-- Population size: 20
-- Merit-based fitness evaluation
+## OpenYield V2
 
-**Dependencies**: Standard libraries (numpy, torch, matplotlib)
+`openyield_v2/` is an offline surrogate-optimization package. It does not replace the circuit-backed scripts and does not call Xyce during optimization. Its bundled 6T and 10T datasets are fixed training samples with per-device variation disabled.
 
-### 3. Simulated Annealing (SA)
-**File**: `sa.py`
-
-Temperature-based metaheuristic with adaptive cooling.
-- Metropolis acceptance criterion
-- Restart mechanism for exploration
-
-**Dependencies**: Standard libraries (numpy, torch, matplotlib)
-
-### 4. RoSE-Opt (BO + RL)
-**File**: `rose_opt.py`
-
-Hybrid approach combining Bayesian Optimization with Reinforcement Learning (PPO).
-- GP model for global exploration
-- RL agent for local refinement
-
-**Dependencies**:
 ```bash
-pip install gymnasium scikit-learn scipy tqdm
+python -m pip install -r size_optimization/openyield_v2/requirements.txt
+python -m size_optimization.openyield_v2.run_experiment --dry-run
+python -m size_optimization.openyield_v2.run_experiment
 ```
 
-### 5. SMAC
-**File**: `sram_smac.py`
-
-Model-based optimization using Sequential Model-based Algorithm Configuration.
-- Random Forest surrogate models
-- Expected Improvement acquisition
-
-**Dependencies**:
-```bash
-pip install smac ConfigSpace
-```
-
-## Configuration
-
-All algorithms support configuration files for circuit parameter definition:
-- **Configuration file**: `config_sram.yaml`
-- Define parameter spaces, constraints, and simulation settings
-- Easy adaptation to different circuits without code modification
-
-## Usage
-
-### Individual Algorithms
-```bash
-python sram_cbo.py      
-python pso.py  
-python sa.py   
-python rose_opt.py 
-python sram_smac.py 
-```
-
-### Automated Comparison
-```bash
-python run_experiments.py
-```
-Runs multiple algorithms and generates comparison reports.
-
-## Common Dependencies
-
-All algorithms require:
-```bash
-pip install numpy pandas matplotlib scipy torch pyyaml
-```
-
-## Output
-
-All algorithms generate CSV results, Merit tracking, and Pareto front visualizations in `sim/opt/results/` and `sim/opt/plots/`.
-
-## Extended Algorithm Repository
-
-For additional advanced optimization algorithms and cutting-edge techniques in circuit optimization:
-
-**[AIxAnalog](https://github.com/IceLab-X/AIxAnalog)** (Coming Soon)
-
-This repository will be available shortly.
+See [`openyield_v2/README.md`](openyield_v2/README.md) for algorithm selection and output files.

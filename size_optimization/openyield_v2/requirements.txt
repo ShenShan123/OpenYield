@@ -1,0 +1,9 @@
+# Install the repository environment first, then these optimizer extras.
+numpy>=1.26,<3
+pandas>=2.0,<4
+scipy>=1.11,<2
+scikit-learn>=1.4,<2
+PyYAML>=6,<7
+torch>=2.2,<3
+pymoo>=0.6.1,<0.7
+tabpfn>=2.0,<8

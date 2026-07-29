@@ -69,7 +69,17 @@ def get_default_initial_params():
     获取SRAM优化的默认初始参数
     """
     length = 50e-9
-    return {"nmos_model_name": "NMOS_VTG", "pmos_model_name": "PMOS_VTG", "pd_width": 0.205e-6, "pu_width": 0.09e-6, "pg_width": 0.135e-6, "length": length, "length_nm": length * 1e9}
+    return {
+        "pd_model_name": "NMOS_VTG",
+        "pg_model_name": "NMOS_VTG",
+        "nmos_model_name": "NMOS_VTG",  # legacy alias
+        "pmos_model_name": "PMOS_VTG",
+        "pd_width": 0.205e-6,
+        "pu_width": 0.09e-6,
+        "pg_width": 0.135e-6,
+        "length": length,
+        "length_nm": length * 1e9,
+    }
 
 
 def _load_sram_config_from_yaml():
@@ -117,12 +127,16 @@ def get_params_from_yaml():
     pmos_model_val = getattr(sram_config.sram_6t_cell.pmos_model, "value", "PMOS_VTG")
     nmos_model_val = getattr(sram_config.sram_6t_cell.nmos_model, "value", "NMOS_VTG")
     if isinstance(nmos_model_val, (list, tuple)):
-        nmos_model_name = str(nmos_model_val[0])
+        pd_model_name = str(nmos_model_val[0]) if nmos_model_val else "NMOS_VTG"
+        pg_model_name = str(nmos_model_val[1]) if len(nmos_model_val) > 1 else pd_model_name
     else:
-        nmos_model_name = str(nmos_model_val)
+        pd_model_name = str(nmos_model_val)
+        pg_model_name = pd_model_name
 
     return {
-        "nmos_model_name": nmos_model_name,
+        "pd_model_name": pd_model_name,
+        "pg_model_name": pg_model_name,
+        "nmos_model_name": pd_model_name,  # legacy alias
         "pmos_model_name": str(pmos_model_val),
         "pd_width": pd_val,
         "pg_width": pg_val,
@@ -281,14 +295,14 @@ def get_default_normalized_vector(parameter_space, rows=16, cols=16):
     return x
 
 
-def get_default_transistor_features(parameter_space):
+def get_default_transistor_features(parameter_space, split_nmos=False):
     base_space = parameter_space.base_space if hasattr(parameter_space, "base_space") else parameter_space
     default_vector = get_default_normalized_vector(base_space)
     default_vector = list(default_vector) if default_vector else []
     while len(default_vector) < 4:
         default_vector.append(0.0)
 
-    nmos_idx = 0
+    nmos_indices = [0, 0]
     pmos_idx = 0
     dim_idx = 0
     if hasattr(base_space, "param_info"):
@@ -300,16 +314,28 @@ def get_default_transistor_features(parameter_space):
             elif info["type"] == "categorical_list":
                 choices = info.get("choices", [])
                 if param_name == "nmos_model":
-                    if choices and dim_idx < len(default_vector):
-                        idx = int(default_vector[dim_idx] * len(choices))
-                        nmos_idx = max(0, min(idx, len(choices) - 1))
+                    for i in range(min(info["count"], 2)):
+                        if choices and dim_idx + i < len(default_vector):
+                            idx = int(default_vector[dim_idx + i] * len(choices))
+                            nmos_indices[i] = max(0, min(idx, len(choices) - 1))
                 if param_name == "pmos_model":
                     if choices and dim_idx < len(default_vector):
                         idx = int(default_vector[dim_idx] * len(choices))
                         pmos_idx = max(0, min(idx, len(choices) - 1))
                 dim_idx += info["count"]
 
-    return default_vector[:4], nmos_idx, pmos_idx
+    if split_nmos:
+        return default_vector[:4], nmos_indices[0], nmos_indices[1], pmos_idx
+    return default_vector[:4], nmos_indices[0], pmos_idx
+
+
+def categorical_index_to_normalized(index: Union[int, float], choices: Union[int, List[Any], Tuple[Any, ...]]) -> float:
+    """Map an integer categorical index to the normalized value expected by convert_params."""
+    count = choices if isinstance(choices, int) else len(choices)
+    if count <= 0:
+        return 0.0
+    idx = max(0, min(int(round(float(index))), count - 1))
+    return (idx + 0.5) / count
 
 
 def get_default_fallback_result():
@@ -347,7 +373,11 @@ class ConfigLoader:
         初始化配置加载器
         Initialize configuration loader
         """
-        self.config_path = config_path
+        self.config_path = (
+            Path(__file__).resolve().with_name(config_path)
+            if config_path == "config_sram.yaml"
+            else config_path
+        )
         self.config = self._load_config()
 
     def _load_config(self) -> Dict:
@@ -462,6 +492,27 @@ class ModifiedSRAMParameterSpace:
         else:
             pd_default, pg_default = 2.05e-7, 1.35e-7
 
+        if pmos_width_config:
+            pmos_defaults = pmos_width_config["default"]
+            if isinstance(pmos_defaults, (list, tuple)):
+                pu_default = pmos_defaults[0] if pmos_defaults else 9e-8
+            else:
+                pu_default = float(pmos_defaults)
+        else:
+            pu_default = 9e-8
+
+        if length_config:
+            length_default = length_config["default"]
+            if isinstance(length_default, (list, tuple)):
+                length_default = length_default[0]
+        else:
+            length_default = 50e-9
+
+        self.base_pd_width = pd_default
+        self.base_pu_width = pu_default
+        self.base_pg_width = pg_default
+        self.base_length_nm = float(length_default) * 1e9
+
     def get_physical_bounds(self) -> List:
         nmos_width_config = self.param_info.get("nmos_width", {})
         pmos_width_config = self.param_info.get("pmos_width", {})
@@ -490,29 +541,7 @@ class ModifiedSRAMParameterSpace:
 
         return [pu_range, pd_range, pg_range, length_range, nmos_choices, pmos_choices]
 
-        if pmos_width_config:
-            pmos_defaults = pmos_width_config["default"]
-            if isinstance(pmos_defaults, (list, tuple)):
-                pu_default = pmos_defaults[0] if pmos_defaults else 9e-8
-            else:
-                pu_default = float(pmos_defaults)
-        else:
-            pu_default = 9e-8
-
-        if length_config:
-            length_default = length_config["default"]
-            # 确保length_default是标量值，如果是列表则取第一个元素
-            if isinstance(length_default, (list, tuple)):
-                length_default = length_default[0]
-        else:
-            length_default = 50e-9
-
-        self.base_pd_width = pd_default
-        self.base_pu_width = pu_default
-        self.base_pg_width = pg_default
-        self.base_length_nm = float(length_default) * 1e9
-
-    def convert_params(self, x):
+    def convert_params(self, x, categorical_indices: bool = False):
         """
         Convert parameters based on configuration
         根据配置转换参数
@@ -561,6 +590,8 @@ class ModifiedSRAMParameterSpace:
                 # 分类型列表参数
                 for i, name in enumerate(info["names"]):
                     val = float(x[dim_idx])
+                    if categorical_indices:
+                        val = categorical_index_to_normalized(val, info["choices"])
                     if val > 1.0:
                         choice_idx = int(val)
                     else:
@@ -571,12 +602,20 @@ class ModifiedSRAMParameterSpace:
                         choice_idx = len(info["choices"]) - 1
 
                     if param_name == "nmos_model":
-                        params["nmos_model_name"] = info["choices"][choice_idx]
+                        model_name = info["choices"][choice_idx]
+                        if name == "pd":
+                            params["pd_model_name"] = model_name
+                        elif name == "pg":
+                            params["pg_model_name"] = model_name
                     elif param_name == "pmos_model":
                         params["pmos_model_name"] = info["choices"][choice_idx]
 
                     dim_idx += 1
 
+        # Keep the old single-model field for callers that only display/log it.
+        # Configuration writes prefer the independent PD/PG fields below.
+        if "pd_model_name" in params:
+            params["nmos_model_name"] = params["pd_model_name"]
         return params
 
     def print_params(self, params):
@@ -904,11 +943,22 @@ def apply_params_to_sram_config(sram_config, params):
         pmos_model = params["pmos_model_name"]
         if pmos_model in sram_config.sram_6t_cell.pmos_model.choices:
             sram_config.sram_6t_cell.pmos_model.value = pmos_model
-    if params.get("nmos_model_name"):
-        nmos_model = params["nmos_model_name"]
-        if nmos_model in sram_config.sram_6t_cell.nmos_model.choices:
-            sram_config.sram_6t_cell.nmos_model.value[0] = nmos_model
-            sram_config.sram_6t_cell.nmos_model.value[1] = nmos_model
+    pd_model = params.get("pd_model_name") or params.get("pd_model")
+    pg_model = params.get("pg_model_name") or params.get("pg_model")
+    if not pd_model and not pg_model:
+        legacy_nmos_model = params.get("nmos_model_name")
+        pd_model = pg_model = legacy_nmos_model
+
+    nmos_models = sram_config.sram_6t_cell.nmos_model.value
+    if not isinstance(nmos_models, list):
+        nmos_models = list(nmos_models) if isinstance(nmos_models, tuple) else [nmos_models, nmos_models]
+        sram_config.sram_6t_cell.nmos_model.value = nmos_models
+    while len(nmos_models) < 2:
+        nmos_models.append(nmos_models[0] if nmos_models else "NMOS_VTG")
+    if pd_model in sram_config.sram_6t_cell.nmos_model.choices:
+        nmos_models[0] = pd_model
+    if pg_model in sram_config.sram_6t_cell.nmos_model.choices:
+        nmos_models[1] = pg_model
 
     # --- Column Mux ---
     if "mux_p_width" in params:

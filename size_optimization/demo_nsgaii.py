@@ -2,7 +2,7 @@
 SRAM Circuit Optimization using NSGA-II
 使用NSGA-II算法的SRAM电路多目标优化
 优化目标: SNM(最大化), 功耗(最小化), 面积(最小化), 延时(最小化)
-8维输入: row_idx, col_idx, pu_width, pd_width, pg_width, length, nmos_model_idx, pmos_model_idx
+9维输入: row_idx, col_idx, pu_width, pd_width, pg_width, length, pd_model_idx, pg_model_idx, pmos_model_idx
 """
 
 import os
@@ -137,7 +137,7 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
     
     print("=" * 70)
     print("SRAM Joint Multi-Objective Optimization using NSGA-II")
-    print("8输入: row_idx, col_idx + 6个晶体管参数")
+    print("9输入: row_idx, col_idx + 7个晶体管参数")
     print("4目标: SNM, Power, Area, Delay")
     print("=" * 70)
     
@@ -161,7 +161,9 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
     
     arch_space = ArchitectureConfigurationSpace()
     param_space = ModifiedSRAMParameterSpace(config_path)
-    default_vector, nmos_idx, pmos_idx = get_default_transistor_features(param_space)
+    nmos_choice_count = len(param_space.param_info.get("nmos_model", {}).get("choices", [])) or 1
+    pmos_choice_count = len(param_space.param_info.get("pmos_model", {}).get("choices", [])) or 1
+    default_vector, pd_model_idx, pg_model_idx, pmos_idx = get_default_transistor_features(param_space, split_nmos=True)
     row_idx = arch_space.row_choices.index(16) if 16 in arch_space.row_choices else 0
     col_idx = arch_space.column_choices.index(16) if 16 in arch_space.column_choices else 0
     default_features = [
@@ -171,9 +173,19 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
         default_vector[1],
         default_vector[2],
         default_vector[3],
-        nmos_idx,
+        pd_model_idx,
+        pg_model_idx,
         pmos_idx,
     ]
+    variables_range = [
+        (0, len(arch_space.row_choices) - 1),
+        (0, len(arch_space.column_choices) - 1),
+        (0.0, 1.0), (0.0, 1.0), (0.0, 1.0), (0.0, 1.0),
+        (0, nmos_choice_count - 1),
+        (0, nmos_choice_count - 1),
+        (0, pmos_choice_count - 1),
+    ]
+    variables_type = ['int', 'int', 'float', 'float', 'float', 'float', 'int', 'int', 'int']
     
     evaluation_counter = {'count': 0}
     iteration_csv_tag = f"NSGAII_{num_of_generations}_{timestamp}"
@@ -183,7 +195,7 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
     iteration_csv_fields = [
         "iteration", "fom", "success", "rows", "cols", "num_arrays",
         "pg_width", "pd_width", "pu_width", "length",
-        "nmos_model_name", "pmos_model_name",
+        "pd_model_name", "pg_model_name", "nmos_model_name", "pmos_model_name",
     ] + list(PERIPHERAL_ALL_KEYS) + [
         "min_snm", "hold_snm", "read_snm", "write_snm",
         "read_delay", "write_delay", "max_delay",
@@ -205,19 +217,20 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
                 writer.writeheader()
             writer.writerow({k: record.get(k, "") for k in iteration_csv_fields})
             
-    def evaluate_joint(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx):
+    def evaluate_joint(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx):
         import torch
         x_norm = torch.tensor([
             pu_width_norm, pd_width_norm, pg_width_norm, length_norm,
-            nmos_idx, nmos_idx, pmos_idx
+            pd_model_idx, pg_model_idx, pmos_idx
         ], dtype=torch.float32)
-        params = param_space.convert_params(x_norm)
+        params = param_space.convert_params(x_norm, categorical_indices=True)
         
         pu_width = params['pu_width']
         pd_width = params['pd_width']
         pg_width = params['pg_width']
         length = params['length']
-        nmos_model_name = params['nmos_model_name']
+        pd_model_name = params['pd_model_name']
+        pg_model_name = params['pg_model_name']
         pmos_model_name = params['pmos_model_name']
         
         rows = arch_space.row_choices[int(row_idx)]
@@ -231,7 +244,8 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
         params_dict = dict(_peripheral_defaults)
         params_dict.update({
             'pu_width': pu_width, 'pd_width': pd_width, 'pg_width': pg_width, 'length': length,
-            'nmos_model_name': nmos_model_name, 'pmos_model_name': pmos_model_name
+            'pd_model_name': pd_model_name, 'pg_model_name': pg_model_name,
+            'nmos_model_name': params.get('nmos_model_name'), 'pmos_model_name': pmos_model_name
         })
         
         objectives, constraints, result, success = evaluate_sram_with_config(
@@ -255,7 +269,7 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
             min_snm = result.get("min_snm", 0.0)
             max_power = result.get("max_power", 0.0)
             max_delay = result.get("max_delay", max(result.get("read_delay", 0.0), result.get("write_delay", 0.0)))
-            area = result.get("total_area", result.get("area", 0.0) * num_arrays)
+            area = result.get("area", 0.0)
             nsga_objectives = [-min_snm, max_power, area, max_delay]
         else:
             nsga_objectives = [0.0, 10.0, 5e-6, 5e-8]
@@ -265,6 +279,7 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
             "rows": rows, "cols": cols, "num_arrays": num_arrays,
             "pg_width": params.get("pg_width"), "pd_width": params.get("pd_width"),
             "pu_width": params.get("pu_width"), "length": params.get("length"),
+            "pd_model_name": params.get("pd_model_name"), "pg_model_name": params.get("pg_model_name"),
             "nmos_model_name": params.get("nmos_model_name"), "pmos_model_name": params.get("pmos_model_name"),
         }
         # 添加外围电路参数到记录
@@ -273,8 +288,8 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
         
         if success and result:
             total_power = result.get("total_power", result.get("max_power", 0))
-            single_area = result.get("area", 0)
-            total_area = result.get("total_area", single_area * num_arrays if single_area else 0)
+            single_area = result.get("single_array_area", result.get("area", 0))
+            total_area = result.get("area", 0)
             record.update({
                 "min_snm": result.get("min_snm", 0),
                 "hold_snm": result.get("hold_snm", 0),
@@ -305,13 +320,13 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
 
     last_eval_params = {'params': None, 'results': None}
     
-    def get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx):
-        params_key = (int(row_idx), int(col_idx), pu_width_norm, pd_width_norm, pg_width_norm, length_norm, int(nmos_idx), int(pmos_idx))
+    def get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx):
+        params_key = (int(row_idx), int(col_idx), pu_width_norm, pd_width_norm, pg_width_norm, length_norm, int(pd_model_idx), int(pg_model_idx), int(pmos_idx))
         if last_eval_params['params'] == params_key:
             return last_eval_params['results']
         
         objectives, constraints, result, success = evaluate_joint(
-            row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx
+            row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx
         )
         
         results = objectives
@@ -320,17 +335,17 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
         last_eval_params['results'] = results
         return results
 
-    def f1_snm(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx):
-        return get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx)[0]
+    def f1_snm(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx):
+        return get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx)[0]
     
-    def f2_power(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx):
-        return get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx)[1]
+    def f2_power(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx):
+        return get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx)[1]
     
-    def f3_area(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx):
-        return get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx)[2]
+    def f3_area(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx):
+        return get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx)[2]
     
-    def f4_delay(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx):
-        return get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, nmos_idx, pmos_idx)[3]
+    def f4_delay(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx):
+        return get_objectives_for_params(row_idx, col_idx, pu_width_norm, pd_width_norm, pg_width_norm, length_norm, pd_model_idx, pg_model_idx, pmos_idx)[3]
 
     # 当外部problem提供时, 使用外部参数空间和评估函数(含外围电路参数)
     if _use_external:
@@ -429,21 +444,21 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
             else:
                 _, result, _ = _eval_ext_full(*state)
         else:
-            # 内部8维: 原有解码逻辑
+            # 内部9维: PD/PG 模型独立解码
             row_idx = int(state[0])
             col_idx = int(state[1])
             rows = arch_space.row_choices[row_idx]
             cols = arch_space.column_choices[col_idx]
             num_arrays = arch_space.total_bits // (rows * cols)
-            x_tensor = torch.tensor([state[2], state[3], state[4], state[5], state[6], state[6], state[7]], dtype=torch.float32)
-            params = param_space.convert_params(x_tensor)
+            x_tensor = torch.tensor([state[2], state[3], state[4], state[5], state[6], state[7], state[8]], dtype=torch.float32)
+            params = param_space.convert_params(x_tensor, categorical_indices=True)
             _, _, result, _ = evaluate_joint(
-                state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7]
+                state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7], state[8]
             )
         
         min_snm = result.get('min_snm', 0) if result else 0
         max_power = result.get('max_power', 0) if result else 0
-        area = result.get('total_area', result.get('area', 0) * (arch_space.total_bits // (rows * cols))) if result else 0
+        area = result.get('area', 0) if result else 0
         max_delay = result.get('max_delay', 0) if result else 0
         
         sol_dict = {
@@ -455,6 +470,8 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
             'pd_width': params.get("pd_width"),
             'pu_width': params.get("pu_width"),
             'length': params.get("length"),
+            'pd_model_name': params.get("pd_model_name"),
+            'pg_model_name': params.get("pg_model_name"),
             'nmos_model_name': params.get("nmos_model_name"),
             'pmos_model_name': params.get("pmos_model_name"),
             'min_snm': min_snm,
@@ -471,7 +488,7 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
     fieldnames = [
         "solution_id", "rows", "cols", "num_arrays",
         "pg_width", "pd_width", "pu_width", "length",
-        "nmos_model_name", "pmos_model_name",
+        "pd_model_name", "pg_model_name", "nmos_model_name", "pmos_model_name",
     ] + list(PERIPHERAL_ALL_KEYS) + [
         "min_snm", "max_power", "area", "max_delay",
     ]
@@ -500,7 +517,7 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=None, circuit_mo
     _best_params = None
     _best_result = None
     if _best_sol:
-        _best_params = {k: _best_sol.get(k) for k in ['rows', 'cols', 'pu_width', 'pd_width', 'pg_width', 'length', 'nmos_model_name', 'pmos_model_name']}
+        _best_params = {k: _best_sol.get(k) for k in ['rows', 'cols', 'pu_width', 'pd_width', 'pg_width', 'length', 'pd_model_name', 'pg_model_name', 'nmos_model_name', 'pmos_model_name']}
         _best_result = {'min_snm': _best_sol.get('min_snm'), 'max_power': _best_sol.get('max_power'), 'area': _best_sol.get('area'), 'max_delay': _best_sol.get('max_delay'), 'read_delay': _best_sol.get('max_delay'), 'write_delay': _best_sol.get('max_delay')}
 
     return {

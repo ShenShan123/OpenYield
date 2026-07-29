@@ -130,19 +130,14 @@ if __name__ == "__main__":
 
                     print(r_delay, r_pavg, r_pstc, r_pdyn)
 
-                    # 模式 3/4（仅目标列 / 仅目标 cell）目标行未完整实例化，跳过写仿真
-                    if real_cell_mode in (3, 4):
-                        print("[INFO] real_cell_mode 3/4：跳过 write 操作仿真")
-                        w_delay, w_pavg, w_pstc, w_pdyn = [0.0], [0.0], [0.0], [0.0]
-                    else:
-                        w_delay, w_pavg, w_pstc, w_pdyn = mc_testbench.run_mc_simulation(
-                            operation="write",
-                            target_row=num_rows - 1,
-                            target_col=num_cols - 1,
-                            mc_runs=num_mc if use_mc else 1,
-                            temperature=temperature,
-                            vars=None,  # Input your data table
-                        )
+                    w_delay, w_pavg, w_pstc, w_pdyn = mc_testbench.run_mc_simulation(
+                        operation="write",
+                        target_row=num_rows - 1,
+                        target_col=num_cols - 1,
+                        mc_runs=num_mc if use_mc else 1,
+                        temperature=temperature,
+                        vars=None,  # Input your data table
+                    )
                     """
                     r_delay, r_pavg, r_pstc, r_pdyn = [1.43, 2], [2, 3], [3, 4], [4, 5]
                     time.sleep((use_mc + custom_mc + real_cell_mode) / 100)"""

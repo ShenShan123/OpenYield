@@ -1,12 +1,10 @@
-# OpenYield: An Open-Source SRAM Yield Analysis and Optimization Benchmark Suite
+# OpenYield: SRAM yield analysis and optimization
 ![](img/logo-cut-openyield.jpg)
-**OpenYield** is a novel and scalable SRAM circuit generator designed to produce diverse, industrially-relevant test cases. It distinguishes itself by incorporating critical second-order effects often overlooked in simpler SRAM models, such as:
+**OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
 
-* **Detailed Parasitics:** Accurate modeling of parasitic capacitances and resistances.
-* **Inter-cell Leakage Coupling:** Accounting for leakage current interactions between adjacent memory cells.
-* **Peripheral Circuit Variations:** Modeling variations in the behavior of peripheral circuits like sense amplifiers and write drivers.
+The circuit generator models parasitic capacitance/resistance, leakage coupling, and variation in peripheral circuits such as sense amplifiers and write drivers.
 
-This enhanced level of detail enables more realistic and reliable yield analysis of SRAM designs.
+The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
 
 ## Key Features
 
@@ -22,6 +20,7 @@ This enhanced level of detail enables more realistic and reliable yield analysis
     * Static and Dynamic Power
 * **SRAM Sizing Optimization:** Integrated two-stage optimization for transistor sizing and architecture configuration.
 * **Output Parsing and Waveform Plotting:** Includes parsers to extract simulation results and tools to visualize signal waveforms.
+* **OpenYield V2 optimizers:** An isolated offline optimizer package under `size_optimization/openyield_v2/` with evolutionary, Bayesian, and surrogate-based methods.
 
 ![](img/openyield_all-overall.drawio.png)
 
@@ -43,10 +42,17 @@ This enhanced level of detail enables more realistic and reliable yield analysis
     ```
     For building your own Xyce please refer to this [guide](https://xyce.sandia.gov/documentation-tutorials/building-guide/)
 
-* **Python packages for optimization** (install via pip):
+* **Python packages for the bundled circuit-backed optimizers** (install via pip; tSS-BO still needs its separate repository):
 
     ```bash
-    pip install numpy scipy matplotlib pandas torch botorch gpytorch smac
+    pip install numpy scipy matplotlib pandas torch botorch gpytorch \
+      smac ConfigSpace cma gymnasium scikit-learn tqdm tabpfn PyYAML
+    ```
+
+* **OpenYield V2 extras** (only needed for `size_optimization/openyield_v2/`):
+
+    ```bash
+    pip install -r size_optimization/openyield_v2/requirements.txt
     ```
 
 ## Usage Examples
@@ -108,6 +114,7 @@ sram_config.load_all_configs(
     global_file="sram_compiler/config_yaml/global.yaml",
     circuit_configs={
         "SRAM_6T_CELL": "sram_compiler/config_yaml/sram_6t_cell.yaml",
+        "SRAM_10T_CELL": "sram_compiler/config_yaml/sram_10t_cell.yaml",
         "WORDLINEDRIVER": "sram_compiler/config_yaml/wordline_driver.yaml",
         "PRECHARGE": "sram_compiler/config_yaml/precharge.yaml",
         "COLUMNMUX": "sram_compiler/config_yaml/mux.yaml",
@@ -124,7 +131,7 @@ mc_testbench = Sram6TCoreMcTestbench(
     pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
     vth_std=0.05,
     mc=True,
-    use_equivalent=True,  # use equivalent circuit for unused cells
+    real_cell_mode=1,  # use the equivalent circuit for unused cells
     corner='TT',
     sim_path='sim/',
 )
@@ -150,9 +157,9 @@ Simulation outputs (netlists, waveforms, results) are saved to the `sim_path` di
 
 ### 2. Equivalent Circuit Modeling
 
-For large arrays, unused SRAM cells can be replaced with a compact 5-capacitor equivalent circuit to dramatically reduce simulation time.
+For large arrays, unused SRAM cells can be replaced with a compact 5-capacitor equivalent circuit to reduce simulation time.
 
-Enable with `use_equivalent=True` when creating the testbench (shown above).
+Set `real_cell_mode=1` (or modes 2–4) when creating the testbench. Mode `0` keeps the complete transistor array.
 
 To analyze and characterize the equivalent model for different array sizes:
 
@@ -160,7 +167,41 @@ To analyze and characterize the equivalent model for different array sizes:
 python equivalent_modeling/main_sram.py
 ```
 
-This compares simulation results with and without the equivalent model across different array configurations. See [`equivalent_modeling/EQUIVALENT_CIRCUIT_ANALYSIS.md`](equivalent_modeling/EQUIVALENT_CIRCUIT_ANALYSIS.md) for a detailed explanation of the model.
+This compares simulation results with and without the equivalent model across different array configurations. See [`等效电路说明文档.md`](等效电路说明文档.md) for the model description.
+
+#### Per-device process variation
+
+`per_device_mc/run.py` keeps circuit topology and process variation as separate options:
+
+```bash
+python per_device_mc/run.py \
+  --rows 16 --cols 16 \
+  --real-cell-mode 1 \
+  --variation-mode per-device \
+  --mc-runs 100 \
+  --operation read \
+  --output-dir outputs/per_device_mc \
+  --run-xyce
+```
+
+Variation modes:
+
+| Mode | Behavior |
+|------|----------|
+| `nominal` | No process variation |
+| `shared` | Existing model-card Monte Carlo; devices sharing a base model share its random parameters |
+| `custom` | Parameter-table flow using `process_parameters.vars` from the cell YAML; a one-dimensional 10T table is treated as one sample |
+| `per-device` | Independent `vth0`, `u0`, and `voff` expressions for every MOS retained in the generated netlist |
+
+`--vth-std` is the relative standard deviation used for all three varied parameters; the default is `0.05`.
+
+`real-cell-mode` remains `0` (full array), `1` (target-row/target-column cross), `2` (target row), `3` (target column), or `4` (target cell). In modes 1–4, replaced cells are represented by the existing equivalent circuit; retained cells and peripheral MOS devices receive per-device variation. Write simulation is available in all five modes. In modes 3 and 4, the target cell write transition remains transistor-level, while replaced cells contribute the equivalent RC and WL-controlled static-power model. Their internal write state and whole-row dynamic write power should therefore be treated as approximations rather than full-array transistor-level results.
+
+Generation is the default. Add `--run-xyce` to simulate or `--audit` to save model counts and hierarchy details. The runner accepts `read`, `write`, `read&write`, `hold_snm`, `read_snm`, and `write_snm`.
+
+`.PRINT` output is retained by default. After a successful Xyce run, the same directory contains `deck.sp.prn` and `waveform.png`. `--no-waveform` is available for transient operations; SNM calculations require the DC waveform and reject that option.
+
+Each parameter set gets a deterministic subdirectory under `--output-dir`. Different circuit and variation modes remain separate. Repeating the same configuration refreshes only runner-generated files in that directory, so old PRN or measurement files cannot be mistaken for the current run.
 
 ### 3. SRAM Sizing Optimization
 
@@ -210,19 +251,22 @@ The parameter space is defined in `size_optimization/exp_utils.py`:
 - **`ModifiedSRAMParameterSpace`**: 7-dimensional bitcell transistor sizing space.
 - **`CompositeSRAMParameterSpace`**: 24-dimensional joint space (bitcell + peripheral circuits).
 
-#### Multi-Seed Result Visualization
+#### OpenYield V2 offline optimizers
 
-To plot convergence curves with standard deviation across multiple seeds, use the scripts in `size_optimization/guidance/`:
+`size_optimization/openyield_v2/` adds a separate surrogate-optimization path without changing the circuit generator or the existing optimization scripts. It includes NSGA2, SPEA2, UNSGA3, CTAEA, GPBO, PAREGO, MACE, and the proposed coarse-search/refinement method.
+
+The package reads `datasets/train_6t.csv` and `datasets/train_10t.csv`. These are static TT/25 °C samples generated with the equivalent circuit enabled and per-device variation disabled; they are not current per-device Monte Carlo results.
 
 ```bash
-python size_optimization/guidance/plot_with_std.py
+python -m size_optimization.openyield_v2.run_experiment --dry-run
+python -m size_optimization.openyield_v2.run_experiment
 ```
 
-See [`size_optimization/guidance/README_multi_seed.md`](size_optimization/guidance/README_multi_seed.md) for detailed instructions.
+See [`size_optimization/openyield_v2/README.md`](size_optimization/openyield_v2/README.md) for algorithm selection, budgets, and output files.
 
 ### 4. SRAM Yield Estimation Algorithms
 
-OpenYield provides integrated SRAM yield estimation algorithms based on Monte Carlo and advanced importance sampling techniques.
+OpenYield includes SRAM yield estimators based on Monte Carlo and importance sampling.
 
 #### Available Algorithms
 - **MC**: Monte Carlo
@@ -237,8 +281,11 @@ OpenYield provides integrated SRAM yield estimation algorithms based on Monte Ca
 OpenYield/
 ├── main_sram.py                  # Main simulation entry point
 ├── config.py                     # Centralized YAML config loader
-├── utils.py                      # Area estimation utilities
+├── utils.py                      # Result parsing, waveform plotting, and area utilities
 ├── environment.yml               # Conda environment specification
+├── per_device_mc/
+│   ├── run.py                    # Variation-mode runner and Xyce entry point
+│   └── netlist.py                # Independent model cards for retained MOS devices
 ├── sram_compiler/
 │   ├── config_yaml/              # YAML configuration files for all circuits
 │   ├── subcircuits/              # Circuit generation modules (6T, 10T, peripherals)
@@ -261,10 +308,10 @@ OpenYield/
 │   ├── NSGA-II/                  # NSGA-II implementation
 │   ├── MOBO/                     # MOBO implementation
 │   ├── moead/                    # MOEAD implementation
-│   └── guidance/                 # Multi-seed experiment scripts and plotting
+│   └── openyield_v2/             # Offline evolutionary/Bayesian optimizer package and datasets
 ├── equivalent_modeling/
-│   ├── main_sram.py              # Equivalent circuit analysis script
-│   └── EQUIVALENT_CIRCUIT_ANALYSIS.md
+│   └── main_sram.py              # Equivalent circuit analysis script
+├── 等效电路说明文档.md            # Equivalent circuit modes and accuracy boundary
 ├── tran_models/                  # FreePDK45 transistor model files
 └── yield_estimation/             # Yield estimation algorithms
 ```
@@ -272,10 +319,10 @@ OpenYield/
 ## Important Notes
 
 * Ensure Xyce is installed and available in your system PATH.
-* All paths in the codebase are relative to the project root — the repository can be cloned and run from any location.
+* The circuit generator, per-device runner, equivalent-model scripts, and OpenYield V2 package resolve repository data from the project root. Legacy `yield_estimation/` demos still contain their original machine-local paths and were not changed in this integration.
 * FreePDK45 model files are included in `tran_models/`.
 * Simulation output directories (`sim/`) are created automatically and are excluded from git.
 
 ## Contributing
 
-Contributions to OpenYield are welcome! Please refer to the contribution guidelines for details on how to get involved.
+Contributions and reproducible issue reports are welcome.

@@ -31,7 +31,7 @@ import csv
 from pathlib import Path
 import traceback
 from datetime import datetime
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
@@ -66,6 +66,50 @@ from utils import estimate_total_area, estimate_bitcell_area, estimate_array_are
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 from config import SRAM_CONFIG
+
+
+def _normalize_model_fields(values: Dict[str, Any]) -> Dict[str, Any]:
+    """Preserve separate PD/PG models while accepting legacy aliases."""
+    normalized = dict(values)
+    legacy_model = normalized.get("nmos_model_name", "")
+    pd_model = normalized.get("pd_model_name") or normalized.get("pd_model") or legacy_model
+    pg_model = normalized.get("pg_model_name") or normalized.get("pg_model") or legacy_model
+    normalized["pd_model_name"] = pd_model
+    normalized["pg_model_name"] = pg_model
+    normalized["nmos_model_name"] = pd_model or pg_model or legacy_model
+    return normalized
+
+
+def _prepare_model_csv(path: Path, fields: List[str], *, need_last: bool = True) -> Tuple[List[str], Optional[Dict[str, Any]]]:
+    """Upgrade an existing CSV header without losing legacy rows."""
+    expected_fields = list(fields)
+    if not path.exists() or path.stat().st_size == 0:
+        return expected_fields, None
+
+    with open(path, "r", newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        existing_fields = [field for field in (reader.fieldnames or []) if field]
+        effective_fields = expected_fields + [field for field in existing_fields if field not in expected_fields]
+        if existing_fields == effective_fields:
+            if not need_last:
+                return effective_fields, None
+            last_row = None
+            for row in reader:
+                last_row = row
+            if last_row is not None and ("pd_model_name" in effective_fields or "pg_model_name" in effective_fields):
+                last_row = _normalize_model_fields(last_row)
+            return effective_fields, last_row
+        rows = list(reader)
+
+    normalized_rows = [_normalize_model_fields(row) for row in rows]
+    with open(path, "w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=effective_fields)
+        writer.writeheader()
+        for row in normalized_rows:
+            writer.writerow({field: row.get(field, "") for field in effective_fields})
+
+    last_row = normalized_rows[-1] if normalized_rows else None
+    return effective_fields, last_row
 
 
 class ArchitectureConfigurationSpace:
@@ -220,36 +264,43 @@ def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=12
                 "pd_width",
                 "pg_width",
                 "length",
+                "pd_model_name",
+                "pg_model_name",
                 "pmos_model_name",
                 "nmos_model_name",
             ] + list(PERIPHERAL_ALL_KEYS)
             timestamp = datetime.now().isoformat(timespec="seconds")
-            row = [
-                timestamp,
-                stage_label,
-                "" if iteration_index is None else iteration_index,
-                num_rows,
-                num_cols,
-                params.get("pu_width", 0.0),
-                params.get("pd_width", 0.0),
-                params.get("pg_width", 0.0),
-                params.get("length", 0.0),
-                params.get("pmos_model_name", ""),
-                params.get("nmos_model_name", ""),
-            ] + [params.get(k, "") for k in PERIPHERAL_ALL_KEYS]
+            model_params = _normalize_model_fields(params)
+            row = {
+                "timestamp": timestamp,
+                "stage": stage_label,
+                "iteration": "" if iteration_index is None else iteration_index,
+                "rows": num_rows,
+                "cols": num_cols,
+                "pu_width": params.get("pu_width", 0.0),
+                "pd_width": params.get("pd_width", 0.0),
+                "pg_width": params.get("pg_width", 0.0),
+                "length": params.get("length", 0.0),
+                "pd_model_name": model_params["pd_model_name"],
+                "pg_model_name": model_params["pg_model_name"],
+                "pmos_model_name": params.get("pmos_model_name", ""),
+                "nmos_model_name": model_params["nmos_model_name"],
+            }
+            row.update({k: params.get(k, "") for k in PERIPHERAL_ALL_KEYS})
 
             history_path = sim_dir / "transistor_params_history.csv"
-            write_header = not history_path.exists()
+            write_header = not history_path.exists() or history_path.stat().st_size == 0
+            history_fields, _ = _prepare_model_csv(history_path, headers, need_last=False)
             with open(history_path, "a", newline="", encoding="utf-8") as f_hist:
-                writer = csv.writer(f_hist)
+                writer = csv.DictWriter(f_hist, fieldnames=history_fields)
                 if write_header:
-                    writer.writerow(headers)
-                writer.writerow(row)
+                    writer.writeheader()
+                writer.writerow({field: row.get(field, "") for field in history_fields})
 
             latest_path = sim_dir / "transistor_params_latest.csv"
             with open(latest_path, "w", newline="", encoding="utf-8") as f_latest:
-                writer = csv.writer(f_latest)
-                writer.writerow(headers)
+                writer = csv.DictWriter(f_latest, fieldnames=headers)
+                writer.writeheader()
                 writer.writerow(row)
 
             with open(latest_path, "r", newline="", encoding="utf-8") as f_latest:
@@ -262,11 +313,14 @@ def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=12
                 except (TypeError, ValueError):
                     return value
 
+            latest_row = _normalize_model_fields(latest_row)
             result_dict = {
                 "pu_width": _to_float(latest_row["pu_width"]),
                 "pd_width": _to_float(latest_row["pd_width"]),
                 "pg_width": _to_float(latest_row["pg_width"]),
                 "length": _to_float(latest_row["length"]),
+                "pd_model_name": latest_row["pd_model_name"],
+                "pg_model_name": latest_row["pg_model_name"],
                 "pmos_model_name": latest_row["pmos_model_name"],
                 "nmos_model_name": latest_row["nmos_model_name"],
             }
@@ -360,8 +414,6 @@ def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=12
         try:
             # Run simulation directly
             # 直接运行仿真
-            # 模式 3/4（仅目标列 / 仅目标 cell）下目标行未完整实例化，跳过写仿真
-            skip_write_simulation = real_cell_mode in (3, 4)
             if stage_label == "stage1":
                 print("Running stage 1 simulation...")
             else:
@@ -384,31 +436,23 @@ def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=12
                     vars=None,
                 )
 
-                if skip_write_simulation:
-                    print("[INFO] real_cell_mode 3/4：跳过 write_snm 仿真")
-                    write_snm = None
-                else:
-                    write_snm = mc_testbench.run_mc_simulation(
-                        operation="write_snm",
-                        target_row=num_rows - 1,
-                        target_col=num_cols - 1,
-                        mc_runs=num_mc,
-                        temperature=temperature,
-                        vars=None,
-                    )
-
-            if skip_write_simulation:
-                print("[INFO] real_cell_mode 3/4：跳过 write 操作仿真")
-                w_delay, w_pavg, w_pstc, w_pdyn = 0.0, 0.0, 0.0, 0.0
-            else:
-                w_delay, w_pavg, w_pstc, w_pdyn = mc_testbench.run_mc_simulation(
-                    operation="write",
+                write_snm = mc_testbench.run_mc_simulation(
+                    operation="write_snm",
                     target_row=num_rows - 1,
                     target_col=num_cols - 1,
                     mc_runs=num_mc,
                     temperature=temperature,
                     vars=None,
                 )
+
+            w_delay, w_pavg, w_pstc, w_pdyn = mc_testbench.run_mc_simulation(
+                operation="write",
+                target_row=num_rows - 1,
+                target_col=num_cols - 1,
+                mc_runs=num_mc,
+                temperature=temperature,
+                vars=None,
+            )
 
             r_delay, r_pavg, r_pstc, r_pdyn = mc_testbench.run_mc_simulation(
                 operation="read",
@@ -434,10 +478,8 @@ def evaluate_sram_with_config(params, num_rows, num_cols, num_arrays, timeout=12
             else:
                 hold_snm_val = get_float_value(hold_snm)
                 read_snm_val = get_float_value(read_snm)
-                # 模式 3/4 跳过了写仿真，write_snm 为 None
-                write_snm_val = get_float_value(write_snm) if write_snm is not None else None
-                snm_candidates = [v for v in (hold_snm_val, read_snm_val, write_snm_val) if v is not None]
-                min_snm = min(snm_candidates) if snm_candidates else None
+                write_snm_val = get_float_value(write_snm)
+                min_snm = min(hold_snm_val, read_snm_val, write_snm_val)
 
             # 提取原始延迟标量
             raw_read_delay = float(r_delay[0]) if isinstance(r_delay, np.ndarray) else float(r_delay)
@@ -908,12 +950,15 @@ class TwoStageOptimizer:
             "num_arrays": num_arrays,
         }
         if params:
+            model_params = _normalize_model_fields(params)
             record.update({
                 "pg_width": params.get("pg_width", 0),
                 "pd_width": params.get("pd_width", 0),
                 "pu_width": params.get("pu_width", 0),
                 "length": params.get("length", 0),
-                "nmos_model_name": params.get("nmos_model_name", ""),
+                "pd_model_name": model_params["pd_model_name"],
+                "pg_model_name": model_params["pg_model_name"],
+                "nmos_model_name": model_params["nmos_model_name"],
                 "pmos_model_name": params.get("pmos_model_name", ""),
             })
             for pk in PERIPHERAL_ALL_KEYS:
@@ -988,6 +1033,8 @@ class TwoStageOptimizer:
             "pd_width",
             "pu_width",
             "length",
+            "pd_model_name",
+            "pg_model_name",
             "nmos_model_name",
             "pmos_model_name",
         ] + list(PERIPHERAL_ALL_KEYS) + [
@@ -1013,19 +1060,12 @@ class TwoStageOptimizer:
         ]
 
         fields = stage1_fields if stage == "stage1" else stage2_fields
-        write_header = not path.exists()
         if not record.get("success", False):
             return
-        key_fields = ["pg_width", "pd_width", "pu_width", "length", "nmos_model_name", "pmos_model_name", "fom", "max_delay", "max_power"]
-        last = None
-        if path.exists():
-            try:
-                with open(path, "r", newline="", encoding="utf-8") as fr:
-                    reader = csv.DictReader(fr)
-                    for r in reader:
-                        last = r
-            except Exception:
-                last = None
+        record = _normalize_model_fields(record) if stage != "stage1" else dict(record)
+        write_header = not path.exists() or path.stat().st_size == 0
+        fields, last = _prepare_model_csv(path, fields)
+        key_fields = ["pg_width", "pd_width", "pu_width", "length", "pd_model_name", "pg_model_name", "nmos_model_name", "pmos_model_name", "fom", "max_delay", "max_power"]
         dedupe = False
         if last is not None:
             try:
@@ -1034,7 +1074,6 @@ class TwoStageOptimizer:
                 dedupe = False
         if dedupe:
             return
-        record = dict(record)
         record.setdefault("seed", getattr(self, "seed", None))
         with open(path, "a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fields)
@@ -1100,7 +1139,7 @@ class TwoStageOptimizer:
             config = self.arch_space.get_configuration(config_index)
 
             # Use default transistor parameters for Stage 1
-            default_params = {"nmos_model_name": "NMOS_VTG", "pmos_model_name": "PMOS_VTG", "pd_width": 0.205e-6, "pu_width": 0.09e-6, "pg_width": 0.135e-6, "length": 50e-9, "length_nm": 50}
+            default_params = {"pd_model_name": "NMOS_VTG", "pg_model_name": "NMOS_VTG", "nmos_model_name": "NMOS_VTG", "pmos_model_name": "PMOS_VTG", "pd_width": 0.205e-6, "pu_width": 0.09e-6, "pg_width": 0.135e-6, "length": 50e-9, "length_nm": 50}
 
             print(f"Evaluating config {config_index}: {config['rows']}x{config['cols']} x{config['num_arrays']} arrays")
             print(f"评估配置 {config_index}: {config['rows']}x{config['cols']} x{config['num_arrays']} 个阵列")
@@ -1429,6 +1468,8 @@ class TwoStageOptimizer:
 
         # Parse results
         best_params = ret.get("params") if isinstance(ret, dict) else None
+        if isinstance(best_params, dict):
+            best_params = _normalize_model_fields(best_params)
         best_result = ret.get("result") if isinstance(ret, dict) else None
         best_fom = ret.get("fom") if isinstance(ret, dict) else None
 
@@ -1677,6 +1718,8 @@ class TwoStageOptimizer:
 
         # 解析结果
         best_params = ret.get("params") if isinstance(ret, dict) else None
+        if isinstance(best_params, dict):
+            best_params = _normalize_model_fields(best_params)
         best_result = ret.get("result") if isinstance(ret, dict) else None
         best_fom = ret.get("fom") if isinstance(ret, dict) else None
         if best_fom is None and best_result:
@@ -1750,6 +1793,7 @@ class TwoStageOptimizer:
         by SA's optimize_continuous.
         将包含 rows/cols 的参数字典编码为 SA 连续优化所需的归一化联合向量。
         """
+        fixed_params = _normalize_model_fields(fixed_params)
         row_choices = self.arch_space.row_choices
         col_choices = self.arch_space.column_choices
         rows = fixed_params.get("rows", row_choices[0])
@@ -1784,13 +1828,13 @@ class TwoStageOptimizer:
             elif info["type"] == "categorical_list":
                 key_map = {}
                 if param_name == "nmos_model":
-                    key_map = {n: "nmos_model_name" for n in info["names"]}
+                    key_map = {"pd": "pd_model_name", "pg": "pg_model_name"}
                 elif param_name == "pmos_model":
                     key_map = {n: "pmos_model_name" for n in info["names"]}
                 choices = info["choices"]
                 for name in info["names"]:
                     key = key_map.get(name)
-                    val = fixed_params.get(key, choices[0]) if key else choices[0]
+                    val = fixed_params.get(key, fixed_params.get("nmos_model_name", choices[0])) if key else choices[0]
                     idx = choices.index(val) if val in choices else 0
                     bc_x.append((idx + 0.01) / len(choices))
 
@@ -1851,6 +1895,7 @@ class TwoStageOptimizer:
         FIXED_INITIAL_PARAMS = {
             "rows": 16, "cols": 16,
             "pg_width": 1.35e-7, "pd_width": 2.05e-7, "pu_width": 9e-8, "length": 5e-8,
+            "pd_model_name": "NMOS_VTG", "pg_model_name": "NMOS_VTG",
             "nmos_model_name": "NMOS_VTG", "pmos_model_name": "PMOS_VTG",
             "sa_p_width": 5.4e-7, "sa_n_width": 2.7e-7, "sa_length": 5e-8,
         }
@@ -1950,7 +1995,7 @@ class TwoStageOptimizer:
             if decoded_best is not None:
                 rows, cols, num_arrays, params, array_capacity, row_idx, col_idx = decoded_best
                 best_config = {"rows": rows, "cols": cols, "num_arrays": num_arrays, "array_capacity": array_capacity}
-                best_params = params
+                best_params = _normalize_model_fields(params)
 
             self.joint_results = {
                 "best_config": best_config,
@@ -2047,7 +2092,7 @@ class TwoStageOptimizer:
                         best_params = sol.get('params')
                         if best_params is None:
                             # NSGA-II flat format: build params from top-level keys
-                            best_params = {k: sol.get(k) for k in ['rows', 'cols', 'pu_width', 'pd_width', 'pg_width', 'length', 'nmos_model_name', 'pmos_model_name']}
+                            best_params = {k: sol.get(k) for k in ['rows', 'cols', 'pu_width', 'pd_width', 'pg_width', 'length', 'pd_model_name', 'pg_model_name', 'pd_model', 'pg_model', 'nmos_model_name', 'pmos_model_name']}
             if best_fom <= -1e9:
                 best_fom = None
         else:
@@ -2055,6 +2100,9 @@ class TwoStageOptimizer:
             best_params = ret.get("params") if isinstance(ret, dict) else None
             best_result = ret.get("result") if isinstance(ret, dict) else None
             best_fom = ret.get("merit") if isinstance(ret, dict) else None
+
+        if isinstance(best_params, dict):
+            best_params = _normalize_model_fields(best_params)
 
         best_config = None
         if isinstance(best_params, dict) and ("rows" in best_params) and ("cols" in best_params):

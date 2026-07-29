@@ -1,0 +1,102 @@
+# Paths are resolved relative to size_optimization/openyield_v2.
+datasets:
+  data_6t: datasets/train_6t.csv
+  data_10t: datasets/train_10t.csv
+
+
+# Shared by evolutionary baselines, Bayesian baselines and Proposed.
+# Available metrics include:
+#   min_snm, max_delay, max_power, area, power_delay_product,
+#   hold_snm/read_snm/write_snm, read_delay/write_delay,
+#   read_power/write_power.
+optimization_problem:
+  enforce_physical_validity: true
+  objectives:
+    - {name: max_power, source: max_power, direction: min, unit: W}
+    - {name: max_delay, source: max_delay, direction: min, unit: s}
+    - {name: area, source: area, direction: min, unit: m^2}
+    - {name: min_snm, source: min_snm, direction: max, unit: V}
+  constraints:
+    - {name: minimum_snm, metric: min_snm, operator: ">=", value: 0.1}
+    - {name: maximum_delay, metric: max_delay, operator: "<=", value: 3.0e-9}
+    - {name: maximum_power, metric: max_power, operator: "<=", value: 0.02}
+
+# One query means predicting every raw target for one candidate design.
+# Use 1000 for each of the four evolutionary baselines, each BO baseline,
+# and the complete proposed method.
+#
+# Proposed default:
+#   coarse search: 500
+#   10 refine runs: 10 * ((47 + 1) soft calls + 2 start/final audits) = 500
+#   total: 1000
+optimization_budget:
+  tabpfn_design_queries_per_algorithm: 1000
+  proposed_coarse_evals: 500
+  proposed_refine_steps: 47
+  proposed_representative_points: 10
+  proposed_preferences_per_point: 1
+  # Printing uses existing step predictions and does not change query budget.
+  proposed_print_every: 10
+  # Extra hard audits do consume queries; keep 0 for the default exact budget.
+  proposed_hard_audit_every: 0
+
+# Shared surrogate-data and search-space settings.
+shared_optimizer:
+  test_size: 0.05
+  max_train_per_topology: 250
+  # Proposed samples after pooling; 500 equals 250 rows per topology.
+  max_train_samples: 500
+  balance_topologies: true
+  verbose_library_training: false
+  bounds_lower_q: 0.01
+  bounds_upper_q: 0.99
+
+# Evolutionary algorithms: NSGA2, SPEA2, UNSGA3 and CTAEA.
+evolutionary:
+  pop_size: 50
+
+# Bayesian algorithms: GPBO, PAREGO and MACE.
+bayesian:
+  init_samples: 100
+  batch_size: 10
+  candidate_pool: 10000
+  # 0 uses every observation to fit the scalar GP.
+  gp_max_train: 600
+  gp_noise: 1.0e-6
+  lcb_beta: 2.0
+  parego_rho: 0.05
+  diversity_radius: 0.08
+
+# Proposed coarse -> refine optimizer.
+proposed:
+  coarse_pop_size: 50
+  preference_edge: 0.10
+  continuous_lr: 0.10
+  lr_scheduler: cosine
+  lr_min_ratio: 0.10
+  # Exact-budget comparisons require early stopping to remain disabled.
+  early_stop_patience: 0
+  early_stop_min_delta: 1.0e-6
+  early_stop_min_steps: 40
+  topology_lr: 0.08
+  discrete_lr: 0.05
+  grad_clip_norm: 5.0
+  refine_smoothing: 0.05
+  tau_start: 1.2
+  tau_end: 0.15
+  topology_init_bias: 0.5
+  discrete_init_bias: 2.0
+  optimize_discrete: false
+  use_gumbel: false
+  reset_torch_seed_each_step: false
+  seed_ref_source: coarse
+  enable_simple_constraints: true
+  constraint_penalty: 10.0
+
+# Used by `python -m size_optimization.openyield_v2.run_experiment`.
+# This section only selects algorithms and runtime/output settings.
+comparison:
+  algorithms: NSGA2,CTAEA,PAREGO,MACE,PROPOSED
+  device: auto
+  seed: 33
+  output_dir: runs/optimization/comparison
