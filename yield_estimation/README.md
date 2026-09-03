@@ -2,10 +2,6 @@ SRAM Yield Estimation Algorithm
 =====
 This directory implements various rare-event estimation algorithms using importance sampling techniques to evaluate SRAM failure probabilities under process variations, enabling accurate and efficient yield analysis.
 
-Preparation File: spiced.py 
--------
-The spice.py file defines threshold settings for yield estimation and establishes sampling boundary constraints across different circuit dimensions to guide the importance sampling process.and includes functions for defining yield criteria to guide the importance sampling process.
-
 Algorithm
 --------
 ### 1.Monte Carlo(MC)
