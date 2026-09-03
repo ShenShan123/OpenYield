@@ -9,13 +9,13 @@ The unified interface currently registers the following methods:
 | Category | Method | Proposal rule in the unified implementation |
 | --- | --- | --- |
 | Stable | `MC` | Direct sampling from the target distribution |
-| Stable | `MNIS` | Minimum-norm failure-point center |
-| Stable | `AIS` | Mixture over failure points observed during the pilot stage |
-| Stable | `ACS` | Farthest-point clustered centers from pilot failure points |
-| Stable | `HSCS` | Clustering of standardized failure directions |
-| Stable | `EFIAL` | Target-density-weighted mixture over failure points |
-| Experimental | `FUSIS` | Mixture over high-target-density failure-boundary points |
-| Experimental | `OPT` | One minimum-norm failure-point center |
+| Stable | `MNIS` | CrossTopo minimum-norm/defensive-IS flow |
+| Stable | `AIS` | CrossTopo adaptive failure-GMM flow |
+| Stable | `ACS` | CrossTopo cone-cluster flow; `original` is the default mode |
+| Stable | `HSCS` | CrossTopo directional-cone/minimum-radius flow |
+| Stable | `EFIAL` | CrossTopo iterative density-weighted failure-point GMM |
+| Experimental | `FUSIS` | CrossTopo surrogate-guided MCMC with true-simulation correction |
+| Experimental | `OPT` | CrossTopo failure-trained flow mixed with the target distribution |
 | Experimental | `BIBD` | Budget-partitioned MC for multiple conditions; returns a multi-condition result |
 
 `Stable` means that the public interface, budget ledger, and result format are supported. It does not guarantee that every finite-budget seed will pass the statistical consistency gate.
@@ -65,7 +65,7 @@ sigma = np.abs(nominal) * 0.05
 
 estimator = YieldEstimator(
     model=testbench,
-    algorithm_choice="EFIAL",  # MC/MNIS/AIS/ACS/HSCS/EFIAL
+    algorithm_choice="EFIAL",  # MC/MNIS/AIS/ACS/HSCS/EFIAL/FUSIS/OPT/BIBD
     basic_params={
         "mean": np.zeros(dimension),
         "covariance": np.eye(dimension),
@@ -74,6 +74,8 @@ estimator = YieldEstimator(
         "seed": 20260903,
     },
     algo_params={
+        # ACS defaults to "original". Set mode="improved" only when the
+        # SRAM robustness extensions are intentionally requested.
         "pilot_fraction": 0.4,
         "defensive_ratio": 0.1,
         "proposal_scale": 1.0,
@@ -145,6 +147,7 @@ algorithm = ACS(
     max_components=64,
     batch_size=40,
     failure_if_nonpositive=True,
+    mode="original",  # optional because this is the default
 )
 
 result = algorithm.start_estimate(max_num=5000)
@@ -212,6 +215,7 @@ Run a real Xyce test using a 4x2 testbench while varying only target cell `(3, 1
 python -m yield_estimation.validation \
   --backend xyce \
   --algorithm ACS \
+  --acs-mode original \
   --budget 5000 \
   --seed 20260903 \
   --output results/sram18_seed20260903 \
@@ -308,8 +312,78 @@ After multiple methods finish, aggregate their results with:
 python -m yield_estimation.aggregate_validation --root results/validation_campaign
 ```
 
-## 9. Notes on historical implementations
+## 9. CrossTopo algorithm source and normalization boundary
 
-The historical MC, MNIS, AIS, ACS, and HSCS files under `yield_estimation/model_lib/` remain available for provenance and legacy-calling reference. Some of them contain hard-coded paths, modify `sim_path` directly, remove simulation directories, or call a testbench directly, so the unified algorithm layer does not invoke those implementations unchanged.
+MC, MNIS, AIS, ACS, and HSCS use the corresponding algorithm flows from
+`IceLab-JCIE/EDA26-Yield-Array-Transfer-Nanlin` (the CrossTopo repository).
+Their normalized implementations live in `yield_estimation/unified/estimators.py`.
+The files under `yield_estimation/model_lib/` are retained only as the original
+OpenYield baseline snapshot and are not selected by `YieldEstimator`.
 
-`YieldEstimator` uses the implementations in `yield_estimation/unified/estimators.py`, which follow the shared runner and strict budget ledger. The current unified ACS is a clustered defensive-IS implementation. Reproducing the iterative update and FOM behavior of the historical ACS would require refactoring that algorithmic logic to call only `SimulationRunner`; it must not restore the historical simulation-directory management.
+The port intentionally keeps the CrossTopo method-specific behavior:
+
+- MNIS chooses the minimum-norm failure, moves it toward the nominal point,
+  and uses defensive importance sampling.
+- AIS iteratively refits a failure-point GMM and adapts its defensive mixture.
+- ACS groups failure directions into cones. `mode="original"` uses one weighted
+  component per physical failure and replaces anchors on adaptation;
+  `mode="improved"` compresses each cone, includes a nominal component, accepts
+  pilot tail candidates, and retains anchor history.
+- HSCS chooses the minimum-radius failure representative in each directional
+  cone and mixes the resulting proposal with the target distribution.
+- EFIAL iteratively weights failure-point GMM components by target density,
+  adds newly observed failures, and retains a defensive target component.
+- FUSIS fits a probabilistic failure classifier, samples the classifier-weighted
+  target with Metropolis-Hastings, and corrects the surrogate estimate using
+  `E_f[p_hat] * I/p_hat` on true simulations of those MCMC points.
+- OPT trains a normalizing-flow proposal on observed failures, mixes it with
+  the target distribution, and updates the proposal from newly observed
+  failures.
+- MC samples the target distribution directly.
+
+Only infrastructure was replaced: no normalized method starts Xyce, mutates a
+testbench simulation path, deletes directories, reads a global failure cache,
+or stops early on FOM. All circuit calls go through `SimulationRunner`, and
+`max_num` remains the strict charged budget.
+
+### ACS mode selection
+
+```python
+# Paper-aligned CrossTopo baseline (default)
+original = YieldEstimator(
+    model=testbench,
+    algorithm_choice="ACS",
+    basic_params=basic_params,
+    algo_params={},
+    spice_params=spice_params,
+).run(max_num=5000)
+
+# SRAM robustness extensions, explicitly requested
+improved = YieldEstimator(
+    model=testbench,
+    algorithm_choice="ACS",
+    basic_params=basic_params,
+    algo_params={"mode": "improved"},
+    spice_params=spice_params,
+).run(max_num=5000)
+```
+
+Both modes return the same `EstimationResult` schema. The selected mode is
+recorded in `result.metadata["mode"]` and in `config.json`.
+
+### Experimental backend dependencies
+
+The normalized FUSIS flow selects the donor's neural-feature/RBF-SVM model when
+Torch and scikit-learn are installed, a direct RBF-SVM when only scikit-learn
+is available, and a deterministic NumPy RBF classifier otherwise. Set
+`surrogate_backend="deep_kernel_svm"` to require the donor learned backend,
+`"rbf_svm"` to skip the neural feature extractor, or `"numpy_rbf"` to select
+the dependency-free implementation explicitly.
+
+OPT selects the CrossTopo `nflows` CNF when both Torch and `nflows` are
+available. OpenYield's base environment does not require those large optional
+packages, so `flow_backend="auto"` falls back to a fitted diagonal Gaussian
+flow. Use `flow_backend="nflows"` to require CNF execution, or
+`flow_backend="gaussian"` for an explicit dependency-free interface smoke.
+The selected backend is recorded in result metadata; a Gaussian fallback must
+not be reported as a CNF experiment.

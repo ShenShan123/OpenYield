@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from yield_estimation import STABLE_ALGORITHMS, YieldEstimator
+from yield_estimation import EXPERIMENTAL_ALGORITHMS, STABLE_ALGORITHMS, YieldEstimator
 
 
 EXACT_PFAIL = 0.15865525393145707
@@ -45,6 +45,107 @@ class EstimatorTests(unittest.TestCase):
                     self.assertEqual(result.simulator_errors, 0)
                     self.assertEqual(result.status, "ok")
                     self.assertLess(abs(result.failure_probability - EXACT_PFAIL), 0.04)
+
+    def test_all_stable_estimators_share_one_small_budget_call_format(self):
+        with tempfile.TemporaryDirectory() as directory:
+            results = {}
+            for algorithm in STABLE_ALGORITHMS:
+                estimator = YieldEstimator(
+                    model=linear_simulator,
+                    algorithm_choice=algorithm,
+                    basic_params={
+                        "dimension": 2,
+                        "threshold": 0.5,
+                        "seed": 19,
+                    },
+                    algo_params={
+                        "pilot_fraction": 0.5,
+                        "is_batch_size": 24,
+                        "max_components": 8,
+                    },
+                    spice_params={
+                        "run_root": Path(directory) / f"same_format_{algorithm.lower()}",
+                    },
+                )
+                results[algorithm] = estimator.run(max_num=120)
+
+            for algorithm, result in results.items():
+                with self.subTest(algorithm=algorithm):
+                    self.assertEqual(result.algorithm, algorithm)
+                    self.assertEqual(result.budget_target, 120)
+                    self.assertEqual(result.charged_calls, 120)
+                    self.assertEqual(result.live_calls, 120)
+                    self.assertEqual(result.simulator_errors, 0)
+                    self.assertIn(result.status, {"ok", "ok_zero_failure"})
+
+    def test_acs_defaults_to_original_and_accepts_improved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original = self._estimator(
+                directory, "ACS", pilot_fraction=0.5, is_batch_size=20
+            ).run(max_num=120)
+            improved = YieldEstimator(
+                model=linear_simulator,
+                algorithm_choice="ACS",
+                basic_params={
+                    "dimension": 2,
+                    "threshold": 0.5,
+                    "seed": 23,
+                },
+                algo_params={
+                    "mode": "improved",
+                    "pilot_fraction": 0.5,
+                    "is_batch_size": 20,
+                },
+                spice_params={"run_root": Path(directory) / "acs_improved"},
+            ).run(max_num=120)
+
+            self.assertEqual(original.metadata["mode"], "original")
+            self.assertEqual(improved.metadata["mode"], "improved")
+            self.assertEqual(original.charged_calls, 120)
+            self.assertEqual(improved.charged_calls, 120)
+
+    def test_acs_rejects_unknown_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "original.*improved"):
+                self._estimator(directory, "ACS", mode="unknown")
+
+    def test_method_specific_experimental_ports_use_the_common_contract(self):
+        expected_rules = {
+            "FUSIS": "surrogate_probability_mcmc_correction",
+            "OPT": "failure_trained_flow_target_mixture",
+        }
+        self.assertTrue(set(expected_rules).issubset(EXPERIMENTAL_ALGORITHMS))
+        with tempfile.TemporaryDirectory() as directory:
+            for algorithm, rule in expected_rules.items():
+                with self.subTest(algorithm=algorithm):
+                    estimator = YieldEstimator(
+                        model=linear_simulator,
+                        algorithm_choice=algorithm,
+                        basic_params={
+                            "dimension": 2,
+                            "threshold": 0.5,
+                            "seed": 29,
+                        },
+                        algo_params={
+                            "pilot_fraction": 0.5,
+                            "is_batch_size": 20,
+                            "verification_batch_size": 20,
+                            "surrogate_mc_samples": 100,
+                            "flow_backend": "gaussian",
+                        },
+                        spice_params={
+                            "run_root": Path(directory) / algorithm.lower()
+                        },
+                    )
+                    result = estimator.run(max_num=80)
+                    self.assertEqual(result.charged_calls, 80)
+                    self.assertEqual(result.live_calls, 80)
+                    self.assertEqual(result.simulator_errors, 0)
+                    self.assertEqual(result.metadata["proposal_rule"], rule)
+                    self.assertEqual(
+                        result.metadata["implementation_family"],
+                        "CrossTopo baseline port",
+                    )
 
     def test_zero_failure_status(self):
         with tempfile.TemporaryDirectory() as directory:

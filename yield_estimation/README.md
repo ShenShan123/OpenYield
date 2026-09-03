@@ -92,11 +92,17 @@ result = YieldEstimator(
 
 The stable choices are `MC`, `MNIS`, `AIS`, `ACS`, `HSCS`, and `EFIAL`.
 `FUSIS`, `OPT`, and the multi-condition `BIBD` interface are experimental.
-The unified implementations retain distinct proposal rules: MNIS uses a
-minimum-norm failure center, AIS uses the observed failure set, ACS uses
-failure-region clustering, HSCS clusters standardized failure directions, and
-EFIAL uses target-density-weighted failure components. All use the same paid
-pilot plus defensive-IS accounting so their simulation budgets are comparable.
+MC, MNIS, AIS, ACS, and HSCS use normalized ports of their CrossTopo-library
+algorithm flows. MNIS uses the minimum-norm defensive-IS flow, AIS adapts a
+failure-point GMM, ACS uses directional failure cones, and HSCS uses the
+minimum-radius representative from each cone. ACS defaults to
+`algo_params={"mode": "original"}` semantics; select `"improved"` explicitly
+for cone compression, pilot-tail fallback, nominal proposal mass, and retained
+anchor history. EFIAL uses target-density-weighted failure components.
+FUSIS follows the CrossTopo surrogate-probability/MCMC/true-verification chain,
+and OPT follows its failure-trained flow/target-mixture chain. FUSIS and OPT
+remain experimental because their learned proposals are more dependency- and
+configuration-sensitive than the stable methods.
 
 Algorithms call `SimulationRunner.run_mc_simulation(...)`, which mirrors the
 native testbench signature. The runner allocates isolated directories, parses

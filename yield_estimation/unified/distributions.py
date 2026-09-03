@@ -63,7 +63,7 @@ class GaussianDistribution:
 
 
 class GaussianMixture:
-    """Gaussian mixture with a shared diagonal covariance."""
+    """Gaussian mixture with shared or component-specific diagonal covariance."""
 
     def __init__(
         self,
@@ -77,10 +77,17 @@ class GaussianMixture:
         self.dimension = self.centers.shape[1]
         var = np.asarray(variance, dtype=np.float64)
         if var.ndim == 0:
-            var = np.full(self.dimension, float(var), dtype=np.float64)
-        self.variance = var.reshape(-1)
-        if self.variance.size != self.dimension or np.any(self.variance <= 0):
-            raise ValueError("variance must be positive with one value per dimension")
+            var = np.full((self.centers.shape[0], self.dimension), float(var))
+        elif var.shape == (self.dimension,):
+            var = np.tile(var, (self.centers.shape[0], 1))
+        elif var.shape != self.centers.shape:
+            raise ValueError(
+                "variance must be scalar, one value per dimension, or one "
+                "diagonal vector per component"
+            )
+        self.variance = var
+        if not np.isfinite(self.variance).all() or np.any(self.variance <= 0):
+            raise ValueError("mixture variance must be finite and positive")
         if weights is None:
             weights = np.ones(self.centers.shape[0], dtype=np.float64)
         self.weights = np.asarray(weights, dtype=np.float64).reshape(-1)
@@ -89,14 +96,15 @@ class GaussianMixture:
         self.weights /= self.weights.sum()
         self._log_weights = np.log(np.maximum(self.weights, np.finfo(float).tiny))
         self._log_norm = -0.5 * (
-            self.dimension * np.log(2.0 * np.pi) + np.log(self.variance).sum()
+            self.dimension * np.log(2.0 * np.pi)
+            + np.log(self.variance).sum(axis=1)
         )
 
     def sample(self, count: int, rng: np.random.Generator) -> np.ndarray:
         if count == 0:
             return np.empty((0, self.dimension), dtype=np.float64)
         indices = rng.choice(self.centers.shape[0], size=count, p=self.weights)
-        noise = rng.normal(size=(count, self.dimension)) * np.sqrt(self.variance)[None, :]
+        noise = rng.normal(size=(count, self.dimension)) * np.sqrt(self.variance[indices])
         return self.centers[indices] + noise
 
     def log_pdf(self, samples: np.ndarray) -> np.ndarray:
@@ -106,9 +114,9 @@ class GaussianMixture:
         for start in range(0, values.shape[0], chunk):
             stop = min(start + chunk, values.shape[0])
             diff = values[start:stop, None, :] - self.centers[None, :, :]
-            quadratic = np.sum(diff * diff / self.variance[None, None, :], axis=2)
+            quadratic = np.sum(diff * diff / self.variance[None, :, :], axis=2)
             output[start:stop] = _logsumexp(
-                self._log_norm - 0.5 * quadratic + self._log_weights[None, :],
+                self._log_norm[None, :] - 0.5 * quadratic + self._log_weights[None, :],
                 axis=1,
             )
         return output
@@ -121,6 +129,16 @@ class LegacyDistributionAdapter:
         self.distribution = distribution
         self.mean = np.asarray(mean, dtype=np.float64).reshape(-1)
         self.dimension = self.mean.size
+        raw_covariance = getattr(distribution, "var", np.eye(self.dimension))
+        covariance = np.asarray(raw_covariance, dtype=np.float64)
+        if covariance.ndim == 0:
+            covariance = np.eye(self.dimension) * float(covariance)
+        elif covariance.ndim == 1:
+            covariance = np.diag(covariance)
+        if covariance.shape != (self.dimension, self.dimension):
+            covariance = np.eye(self.dimension)
+        self.covariance = covariance
+        self._chol = np.linalg.cholesky(self.covariance)
 
     def sample(self, count: int, rng: np.random.Generator) -> np.ndarray:
         if hasattr(self.distribution, "sample"):
@@ -142,3 +160,7 @@ class LegacyDistributionAdapter:
     def log_pdf(self, samples: np.ndarray) -> np.ndarray:
         values = self.distribution.log_pdf(_as_2d(samples, self.dimension))
         return np.asarray(values, dtype=np.float64).reshape(-1)
+
+    def standardize(self, samples: np.ndarray) -> np.ndarray:
+        values = _as_2d(samples, self.dimension)
+        return np.linalg.solve(self._chol, (values - self.mean[None, :]).T).T

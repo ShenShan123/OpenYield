@@ -222,6 +222,17 @@ def run_validation(args: argparse.Namespace):
             "proposal_scale": args.proposal_scale,
             "max_components": args.max_components,
             "batch_size": args.batch_size,
+            **({"mode": args.acs_mode} if args.algorithm == "ACS" else {}),
+            **(
+                {"surrogate_backend": args.fusis_surrogate_backend}
+                if args.algorithm == "FUSIS"
+                else {}
+            ),
+            **(
+                {"flow_backend": args.opt_flow_backend}
+                if args.algorithm == "OPT"
+                else {}
+            ),
             "failure_if_nonpositive": args.backend == "xyce",
             "metadata": {
                 "source_commit": SOURCE_COMMIT,
@@ -290,6 +301,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--defensive-ratio", type=float, default=0.1)
     parser.add_argument("--proposal-scale", type=float, default=1.0)
     parser.add_argument("--max-components", type=int, default=64)
+    parser.add_argument(
+        "--acs-mode", choices=("original", "improved"), default="original"
+    )
+    parser.add_argument(
+        "--fusis-surrogate-backend",
+        choices=("auto", "deep_kernel_svm", "rbf_svm", "numpy_rbf"),
+        default="auto",
+    )
+    parser.add_argument(
+        "--opt-flow-backend",
+        choices=("auto", "nflows", "gaussian"),
+        default="auto",
+    )
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument("--max-retries", type=int, default=0)
     return parser
