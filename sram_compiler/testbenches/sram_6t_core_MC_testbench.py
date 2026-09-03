@@ -805,13 +805,15 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 selected_columns = [
                     f'{{U}}',f'V(V1)',f'V(V2)'
                 ]  
-            # plot waveforms of signals in `selected_columns`
-            process_simulation_data(
-                prn_path=tb_path + '.prn',
-                num_mc=mc_runs,
-                output=f"{self.sim_path}/mc_{operation}_waveform.png",
-                selected_columns=selected_columns
-            )
+            # Plotting thousands of Monte Carlo traces is optional and can
+            # dominate validation runtime/memory.
+            if self.enable_waveform:
+                process_simulation_data(
+                    prn_path=tb_path + '.prn',
+                    num_mc=mc_runs,
+                    output=f"{self.sim_path}/mc_{operation}_waveform.png",
+                    selected_columns=selected_columns
+                )
 
             if operation == 'read' or operation == 'write' or operation == 'read&write':
                 # Get all `.mtX` or `.msX` files from MC

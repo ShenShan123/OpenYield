@@ -5,7 +5,6 @@ from typing import List, Dict, Tuple
 
 import numpy as np
 import pandas as pd
-from regex import T
 
 
 def split_xyce_prn_runs(prn_path: str) -> List[pd.DataFrame]:
