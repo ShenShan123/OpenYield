@@ -268,6 +268,11 @@ Meanings:
 - `sweep_*`: Enable parameter sweep for the corresponding module.
 - `use_equivalent=True`: Use equivalent models to accelerate non-target cell simulation.
 - `q_init_val`: Initial stored value of the target cell.
+- `mc_seed`, `t_max_step`, `xyce_options`: reproducible Monte Carlo seed and Xyce
+  solver knobs (see 13.1).
+- `next_row`: row address captured at the clock edge that ends a `read` / `write`
+  access, to exercise the address-change hold path (default: the address stays
+  at `target_row`).
 
 ## 11. Output Files
 
@@ -306,8 +311,14 @@ Power = PSTC + PDYN
 `PAVG = EREAD / t_period` (or `EWRITE / t_period`), where the energy is integrated
 over exactly one clock period starting at the first access
 (`1 ns + 0.7 * t_period`, the falling clock edge): wordline access, sensing or
-writing, the self-timed precharge that restores the bitlines, and the idle time
-until the next access. Every transient testbench carries the full column
+writing, and the precharge that restores the bitlines. The precharge is active
+for the whole clock-high phase of a selected cycle (`PRE = NAND(clk_buf, cs,
+wl_en_bar)`), so the bitlines sit at VDD when the next access starts
+regardless of the clock period or the corner (before V2.0.2 it was a ~300 ps
+self-timed pulse and the floating bitlines drooped, e.g. to 0.74 V at FF /
+125 C with the default 10 ns period). The sense amplifiers are isolated from
+the bitlines (`ISO` pin, driven by `s_en | w_en`) while they are fired and
+while the write drivers are on. Every transient testbench carries the full column
 periphery (precharge on all columns and on the replica column, column mux,
 sense amplifiers); the write testbenches add the write drivers, each fed
 through a data-hold latch that is transparent while `w_en` is low, so a write
@@ -379,6 +390,11 @@ The platform supports two process variation modes:
   at ~1.8x the time steps. Pass `t_max_step` explicitly to use it from the
   start, or `xyce_options=['.OPTIONS TIMEINT ERROPTION=1']` for a faster but
   less accurate run (delays of converging decks shift by a few per cent).
+  `next_row=<row>` (read / write decks) makes the address register capture a
+  different row at the clock edge that ends the access; the wordline and the
+  cell of that row are added to the `.PRINT` so the address-change hold
+  margin can be inspected (the address is held by a latch while the wordline
+  is on, see `CHANGELOG.md` V2.0.2).
 - `custom_mc=True`: Use a user-provided process-parameter table. The program writes `vars` into a `.data table` file and uses `.STEP data=table` to make Xyce simulate one row at a time.
 
 To use custom process variation, set the testbench initialization parameters in `main_sram.py` as follows:
@@ -576,5 +592,21 @@ You can first inspect the measurement columns of each sample in `.data.csv`, and
 
 ## 14.5 The SRAM Period Can Be Modified in `sram_compiler/testbenches/base_testbench.py`
 
-`self.t_period` in `sram_compiler/testbenches/base_testbench.py` can be used to modify the SRAM cycle period. The timing of other input signals and internal signals will be adjusted automatically.
+`self.t_period` in `sram_compiler/testbenches/base_testbench.py` can be used to modify the SRAM cycle period (or call `set_timing_parameters()` on the testbench before `run_mc_simulation()`). The timing of other input signals and internal signals will be adjusted automatically.
+
+After a `read` or `write` run the flow prints an estimate of the minimum clock
+period from the measured phases:
+
+```text
+[INFO] clock-low phase  (clk->wl_en TCLK_WLEN + access TREAD_TOTAL | TWRITE_TOTAL)
+[INFO] clock-high phase (bitline restore TRESTORE, decode TCLK_DEC)
+[INFO] CLK(min) estimate in this size and PVT (50 % duty, +10 %)
+```
+
+`T_min = 2 * max(clock-low, clock-high) * 1.1`. It was validated against
+period sweeps in V2.0.2 (e.g. 8x4 6T read: estimate 0.90 ns, the deck passes
+at 0.9 ns and fails at 0.8 ns; at TT / 125 C the same array needs ~1.7 ns).
+Periods from 0.6 ns to 100 ns were simulated; note that `PSTC` / `PDYN` are
+only a quiescent / dynamic split for `t_period >= 5 ns` (a warning is
+printed otherwise, because the start-up precharge overlaps the PSTC window).
 

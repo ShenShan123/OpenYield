@@ -15,7 +15,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  custom_mc: bool = False,sweep_cell: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
                  sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,real_cell_mode:int = 0,
-                 q_init_val: int = 0, sim_path: str = ''
+                 q_init_val: int = 0, sim_path: str = '', next_row: int = None
                  ):
         # 保存配置对象引用
         self.sram_config = sram_config  #包含所有子电路参数
@@ -51,6 +51,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # init internal data q
         self.q_init_val = q_init_val
         self.sim_path = sim_path
+        # Row address captured at the clock edge that *ends* the access (read /
+        # write decks only).  None keeps the address constant; a different row
+        # exercises the address-change path at the end of the access, i.e. the
+        # hold margin between the old wordline falling and the new decoder
+        # output rising.
+        self.next_row = next_row
         # default mux inputs
         self.mux_in = 1
         #self.set_vdd(5)
@@ -59,12 +65,30 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         """Create time generation circuitry"""
         # Create TIME circuit
         self.operation=operation
+        # Fan-out information for the TIME buffers: s_en drives one sense amp
+        # per mux group, wl_en drives one (column-scaled) wordline-driver NAND2
+        # per row, PRE drives 3 (row-scaled) PMOS gates per column plus the
+        # replica column.
+        mux_in = 2 if self.choose_columnmux else 1
+        pre_pmos_width = (self.sram_config.precharge.pmos_width.value
+                          * PrechargeFactory.width_scale(self.num_rows))
+        # w_en load: per column the write driver's EN inverter and its two
+        # EN-gated NMOS (3 * nmos + pmos, row-scaled) plus the w_en_bar
+        # inverter of the data-hold latches (see create_write_periphery).
+        wd = self.sram_config.write_driver
+        wd_scale = WriteDriverFactory.width_scale(self.num_rows)
+        wen_load = (self.num_cols * (3 * float(wd.nmos_width.value) + float(wd.pmos_width.value))
+                    * wd_scale / 0.36e-6 + 4 * self._wenb_scale())
         time_circuit = TIMEFactory(
             nmos_model="NMOS_VTG",
             pmos_model="PMOS_VTG",
             num_rows=self.num_rows,
             num_cols=self.num_cols,
             operation=self.operation,
+            num_sa=max(1, self.num_cols // mux_in),
+            wl_load=self.num_rows * WordlineDriverFactory.nand_scale(self.num_cols),
+            pre_load=(self.num_cols + 1) * 3 * float(pre_pmos_width) / 0.36e-6,
+            wen_load=wen_load,
         ).create()
         circuit.subcircuit(time_circuit)   # Add to main circuit
         
@@ -95,7 +119,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             time_connections.extend(data_output_nodes)
         
         # Add remaining nodes
-        time_connections.extend(['rbl', 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE'])
+        time_connections.extend(['rbl', 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE', 'sa_iso'])
         
         # Instantiate TIME circuit
         circuit.X(
@@ -566,6 +590,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     sa.name,
                     self.power_node, self.gnd_node,
                     's_en',  # SA Enable signal
+                    'sa_iso',  # input pass gates off while sensing or writing
                     f'SA_IN{col}', f'SA_INB{col}',  # Inputs
                     f'SA_Q{col}', f'SA_QB{col}',  # Outputs
                 )
@@ -578,10 +603,16 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     sa.name,
                     self.power_node, self.gnd_node,
                     's_en',  # SA Enable signal
+                    'sa_iso',  # input pass gates off while sensing or writing
                     f'BL{col}', f'BLB{col}',  # Inputs
                     f'SA_Q{col}', f'SA_QB{col}',  # Outputs
                 )
         return circuit
+
+    def _wenb_scale(self):
+        """Width scale of the w_en_bar inverter: 2 NAND2 inputs (0.45 um) per
+        column on a 0.36 um unit inverter, fan-out <= 8."""
+        return max(1, ceil(2 * 0.45 * self.num_cols / 0.36 / 8.0))
 
     def create_write_periphery(self, circuit: Circuit, operation: str = 'write'):#创造写外围电路
         """Create write periphery circuitry, writing `1`s into a row,写驱动"""
@@ -613,9 +644,14 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # transparent while w_en is low and holds while the drivers are enabled;
         # it opens two gate delays after the drivers tristate, so the driver
         # input can never change while the driver is on.
+        # w_en_bar drives two NAND2 inputs per column (the latch enables); size
+        # it for that fan-out (~8 per unit), otherwise its edge is ~1 ns at 512
+        # columns and the latch would still hold the previous data when the
+        # next write starts at short clock periods.
+        wenb_scale = self._wenb_scale()
         wen_inv = Pinv(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
-                       nmos_width=0.09e-6, pmos_width=0.27e-6, length=0.05e-6,
-                       num='_wen_bar')
+                       nmos_width=0.09e-6 * wenb_scale, pmos_width=0.27e-6 * wenb_scale,
+                       length=0.05e-6, num='_wen_bar')
         circuit.subcircuit(wen_inv)
         circuit.X('WEN_BAR', wen_inv.NAME, self.power_node, self.gnd_node, 'w_en', 'w_en_bar')
         din_latch = D_latch(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG")
@@ -1042,12 +1078,26 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         if operation in ('read', 'read&write'):
             self.create_D_latch(circuit, target_col)
         
-        # 设置目标行地址
+        # 设置目标行地址.  Each address bit is valid around every capture edge
+        # (1 ns + 0.2 T + k T), so the register holds `target_row` for the access.
+        # With `next_row` set, the bits alternate with a period of 2 T: the
+        # register captures `target_row` at the edge that starts the access and
+        # `next_row` at the edge that ends it.
         n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
+        if self.next_row is None:
+            next_row = self.target_row
+        else:
+            if operation == 'read&write':
+                raise ValueError("next_row is only supported for the 'read' and "
+                                 "'write' operations (read&write re-accesses the target)")
+            if not 0 <= self.next_row < self.num_rows:
+                raise ValueError(f"next_row={self.next_row} outside 0..{self.num_rows - 1}")
+            next_row = self.next_row
         for bit in range(n_bits):
-            bit_val = (target_row >> bit) & 1
+            bit_val = (self.target_row >> bit) & 1
+            next_val = (next_row >> bit) & 1
             node_name = f'A{bit}'
-            if bit_val:
+            if bit_val and next_val:
                 circuit.PulseVoltageSource(
                     f'ADDR_{bit}', node_name, self.gnd_node,
                     initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
@@ -1055,6 +1105,18 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     rise_time=self.t_rise,fall_time=self.t_fall,
                     pulse_width=0.2 * self.t_period , # 保持有效
                     period=self.t_period
+                )
+            elif bit_val or next_val:
+                # High around every second capture edge: the even edges for a
+                # target-row bit, the odd edges for a next-row bit.
+                circuit.PulseVoltageSource(
+                    f'ADDR_{bit}', node_name, self.gnd_node,
+                    initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
+                    delay_time=1.0 @ u_ns + 0.1 * self.t_period
+                               + (0 if bit_val else 1) * self.t_period,
+                    rise_time=self.t_rise, fall_time=self.t_fall,
+                    pulse_width=0.2 * self.t_period,
+                    period=2 * self.t_period
                 )
             else:
                 circuit.V(f'ADDR_{bit}', node_name, self.gnd_node, 0 @ u_V)

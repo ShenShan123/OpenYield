@@ -71,6 +71,43 @@ class PNAND2(BaseSubcircuit):
         self.M('pnand2_nmos2', 'net1', 'A', 'VSS', 'VSS', 
                model=self.nmos_model, w=self.nmos_width, l=self.length)
         
+class PNOR2(BaseSubcircuit):
+    """
+    Standard CMOS 2-input NOR Gate
+    NODES: VDD, VSS, A, B, Z
+    """
+    NAME = "PNOR2"
+    NODES = ('VDD', 'VSS', 'A', 'B', 'Z')
+
+    def __init__(self, nmos_model, pmos_model,
+                 nmos_width, pmos_width, length,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
+
+        super().__init__(
+            nmos_model, pmos_model,
+            nmos_width, pmos_width, length,
+            w_rc, pi_res, pi_cap
+        )
+        self.nmos_model = nmos_model
+        self.pmos_model = pmos_model
+        self.nmos_width = nmos_width
+        self.pmos_width = pmos_width
+        self.length = length
+
+        self.add_nor2_transistors()
+
+    def add_nor2_transistors(self):
+        # PMOS (Series)
+        self.M('pnor2_pmos1', 'net1', 'A', 'VDD', 'VDD',
+               model=self.pmos_model, w=self.pmos_width, l=self.length)
+        self.M('pnor2_pmos2', 'Z', 'B', 'net1', 'VDD',
+               model=self.pmos_model, w=self.pmos_width, l=self.length)
+        # NMOS (Parallel)
+        self.M('pnor2_nmos1', 'Z', 'A', 'VSS', 'VSS',
+               model=self.nmos_model, w=self.nmos_width, l=self.length)
+        self.M('pnor2_nmos2', 'Z', 'B', 'VSS', 'VSS',
+               model=self.nmos_model, w=self.nmos_width, l=self.length)
+
 class PNAND3(BaseSubcircuit):
     """
     Standard CMOS 3-input NAND Gate

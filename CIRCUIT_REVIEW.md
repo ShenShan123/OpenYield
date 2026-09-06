@@ -1268,3 +1268,81 @@ amplifier is enabled (read) or the minimum BL of the read-1 cycle (`read&write`)
 | 16x512 | 6T | on | read | 1 | ok | 559.2 | 1021.48 | 46.35 | 150.9 | 0.015 | 0.072 | - | PASS | 5711 |
 | 16x512 | 6T | on | write | 1 | ok | 460.5 | 7790.74 | 91.24 | -206.4 | - | - | 112.1 | PASS | 9965 |
 
+
+# Part III — V2.0.2 periphery sizing, timing configurations and corners (2026-09-05)
+
+V2.0.1 left three circuit items open: the address-path hold hazard, the
+cycle-time dependence of the floating bitlines after the self-timed precharge
+pulse, and the columns/64 sizing of the `s_en` buffer. This part records what
+the V2.0.2 sweeps found around them, what was changed, and how the changes
+were verified. The change list is in `CHANGELOG.md`.
+
+## Method
+
+The scratch driver of Part II (`run_one.py`) was extended with `--next-row`
+(address captured at the edge that ends the access), `--corner`, `--temp`,
+`--tperiod` and a repository-root override, so that the same job list can be
+run against a detached `git worktree` of the previous commit (before / after
+comparisons). The waveform scoring gained the address-hold checks (wordline of
+the next row stays below 0.2 VDD until the next access; that row's cell keeps
+its data) and the bitline / replica-bitline level at the start of the next
+access is recorded for every run.
+
+Sweeps on the final code (all nominal unless stated, `real_cell_mode=0`,
+`w_rc=False`, target = last row / last column):
+
+1. **Clock period**: 0.6-100 ns at 8x4 and 16x16 (6T and 10T, mux off / on,
+   read / write / read&write), 2-5 ns at 64x16.
+2. **Process corners and temperature**: TT / FF / SS / FS / SF at 25 C, TT at
+   -40 / 85 / 125 C, FF at 125 C and SS at -40 C, at 8x4 and 16x16, both cells,
+   all three operations.
+3. **Address change** (`next_row`): the row that differs from the target in the
+   middle address bit (fastest decoder path) and in the LSB (largest fan-out),
+   read decks with all other cells storing 1, write decks with 0, at 8x4,
+   64x16, 256x8, 512x4 and 128x32, before (V2.0.1 code) and after the fix.
+   Checks: the next row's wordline stays below 0.2 VDD from the end of the
+   access to the next one, and that row's cell keeps its data.
+4. **Monte Carlo** (`.SAMPLING`, `vth_std=0.05`, seed 2026): 5 samples of
+   read / write at 8x4, 16x16, 32x8 and 64x16 (mux off / on, both cells),
+   3 samples of read&write at 8x4 and 16x16, 5 samples of the address-change
+   decks at 64x16.
+5. **Size regression**: the 27 sizes of the V2.0.1 table x {6T, 10T} x
+   {mux off, on} x {read, write, read&write}.
+
+## Defects found by simulation (in addition to Parts I and II)
+
+| # | finding | evidence (V2.0.1 code) | fix |
+|---|---|---|---|
+| D12 | `wl_en` buffer (`wl_pdrive`, fixed 1.35/0.45 um output) not scaled with its load of one wordline-driver NAND2 per row. | wl_en rise / fall (10-90 %): 40 / 90 ps at 64 rows, 150 / 300 ps at 256 rows, 280 / 600 ps at 512 rows. The slow fall is the window in which a new decoder output can raise a second wordline. | Both stages scale with `ceil(load / 32)` (unchanged up to 16x16, 4x at 64x16, 16x at 512x4). |
+| D13 | Wordline driver NAND2 fixed while its inverter scales with columns/4: fan-out ~100 at 512 columns. | TWLDRV 17 ps at 4 columns, 65 ps at 64, 100 ps at 128, 184 ps at 256, 349 ps at 512 columns; wordline rise 240 ps at 16x512. | NAND2 scaled with the square root of the inverter scale (geometric taper). |
+| D14 | Address register output not buffered for the decoder fan-out (5 gate inputs per last-level 3-to-8 decoder on the low address bits). | A_dff rise 90 ps at 64 rows, 650 ps at 512 rows (320 gate inputs). | Address hold latch + `TaperedBuffer` per bit (see D15). |
+| D15 | Address-path hold hazard (open item of V2.0.1), confirmed. | With `next_row` differing in the middle address bit: 8x4 new decoder output at +190 ps after the edge, old wordline off at +190 ps (zero margin, no glitch); 64x16 no glitch; 256x8 second wordline to 0.50 V (read, neighbouring cell Q dipped to 0.86 V) / 0.41 V (write) / 0.46 V (10T write); 512x4 second wordline to 1.00 V for the tail of the access and the neighbouring cell **overwritten** (read deck: stored 1 -> 0 by the discharged bitline; write deck: 0 -> 1 by the still-enabled write drivers). Flipping the LSB (largest decoder fan-out, slowest path) never glitched. | Transparent-low latch on the register output, enabled by `wl_en_bar`: the decoder input cannot change while a wordline is on, and the new decoder output rises >= 5 gate delays after the old wordline is off (8x4: 300 ps vs 190 ps). After the fix the next row's wordline stays < 10 mV and its cell keeps its data at 8x4, 64x16, 256x8 and 512x4. |
+| D16 | `s_en` buffer sized columns/64 (fan-out ~75 per unit for every group of 64 sense amps). | TS_EN (20-80 %) 43 ps at 16 columns, 138 ps at 64, 165 ps at 512; s_en 10-90 % rise 190-230 ps at >= 64 columns; precharge-coupling bump on s_en 0.15 V (16 SA), 0.20 V (32 SA), 0.2-0.3 V (64-128 SA). | AND3 drives up to 8 sense amps directly, otherwise a `TaperedBuffer` sized for a fan-out of ~8 (TS_EN 19-20 ps at 16-512 columns). |
+| D17 | Precharge is a ~300 ps self-timed pulse; the bitlines float for the rest of the cycle and leak through the pass gates of the cells storing 0 on that side. | 8x4 6T TT 25 C: RBL 0.997 V at the next access with T = 20 ns, 0.890 V with 50 ns, 0.756 V with 100 ns (BL 0.896, BLB 0.973). Default T = 10 ns: RBL 0.87-0.90 V at TT 125 C, 0.74-0.77 V at FF 125 C with BL 0.88-0.92 V against BLB 0.99-1.00 V (both cells, 8x4 and 16x16). All reads and writes still passed (full-swing sensing), so it is a level / margin problem, not a functional failure at these points. | `PRE = NAND3(clk_buf, cs, wl_en_bar)`: precharge for the whole clock-high phase of a selected cycle, released 40-70 ps (90 % point) before the wordline rises; `TaperedBuffer` for the PRE load (the old 2-stage buffer had a fan-out of ~49, PRE only reached 0.05-0.08 V on the largest arrays). Bitlines at 1.000 V at every access for T = 0.6-100 ns and at FF 125 C. |
+| D18 | `w_en` buffer (V2.0.1 scaling: columns/64 x rows/16) still had a fan-out of ~40-60; the testbench `w_en_bar` inverter (unit size) drove two latch enables per column (fan-out ~1300 at 512 columns). | w_en edge 130-180 ps (10-90 %) at 64x16, 64x64, 256x8, 512x4, 16x512; the driven bitline reached VDD/2 120-240 ps after `gated_clk_bar`, 40-60 ps after the wordline, i.e. the write waited for `w_en`. | `AND2_WEN` drives up to 32 unit loads directly, otherwise a `TaperedBuffer`; `w_en_bar` scaled for its fan-out. 64x16: edge 140 -> 30 ps, bitline at VDD/2 120 -> 90 ps, `TWRITE_TOTAL` 114 -> 94 ps; the write driver is now released 30-50 ps before the precharge turns on. |
+| D20 | Sense amplifier not isolated during writes: its input pass gates were driven by `s_en`, so with `s_en` low the cross-coupled PMOS pair stayed connected to the bitlines and acted as a keeper. A write only succeeded while `w_en` rose *before* the wordline (the driver pulled BLB low before the cell could pull BL down and turn the keeper on). | V2.0.1 2x128 write: `w_en` at +330 ps, wordline at +390 ps after the clock (60 ps margin, write OK). V2.0.2 with the faster wordline path: wordline +330 ps, `w_en` +340 ps -> the 0.5x write driver could not pull BLB below 0.68 V against the keeper, BL sat at 0.27 V, the cell kept its 0 (`TWRITE_TOTAL` FAILED, mux off and on). | New `ISO` port on `SENSEAMP` for the input pass gates, driven by `sa_iso = s_en \| w_en` from TIME (NOR2 + inverter + `TaperedBuffer` for 4 unit loads per amplifier); `EN` (footer) stays `s_en`. Reads are unchanged (the pass gates isolate ~2 gate delays after the footer fires instead of simultaneously); during a write the amplifier is disconnected. |
+| D19 | The printed `CLK(min)` (`2 * (access delay + 0.1 ns)`) ignored the clock-to-wordline-enable delay and the whole precharge phase. | 8x4 6T: printed 0.80 ns (read) / 0.48 ns (write) while the read deck fails below 0.9 ns. | `T_min = 2 * max(TCLK_WLEN + access, TRESTORE, TCLK_DEC) * 1.1` from three new measures; 8x4 read estimate 0.90 ns (passes at 0.9, fails at 0.8 ns), 10T 8x4 read 0.91 ns (passes at 1.0, fails at 0.8 ns), 8x4 write 0.55 ns (passes at 0.6 ns, the lowest simulated). |
+
+## Cost of the changes (nominal, 25 C, TT, default 10 ns clock)
+
+Reads cost more energy: 6T read PAVG 28.0 -> 29.3 uW at 8x4 (+5 %),
+44.9 -> 50.0 uW at 16x16 (+11 %), 81.1 -> 94.6 uW at 32x32 (+17 %),
+202.9 -> 231.7 uW at 64x64 (+14 %); 2x128 is cheaper (158.4 -> 143.6 uW).
+The largest term is the wordline-driver NAND2 taper (D13): the `wl_en` and
+decoder nets now drive `rows * sqrt(cols / 4)` base-size NAND2 gates, 115 fF
+instead of 29 fF at 64x64 (~90 fJ per cycle). A supply-current comparison of
+the 16x16 read decks before the precharge / isolation changes attributed
+another ~40 fJ per cycle to the sharper `s_en` (16 amplifiers firing
+together) and to the address latches on `wl_en_bar`. PSTC rises 20-30 %
+(2.66 -> 3.31 uW at 16x16, 24.0 -> 30.9 uW at 64x64) because the bitline
+leakage is now supplied through the precharge devices instead of being drawn
+from the floating bitline capacitance. Writes are cheaper on every array
+>= 32x32 (32x32 227.8 -> 201.4 uW, 64x64 610.8 -> 504.8 uW, 2x128 740.1 ->
+560.3 uW): the write driver no longer fights the sense-amplifier keeper
+(D20). Read delays drop 8-25 ps on small arrays and 25-135 ps on the
+column-heavy ones (2x128 458 -> 322 ps, 64x64 492 -> 382 ps); write delays
+drop 15-60 % on arrays with >= 32 rows or >= 64 columns (64x64 162 -> 108 ps,
+2x128 191 -> 176 ps, 8x512 509 -> 202 ps). The size table in `CHANGELOG.md`
+lists both versions side by side. The sizing follows one fan-out rule
+(`nand_scale`, `TaperedBuffer` scale); a power-optimised design would relax
+it where the timing margin allows.

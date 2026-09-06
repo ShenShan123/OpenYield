@@ -21,7 +21,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                  sweep_columnmux=False, sweep_writedriver=False, sweep_decoder=False,
                  corner='TT', choose_columnmux=True, real_cell_mode=0,
                  q_init_val=0, sim_path='sim', enable_waveform=True,
-                 mc_seed=None, xyce_options=None, t_max_step=None):
+                 mc_seed=None, xyce_options=None, t_max_step=None, next_row=None):
         """
                蒙特卡洛测试平台初始化
                参数:
@@ -47,12 +47,19 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                             convergence problem above (delays within 0.5 %, ~1.8x the
                             time steps); it is applied automatically as a one-time
                             retry when Xyce reports "Time step too small".
+                   next_row: row address captured at the clock edge that ends the
+                            access ('read' / 'write' only).  None = the address stays
+                            at target_row; another row exercises the address-change
+                            hold path (old wordline off before the new decoder output
+                            rises).  The wordline and the cell (next_row, target_col)
+                            are added to the .PRINT so the hold margin can be checked.
                """
         super().__init__(#父类
             sram_config, sram_cell_type,
             w_rc, pi_res, pi_cap,
             custom_mc, sweep_cell,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,
-            corner,choose_columnmux,real_cell_mode,q_init_val,sim_path
+            corner,choose_columnmux,real_cell_mode,q_init_val,sim_path,
+            next_row=next_row,
         )
         self.sram_cell_type=sram_cell_type
         # enable_mc is an alias for mc (backward compatibility with experiment.py)
@@ -214,6 +221,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 'TRAN', 'TREAD_TOTAL',
                 f'TRIG V(WL_EN)={self.half_vdd} RISE=1 ' +
                 f'TARG V(OUT)={self.half_vdd} FALL=1')
+            # Clock-to-wl_en, decoder settle and bitline restore for the
+            # minimum-period estimate (the read discharges BL{target_col}).
+            self._add_period_measures(simulator, f'BL{self.target_col}')
             # Add measurements for average power, static power and dynamic power    测量功耗(平均、动态、静态)
             self._add_power_measures(simulator, 'EREAD')
 
@@ -225,7 +235,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # Add print statement for address and other signals
             address_signals = ' '.join([f'V(A{i}) V(A_DFF{i})' for i in range(ceil(log2(self.num_rows)))])
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX {address_signals} V(RBL) V(RBL_DELAY) V(RBL_DELAY_BAR) V(W_EN) V(PRE)\n'
+                f'.PRINT TRAN FORMAT=NOINDEX {address_signals} V(RBL) V(RBL_DELAY) V(RBL_DELAY_BAR) V(W_EN) V(PRE) V(SA_ISO)\n'
             
             # Add print for read operation
             simulator.circuit.raw_spice += \
@@ -240,7 +250,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'.PRINT TRAN V(SA_Q{self.target_col // self.mux_in}) ' + \
                 f'V(SA_QB{self.target_col // self.mux_in})' + \
                 f' V(OUT)\n'
-            
+            self._add_next_row_print(simulator)
+
         # The write operation
         elif operation == 'write':
             # .ic conditions
@@ -287,6 +298,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 'TRAN', 'TWRITE_TOTAL',
                 f'TRIG V(WL_EN)={self.half_vdd} RISE=1',
                 f"TARG V({target_node_q})={float(self.vdd) * 0.9:.2f} RISE=1")
+            # Minimum-period measures; a write of '1' pulls BLB{target_col} low,
+            # so that is the bitline the precharge has to restore.
+            self._add_period_measures(simulator, f'BLB{self.target_col}')
             # Add measurements for average power, static power and dynamic power    功耗
             self._add_power_measures(simulator, 'EWRITE')
             # Add print for write operation
@@ -296,8 +310,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f' V(BLB{self.target_col}) V({target_node_q}) V({target_node_qb})\n'
             simulator.circuit.raw_spice += \
                 f'.PRINT TRAN FORMAT=NOINDEX V(cs) V(clk_buf) V(clk_bar) V(gated_clk_bar) V(DIN0) V(DIN_dff0)' + \
-                f' V(w_en) V(wl_en) V(web) V(RBL) V(RBL_DELAY_BAR) V(PRE)\n'
-            
+                f' V(w_en) V(wl_en) V(web) V(RBL) V(RBL_DELAY_BAR) V(PRE) V(SA_ISO)\n'
+            self._add_next_row_print(simulator)
+
         elif operation == 'read&write':
             # .ic conditions
             for col in range(self.num_cols):
@@ -323,7 +338,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # Add print statement for address and other signals
             address_signals = ' '.join([f'V(A{i}) V(A_DFF{i})' for i in range(ceil(log2(self.num_rows)))])
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX {address_signals} V(RBL) V(RBL_DELAY) V(RBL_DELAY_BAR) V(W_EN) V(PRE)\n'
+                f'.PRINT TRAN FORMAT=NOINDEX {address_signals} V(RBL) V(RBL_DELAY) V(RBL_DELAY_BAR) V(W_EN) V(PRE) V(SA_ISO)\n'
             
             simulator.circuit.raw_spice += \
                 f'.PRINT TRAN FORMAT=NOINDEX V(S_EN) V(WL{self.target_row}) ' + \
@@ -360,10 +375,25 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         else:
             raise ValueError(f"Invalid operation: {operation}")
 
+    def _add_next_row_print(self, simulator):
+        """Wordline, decoder output and cell of `next_row` (address-change hold check)."""
+        if self.next_row is None or self.next_row == self.target_row:
+            return
+        row, col = self.next_row, self.target_col
+        signals = f'V(WL{row}) V(DEC_WL{row})'
+        core = getattr(self, 'sbckt_array', None)
+        if core is None or core._should_instantiate_real_cell(row, col):
+            q = self.cell_inst_prefix + f'_{row}_{col}{self.heir_delimiter}Q'
+            qb = self.cell_inst_prefix + f'_{row}_{col}{self.heir_delimiter}QB'
+            signals += f' V({q}) V({qb})'
+        simulator.circuit.raw_spice += f'.PRINT TRAN FORMAT=NOINDEX {signals}\n'
+
     def _init_control_path(self, init_cond):
         """Deterministic start-up state of the control path (shared by read / write)."""
         n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
         for bit in range(n_bits):
+            # address register output (inside TIME) and the held / buffered copy
+            init_cond[f'XTIME:A_reg{bit}'] = 0 @ u_V
             init_cond[f'A_dff{bit}'] = 0 @ u_V
         init_cond['we'] = self.vdd @ u_V       # we初始化为高电平
         init_cond['cs_bar'] = self.vdd @ u_V   # cs_bar初始化为高电平
@@ -373,6 +403,75 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # the EREAD / EWRITE window.
         init_cond['XTIME:Xdff_buf:qint'] = self.vdd @ u_V
         return init_cond
+
+    def _print_min_period(self, stats_csv_path, operation):
+        """Estimate the minimum clock period from the measured delays and print it.
+
+        Both clock phases must fit their work, so with a 50 % duty cycle
+
+            T_min = 2 * max(TCLK_WLEN + TREAD_TOTAL | TWRITE_TOTAL,   # clock-low: access
+                            TRESTORE, TCLK_DEC)                       # clock-high: precharge / decode
+
+        plus a 10 % margin.  The previous estimate, 2 * (access delay + 0.1 ns),
+        ignored the clock-to-wl_en delay and the whole precharge phase and
+        predicted 0.4-0.9 ns for arrays that need ~1.5 ns (see CHANGELOG V2.0.2).
+        For mc_runs > 1 the mean + one standard deviation of every term is used.
+        """
+        import pandas as pd
+        stats_df = pd.read_csv(stats_csv_path, index_col=0)
+
+        def worst(name):
+            if name not in stats_df.index:
+                return None
+            mean_val = float(stats_df.loc[name, 'mean'])
+            std_val = stats_df.loc[name, 'std']
+            if pd.isna(std_val) or not np.isfinite(std_val):
+                return mean_val
+            return mean_val + float(std_val)
+
+        access = worst('TREAD_TOTAL' if operation == 'read' else 'TWRITE_TOTAL')
+        t_wlen = worst('TCLK_WLEN')
+        t_restore = worst('TRESTORE')
+        t_dec = worst('TCLK_DEC')
+        if access is None or t_wlen is None or t_restore is None:
+            print("[WARNING] minimum-period estimate skipped: TCLK_WLEN / TRESTORE / "
+                  "access delay missing in the statistics")
+            return None
+        half_low = t_wlen + access
+        half_high = max(t_restore, t_dec or 0.0)
+        t_min = 2.0 * max(half_low, half_high) * 1.1
+        print(f"[INFO] clock-low phase  (clk->wl_en {t_wlen:.3e} + access {access:.3e}) : {half_low:.3e} s")
+        print(f"[INFO] clock-high phase (bitline restore {t_restore:.3e}, decode "
+              f"{(t_dec if t_dec is not None else float('nan')):.3e}) : {half_high:.3e} s")
+        print(f"[INFO] CLK(min) estimate in this size and PVT (50 % duty, +10 %) : {t_min:.3e} s")
+        return t_min
+
+    def _add_period_measures(self, simulator, restored_bitline):
+        """Measures for the minimum clock period (see _print_min_period).
+
+        TCLK_WLEN : falling clock edge -> wl_en rise (control path before the access).
+        TCLK_DEC  : first capture edge -> decoder output of the target row (the
+                    address path that must settle in the clock-high phase).
+        TRESTORE  : rising clock edge that ends the access -> `restored_bitline`
+                    back at 0.9 VDD (control path + self-timed precharge).
+        """
+        vdd = float(self.vdd)
+        t_end = float(1.0 @ u_ns) + 1.2 * float(self.t_period)   # edge ending access 1
+        simulator.measure(
+            'TRAN', 'TCLK_WLEN',
+            f'TRIG V(clk)={self.half_vdd} FALL=1 ' +
+            f'TARG V(wl_en)={self.half_vdd} RISE=1')
+        if self.target_row != 0:
+            simulator.measure(
+                'TRAN', 'TCLK_DEC',
+                f'TRIG V(clk)={self.half_vdd} RISE=1 ' +
+                f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
+        # TD= is needed on both events: the start-up precharge also crosses 0.9 VDD.
+        td = t_end - 1e-10
+        simulator.measure(
+            'TRAN', 'TRESTORE',
+            f'TRIG V(clk)={self.half_vdd} RISE=1 TD={td:.4e} ' +
+            f'TARG V({restored_bitline})={0.9 * vdd:.3f} RISE=1 TD={td:.4e}')
 
     def _add_decoder_measure(self, simulator):
         """TDECODER: address-bit capture -> decoder output of the target row."""
@@ -398,6 +497,13 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         """
         t_period = float(self.t_period)
         t0 = float(1.0 @ u_ns)
+        if t_period < 5e-9:
+            # The start-up precharge (all bitlines charged from 0 V after the first
+            # capture edge at 1 ns + 0.2 T) takes ~1 ns; with 0.2 T < 1 ns it is
+            # still running inside the PSTC window.
+            print(f"[WARNING] t_period={t_period:.2e} s < 5 ns: the PSTC window "
+                  f"(1 ns + [0.4, 0.65] T) overlaps the start-up transient, so PSTC / PDYN "
+                  f"are not a quiescent / dynamic split at this period")
         simulator.measure(
             'TRAN', 'PSTC',
             f'AVG {{-V(VDD)*I(VVDD)}} FROM={t0 + 0.4 * t_period} ' +
@@ -948,38 +1054,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 )
 
             if operation == 'read' or operation == 'write':
-                # Calculate and print half clock cycle time (1/2CLK)
-                stats_csv_path = tb_path.replace('.sp', '.stats.csv')
-                import pandas as pd
-
-                stats_df = pd.read_csv(stats_csv_path, index_col=0)
-
-                # The clock-low half must contain the whole access: wl_en -> data valid
-                # (read) or wl_en -> Q written (write).  These end-to-end measures
-                # already include wordline driver, bitline swing, replica timing and SA.
-                if operation == 'read':
-                    clk_params = ['TREAD_TOTAL']
-                elif operation == 'write':
-                    clk_params = ['TWRITE_TOTAL']
-
-                half_clk_sum = 0.0
-                for param in clk_params:
-                    if param in stats_df.index:
-                        mean_val = stats_df.loc[param, 'mean']
-                        std_val = stats_df.loc[param, 'std']
-                        if pd.isna(std_val) or not np.isfinite(std_val):
-                            # single run: no spread information available
-                            half_clk_sum += mean_val
-                            print(f"[DEBUG] {param} - Mean: {mean_val:.3e}, Std: n/a (mc=1, only mean used)")
-                        else:
-                            # a larger spread needs a larger margin, so always add it
-                            half_clk_sum += mean_val + std_val
-                            print(f"[DEBUG] {param} - Mean: {mean_val:.3e}, Std: {std_val:.3e}")
-                    else:
-                        print(f"[WARNING] Parameter {param} not found in statistics")
-
-                print(f"[INFO] Calculated 1/2CLK : {half_clk_sum:.3e}")
-                print(f"[INFO] CLK(min) in this size and PVT : {((half_clk_sum+0.1e-9)*2):.3e}")
+                self._print_min_period(tb_path.replace('.sp', '.stats.csv'), operation)
 
             data_csv_path = tb_path.replace('.sp', '.data.csv')
 

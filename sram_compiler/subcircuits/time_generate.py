@@ -1,8 +1,49 @@
 from PySpice.Unit import u_Ohm, u_pF
 from .base_subcircuit import BaseSubcircuit
 from math import ceil, log2
-from .standard_cell import Pinv,AND2,PNAND2,AND3,PNAND3
-        
+from .standard_cell import Pinv,AND2,PNAND2,PNOR2,AND3,PNAND3,D_latch
+
+
+class TaperedBuffer(BaseSubcircuit):
+    """Non-inverting inverter chain for a large fan-out.
+
+    The output stage is `drive_scale` unit inverters (0.09 / 0.27 um) and the
+    stages are tapered geometrically from the input, so every stage sees a
+    fan-out of drive_scale ** (1 / n_stages): two stages up to a scale of 16
+    (fan-out <= 4 per stage), four stages above.  `name` must be unique per
+    scope because PySpice keeps one subcircuit definition per name.
+    """
+    NODES = ('VDD', 'VSS', 'A', 'Z')
+
+    def __init__(self, name, drive_scale=1.0,
+                 nmos_model="NMOS_VTG", pmos_model="PMOS_VTG", length=0.05e-6,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
+        self.NAME = name
+        super().__init__(
+            nmos_model, pmos_model,
+            0.09e-6, 0.27e-6, length,
+            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
+        )
+        drive_scale = max(1.0, float(drive_scale))
+        n_stages = 2 if drive_scale <= 16 else 4
+        self.drive_scale = drive_scale
+        self.n_stages = n_stages
+        prev = 'A'
+        for k in range(n_stages):
+            s = drive_scale ** ((k + 1) / n_stages)
+            inv = Pinv(nmos_model, pmos_model, 0.09e-6 * s, 0.27e-6 * s, length,
+                       num=f'_{name}_{k}')
+            self.subcircuit(inv)
+            out = 'Z' if k == n_stages - 1 else f'b{k}'
+            self.X(f'inv{k}', inv.NAME, 'VDD', 'VSS', prev, out)
+            prev = out
+
+
+class D_latch_addr(D_latch):
+    """D_LATCH with its own subcircuit name (address hold latch of TIME)."""
+    NAME = "D_LATCH_ADDR"
+
+
 class TransmissionGate(BaseSubcircuit):
     """
     传输门 (Transmission Gate)
@@ -151,6 +192,7 @@ class wl_pdrive(BaseSubcircuit):  # ////////用于字线驱动的缓冲器
                  # Base widths for NAND gate transistors
                  pmos_width=0.27e-6, nmos_width=0.18e-6,
                  length=0.05e-6,
+                 drive_scale=1.0,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  ):
 
@@ -159,10 +201,14 @@ class wl_pdrive(BaseSubcircuit):  # ////////用于字线驱动的缓冲器
             nmos_width, pmos_width, length,
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
-        
+
+        # Both stages scale with the load (num_rows wordline-driver NAND2 gates):
+        # with the fixed 1.35/0.45 um output stage the wl_en edge took 280 ps to
+        # rise and 600 ps to fall at 512 rows (40/90 ps at 64 rows).
+        drive_scale = max(1.0, float(drive_scale))
         # 创建不同尺寸的反相器
-        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6,0.27e-6,0.05e-6,num=1)
-        self.inv2 = Pinv(nmos_model, pmos_model,0.45e-06,1.35e-06,0.05e-6,num=2)
+        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6 * drive_scale,0.27e-6 * drive_scale,0.05e-6,num=1)
+        self.inv2 = Pinv(nmos_model, pmos_model,0.45e-06 * drive_scale,1.35e-06 * drive_scale,0.05e-6,num=2)
         
         # 添加子电路
         self.subcircuit(self.inv1)
@@ -498,10 +544,33 @@ class TIME(BaseSubcircuit):
                  # Base widths for NAND gate transistors
                  pmos_width=0.27e-6, nmos_width=0.18e-6,
                  length=0.05e-6,num_rows=16,num_cols=8,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,operation='read'
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,operation='read',
+                 num_sa=None, wl_load=None, pre_load=None, wen_load=None,
                  ):
+        """
+        num_sa:   number of sense amplifiers driven by s_en (num_cols / mux_in);
+                  default num_cols.
+        wl_load:  load on wl_en in units of a 0.18/0.27 um NAND2 gate, i.e.
+                  num_rows * (wordline-driver NAND2 scale); default num_rows.
+        pre_load: load on PRE in unit (0.09/0.27 um) inverter inputs, i.e.
+                  (num_cols + 1) * 3 * precharge PMOS width / 0.36 um; default
+                  assumes the 0.27 um base width scaled with max(0.5, rows/16).
+        wen_load: load on w_en in unit inverter inputs: per column the write
+                  driver's EN inverter and two EN-gated NMOS (3 * nmos_w +
+                  pmos_w, row-scaled) plus the testbench's w_en_bar inverter;
+                  default assumes the 0.18/0.36 um base widths scaled with
+                  max(8, rows)/16.
+        """
         # 计算需要的地址位数
         n_bits = ceil(log2(num_rows)) if num_rows > 1 else 1
+        num_sa = num_cols if num_sa is None else int(num_sa)
+        wl_load = float(num_rows) if wl_load is None else float(wl_load)
+        if pre_load is None:
+            pre_load = (num_cols + 1) * 3 * 0.27e-6 * max(0.5, num_rows / 16.0) / 0.36e-6
+        pre_load = float(pre_load)
+        if wen_load is None:
+            wen_load = num_cols * (3 * 0.18e-6 + 0.36e-6) * max(8, num_rows) / 16.0 / 0.36e-6
+        wen_load = float(wen_load)
          # 动态生成节点
         nodes = ['VDD', 'VSS', 'clk', 'csb', 'web', 'clk_buf', 'clk_bar', 
                 'cs_bar','cs', 'we_bar','we','gated_clk_bar', 'gated_clk_buf', 'wl_en']
@@ -514,7 +583,7 @@ class TIME(BaseSubcircuit):
             nodes.extend([f'DIN{i}' for i in range(num_cols)])
             nodes.extend([f'DIN_dff{i}' for i in range(num_cols)])
 
-        nodes += ['rbl','rbl_delay','rbl_delay_bar','s_en','w_en','PRE']
+        nodes += ['rbl','rbl_delay','rbl_delay_bar','s_en','w_en','PRE','sa_iso']
         self.NODES = nodes
 
         super().__init__(
@@ -525,6 +594,10 @@ class TIME(BaseSubcircuit):
         self.num_rows=num_rows
         self.num_cols=num_cols
         self.n_bits = n_bits
+        self.num_sa = num_sa
+        self.wl_load = wl_load
+        self.pre_load = pre_load
+        self.wen_load = wen_load
         #触发器在时钟上升沿触发地址信号
         dff_buf_addr=ADDR_DFF(nmos_model="NMOS_VTG",
             pmos_model="PMOS_VTG",num_rows=self.num_rows)
@@ -534,12 +607,41 @@ class TIME(BaseSubcircuit):
             # 添加地址输入连接
         for i in range(self.n_bits):
             addr_dff_connections.append(f'A{i}')
-            # 添加地址输出连接
+            # 添加地址输出连接 (register outputs; A_dff{i} is the held / buffered
+            # address below)
         for i in range(self.n_bits):
-            addr_dff_connections.append(f'A_dff{i}')
+            addr_dff_connections.append(f'A_reg{i}')
             # 实例化DFF
         self.X('dff_buf_addr',
                dff_buf_addr.NAME, *addr_dff_connections)
+
+        # Address hold latch + fan-out buffer -> A_dff{i} (decoder input).
+        #
+        # The register A_reg updates ~100-150 ps after the clock edge that ends
+        # an access, while wl_en (and with it the old wordline) is still
+        # falling; a changed address therefore raised the *new* row's wordline
+        # for the tail of the old access and wrote the old bitline data into
+        # that row (measured at 64-512 rows).  The latch is transparent while
+        # wl_en is low and holds the address while the wordline is on, so a
+        # new decoder output can only rise after wl_en_bar is high again, i.e.
+        # after the wordline driver has been disabled.  (Same scheme as the
+        # write-data hold latch of the testbench.)
+        #
+        # The decoder input load grows with the row count (5 gate inputs per
+        # last-level 3-to-8 decoder for the low address bits: 320 gates at
+        # 512 rows, 650 ps register edge before this change), so the latch
+        # output is buffered for a fan-out of ~8 per stage.
+        addr_latch = D_latch_addr(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG")
+        self.subcircuit(addr_latch)
+        addr_fanout_units = 5 * ceil(self.num_rows / 8.0)      # 0.09/0.27 um gate equivalents
+        addr_scale = max(1, ceil(addr_fanout_units / 8.0 / 3.0))  # 3-unit output per 8 loads
+        addr_buf = TaperedBuffer('ABUF', drive_scale=addr_scale)
+        self.subcircuit(addr_buf)
+        for i in range(self.n_bits):
+            self.X(f'addr_hold_{i}', addr_latch.NAME,
+                   'VDD', 'VSS', f'A_reg{i}', 'wl_en_bar', f'A_lat{i}', f'A_latb{i}')
+            self.X(f'addr_buf_{i}', addr_buf.NAME,
+                   'VDD', 'VSS', f'A_lat{i}', f'A_dff{i}')
 
         if operation == 'write' or operation == 'read&write':
             #触发器在时钟上升沿触发数据信号
@@ -643,16 +745,26 @@ class TIME(BaseSubcircuit):
                and2_gated_clk_buf.NAME,
                'VDD', 'VSS', 'cs', 'clk_buf','gated_clk_buf')
         #字线使能，在clk的低电平
-        wl_en=wl_pdrive()
+        # wl_en drives one NAND2 input per row in the wordline drivers (plus the
+        # replica-wordline AND2).  The output stage (1.35/0.45 um per unit)
+        # drives 4 unit NAND2 loads at a fan-out of 1, so one unit per 32 loads
+        # keeps the fan-out <= 8: unchanged up to 16x16, 4x at 64x16, 16x at
+        # 512x4.  Without it the wl_en edge was 280 ps (rise) / 600 ps (fall)
+        # at 512 rows, which is also what opened the address-change hazard.
+        wl_en_scale = max(1, ceil(self.wl_load / 32.0))
+        wl_en=wl_pdrive(drive_scale=wl_en_scale)
         self.subcircuit(wl_en)
         self.X('wl_en',
                wl_en.NAME,
                'VDD', 'VSS', 'gated_clk_bar', 'wl_en')
+        # wl_en_bar enables the address hold latches (2 NAND2 inputs per bit)
+        # and the precharge NAND3; size it for that fan-out.
+        wlb_scale = max(1, ceil((2 * self.n_bits + 1) / 5.0))
         inv_wl_en_bar = Pinv(
             nmos_model="NMOS_VTG",
             pmos_model="PMOS_VTG",
-            nmos_width=0.09e-6,
-            pmos_width=0.27e-6,
+            nmos_width=0.09e-6 * wlb_scale,
+            pmos_width=0.27e-6 * wlb_scale,
             length=0.05e-6,
             num='_wl_en_bar'
         )
@@ -692,63 +804,121 @@ class TIME(BaseSubcircuit):
         # NMOS left the bitline at 0.3-0.4 V when w_en ended: the cell kept
         # its old data.  The hard-coded 16x512 WenDelayChain that used to
         # lengthen the pulse for one array size is no longer needed.
-        w_en_ref_cols = 64
-        # Buffer scaling: one unit (1.08/0.36 um inverter) per 64 columns.  The
-        # write drivers it drives are themselves scaled with the row count
-        # (WriteDriverFactory: max(8, rows)/16), so the w_en load grows with
-        # rows as well; without the row factor w_en released 40-70 ps after the
-        # wordline on 64-256-row arrays (285 ps with RC at 64x64) and the write
-        # drivers overlapped the start of the precharge.
-        s_en_scale = max(1, ceil(self.num_cols / w_en_ref_cols))#按列数放大驱动晶体管尺寸
-        wd_row_scale = max(8, self.num_rows) / 16.0
-        w_en_scale = max(s_en_scale, ceil(self.num_cols * wd_row_scale / w_en_ref_cols))
-        # Own subcircuit name: PySpice keeps one definition per name and scope, so
-        # a plain AND2 here would replace the (larger) gated-clock AND2 above.
+        # w_en buffer.  The AND2's 4-unit inverter (1.08/0.36 um) drives up to
+        # 32 unit loads directly (fan-out <= 8); above that a TaperedBuffer
+        # sized for a fan-out of ~8 follows it.  V2.0.1 scaled the inverter
+        # with columns/64 and rows/16, which still left a fan-out of ~40-60:
+        # the w_en edge was 130-180 ps (10-90 %) from 64x16 up to 16x512 and
+        # the driven bitline reached VDD/2 only 120-240 ps after gated_clk_bar,
+        # 40-60 ps after the wordline (the write waited for w_en).
         w_en=AND2_WEN(nmos_model_nand="NMOS_VTG",
                 pmos_model_nand="PMOS_VTG",
                 nmos_model_inv="NMOS_VTG",
                 pmos_model_inv="PMOS_VTG",
                 nand_pmos_width=0.27e-6,
                 nand_nmos_width=0.18e-6,
-                inv_pmos_width=1.08e-6 * w_en_scale,
-                inv_nmos_width=0.36e-6 * w_en_scale,
+                inv_pmos_width=1.08e-6,
+                inv_nmos_width=0.36e-6,
                 length=0.05e-6,
                 w_rc=w_rc
                 )
         self.subcircuit(w_en)
-        self.X('w_en',
-               w_en.NAME,
-               'VDD','VSS' , 'gated_clk_bar' ,'we', 'w_en' )
+        if self.wen_load <= 32:
+            wen_src = 'w_en'
+            self.X('w_en',
+                   w_en.NAME,
+                   'VDD','VSS' , 'gated_clk_bar' ,'we', 'w_en' )
+        else:
+            wen_src = 'w_en_unbuf'
+            self.X('w_en',
+                   w_en.NAME,
+                   'VDD','VSS' , 'gated_clk_bar' ,'we', 'w_en_unbuf' )
+            wen_buf = TaperedBuffer('WEN_BUF', drive_scale=ceil(self.wen_load / 8.0))
+            self.subcircuit(wen_buf)
+            self.X('w_en_buf', wen_buf.NAME, 'VDD', 'VSS', 'w_en_unbuf', 'w_en')
         #产生灵敏放大器
+        # s_en enables the sense-amplifier footers (one 0.27 um NMOS gate, ~0.75
+        # unit loads per amplifier) and the output latch; sa_iso (below) drives
+        # the input pass gates.  The AND3's 4-unit inverter drives up to 32 unit
+        # loads directly (fan-out <= 8), above that a TaperedBuffer follows.
+        # V2.0.1 scaled one 4-unit inverter per 64 columns for footer *and*
+        # pass gates (fan-out ~75): s_en edge 190-230 ps (10-90 %) at >= 64
+        # columns and a 0.2-0.3 V precharge-coupling bump on s_en.
         s_en=AND3(nmos_model_nand="NMOS_VTG",
                 pmos_model_nand="PMOS_VTG",
                 nmos_model_inv="NMOS_VTG",
                 pmos_model_inv="PMOS_VTG",
                 nand_pmos_width=0.27e-6,
                 nand_nmos_width=0.18e-6,
-                inv_pmos_width=1.08e-6 * s_en_scale,
-                inv_nmos_width=0.36e-6 * s_en_scale,
+                inv_pmos_width=1.08e-6,
+                inv_nmos_width=0.36e-6,
                 length=0.05e-6,
                 w_rc=w_rc
             )
         self.subcircuit(s_en)
-        self.X('s_en',
-               s_en.NAME,
-               'VDD','VSS' ,'rbl_delay', 'gated_clk_bar' ,'we_bar' ,'s_en' )
+        sen_load = 0.75 * self.num_sa + 2.5 + 1.0   # footers + output latch + NOR below
+        if sen_load <= 32:
+            sen_src = 's_en'
+            self.X('s_en',
+                   s_en.NAME,
+                   'VDD','VSS' ,'rbl_delay', 'gated_clk_bar' ,'we_bar' ,'s_en' )
+        else:
+            sen_src = 's_en_unbuf'
+            self.X('s_en',
+                   s_en.NAME,
+                   'VDD','VSS' ,'rbl_delay', 'gated_clk_bar' ,'we_bar' ,'s_en_unbuf' )
+            sen_buf = TaperedBuffer('SEN_BUF', drive_scale=ceil(sen_load / 8.0))
+            self.subcircuit(sen_buf)
+            self.X('s_en_buf', sen_buf.NAME, 'VDD', 'VSS', 's_en_unbuf', 's_en')
+
+        # Sense-amplifier input isolation: sa_iso = s_en | w_en (PMOS pass
+        # gates off while the amplifier is fired *or* the write drivers are
+        # on).  Before V2.0.2 the pass gates were driven by s_en alone, so the
+        # cross-coupled PMOS pair of the amplifier stayed connected to the
+        # bitlines during a write and acted as a keeper: the write only
+        # succeeded while w_en rose before the wordline (60 ps margin at 2x128
+        # in V2.0.1; with the faster wordline path of V2.0.2 the order flipped
+        # and the 2x128 write deadlocked, BL 0.27 V / BLB 0.9 V).  Two pass
+        # gates (4/3 x 0.54 um) per amplifier = ~4 unit loads.
+        sa_iso_nor = PNOR2(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
+                           nmos_width=0.09e-6, pmos_width=0.54e-6, length=0.05e-6,
+                           w_rc=w_rc)
+        self.subcircuit(sa_iso_nor)
+        self.X('sa_iso_nor', sa_iso_nor.NAME, 'VDD', 'VSS', sen_src, wen_src, 'sa_iso_bar')
+        sa_iso_inv = Pinv(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
+                          nmos_width=0.36e-6, pmos_width=1.08e-6, length=0.05e-6,
+                          num='_sa_iso')
+        self.subcircuit(sa_iso_inv)
+        iso_load = 4.0 * self.num_sa
+        if iso_load <= 32:
+            self.X('sa_iso_inv', sa_iso_inv.NAME, 'VDD', 'VSS', 'sa_iso_bar', 'sa_iso')
+        else:
+            self.X('sa_iso_inv', sa_iso_inv.NAME, 'VDD', 'VSS', 'sa_iso_bar', 'sa_iso_unbuf')
+            iso_buf = TaperedBuffer('ISO_BUF', drive_scale=ceil(iso_load / 8.0))
+            self.subcircuit(iso_buf)
+            self.X('sa_iso_buf', iso_buf.NAME, 'VDD', 'VSS', 'sa_iso_unbuf', 'sa_iso')
 
         #产生预充电使能
-        # pre_unbuf=PNAND2(nmos_model="NMOS_VTG",
-        #                 pmos_model="PMOS_VTG",
-        #                 nmos_width=0.18e-6,
-        #                 pmos_width=0.27e-6,
-        #                 length=0.05e-6,
-        #                 w_rc=w_rc
-        #                 )
-        # self.subcircuit(pre_unbuf)
-        # self.X('pre_unbuf',
-        #        pre_unbuf.NAME,
-        #        'VDD','VSS', 'gated_clk_buf', 'rbl_delay', 'PRE_UNBUF')
-
+        # PRE (active low) = NAND3(clk_buf, cs, wl_en_bar): the bitlines are
+        # precharged for the whole clock-high phase of a selected cycle and
+        # released as soon as the clock falls, ~4 gate delays before the
+        # wordline rises (the wl_en_bar term keeps the precharge off while any
+        # wordline is on).
+        #
+        # Previously PRE = NAND3(gated_clk_buf, rbl_delay, wl_en_bar) was a
+        # self-timed pulse of ~300 ps that ended when the replica bitline had
+        # been recharged; afterwards every bitline floated for the rest of the
+        # cycle and leaked through the off pass gates of the cells storing a
+        # 0 on that side.  Measured before the change (nominal, 8x4 / 16x16):
+        # RBL 0.89 V at the next access with a 50 ns clock, 0.76 V with 100 ns
+        # (TT 25 C); with the default 10 ns clock RBL 0.87-0.90 V at TT 125 C
+        # and 0.74-0.77 V at FF 125 C, BL 0.88-0.92 V against BLB 0.99-1.00 V
+        # (an 80-120 mV offset before the read).  The replica-timed sensing
+        # still resolved every read, but the bitline level at the start of an
+        # access depended on the cycle time and the corner.  Holding the
+        # bitlines costs no dynamic energy (the charge that leaked away had to
+        # be replaced by the next pulse anyway); the PSTC window now includes
+        # the bitline leakage, which is supplied through the precharge devices.
         pre_unbuf = PNAND3(nmos_model="NMOS_VTG",
                    pmos_model="PMOS_VTG",
                    nmos_width=0.27e-6,
@@ -759,14 +929,16 @@ class TIME(BaseSubcircuit):
         self.subcircuit(pre_unbuf)
         self.X('pre_unbuf',
             pre_unbuf.NAME,
-            'VDD', 'VSS', 'gated_clk_buf', 'rbl_delay', 'wl_en_bar', 'PRE_UNBUF')
+            'VDD', 'VSS', 'clk_buf', 'cs', 'wl_en_bar', 'PRE_UNBUF')
 
-        
-        pre_ref_cols = 64
-        pre_col_scale = (self.num_cols + 1) / (pre_ref_cols + 1)
-        pre_pmos_scale = max(0.5, self.num_rows / 16)
-        pre_drive_scale = max(1, ceil(pre_col_scale * pre_pmos_scale))
-        pre = pdrive2_for_pre(drive_scale=pre_drive_scale)
+        # PRE buffer sized for its load: 3 PMOS gates per precharge cell,
+        # num_cols + 1 cells (replica column included), PMOS width scaled with
+        # the row count by PrechargeFactory; `pre_load` is that load in unit
+        # (0.09/0.27 um) inverter inputs.  The previous 2-stage buffer had a
+        # fan-out of ~49 per unit (PRE only reached 0.05-0.08 V on the largest
+        # arrays and its edge was 120-150 ps).
+        pre_scale = max(1, ceil(self.pre_load / 8.0))
+        pre = TaperedBuffer('PRE_BUF', drive_scale=pre_scale)
         self.subcircuit(pre)
         self.X('pre',
                pre.NAME,

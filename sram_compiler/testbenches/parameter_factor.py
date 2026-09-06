@@ -179,12 +179,15 @@ class PrechargeFactory:
             self.REQUIRED_COLUMNS = ['pmos_model_precharge']
             self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS,param_model_file)
 
+    @staticmethod
+    def width_scale(num_rows):
+        """Precharge PMOS width scale with the row count (bitline capacitance)."""
+        return max(0.5, num_rows / 16.0)
+
     def _calculate_dynamic_width(self):
         #The width of the transistor needs to 
         #be dynamically adjusted according to the number of rows.
-        scaling_factor = self.num_rows / 16  
-        scaling_factor = 0.5 if scaling_factor < 0.5 else scaling_factor
-        return self.pmos_width * scaling_factor
+        return self.pmos_width * self.width_scale(self.num_rows)
 
     def _get_config(self):
         
@@ -233,12 +236,15 @@ class WriteDriverFactory:
             self.REQUIRED_COLUMNS = ['pmos_model_writedriver', 'nmos_model_writedriver']
             self.mos_model_index = read_mos_model_from_param_file(self.REQUIRED_COLUMNS,param_model_file)
 
+    @staticmethod
+    def width_scale(num_rows):
+        """Write-driver width scale with the row count (bitline capacitance)."""
+        return max(8, num_rows) / 16.0
+
     def _calculate_dynamic_width(self, base_width):
         """Dynamically adjust the transistor width based on the number of rows.
         This is a simple linear scaling; you might need a more complex function."""
-        eff_rows = 8 if self.num_rows < 8 else self.num_rows
-        scaling_factor = eff_rows / 16
-        return base_width * scaling_factor
+        return base_width * self.width_scale(self.num_rows)
 
     def _get_config(self):
         if self.sweep:
@@ -308,14 +314,30 @@ class WordlineDriverFactory:
             self.REQUIRED_COLUMNS2 = ['pmos_model_wld_nandp', 'nmos_model_wld_nandn']
             self.mos_model_index2 = read_mos_model_from_param_file(self.REQUIRED_COLUMNS2,param_model_file)
 
+    @staticmethod
+    def inv_scale(num_cols):
+        """Output-inverter scale: one base inverter per 4 columns of wordline load."""
+        return max(num_cols, 4) / 4.0
+
+    @staticmethod
+    def nand_scale(num_cols):
+        """NAND2 scale: the geometric mean of 1 and the inverter scale, so the
+        NAND2 -> inverter stage and the (decoder / wl_en) -> NAND2 stage see the
+        same fan-out.  With the NAND2 fixed at its base width the inverter stage
+        had a fan-out of ~100 at 512 columns (wordline rise 240 ps, TWLDRV
+        349 ps vs 17 ps at 4 columns)."""
+        return WordlineDriverFactory.inv_scale(num_cols) ** 0.5
+
     def _calculate_inv_width(self):
         """
         Calculate dynamic width for the output inverter based on column load.
         """
-        # Example scaling logic: Scale up if columns > 4
-        scale = max(self.num_cols, 4) / 4.0
-        # You might want to cap the scale or adjust the formula
+        scale = self.inv_scale(self.num_cols)
         return (self.inv_base_nmos_width * scale, self.inv_base_pmos_width * scale)
+
+    def _calculate_nand_width(self):
+        scale = self.nand_scale(self.num_cols)
+        return (self.nand_nmos_width * scale, self.nand_pmos_width * scale)
 
     def _get_config(self):
         """
@@ -324,12 +346,12 @@ class WordlineDriverFactory:
         if self.sweep:
             # --- Sweep Mode ---
             # Use string parameter names for SPICE netlist
-            # NAND2 parameters
-            nand_nmos_width = 'nmos_width_wld_nandn'
-            nand_pmos_width = 'pmos_width_wld_nandp'
             # Keep the same column-load scaling as the fixed-value mode, as a SPICE
             # expression on the swept parameter.
-            scale = max(self.num_cols, 4) / 4.0
+            nscale = self.nand_scale(self.num_cols)
+            nand_nmos_width = f'{{nmos_width_wld_nandn*{nscale}}}'
+            nand_pmos_width = f'{{pmos_width_wld_nandp*{nscale}}}'
+            scale = self.inv_scale(self.num_cols)
             inv_nmos_width = f'{{nmos_width_wld_invn*{scale}}}'
             inv_pmos_width = f'{{pmos_width_wld_invp*{scale}}}'
             length = 'length_wld'
@@ -342,11 +364,8 @@ class WordlineDriverFactory:
             
         else:
             # --- yaml Mode ---
-            # Calculate numerical values
-            nand_nmos_width = self.nand_nmos_width
-            nand_pmos_width = self.nand_pmos_width
-            
-            # Dynamic sizing for Inverter
+            # Dynamic sizing for NAND2 and Inverter (see nand_scale / inv_scale)
+            nand_nmos_width, nand_pmos_width = self._calculate_nand_width()
             inv_nmos_width, inv_pmos_width = self._calculate_inv_width()
             
             length = self.length
@@ -906,7 +925,8 @@ class TIMEFactory:
                  nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
                  pmos_width=0.27e-6, nmos_width=0.18e-6,
                  length=0.05e-6, num_rows=16, num_cols=8,
-                 w_rc=False, operation='read'
+                 w_rc=False, operation='read',
+                 num_sa=None, wl_load=None, pre_load=None, wen_load=None,
                  ):
 
         self.nmos_model = nmos_model
@@ -918,6 +938,11 @@ class TIMEFactory:
         self.num_cols = num_cols
         self.w_rc = w_rc
         self.operation = operation
+        # fan-out information for the s_en / wl_en buffers (see TIME)
+        self.num_sa = num_sa
+        self.wl_load = wl_load
+        self.pre_load = pre_load
+        self.wen_load = wen_load
     def create(self):
         return TIME(
             nmos_model=self.nmos_model,
@@ -928,7 +953,11 @@ class TIMEFactory:
             num_rows=self.num_rows,
             num_cols=self.num_cols,
             w_rc=self.w_rc,
-            operation=self.operation
+            operation=self.operation,
+            num_sa=self.num_sa,
+            wl_load=self.wl_load,
+            pre_load=self.pre_load,
+            wen_load=self.wen_load,
         )
     
 class Sram10TCellFactory:

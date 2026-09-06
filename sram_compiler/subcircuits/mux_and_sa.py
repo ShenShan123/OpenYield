@@ -89,9 +89,18 @@ class SenseAmp(BaseSubcircuit):
     """Differential sense amplifier with enable signal.带使能的差分感测放大器"""
     
     NAME = 'SENSEAMP'
-    # Input: VDD, VSS, SA_BL, SA_BLB, EN
-    # Output: OUT, OUTB, 
-    NODES = ('VDD', 'VSS', 'EN', 'IN', 'INB', 'Q', 'QB')
+    # Input: VDD, VSS, EN (latch enable / footer), ISO (pass-gate isolation,
+    #        high = inputs disconnected), SA_BL, SA_BLB
+    # Output: OUT, OUTB,
+    # ISO used to be the same net as EN.  With EN low the PMOS pass gates
+    # connect Q/QB to the bitlines and the cross-coupled PMOS pair then acts
+    # as a bitline keeper: during a write the driver had to overpower it, which
+    # only worked as long as w_en rose before the wordline (V2.0.1: 60 ps
+    # margin at 2x128; with the V2.0.2 buffers the order flipped and the
+    # 2x128 write deadlocked with BL at 0.27 V and BLB at 0.9 V).  The
+    # testbench drives ISO with s_en | w_en, so the amplifier is isolated
+    # while the write drivers are on and behaves exactly as before in a read.
+    NODES = ('VDD', 'VSS', 'EN', 'ISO', 'IN', 'INB', 'Q', 'QB')
 
     def __init__(self, nmos_model, pmos_model, 
                  nmos_width, pmos_width, length,#design parameters
@@ -132,6 +141,7 @@ class SenseAmp(BaseSubcircuit):
     def add_sense_transistors(self):
         if self.w_rc:                                    #考虑是否加rc参数，修改节点名
             en_node = self.add_rc_networks_to_node('EN', num_segs=2)
+            iso_node = self.add_rc_networks_to_node('ISO', num_segs=2)
             in_node = self.add_rc_networks_to_node('IN', num_segs=2)
             inb_node = self.add_rc_networks_to_node('INB', num_segs=2)
             q_node = self.add_rc_networks_to_node('Q', num_segs=2)
@@ -139,6 +149,7 @@ class SenseAmp(BaseSubcircuit):
             net1_node = self.add_rc_networks_to_node('net1', num_segs=1)
         else:
             en_node = 'EN'
+            iso_node = 'ISO'
             in_node = 'IN'
             inb_node = 'INB'
             q_node = 'Q'
@@ -155,10 +166,10 @@ class SenseAmp(BaseSubcircuit):
         self.M(4, 'QB', q_node, 'VDD', 'VDD', model=self.pmos_model,
             w=self.pmos_width, l=self.length)  # PMOS
 
-        # Sense enable transistors 注意左右两个传输管的参数不用base
-        self.M(5, 'Q', en_node, in_node, 'VDD', model=self.pmos_model,
+        # Input pass gates (isolation) 注意左右两个传输管的参数不用base
+        self.M(5, 'Q', iso_node, in_node, 'VDD', model=self.pmos_model,
             w=self.pmos_width_pass, l=self.length)  # PMOS (wider for lower resistance)
-        self.M(6, 'QB', en_node, inb_node, 'VDD', model=self.pmos_model,
+        self.M(6, 'QB', iso_node, inb_node, 'VDD', model=self.pmos_model,
             w=self.pmos_width_pass, l=self.length)  # PMOS (wider for lower resistance)
         self.M(7, net1_node, en_node, 'VSS', 'VSS', model=self.nmos_model,
             w=self.nmos_width, l=self.length)  # NMOS
