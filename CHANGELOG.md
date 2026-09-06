@@ -16,10 +16,81 @@ latch, target-cell Q/QB) for every configuration. The final sweep covers
 29 planned array sizes from 1x1 to 512x4, 16x512 and 100x50 (the 128x128 and
 256x64 decks were stopped for run time, see the evidence section), both
 cells, column mux on and off, all three operations, nominal and seeded Monte
-Carlo. The
-evidence tables are at the end of this entry; the per-run netlists,
-waveforms and Xyce logs were produced by the scratch sweep harness described
-in `CIRCUIT_REVIEW.md`.
+Carlo. The evidence tables are at the end of this entry; the per-run
+netlists, waveforms and Xyce logs were produced by the scratch sweep harness
+described in `CIRCUIT_REVIEW.md`.
+
+### Summary of fixes
+
+- **Write pulse too short.** `w_en` was cut by the replica bitline (~250 ps),
+  a cell-strength path, while the write path (row-scaled write driver, through
+  the column mux) is weaker. Seeded 5 % sigma Monte Carlo samples left the
+  bitline at 0.3-0.4 V and the cell kept its old data. `w_en` now spans the
+  wordline phase; the hard-coded 16x512 `WenDelayChain` hack is removed.
+- **Hold hazard introduced by that fix, caught by the sweep.** At the clock
+  edge that ends a write the data register updates before the drivers
+  release, so the next cycle's data was briefly written; at 64 rows this
+  flipped the freshly written cell (`read&write` 64x16 failed). A per-column
+  write-data hold latch fixes it.
+- **Write testbench topology.** It had no bitline precharge and no sense-amp
+  / mux load, so the stand-alone write delay was 30-40 % optimistic against
+  the same write inside the `read&write` sequence. All transient decks now
+  carry the full column periphery; `TWDRV` is measured on the driven bitline.
+- **Nominal runs were random samples.** Every deck emitted `.SAMPLING` with
+  a random seed, so identical calls returned different delays and
+  occasionally failed. `mc_runs=1` is now deterministic; `mc_seed` makes
+  Monte Carlo sweeps reproducible; the Xyce console log is kept per run.
+- **Energy window** measured the start-up charging of the bitlines from 0 V
+  (half of the "read energy" on 8x4) instead of a steady-state cycle; it is
+  now one full clock period starting at the access. `read&write` averages
+  over one 4-cycle pattern and its transient covers the 8th access.
+- **Measurement details.** `TS_EN` was corrupted by a precharge-coupling bump
+  on `s_en` (now measured from the access phase); the `w_en` buffer was not
+  scaled with the row-dependent write-driver size (release lagged the
+  wordline by 40-285 ps on 64-256-row arrays); the 10T core ignored the
+  testbench RC parameters; a PySpice subcircuit-name collision (one
+  definition per name and scope) is avoided with a dedicated `AND2_WEN`.
+- **Xyce Newton stall on some 512-row decks** (residual 1e-12 A at every
+  step size, not a circuit fault): the flow retries once with a 20 ps maximum
+  time step, which keeps results of converging decks within 0.5 %;
+  `t_max_step` and `xyce_options` are exposed on `Sram6TCoreMcTestbench`.
+- **Static-review fixes carried into this release** (details in
+  `CIRCUIT_REVIEW.md`): column-mux port mismatch that aborted every muxed
+  read, free-running `SEL` pulse, wrong output-latch index and floating latch
+  input on writes, replica column driven by the real wordlines, CS start-up
+  clamp fighting the flip-flop, negative read delay and negative dynamic
+  power from mis-placed measure thresholds and windows, write delay
+  over-reported 2.2x by summing overlapping segments, `FAILED` measures
+  silently becoming 0.0, `.prn` / SNM parsing that depended on `.PRINT`
+  ordering, equivalent-circuit caps only inserted with `w_rc`, unused `regex`
+  import, `python-graphviz` pip name, duplicated `config.py`, `mW` label.
+
+### Not completed / left open
+
+- **Array sizes not finished at release time.** 128x128 and 256x64 (all
+  operations): the read transient reached 2.0 ns of 21 ns after 64 min
+  (~11 h per read deck, ~45 h per `read&write` deck), so these 24 decks were
+  stopped. The `read&write` decks of 8x512, 16x512, 16x256 and 10T 512x4
+  (86 ns transients) were still running after 3-5 h and were not waited for;
+  their `read` and `write` decks completed and are in the evidence table.
+  All 283 completed decks pass every waveform check. The same flow runs them
+  offline; use `t_max_step` / `xyce_options` if Xyce stalls.
+- **Address-path hold hazard** (pre-existing, not exercised): the access
+  window ends at the next capture edge, so a *changed* address would raise a
+  second wordline for ~100-250 ps while the old one is still falling. The
+  testbenches keep the address constant. A hold latch on `A_dff` (transparent
+  while `wl_en` is low) or a delayed register clock would close it.
+- **Design choices verified and left as they are** (see Observations below):
+  sensing waits for a fully discharged replica bitline plus a 9-stage delay
+  chain, so read delay is ~300 ps for every size up to 32 rows; the precharge
+  is a ~300 ps self-timed pulse after which the bitlines float and droop to
+  ~0.93 V; the `s_en` buffer keeps the columns/64 scaling; the `w_rc=True`
+  default of `main_sram.py` puts 1 fF on every cell's Q/QB and triples the
+  write delay; the fixed 10 ns clock leaves > 4 ns of margin for every size
+  tested; `read` always reads a stored 0 (`read&write` covers both values).
+- **Out of scope this round:** optimisation and yield-estimation algorithms,
+  the SNM extraction beyond a sanity run (6T hold/read/write 0.325 / 0.182 /
+  0.365 V, 10T 0.485 / 0.290 / 0.419 V), and parameter-sweep (`sweep_*`) modes.
 
 ### Circuit topology
 
