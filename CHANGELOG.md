@@ -88,11 +88,15 @@ numbers on this release; the evidence tables are at the end of this entry.
   longer fights the sense-amplifier keeper. Not tuned further: the buffers
   follow one fan-out rule (`nand_scale`, `TaperedBuffer` scale) that a
   power-optimised design would relax where the timing margin allows.
-- **Write delay reference.** `TWRITE_TOTAL` is measured from `wl_en`; on
-  arrays where the wordline now rises earlier than the write driver output
-  (e.g. 16x16 with mux, 98 -> 106 ps) the number grows although the write
-  completes earlier relative to the clock edge. The measure is kept as
-  defined in V2.0.1.
+- **Delay reference at >= 256 rows.** `TREAD_TOTAL` / `TWRITE_TOTAL` are
+  measured from the `wl_en` crossing. The re-sized `wl_en` buffer moves that
+  crossing 70-150 ps earlier on 256-512-row arrays (clock -> `wl_en` 300 ->
+  150 ps at 512x4), so the tabulated delays of those arrays grow (512x4 6T
+  read 709 -> 739 ps, write 70 -> 95 ps) while the time from the clock edge
+  to the output or to the written cell shrinks (512x4 6T read 1010 -> 890 ps,
+  write 300 -> 180 ps; 256x8 read 740 -> 670 ps, write 220 -> 180 ps). The
+  measures are kept as defined in V2.0.1; `TCLK_WLEN` is written next to
+  them so the clock-referenced value is `TCLK_WLEN + TREAD_TOTAL`.
 - **Design choices verified again and left as they are:** replica-timed,
   full-swing sensing (read delay ~300 ps up to 32 rows); `w_rc=True` default
   of `main_sram.py`; `read` reads a stored 0; all columns are written in a
@@ -214,9 +218,9 @@ parentheses are the V2.0.1 results of the same configuration.
 
 #### Size sweep (nominal, all cells real, no RC, mux off / on)
 
-232 of 294 configurations completed in Xyce at release time, 232 pass every waveform check; failures: none.
+255 of 294 configurations completed in Xyce at release time, 255 pass every waveform check; failures: none.
 
-Not completed at release time (62; the same flow runs them offline): 10T_256x8_m0_rw, 10T_256x8_m1_rw, 6T_256x8_m0_rw, 6T_256x8_m1_rw, 10T_512x4_m0_read, 10T_512x4_m0_rw, 10T_512x4_m1_rw, 6T_512x4_m0_read, 6T_512x4_m1_write, 6T_512x4_m0_rw, 6T_512x4_m1_rw, 10T_8x512_m0_read, 10T_8x512_m1_read, 10T_8x512_m0_write, 10T_8x512_m1_write, 10T_8x512_m0_rw, 10T_8x512_m1_rw, 6T_8x512_m0_read, 6T_8x512_m1_read, 6T_8x512_m0_write, 6T_8x512_m1_write, 6T_8x512_m0_rw, 6T_8x512_m1_rw, 10T_16x256_m0_read, 10T_16x256_m1_read, 10T_16x256_m0_write, 10T_16x256_m1_write, 10T_16x256_m0_rw, 10T_16x256_m1_rw, 6T_16x256_m0_write, 6T_16x256_m1_write, 6T_16x256_m0_rw, 6T_16x256_m1_rw, 10T_64x64_m0_rw, 10T_64x64_m1_rw, 10T_128x32_m1_write, 10T_128x32_m0_rw, 10T_128x32_m1_rw, 10T_100x50_m0_read, 10T_100x50_m1_read, 10T_100x50_m0_write, 10T_100x50_m1_write, 10T_100x50_m0_rw, 10T_100x50_m1_rw, 6T_100x50_m0_read, 6T_100x50_m1_read, 6T_100x50_m0_write, 6T_100x50_m1_write, 6T_100x50_m0_rw, 6T_100x50_m1_rw, 10T_16x512_m0_read, 10T_16x512_m1_read, 10T_16x512_m0_write, 10T_16x512_m1_write, 10T_16x512_m0_rw, 10T_16x512_m1_rw, 6T_16x512_m0_read, 6T_16x512_m1_read, 6T_16x512_m0_write, 6T_16x512_m1_write, 6T_16x512_m0_rw, 6T_16x512_m1_rw.
+Not completed at release time (39; the same flow runs them offline): 10T_256x8_m0_rw, 10T_256x8_m1_rw, 6T_256x8_m0_rw, 6T_256x8_m1_rw, 10T_512x4_m0_rw, 10T_512x4_m1_rw, 6T_512x4_m0_rw, 6T_512x4_m1_rw, 10T_8x512_m0_write, 10T_8x512_m1_write, 10T_8x512_m0_rw, 10T_8x512_m1_rw, 6T_8x512_m0_rw, 6T_8x512_m1_rw, 10T_16x256_m0_write, 10T_16x256_m0_rw, 10T_16x256_m1_rw, 6T_16x256_m0_rw, 6T_16x256_m1_rw, 10T_100x50_m0_read, 10T_100x50_m1_read, 10T_100x50_m0_write, 10T_100x50_m1_write, 6T_100x50_m0_read, 6T_100x50_m1_read, 6T_100x50_m0_write, 6T_100x50_m1_write, 10T_16x512_m0_read, 10T_16x512_m1_read, 10T_16x512_m0_write, 10T_16x512_m1_write, 10T_16x512_m0_rw, 10T_16x512_m1_rw, 6T_16x512_m0_read, 6T_16x512_m1_read, 6T_16x512_m0_write, 6T_16x512_m1_write, 6T_16x512_m0_rw, 6T_16x512_m1_rw.
 
 Delays in ps (read: `wl_en` rise -> `OUT`; write: `wl_en` rise -> Q at 90 %), V2.0.1 value in parentheses; `read&write` shows the measured period of `OUT` (40 ns = 4 clock cycles is the correct write-1 / read / write-0 / read sequence); PAVG at 100 MHz.
 
@@ -262,18 +266,18 @@ Delays in ps (read: `wl_en` rise -> `OUT`; write: `wl_en` rise -> Q at 90 %), V2
 | 64x16 | 6T | 358 (382) / 353 (366) | 93 (114) / 94 (114) | 40 ns / 40 ns | 89.9 (75.1) / 155.0 (165.8) | PASS (6/6 runs) |
 | 256x8 | 10T | 592 (579) / 591 (566) | 105 (78) / 107 (79) | n/a / n/a | 152.3 (124.9) / 225.1 (229.2) | PASS (4/4 runs) |
 | 256x8 | 6T | 524 (526) / 521 (514) | 96 (68) / 96 (68) | n/a / n/a | 149.4 (122.2) / 223.3 (226.5) | PASS (4/4 runs) |
-| 512x4 | 10T | n/a / 861 (783) | 105 (80) / 105 (77) | n/a / n/a | n/a / 238.9 (248.2) | PASS (3/3 runs) |
-| 512x4 | 6T | n/a / 734 (692) | 95 (70) / n/a | n/a / n/a | n/a / 234.9 (245.5) | PASS (2/2 runs) |
-| 8x512 | 10T | n/a / n/a | n/a / n/a | n/a / n/a | n/a / n/a | not run |
-| 8x512 | 6T | n/a / n/a | n/a / n/a | n/a / n/a | n/a / n/a | not run |
-| 16x256 | 10T | n/a / n/a | n/a / n/a | n/a / n/a | n/a / n/a | not run |
-| 16x256 | 6T | 354 (535) / 339 (449) | n/a / n/a | n/a / n/a | 369.4 (441.7) / n/a | PASS (2/2 runs) |
-| 64x64 | 10T | 408 (505) / 390 (440) | 120 (173) / 120 (173) | n/a / n/a | 237.4 (210.2) / 513.9 (613.0) | PASS (4/4 runs) |
+| 512x4 | 10T | 869 (791) / 861 (783) | 105 (80) / 105 (77) | n/a / n/a | 175.0 (153.3) / 238.9 (248.2) | PASS (4/4 runs) |
+| 512x4 | 6T | 739 (709) / 734 (692) | 95 (70) / 94 (69) | n/a / n/a | 171.3 (148.3) / 234.9 (245.5) | PASS (4/4 runs) |
+| 8x512 | 10T | 355 (642) / 349 (557) | n/a / n/a | n/a / n/a | 597.4 (1034.5) / n/a | PASS (2/2 runs) |
+| 8x512 | 6T | 350 (640) / 345 (550) | 202 (509) / 214 (509) | n/a / n/a | 590.5 (1078.5) / 3277.7 (7527.4) | PASS (4/4 runs) |
+| 16x256 | 10T | 361 (542) / 347 (457) | n/a / 150 (275) | n/a / n/a | 372.7 (444.6) / n/a | PASS (3/3 runs) |
+| 16x256 | 6T | 354 (535) / 339 (449) | 133 (261) / 139 (264) | n/a / n/a | 369.4 (441.7) / 1252.0 (2339.6) | PASS (4/4 runs) |
+| 64x64 | 10T | 408 (505) / 390 (440) | 120 (173) / 120 (173) | 40 ns / 40 ns | 237.4 (210.2) / 513.9 (613.0) | PASS (6/6 runs) |
 | 64x64 | 6T | 382 (492) / 366 (421) | 108 (162) / 108 (160) | 40 ns / 40 ns | 231.7 (202.9) / 504.8 (610.8) | PASS (6/6 runs) |
-| 128x32 | 10T | 460 (510) / 453 (467) | 116 (146) / n/a | n/a / n/a | 224.5 (181.1) / 418.8 (462.8) | PASS (3/3 runs) |
+| 128x32 | 10T | 460 (510) / 453 (467) | 116 (146) / 116 (145) | 40 ns / 40 ns | 224.5 (181.1) / 418.8 (462.8) | PASS (6/6 runs) |
 | 128x32 | 6T | 424 (468) / 419 (434) | 104 (135) / 105 (133) | 40 ns / 40 ns | 218.6 (174.8) / 416.7 (459.4) | PASS (6/6 runs) |
-| 100x50 | 10T | n/a / n/a | n/a / n/a | n/a / n/a | n/a / n/a | not run |
-| 100x50 | 6T | n/a / n/a | n/a / n/a | n/a / n/a | n/a / n/a | not run |
+| 100x50 | 10T | n/a / n/a | n/a / n/a | 40 ns / 40 ns | n/a / n/a | PASS (2/2 runs) |
+| 100x50 | 6T | n/a / n/a | n/a / n/a | 40 ns / 40 ns | n/a / n/a | PASS (2/2 runs) |
 | 16x512 | 10T | n/a / n/a | n/a / n/a | n/a / n/a | n/a / n/a | not run |
 | 16x512 | 6T | n/a / n/a | n/a / n/a | n/a / n/a | n/a / n/a | not run |
 
@@ -483,9 +487,9 @@ A period passes when every waveform check of the V2.0.1 harness passes (access c
 #### 128x128 and 256x64 (4 ns clock, launched during the release)
 
 - 6T_128x128_m0_read_T4: delay 475 ps, PAVG 1678.4 uW, waveform checks PASS (3.0 h)
+- 6T_128x128_m0_write_T4: delay 155 ps, PAVG 3987.9 uW, waveform checks PASS (3.6 h)
 - 6T_256x64_m0_read_T4: delay 568 ps, PAVG 1636.3 uW, waveform checks PASS (3.0 h)
 - 6T_256x64_m0_write_T4: delay 149 ps, PAVG 3463.5 uW, waveform checks PASS (3.2 h)
-- 6T_128x128_m0_write_T4: still running at release time
 
 ## V2.0.1 — 2026-09-05 — transient / Monte Carlo circuit review
 
