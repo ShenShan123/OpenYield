@@ -102,7 +102,7 @@ if __name__ == '__main__':
         print(f"[INPUT] construct_param: num_rows={global_config_update[0]}, num_cols={global_config_update[1]}, choose_columnmux={global_config_update[2]}")
         print(f"[INPUT] sram6tcell_param: pd_width={sram6t_config_update[0]*1e9:.1f} nm, pg_width={sram6t_config_update[1]*1e9:.1f} nm, pu_width={sram6t_config_update[2]*1e9:.1f} nm, length={sram6t_config_update[3]*1e9:.1f} nm",
           f"pd_model={sram6t_config_update[4]}, pg_model={sram6t_config_update[5]}, pu_model={sram6t_config_update[6]}")
-        print(f"[OUTPUT] y[0]=Delay({y[0]*1e9:.2f} ns), y[1]=Power({y[1]*1e6:.2f} mW), y[2]=Area({y[2]*1e12:.2f} µm²)")
+        print(f"[OUTPUT] y[0]=Delay({y[0]*1e9:.2f} ns), y[1]=Power({y[1]*1e6:.2f} uW), y[2]=Area({y[2]*1e12:.2f} µm²)")
     
     elif operation == 'hold_snm' or operation == 'write_snm' or operation == 'read_snm':
         read_snm = mc_testbench.run_mc_simulation(

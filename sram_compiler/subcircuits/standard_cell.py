@@ -223,9 +223,12 @@ class AND2(BaseSubcircuit):
             b_node = "B"
             zb_node = "zb_int"
             z_node = "Z"
-        """ Instantiate the `PNAND3` and `Pinv` gates """ 
+        """ Instantiate the `PNAND3` and `Pinv` gates """
+        # NAND drives the raw node and the inverter reads it through the RC network
+        # (same topology as WordlineDriver); driving zb_node directly would leave the
+        # RC as a dangling stub.
         self.X(f'PNAND3', self.nand_gate.name,
-               'VDD', 'VSS', a_node,b_node, zb_node)
+               'VDD', 'VSS', a_node,b_node, 'zb_int')
         self.X(f'PINV', self.inv_driver.name,
                'VDD', 'VSS', zb_node,z_node)
 

@@ -53,7 +53,10 @@ class ColumnMux(BaseSubcircuit):
         for i in range(self.num_in):
             if self.w_rc:
                 sel_node = self.add_rc_networks_to_node(f'SEL{i}', num_segs=1)
-                selb_node = self.add_rc_networks_to_node(f'SELB{i}', num_segs=1)
+                # SELB is an internal net unless supplied externally; an RC on a
+                # non-existent port would just be a dangling stub.
+                selb_node = (self.add_rc_networks_to_node(f'SELB{i}', num_segs=1)
+                             if self.use_external_selb else f'SELB{i}')
             else:
                 sel_node = f'SEL{i}'
                 selb_node = f'SELB{i}'
@@ -117,8 +120,9 @@ class SenseAmp(BaseSubcircuit):
         self.length = length
         self.w_rc = w_rc
         if isinstance(pmos_width, str):
-            # In parameter sweep mode, store the string and handle in spice netlist generation
-            self.pmos_width_pass = self.pmos_width
+            # Parameter-sweep mode: the width is a SPICE parameter name, so emit the
+            # same 4/3 scaling as an expression instead of silently dropping it.
+            self.pmos_width_pass = f'{{{self.pmos_width}*4/3}}'
         else:
             # In normal mode, calculate the derived width
             self.pmos_width_pass = pmos_width / 3 * 4 

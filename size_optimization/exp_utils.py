@@ -1080,6 +1080,7 @@ def evaluate_sram(params, timeout=120):
         num_rows = 32
         num_cols = 1
         num_mc = 1
+        temperature = sram_config.global_config.temperature
 
         area = estimate_scaled_total_area(params, num_rows=num_rows, num_cols=num_cols, num_arrays=1)
         print(f"Estimated 6T SRAM cell area: {area*1e12:.2f} µm²")
@@ -1117,6 +1118,7 @@ def evaluate_sram(params, timeout=120):
                 target_row=num_rows - 1,
                 target_col=num_cols - 1,
                 mc_runs=num_mc,
+                temperature=temperature,
                 vars=None,
             )
 
@@ -1125,6 +1127,7 @@ def evaluate_sram(params, timeout=120):
                 target_row=num_rows - 1,
                 target_col=num_cols - 1,
                 mc_runs=num_mc,
+                temperature=temperature,
                 vars=None,
             )
 
@@ -1133,6 +1136,7 @@ def evaluate_sram(params, timeout=120):
                 target_row=num_rows - 1,
                 target_col=num_cols - 1,
                 mc_runs=num_mc,
+                temperature=temperature,
                 vars=None,
             )
 
@@ -1141,6 +1145,7 @@ def evaluate_sram(params, timeout=120):
                 target_row=num_rows - 1,
                 target_col=num_cols - 1,
                 mc_runs=num_mc,
+                temperature=temperature,
                 vars=None,
             )
 
@@ -1149,6 +1154,7 @@ def evaluate_sram(params, timeout=120):
                 target_row=num_rows - 1,
                 target_col=num_cols - 1,
                 mc_runs=num_mc,
+                temperature=temperature,
                 vars=None,
             )
 

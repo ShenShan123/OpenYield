@@ -17,10 +17,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  vth_std=0.05, mc=True, enable_mc=None, custom_mc=False,
-                 sweep_cell=False, sweep_precharge=False, sweep_senseamp=True, sweep_wordlinedriver=False,
+                 sweep_cell=False, sweep_precharge=False, sweep_senseamp=False, sweep_wordlinedriver=False,
                  sweep_columnmux=False, sweep_writedriver=False, sweep_decoder=False,
                  corner='TT', choose_columnmux=True, real_cell_mode=0,
-                 q_init_val=0, sim_path='sim', enable_waveform=True):
+                 q_init_val=0, sim_path='sim', enable_waveform=True,
+                 mc_seed=None, xyce_options=None, t_max_step=None):
         """
                蒙特卡洛测试平台初始化
                参数:
@@ -32,6 +33,20 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                    custom_mc: 是否使用自定义MC参数
                    q_init_val: 初始Q值
                    sim_path: 仿真结果保存路径
+                   mc_seed: Xyce 随机数种子 (None = 每次运行随机).  With a seed a
+                            Monte Carlo sweep (mc_runs > 1) is reproducible.
+                   xyce_options: extra netlist lines (e.g. ['.OPTIONS TIMEINT ERROPTION=1'])
+                            appended to every transient deck.  Not needed for the
+                            arrays validated in V2.0.1; a few 512-row decks stop with a
+                            Xyce "time step too small" (Newton loop oscillating with a
+                            1e-12 A residual) and complete with ERROPTION=1, at the
+                            price of 2-15 % delay shifts on decks that converge anyway.
+                   t_max_step: maximum transient time step in seconds (4th field of
+                            .TRAN); None keeps Xyce's adaptive default.  A small value
+                            (e.g. 2e-11) is the accuracy-preserving alternative for the
+                            convergence problem above (delays within 0.5 %, ~1.8x the
+                            time steps); it is applied automatically as a one-time
+                            retry when Xyce reports "Time step too small".
                """
         super().__init__(#父类
             sram_config, sram_cell_type,
@@ -57,6 +72,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         self.sweep_cell =sweep_cell
         self.sram_config = sram_config
         self.vth_std = vth_std
+        self.mc_seed = mc_seed
+        self.xyce_options = list(xyce_options) if xyce_options else []
+        self.t_max_step = t_max_step
         num_rows = sram_config.global_config.num_rows
         num_cols = sram_config.global_config.num_cols
         self.name = f'SRAM_6T_CORE_{num_rows}x{num_cols}_MC_TB' #根据行列数设置测试平台名称
@@ -124,23 +142,17 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         elif operation == 'read':
             # .ic conditions
             for col in range(self.num_cols):
-                # Initial V(BL) and V(BLB) for all columns
-                init_cond[f'OUT'] = 0 @ u_V
+                # Initial V(BL) for all columns
                 init_cond[f'BL{col}'] = 0 @ u_V
-                init_cond[f'RBL'] = 0 @ u_V
-                init_cond[f'SA_Q{col}'] = 0 @ u_V
-                init_cond[f'SA_QB{col}'] = self.vdd @ u_V
-
-            # 计算地址位数
-            n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
-            # 为地址锁存器节点设置初始条件
-            for bit in range(n_bits):  
-                init_cond[f'A_dff{bit}'] = 0 @ u_V
-            
-            # 为其他控制信号设置初始条件
-            init_cond['we'] = self.vdd @ u_V  # we初始化为高电平
-            init_cond['cs_bar'] = self.vdd @ u_V  # cs_bar初始化为高电平
-            #init_cond['cs'] = 0 @ u_V
+            for sa in range(self.num_cols // self.mux_in):
+                # One sense amp per mux group
+                init_cond[f'SA_Q{sa}'] = 0 @ u_V
+                init_cond[f'SA_QB{sa}'] = self.vdd @ u_V
+            init_cond['RBL'] = 0 @ u_V
+            # Preset the output latch to VDD: the target cell stores 0, so a completed
+            # read is the *falling* edge of OUT (used by TSA / TREAD_TOTAL below).
+            init_cond['OUT'] = self.vdd @ u_V
+            self._init_control_path(init_cond)
 
             simulator.initial_condition(**init_cond)
 
@@ -151,13 +163,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'TRIG V(PRE)={self.half_vdd} FALL=1 ' +
                 f'TARG V(BL{self.target_col})={float(self.vdd) * 0.9} RISE=1')  # modified for Xyce
 
+            # Decoder delay (TDECODER): address capture -> decoder output
+            self._add_decoder_measure(simulator)
+
             # Measurements for wl driver delay (TWLDRV), defined as the time from the WLE assertion to V(WL)=VDD/2
             #测量WLE驱动延迟（TWLDRV），定义为从译码器输出到V(wl)=VDD/2的时间
-            simulator.measure(
-                'TRAN', 'TDECODER',
-                f'TRIG V(A_dff0)={self.half_vdd} RISE=1 ' +
-                f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
-            
             simulator.measure(
                 'TRAN', 'TWLDRV',
                 f'TRIG V(wl_en)={self.half_vdd} RISE=1 ' +
@@ -175,41 +185,37 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{vswing}' FALL=1")
             simulator.measure('TRAN', 'TSWING', f"PARAM='TBL-TWL'")
 
-            # Measurements for SA delay (TSA), defined as the time from the SAE assertion to V(Q)=VDD/2
-            #SA延迟（TSA）的测量，定义为从SAE断言到V(Q)=VDD/2的时间
+            # Sense-amp delay (TSA): sense-enable assertion -> data output valid.  OUT is
+            # preset to VDD and the target cell stores 0, so the read completes on the
+            # first falling crossing of OUT.  The latch is opaque while S_EN is low, so
+            # this event cannot precede the trigger.  (SA_Q itself tracks BL through the
+            # SA pass gates before S_EN and reaches any threshold *before* the enable;
+            # its old 0.01*VDD target also sat on the `.IC` parking level.)
+            #SA延迟（TSA）的测量，定义为从SAE断言到输出锁存器 OUT 翻转的时间
             simulator.measure(
                 'TRAN', 'TSA',
-                f'TRIG V(s_en)={self.vdd / 2.5} RISE=1 ' +
-                f'TARG V(SA_Q{self.target_col // self.mux_in})={float(self.vdd) * 0.01} FALL=1')
+                f'TRIG V(s_en)={self.half_vdd} RISE=1 ' +
+                f'TARG V(OUT)={self.half_vdd} FALL=1')
 
+            # s_en rise time (20% -> 80%), both crossings on the same (first) rising
+            # edge, measured only from the start of the clock-low (access) phase:
+            # when the first precharge fires (~3.3 ns) all bitlines rise together and
+            # couple through the sense-amp pass gates into s_en, a bump that reaches
+            # 0.2-0.3 V with 32-128 sense amplifiers and would otherwise be taken as
+            # the 20 % crossing (TS_EN then read ~5.3 ns).
+            t_acc0 = float(1.0 @ u_ns) + 0.5 * float(self.t_period)
             simulator.measure(
                 'TRAN', 'Ts_en',
-                f'TRIG V(S_EN)=0.02 RISE=2 ' +
-                f'TARG V(S_EN)=0.25 RISE=1')
-        
-            #总读延迟
+                f'TRIG V(S_EN)={float(self.vdd) * 0.2} RISE=1 TD={t_acc0} ' +
+                f'TARG V(S_EN)={float(self.vdd) * 0.8} RISE=1 TD={t_acc0}')
+
+            #总读延迟: wl_en assertion -> data output valid
             simulator.measure(
                 'TRAN', 'TREAD_TOTAL',
                 f'TRIG V(WL_EN)={self.half_vdd} RISE=1 ' +
-                f'TARG V(SA_Q{self.target_col // self.mux_in})={float(self.vdd) * 0.01} FALL=1')
+                f'TARG V(OUT)={self.half_vdd} FALL=1')
             # Add measurements for average power, static power and dynamic power    测量功耗(平均、动态、静态)
-            simulator.measure(
-                'TRAN', 'EREAD',
-                f'INTEG {{-V(VDD)*I(VVDD)}} FROM={float(2.0 @ u_ns)} TO={float(2.0 @ u_ns +self.t_period @ u_ns)}'
-            )
-            simulator.measure(
-                'TRAN', 'PAVG',
-                f'PARAM={{EREAD/{float(self.t_period @ u_ns)}}}'
-            )
-            simulator.measure(
-                'TRAN', 'PSTC',
-                f'AVG {{-V(VDD)*I(VVDD)}} FROM={float(0.1 @ u_ns)} ' +
-                f'TO={float(0.9 @ u_ns)}'
-            )
-            simulator.measure(
-                'TRAN', 'PDYN',
-                f'PARAM={{PAVG-PSTC}}'
-            )
+            self._add_power_measures(simulator, 'EREAD')
 
              # Add additional print statements for clock and control signals
             simulator.circuit.raw_spice += \
@@ -223,7 +229,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             
             # Add print for read operation
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX V(S_EN) V(WL{self.target_row}) V(DEC_WL{self.target_row})' + \
+                f'.PRINT TRAN FORMAT=NOINDEX V(S_EN) V(WL{self.target_row}) V(DEC_WL{self.target_row}) ' + \
                 f'V(BL{self.target_col}) V(BLB{self.target_col}) ' + \
                 f'V({target_node_q}) V({target_node_qb}) \n'
             if self.choose_columnmux:
@@ -240,40 +246,31 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # .ic conditions
             for col in range(self.num_cols):
                 # Initial V(BL) and V(BLB) for all columns
-                init_cond[f'OUT'] = 0 @ u_V
                 init_cond[f'BL{col}'] = 0 @ u_V
                 init_cond[f'BLB{col}'] = self.vdd @ u_V
-                init_cond[f'RBL'] = 0 @ u_V
                 init_cond[f'DIN_dff{col}'] = 0 @ u_V
-
-             # 计算地址位数
-            n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
-            # 为地址锁存器节点设置初始条件
-            for bit in range(n_bits):  
-                init_cond[f'A_dff{bit}'] = 0 @ u_V
-            
-            # 为其他控制信号设置初始条件
-            init_cond['we'] = self.vdd @ u_V  # we初始化为高电平
-            init_cond['cs_bar'] = self.vdd @ u_V  # cs_bar初始化为高电平
+            init_cond['RBL'] = 0 @ u_V
+            self._init_control_path(init_cond)
 
             simulator.initial_condition(**init_cond)
-            
+
             #字线驱动延迟
+            self._add_decoder_measure(simulator)
             # Measurements for wl driver delay (TWLDRV), defined as the time from the WLE assertion to V(WL)=VDD/2
-            simulator.measure(
-                'TRAN', 'TDECODER',
-                f'TRIG V(A_dff0)={self.half_vdd} RISE=1 ' +
-                f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
             simulator.measure(
                 'TRAN', 'TWLDRV',
                 f'TRIG V(WL_EN)={self.half_vdd} RISE=1 ' +
                 f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
             #写驱动延迟
-            # Measurements for write driver delay (TWDRV), defined as the time from the WE assertion to V(BL)=VDD/2
+            # Write driver delay (TWDRV): w_en assertion -> the driven bitline
+            # reaches VDD/2.  The bitlines are precharged to VDD before the
+            # write and a '1' is written, so the write driver pulls BLB low
+            # while BL stays high (the old BL RISE target relied on the
+            # bitlines starting at the .IC value 0 V with no precharge).
             simulator.measure(
                 'TRAN', 'TWDRV',
                 f'TRIG V(w_en)={self.half_vdd} RISE=1 ' +
-                f'TARG V(BL{self.target_col})={self.half_vdd} RISE=1')
+                f'TARG V(BLB{self.target_col})={self.half_vdd} FALL=1')
             #写延迟
             # Measurements for write delay (TWRITE_Q/QB),
             # which is defined as the time from the WL rise to data Q rise to 90% VDD.
@@ -291,23 +288,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'TRIG V(WL_EN)={self.half_vdd} RISE=1',
                 f"TARG V({target_node_q})={float(self.vdd) * 0.9:.2f} RISE=1")
             # Add measurements for average power, static power and dynamic power    功耗
-            simulator.measure(
-                'TRAN', 'EWRITE',
-                f'INTEG {{-V(VDD)*I(VVDD)}} FROM={float(2.0 @ u_ns)} TO={float(2.0 @ u_ns +self.t_period @ u_ns)}'
-            )
-            simulator.measure(
-                'TRAN', 'PAVG',
-                f'PARAM={{EWRITE/{float(self.t_period @ u_ns)}}}'
-            )
-            simulator.measure(
-                'TRAN', 'PSTC',
-                f'AVG {{-V(VDD)*I(VVDD)}} FROM={float(0.1 @ u_ns)} ' +
-                f'TO={float(0.9 @ u_ns)}'
-            )
-            simulator.measure(
-                'TRAN', 'PDYN',
-                f'PARAM={{PAVG-PSTC}}'
-            )
+            self._add_power_measures(simulator, 'EWRITE')
             # Add print for write operation
             address_signals = ' '.join([f'V(A{i}) V(A_DFF{i})' for i in range(ceil(log2(self.num_rows)))])
             simulator.circuit.raw_spice += \
@@ -315,7 +296,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f' V(BLB{self.target_col}) V({target_node_q}) V({target_node_qb})\n'
             simulator.circuit.raw_spice += \
                 f'.PRINT TRAN FORMAT=NOINDEX V(cs) V(clk_buf) V(clk_bar) V(gated_clk_bar) V(DIN0) V(DIN_dff0)' + \
-                f' V(w_en) V(wl_en) V(web) V(RBL) V(RBL_DELAY_BAR)\n'
+                f' V(w_en) V(wl_en) V(web) V(RBL) V(RBL_DELAY_BAR) V(PRE)\n'
             
         elif operation == 'read&write':
             # .ic conditions
@@ -323,21 +304,13 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 # Initial V(BL) and V(BLB) for all columns
                 init_cond[f'BL{col}'] = 0 @ u_V
                 init_cond[f'BLB{col}'] = self.vdd @ u_V
-                init_cond[f'RBL'] = 0 @ u_V
-                init_cond[f'OUT'] = 0 @ u_V
-                init_cond[f'SA_Q{col}'] = 0 @ u_V
-                init_cond[f'SA_QB{col}'] = self.vdd @ u_V
                 init_cond[f'DIN_dff{col}'] = 0 @ u_V
-
-             # 计算地址位数
-            n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
-            # 为地址锁存器节点设置初始条件
-            for bit in range(n_bits):  
-                init_cond[f'A_dff{bit}'] = 0 @ u_V
-            
-            # 为其他控制信号设置初始条件
-            init_cond['we'] = self.vdd @ u_V  # we初始化为高电平
-            init_cond['cs_bar'] = self.vdd @ u_V  # cs_bar初始化为高电平
+            for sa in range(self.num_cols // self.mux_in):
+                init_cond[f'SA_Q{sa}'] = 0 @ u_V
+                init_cond[f'SA_QB{sa}'] = self.vdd @ u_V
+            init_cond['RBL'] = 0 @ u_V
+            init_cond['OUT'] = 0 @ u_V
+            self._init_control_path(init_cond)
 
             simulator.initial_condition(**init_cond)
 
@@ -373,12 +346,91 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 'TRAN', 'TVOUT_PERIOD',
                 f'TRIG V(OUT)={self.half_vdd} RISE=1 ' +
                 f'TARG V(OUT)={self.half_vdd} RISE=2')
+            # Average power over one complete write-1 / read / write-0 / read
+            # pattern (DIN has a period of 4*t_period), starting at the first
+            # access so the start-up transient is excluded; ends well before
+            # the .TRAN end (1 ns + 8.5*t_period, see add_analysis).
+            t_from = float(1.0 @ u_ns) + 0.7 * float(self.t_period)
             simulator.measure(
                 'TRAN', 'PAVG',
-                f'AVG {{-V(VDD)*I(VVDD)}} FROM={float(1.0 @ u_ns)} TO={1.0 @ u_ns +12*float(self.t_period @ u_ns)}'
+                f'AVG {{-V(VDD)*I(VVDD)}} FROM={t_from} ' +
+                f'TO={t_from + 4 * float(self.t_period)}'
             )
+            self._add_static_power_measures(simulator)
         else:
             raise ValueError(f"Invalid operation: {operation}")
+
+    def _init_control_path(self, init_cond):
+        """Deterministic start-up state of the control path (shared by read / write)."""
+        n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
+        for bit in range(n_bits):
+            init_cond[f'A_dff{bit}'] = 0 @ u_V
+        init_cond['we'] = self.vdd @ u_V       # we初始化为高电平
+        init_cond['cs_bar'] = self.vdd @ u_V   # cs_bar初始化为高电平
+        # Slave node of the CS flip-flop (cs = ~qint).  Without this the slave latch
+        # powers up in a random state; when it comes up "selected" the start-up clamp
+        # fights the DFF output inverter (~300 uA) until the clamp releases, i.e. inside
+        # the EREAD / EWRITE window.
+        init_cond['XTIME:Xdff_buf:qint'] = self.vdd @ u_V
+        return init_cond
+
+    def _add_decoder_measure(self, simulator):
+        """TDECODER: address-bit capture -> decoder output of the target row."""
+        if self.target_row == 0:
+            # Address 0 is also the start-up state: no address bit toggles and DEC_WL0 is
+            # already high, so the decoder delay cannot be observed with this stimulus.
+            print("[WARNING] TDECODER not measured: target_row=0 toggles no address bit")
+            return
+        bit = (self.target_row & -self.target_row).bit_length() - 1   # lowest set bit
+        simulator.measure(
+            'TRAN', 'TDECODER',
+            f'TRIG V(A_dff{bit})={self.half_vdd} RISE=1 ' +
+            f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
+
+    def _add_static_power_measures(self, simulator):
+        """PSTC over a quiescent window and PDYN = PAVG - PSTC.
+
+        The window 1 ns + [0.4, 0.65]*t_period lies after the start-up transient and the
+        first precharge, and before the first access (the clock falls at 1 ns + 0.7*T).
+        The previous 0.1-0.9 ns window measured the operating-point release and the CS
+        start-up clamp instead (about 100x the quiescent current), so PDYN came out
+        negative.
+        """
+        t_period = float(self.t_period)
+        t0 = float(1.0 @ u_ns)
+        simulator.measure(
+            'TRAN', 'PSTC',
+            f'AVG {{-V(VDD)*I(VVDD)}} FROM={t0 + 0.4 * t_period} ' +
+            f'TO={t0 + 0.65 * t_period}'
+        )
+        simulator.measure(
+            'TRAN', 'PDYN',
+            f'PARAM={{PAVG-PSTC}}'
+        )
+
+    def _add_power_measures(self, simulator, energy_name):
+        """Energy of one full clock period, PAVG, PSTC and PDYN.
+
+        The window starts at the first access (the clock falls at 1 ns + 0.7*T)
+        and ends one period later, so it contains exactly one steady-state
+        cycle: wordline access, sensing / writing, the self-timed precharge that
+        restores the bitlines, and the idle time up to the next access.  The
+        previous 2 ns .. 2 ns + T window instead contained the start-up
+        precharge that charges every bitline from its 0 V initial condition
+        (about half of the measured "read energy" on an 8x4 array) and cut the
+        access off 1 ns before the wordline falls.
+        """
+        t_period = float(self.t_period)
+        t_from = float(1.0 @ u_ns) + 0.7 * t_period
+        simulator.measure(
+            'TRAN', energy_name,
+            f'INTEG {{-V(VDD)*I(VVDD)}} FROM={t_from} TO={t_from + t_period}'
+        )
+        simulator.measure(
+            'TRAN', 'PAVG',
+            f'PARAM={{{energy_name}/{t_period}}}'
+        )
+        self._add_static_power_measures(simulator)
 
     # def add_xyce_options(self, circuit, mc_runs, operation):
     #     """ Add options for Xyce """
@@ -392,14 +444,22 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'.DC U -{u_tmp:.2f} {u_tmp:.2f} 0.001\n'
         else:
             if operation == 'read&write':
-                circuit.raw_spice += \
-                    f'.TRAN {float(self.t_step):.4e} {1.0 @ u_ns + 8*float(self.t_period):.4e}\n'
+                # 8 cycles; the 8th access window ends at 1 ns + 8.2*t_period, so
+                # stop at 8.5*t_period instead of 8*t_period (which cut the last
+                # read off 1 ns after its wordline rose).
+                t_stop = 1.0 @ u_ns + 8.5*float(self.t_period)
             else:
-                circuit.raw_spice += \
-                    f'.TRAN {float(self.t_step):.4e} {1.0 @ u_ns + 2*float(self.t_period):.4e}\n'
+                t_stop = 1.0 @ u_ns + 2*float(self.t_period)
+            max_step = '' if self.t_max_step is None else f' 0 {float(self.t_max_step):.4e}'
+            circuit.raw_spice += f'.TRAN {float(self.t_step):.4e} {t_stop:.4e}{max_step}\n'
             # Timing interval option is set only in .TRAN analysis.
             circuit.raw_spice += \
                 f'.OPTIONS OUTPUT INITIAL_INTERVAL={float(self.t_step):.4e}\n'
+            # Write failed measures as "FAILED" instead of Xyce's default -1.0, which
+            # would otherwise be parsed as a valid (negative) delay.
+            circuit.raw_spice += '.OPTIONS MEASURE MEASFAIL=1\n'
+            for line in self.xyce_options:
+                circuit.raw_spice += line.rstrip('\n') + '\n'
 
         # Whether we use custom MC
         if self.custom_mc:
@@ -437,9 +497,21 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             if not self.mc:
                 circuit.raw_spice += \
                 f'.options samples numsamples={num_mc}\n'
-            else:
+            elif num_mc > 1:
+                # Latin-hypercube sampling of the AGAUSS(...) model parameters.
+                # A fixed seed makes the sweep reproducible; without one Xyce
+                # picks a new seed every run (it is printed in the .log).
+                seed = '' if self.mc_seed is None else f' seed={int(self.mc_seed)}'
                 circuit.raw_spice += \
-                f'.SAMPLING useExpr=true\n.options samples numsamples={num_mc}\n'
+                f'.SAMPLING useExpr=true\n.options samples numsamples={num_mc}{seed}\n'
+            else:
+                # A single run is the *nominal* point: without .SAMPLING Xyce
+                # evaluates every AGAUSS(...) at its mean, so the result is
+                # deterministic.  (Previously a single run was one random
+                # process sample with a random seed, so two identical calls
+                # returned different delay/power numbers and a "nominal"
+                # characterisation could randomly fail.)
+                print("[DEBUG] mc_runs=1: no .SAMPLING, model parameters at their nominal values")
 
         print(f"[DEBUG] Custom_MC={self.custom_mc}, numsamples={num_mc}")
 
@@ -743,21 +815,57 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # Execute Xyce and parse results
         try:
             import subprocess
-            # command: Xyce <netlist>
-            print("[DEBUG] Xyce running ...")
-            result = subprocess.run(
-                # ['hspice', '-i', tb_path, '-o', self.sim_path],
-                ['Xyce', tb_path, '-o', tb_path],
-                capture_output=True,
-                text=True, check=False
-            )
+            log_path = tb_path.replace('.sp', '.log')
+
+            def _run_xyce():
+                # command: Xyce <netlist>
+                print("[DEBUG] Xyce running ...")
+                res = subprocess.run(
+                    # ['hspice', '-i', tb_path, '-o', self.sim_path],
+                    ['Xyce', tb_path, '-o', tb_path],
+                    capture_output=True,
+                    text=True, check=False
+                )
+                # Keep the Xyce console output next to the netlist: it carries the
+                # netlist warnings (floating nodes, failed measures, time-step
+                # problems) that are otherwise lost when the run succeeds.
+                with open(log_path, 'w') as f:
+                    f.write(res.stdout)
+                    if res.stderr:
+                        f.write('\n--- stderr ---\n' + res.stderr)
+                return res
+
+            result = _run_xyce()
+
+            if (result.returncode != 0 and 'Time step too small' in result.stdout
+                    and self.t_max_step is None and 'snm' not in operation):
+                # Xyce's Newton loop can stall on very large arrays (seen on a few
+                # 512-row decks: 21 iterations, residual ~1e-12 A, at every step
+                # size).  Limiting the maximum time step to 20 ps steers the
+                # integrator around the point; on decks that converge anyway it
+                # changes delays by < 0.5 % and energy by < 0.4 %, at ~1.8x the time
+                # steps, so it is only applied as a retry.
+                retry_step = 2.0e-11
+                print(f"[WARNING] Xyce stopped with 'Time step too small'; retrying "
+                      f"once with a maximum time step of {retry_step:.1e} s "
+                      f"(t_max_step). Pass t_max_step explicitly to make this the default.")
+                with open(tb_path) as f:
+                    deck = f.read()
+                import re as _re
+                deck, n_sub = _re.subn(r'^(\.TRAN\s+\S+\s+\S+)\s*$',
+                                       lambda m: f'{m.group(1)} 0 {retry_step:.4e}',
+                                       deck, count=1, flags=_re.MULTILINE)
+                if n_sub == 1:
+                    with open(tb_path, 'w') as f:
+                        f.write(deck)
+                    result = _run_xyce()
 
             if result.returncode != 0:
                 raise RuntimeError(
                     f"Xyce simulation failed (exit {result.returncode}):\n{result.stderr.strip()}\n"
-                    f"Check log: {tb_path.replace('.sp', '.lis')}")
+                    f"Check log: {log_path}")
             else:
-                print("[DEBUG] Simulation run successfully.")
+                print(f"[DEBUG] Simulation run successfully (Xyce log: {log_path}).")
         except Exception:
             raise
         else:
@@ -770,8 +878,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                     f'V(BLB{target_col})',                   
                     f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:Q)' if self.sram_cell_type == 'SRAM_6T_CELL' else f'V(XSRAM_10T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_10T_CELL_{target_row}_{target_col}:Q)',
                     f'V(XSRAM_6T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_6T_CELL_{target_row}_{target_col}:QB)'if self.sram_cell_type == 'SRAM_6T_CELL' else f'V(XSRAM_10T_CORE_{self.num_rows}X{self.num_cols}:XSRAM_10T_CELL_{target_row}_{target_col}:QB)',
-                    f'V(SA_Q{target_col})',
-                    f'V(SA_QB{target_col})',
+                    f'V(SA_Q{target_col // self.mux_in})',
+                    f'V(SA_QB{target_col // self.mux_in})',
                 ]
             elif operation == 'write':
                 selected_columns = [
@@ -836,6 +944,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                     prn_path=tb_path + '.prn',
                     metric_name=operation,
                     operation=operation,
+                    vdd=float(self.vdd),
                 )
 
             if operation == 'read' or operation == 'write':
@@ -845,20 +954,25 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
                 stats_df = pd.read_csv(stats_csv_path, index_col=0)
 
+                # The clock-low half must contain the whole access: wl_en -> data valid
+                # (read) or wl_en -> Q written (write).  These end-to-end measures
+                # already include wordline driver, bitline swing, replica timing and SA.
                 if operation == 'read':
-                    clk_params = ['TSA', 'TSWING', 'TS_EN', 'TWLDRV']
+                    clk_params = ['TREAD_TOTAL']
                 elif operation == 'write':
-                    clk_params = ['TWLDRV', 'TWDRV', 'TWRITE_Q']
+                    clk_params = ['TWRITE_TOTAL']
 
                 half_clk_sum = 0.0
                 for param in clk_params:
                     if param in stats_df.index:
                         mean_val = stats_df.loc[param, 'mean']
                         std_val = stats_df.loc[param, 'std']
-                        if std_val > 0.1e-9 or pd.isna(std_val) or std_val == float('inf') or std_val == float('-inf'):
+                        if pd.isna(std_val) or not np.isfinite(std_val):
+                            # single run: no spread information available
                             half_clk_sum += mean_val
-                            print(f"[DEBUG] {param} - Mean: {mean_val:.3e}, Std: {std_val:.3e} (>0.1ns or (mc=1 so no std, only mean used)")
+                            print(f"[DEBUG] {param} - Mean: {mean_val:.3e}, Std: n/a (mc=1, only mean used)")
                         else:
+                            # a larger spread needs a larger margin, so always add it
                             half_clk_sum += mean_val + std_val
                             print(f"[DEBUG] {param} - Mean: {mean_val:.3e}, Std: {std_val:.3e}")
                     else:
@@ -872,21 +986,32 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # ── Return format compatible with experiment.py / exp_utils.py ──
             # write/read  → (delay, pavg, pstc, pdyn)  all numpy scalar arrays
             # SNM         → scalar SNM value
-            import pandas as pd, numpy as np
+            import pandas as pd   # numpy is the module-level `np`
 
             if operation in ('write', 'read', 'read&write'):
                 df = pd.read_csv(data_csv_path)
 
-                def _col(name, default=0.0):
-                    return df[name].values if name in df.columns else np.array([default])
+                def _col(name):
+                    """Fail loudly instead of turning a missing/failed measure into 0.0."""
+                    if name not in df.columns or df[name].isna().all():
+                        raise RuntimeError(
+                            f"Measurement {name} is missing or FAILED for '{operation}' on "
+                            f"the {self.num_rows}x{self.num_cols} array (see {tb_path}.mt0). "
+                            f"The access probably did not complete inside the clock window; "
+                            f"increase t_period with set_timing_parameters().")
+                    n_failed = int(df[name].isna().sum())
+                    if n_failed:
+                        print(f"[WARNING] {name} FAILED in {n_failed}/{len(df)} MC runs "
+                              f"(kept as NaN)")
+                    return df[name].values
 
-                if operation == 'read':
-                    delay = (_col('TDECODER') + _col('TPRCH') + _col('TSA') +
-                             _col('TSWING') + _col('TS_EN') + _col('TWLDRV'))
-                else:  # write / read&write
-                    delay = (_col('TDECODER') + _col('TWDRV') + _col('TWLDRV') +
-                             _col('TWRITE_Q'))
-
+                # End-to-end access delays.  Summing TDECODER + TPRCH + TSA + ... over-
+                # counted: the segments overlap, and decoder / precharge are not on the
+                # wl_en -> data path (they resolve in the other clock half).
+                delay_name = {'read': 'TREAD_TOTAL',
+                              'write': 'TWRITE_TOTAL',
+                              'read&write': 'TVOUT_PERIOD'}[operation]
+                delay = _col(delay_name)
                 pavg = _col('PAVG')
                 pstc = _col('PSTC')
                 pdyn = _col('PDYN')

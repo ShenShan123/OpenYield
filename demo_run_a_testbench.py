@@ -1,34 +1,36 @@
+import os
+import sys
+# Project root, independent of the machine and of the working directory
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _ROOT)
+sys.path.append(os.path.join(_ROOT, 'yield_estimation'))
 from yield_estimation.model_lib.MC import MC
 from yield_estimation.model_lib.MNIS import MNIS
 from yield_estimation.model_lib.AIS import AIS
 from yield_estimation.model_lib.ACS import ACS
 from yield_estimation.model_lib.HSCS import HSCS
-import sys
 import numpy as np
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
-parent_dir_of_code1 = '/home/lixy/OpenYield-main/yield_estimation'
-sys.path.append(parent_dir_of_code1) 
 from tool.util import write_data2csv, seed_set
 from tool.Distribution.normal_v1 import norm_dist
 from tool.Distribution.gmm_v2 import mixture_gaussian
-parent_dir_of_code2 = '/home/lixy/OpenYield-main/sram_compiler'
-sys.path.append(parent_dir_of_code2) 
-from testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 from config import SRAM_CONFIG
 from utils import estimate_bitcell_area # type: ignore
 RUN_MODEL = "MC"  # Options："MC", "MNIS", "AIS", "ACS", "HSCS"
 if __name__ == '__main__':
+    _cfg = os.path.join(_ROOT, 'sram_compiler', 'config_yaml')
     sram_config = SRAM_CONFIG()
     sram_config.load_all_configs(
-        global_file="/home/lixy/OpenYield-main/sram_compiler/config_yaml/global.yaml",
+        global_file=os.path.join(_cfg, "global.yaml"),
         circuit_configs={
-            "SRAM_6T_CELL": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/sram_6t_cell.yaml",
-            "WORDLINEDRIVER": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/wordline_driver.yaml",
-            "PRECHARGE": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/precharge.yaml",
-            "COLUMNMUX": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/mux.yaml",
-            "SENSEAMP": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/sa.yaml",
-            "WRITEDRIVER": "/home/lixy/OpenYield-main/sram_compiler/config_yaml/write_driver.yaml",
-            "DECODER":"/home/lixy/OpenYield-main/sram_compiler/config_yaml/decoder.yaml"
+            "SRAM_6T_CELL": os.path.join(_cfg, "sram_6t_cell.yaml"),
+            "WORDLINEDRIVER": os.path.join(_cfg, "wordline_driver.yaml"),
+            "PRECHARGE": os.path.join(_cfg, "precharge.yaml"),
+            "COLUMNMUX": os.path.join(_cfg, "mux.yaml"),
+            "SENSEAMP": os.path.join(_cfg, "sa.yaml"),
+            "WRITEDRIVER": os.path.join(_cfg, "write_driver.yaml"),
+            "DECODER": os.path.join(_cfg, "decoder.yaml"),
         }
     )
     # FreePDK45 default transistor sizes
@@ -49,14 +51,14 @@ if __name__ == '__main__':
         pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
         vth_std=0.05, # Process parameter variation is a percentage of its value in model lib
         custom_mc=True, # Use your own process params?
-        param_sweep=False,
+        sweep_cell=False,
         sweep_precharge=False,
         sweep_senseamp=False,
         sweep_wordlinedriver=False,
         sweep_columnmux=False,
         sweep_writedriver=False,
         sweep_decoder=False,
-        q_init_val=0, sim_path='/home/lixy/OpenYield-main/sim2',
+        q_init_val=0, sim_path=os.path.join(_ROOT, 'sim2'),
     )
     feature_num = num_rows*num_cols*6*3
     print(feature_num)

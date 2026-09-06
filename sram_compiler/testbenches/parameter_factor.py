@@ -327,8 +327,11 @@ class WordlineDriverFactory:
             # NAND2 parameters
             nand_nmos_width = 'nmos_width_wld_nandn'
             nand_pmos_width = 'pmos_width_wld_nandp'
-            inv_nmos_width = 'nmos_width_wld_invn'
-            inv_pmos_width = 'pmos_width_wld_invp'
+            # Keep the same column-load scaling as the fixed-value mode, as a SPICE
+            # expression on the swept parameter.
+            scale = max(self.num_cols, 4) / 4.0
+            inv_nmos_width = f'{{nmos_width_wld_invn*{scale}}}'
+            inv_pmos_width = f'{{pmos_width_wld_invp*{scale}}}'
             length = 'length_wld'
             
             # Select model from choices
@@ -719,20 +722,20 @@ class DummyColumnFactory:
         self.length = length
         self.w_rc = w_rc
         self.disconnect = disconnect
-        
+
 
     def _get_config(self):
-        
+
 
         pd_width = self.pd_width
         pu_width = self.pu_width
         pg_width = self.pg_width
         length = self.length
 
-        pd_model = self.pd_model
-        pg_model = self.pg_model
-        pu_model = self.pu_model
-        
+        pd_model = self.pd_nmos_model
+        pg_model = self.pg_nmos_model
+        pu_model = self.pu_pmos_model
+
         return{
             'num_rows': self.num_rows,
             'pd_nmos_model': pd_model,

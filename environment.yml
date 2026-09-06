@@ -152,7 +152,7 @@ dependencies:
       - kinet2pcb==1.1.2
       - kinparse==1.2.3
       - pandas==2.2.3
-      - python-graphviz==0.20.3
+      - graphviz==0.20.3
       - pytz==2025.1
       - requests==2.32.3
       - schemdraw==0.19

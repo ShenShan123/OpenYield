@@ -23,7 +23,7 @@ import matplotlib.colors as mcolors
 
 # ─── project root for config fall-back ──────────────────────────────────────
 _PROJECT_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..")
 )
 
 image_base_path = "equivalent_modeling/images/"
@@ -463,8 +463,9 @@ class SRAMCellParasiticTester:
 
     def get_static_power_r(self):
         print(f"[DEBUG] Running {self.cell_type} SRAM transient for static power estimation")
-        for p in ["BL", "BLB", "WL"]:
-            self.circuit._elements.pop(f"V{p}", None)
+        # Stand-by bias: wordline off, both bitlines precharged high.  Without these
+        # sources BL/BLB/WL are left floating (gate-only nodes) during the simulation.
+        self._configure_static_hold_sources(0.0, self.config.vdd, self.config.vdd)
 
         simulator = self.circuit.simulator(
             temperature=self.config.temperature,
@@ -717,7 +718,8 @@ def _build_tester_from_core(core, cell_type):
 
 # ─── WL-controlled static power source (ported from OpenYield2.5) ─────────────
 def _add_wl_controlled_static_power(core, tester, rows_with_unused,
-                                    wl_c, bl_c, blb_c, wl_bl_c, wl_blb_c):
+                                    wl_c, bl_c, blb_c, wl_bl_c, wl_blb_c,
+                                    fit_info=None):
     """Add per-row WL-voltage-dependent static-power current sources.
 
     For each row containing unused cells, build a behavioral current source
@@ -725,11 +727,14 @@ def _add_wl_controlled_static_power(core, tester, rows_with_unused,
     piecewise-linear lookup of static current vs WL ratio, fitted by sweeping
     WL.  This makes the unused-cell static power respond to WL activity during
     a write, instead of using a single fixed resistor.
+
+    Any failure propagates: silently omitting the source would leave the
+    unused cells with no static power at all.
     """
     print(f"[DEBUG] Parasitic caps (write_power_model): wl_c={wl_c:.3e}F "
           f"bl_c={bl_c:.3e}F blb_c={blb_c:.3e}F wl_bl_c={wl_bl_c:.3e}F "
           f"wl_blb_c={wl_blb_c:.3e}F")
-    try:
+    if fit_info is None:
         fit_info = tester.fit_static_power_vs_wl(
             wl_ratios=np.linspace(0.0, 1.0, 100),
             bl_voltage=0,
@@ -737,51 +742,79 @@ def _add_wl_controlled_static_power(core, tester, rows_with_unused,
             q_state=1,
             break_on_decrease=True,
         )
-        vdd_value = float(tester.config.vdd)
-        sim_results = fit_info["results"]
-        wl_ratios = np.array([r["wl_voltage"] / tester.config.vdd for r in sim_results])
-        avg_currents = np.array([r["avg_current"] for r in sim_results])
-        if len(wl_ratios) < 2:
-            raise ValueError("WL static power table requires at least two points.")
+    vdd_value = float(tester.config.vdd)
+    # Use the fit-masked points: sweep points flagged `dropped` (current fell
+    # after a WL step) are excluded from the lookup table as well as the fit.
+    wl_ratios = np.asarray(fit_info["wl_ratios"], dtype=float)
+    avg_currents = np.asarray(fit_info["avg_currents"], dtype=float)
+    if len(wl_ratios) < 2:
+        raise ValueError("WL static power table requires at least two points.")
 
-        # Build a piecewise-linear lookup expression from simulation points.
-        # if(x<=x0, y0, if(x<=x1, y0+m0*(x-x0), ... , yn))
-        wl_ratio_var = f"(V(WL{{row}})/{vdd_value:.12e})"
-        segment_exprs = []
-        for i in range(len(wl_ratios) - 1):
-            x0 = float(wl_ratios[i])
-            x1 = float(wl_ratios[i + 1])
-            y0 = float(avg_currents[i])
-            y1 = float(avg_currents[i + 1])
-            if x1 == x0:
-                raise ValueError(f"Duplicate WL ratio point in table at index {i}: {x0}")
-            m = (y1 - y0) / (x1 - x0)
-            segment_exprs.append((x1, y0, m, x0))
+    # Build a piecewise-linear lookup expression from simulation points.
+    # if(x<=x0, y0, if(x<=x1, y0+m0*(x-x0), ... , yn))
+    wl_ratio_var = f"(V(WL{{row}})/{vdd_value:.12e})"
+    segment_exprs = []
+    for i in range(len(wl_ratios) - 1):
+        x0 = float(wl_ratios[i])
+        x1 = float(wl_ratios[i + 1])
+        y0 = float(avg_currents[i])
+        y1 = float(avg_currents[i + 1])
+        if x1 == x0:
+            raise ValueError(f"Duplicate WL ratio point in table at index {i}: {x0}")
+        m = (y1 - y0) / (x1 - x0)
+        segment_exprs.append((x1, y0, m, x0))
 
-        first_x = float(wl_ratios[0])
-        first_y = float(avg_currents[0])
-        last_y = float(avg_currents[-1])
+    first_x = float(wl_ratios[0])
+    first_y = float(avg_currents[0])
+    last_y = float(avg_currents[-1])
 
-        def _build_table_expr(row):
-            x_expr = wl_ratio_var.format(row=row)
-            expr = f"{last_y:.12e}"
-            for x1, y0, m, x0 in reversed(segment_exprs):
-                expr = (f"if({x_expr}<={x1:.12e}, "
-                        f"({y0:.12e}+{m:.12e}*({x_expr}-{x0:.12e})), "
-                        f"{expr})")
-            expr = f"if({x_expr}<={first_x:.12e}, {first_y:.12e}, {expr})"
-            return expr
+    def _build_table_expr(row):
+        x_expr = wl_ratio_var.format(row=row)
+        expr = f"{last_y:.12e}"
+        for x1, y0, m, x0 in reversed(segment_exprs):
+            expr = (f"if({x_expr}<={x1:.12e}, "
+                    f"({y0:.12e}+{m:.12e}*({x_expr}-{x0:.12e})), "
+                    f"{expr})")
+        expr = f"if({x_expr}<={first_x:.12e}, {first_y:.12e}, {expr})"
+        return expr
 
-        for row in rows_with_unused:
-            count_unused = core._count_unused_cells_in_row(row)
-            if count_unused == 0:
-                continue
-            table_expr = _build_table_expr(row)
-            core.raw_spice += (
-                f"BIWL_POWER_{row} VDD VSS I={{{count_unused:.12e}*({table_expr})}}\n"
-            )
-    except Exception as e:
-        print(f"[WARNING] Failed to add WL power current source model: {e}")
+    for row in rows_with_unused:
+        count_unused = core._count_unused_cells_in_row(row)
+        if count_unused == 0:
+            continue
+        table_expr = _build_table_expr(row)
+        core.raw_spice += (
+            f"BIWL_POWER_{row} VDD VSS I={{{count_unused:.12e}*({table_expr})}}\n"
+        )
+
+
+# ─── extraction cache ────────────────────────────────────────────────────────
+# The parasitic-cap / static-power extraction runs Xyce at *netlist construction*
+# time (3 transients for the caps, 1 for the stand-by resistor, 100 for the WL
+# sweep).  The result depends only on the cell and the operating point, not on
+# the array, so it is shared between testbench builds within one process.
+_EXTRACTION_CACHE = {}
+
+
+def _extraction_key(tester):
+    cfg = tester.config
+    return (
+        tester.cell_type, tester.pd_nmos_model, tester.pu_pmos_model,
+        tester.pg_nmos_model, tester.fd_nmos_model,
+        float(tester.pd_width), float(tester.pu_width), float(tester.pg_width),
+        None if tester.fd_width is None else float(tester.fd_width),
+        float(tester.length), int(tester.q_init_val),
+        float(cfg.vdd), float(cfg.temperature), str(tester.corner),
+    )
+
+
+def _cached_extraction(tester, name, compute):
+    entry = _EXTRACTION_CACHE.setdefault(_extraction_key(tester), {})
+    if name not in entry:
+        entry[name] = compute()
+    else:
+        print(f"[DEBUG] Reusing cached '{name}' extraction for the {tester.cell_type} cell")
+    return entry[name]
 
 
 # ─── main equivalent-circuit builder ─────────────────────────────────────────
@@ -799,7 +832,7 @@ def _add_equivalent_circuit_impl(core, cell_type):
     tester = _build_tester_from_core(core, cell_type)
 
     # ── 5-cap parasitic extraction ────────────────────────────────────────────
-    nominal  = tester.extract_parasitic_caps(0.6)
+    nominal  = _cached_extraction(tester, "caps", lambda: tester.extract_parasitic_caps(0.6))
     wl_c     = nominal["caps"]["c_wl"]
     bl_c     = nominal["caps"]["c_bl"]
     blb_c    = nominal["caps"]["c_blb"]
@@ -822,50 +855,64 @@ def _add_equivalent_circuit_impl(core, cell_type):
     if write_power_model:
         # WL-controlled behavioral current source per row (matches OpenYield2.5):
         # static current of unused cells in a row varies with that row's WL voltage.
+        fit_info = _cached_extraction(
+            tester, "wl_fit",
+            lambda: tester.fit_static_power_vs_wl(
+                wl_ratios=np.linspace(0.0, 1.0, 100),
+                bl_voltage=0,
+                blb_voltage=tester.config.vdd,
+                q_state=1,
+                break_on_decrease=True,
+            ))
         _add_wl_controlled_static_power(core, tester, rows_with_unused, wl_c,
-                                        bl_c, blb_c, wl_bl_c, wl_blb_c)
+                                        bl_c, blb_c, wl_bl_c, wl_blb_c,
+                                        fit_info=fit_info)
     else:
         total_unused = core._count_total_unused_cells()
         if total_unused > 0:
-            vdd_r = tester.get_static_power_r()["R"]
+            vdd_r = _cached_extraction(tester, "static_r",
+                                       lambda: tester.get_static_power_r()["R"])
             core.R("res_static_power", core.NODES[0], core.NODES[1],
                    vdd_r / total_unused @ u_Ohm)
             print(f"[DEBUG] Static power: R={vdd_r:.3e}Ω  total_unused={total_unused}")
         else:
             print("[DEBUG] No unused cells; skipping static power resistor.")
 
-    if not core.w_rc:
-        return
+    # ── parasitic load of the omitted cells ───────────────────────────────────
+    # The extracted cell capacitances are always added -- they are the load the
+    # omitted cells put on the lines.  `w_rc` only decides whether the wire RC
+    # (pi_res / pi_cap) is inserted in front of them; without it the caps sit
+    # directly on the line node.
+    def _line_node(line, unused):
+        if not core.w_rc:
+            return line
+        mid = f"{line}_rc_mid"
+        core.C(f"cap_{line}", mid,  core.NODES[1], pi_cap * unused)
+        core.R(f"res_{line}", line, mid,           pi_res / unused)
+        return mid
 
-    # ── RC model for WL lines of rows containing unused cells ──────────────────
+    # ── WL lines of rows containing unused cells ──────────────────────────────
+    wl_nodes = {}
     for row in rows_with_unused:
         row_unused = core._count_unused_cells_in_row(row)
-        wl_mid = f"WL{row}_rc_mid"
-        core.C(f"cap_WL{row}",      wl_mid,     core.NODES[1], pi_cap * row_unused)
-        core.R(f"res_WL{row}",      f"WL{row}", wl_mid,        pi_res / row_unused)
-        core.C(f"cap_WL{row}_cell", wl_mid,     core.NODES[1], wl_c   * row_unused)
+        wl_nodes[row] = _line_node(f"WL{row}", row_unused)
+        core.C(f"cap_WL{row}_cell", wl_nodes[row], core.NODES[1], wl_c * row_unused)
 
-    # ── RC model for BL/BLB lines of cols containing unused cells ──────────────
+    # ── BL/BLB lines of cols containing unused cells ──────────────────────────
+    bl_nodes, blb_nodes = {}, {}
     for col in cols_with_unused:
         col_unused = core._count_unused_cells_in_col(col)
-        bl_mid  = f"BL{col}_rc_mid"
-        blb_mid = f"BLB{col}_rc_mid"
-        core.C(f"cap_BL{col}",       bl_mid,      core.NODES[1], pi_cap * col_unused)
-        core.C(f"cap_BLB{col}",      blb_mid,     core.NODES[1], pi_cap * col_unused)
-        core.R(f"res_BL{col}",       f"BL{col}",  bl_mid,        pi_res / col_unused)
-        core.R(f"res_BLB{col}",      f"BLB{col}", blb_mid,       pi_res / col_unused)
-        core.C(f"cap_BL{col}_cell",  bl_mid,      core.NODES[1], bl_c  * col_unused)
-        core.C(f"cap_BLB{col}_cell", blb_mid,     core.NODES[1], blb_c * col_unused)
+        bl_nodes[col]  = _line_node(f"BL{col}",  col_unused)
+        blb_nodes[col] = _line_node(f"BLB{col}", col_unused)
+        core.C(f"cap_BL{col}_cell",  bl_nodes[col],  core.NODES[1], bl_c  * col_unused)
+        core.C(f"cap_BLB{col}_cell", blb_nodes[col], core.NODES[1], blb_c * col_unused)
 
     # ── Cross-coupling WL↔BL and WL↔BLB (only for actually-unused cells) ──────
     for row in rows_with_unused:
-        wl_mid = f"WL{row}_rc_mid"
         for col in cols_with_unused:
             if core._is_unused_cell(row, col):
-                bl_mid  = f"BL{col}_rc_mid"
-                blb_mid = f"BLB{col}_rc_mid"
-                core.C(f"cap_WL{row}_BL{col}",  wl_mid, bl_mid,  wl_bl_c)
-                core.C(f"cap_WL{row}_BLB{col}", wl_mid, blb_mid, wl_blb_c)
+                core.C(f"cap_WL{row}_BL{col}",  wl_nodes[row], bl_nodes[col],  wl_bl_c)
+                core.C(f"cap_WL{row}_BLB{col}", wl_nodes[row], blb_nodes[col], wl_blb_c)
 
 
 # ─── public API ───────────────────────────────────────────────────────────────

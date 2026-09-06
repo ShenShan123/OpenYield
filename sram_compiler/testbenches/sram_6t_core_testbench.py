@@ -1,6 +1,6 @@
 from PySpice.Spice.Netlist import Circuit 
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
-from sram_compiler.subcircuits.standard_cell import AND2,D_latch  # type: ignore
+from sram_compiler.subcircuits.standard_cell import AND2,D_latch,Pinv  # type: ignore
 from sram_compiler.testbenches.parameter_factor import (TIMEFactory,ReplicaColumnFactory,DummyColumnFactory,
                                                         DummyRowFactory,DecoderCascadeFactory,WordlineDriverFactory,
                                                         PrechargeFactory,ColumnMuxFactory,SenseAmpFactory,WriteDriverFactory,
@@ -106,7 +106,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     
     def add_cs_startup_clamp(self, circuit: Circuit):
         """上电时把 CS/CS_BAR 强制钳在非使能态，避免 DFF 随机起态。"""
-        release_time = 1.0 @ u_ns + 0.2 * self.t_period + 2 * self.t_rise
+        # Release just *before* the first clock rising edge (1 ns + 0.2*T).  The CS
+        # flip-flop's slave node is initialised to the inactive state by `.IC` (see
+        # Sram6TCoreMcTestbench.add_meas_and_print), so CS stays low between the release
+        # and the edge, and the clamp never fights the DFF output after the capture.
+        release_time = 1.0 @ u_ns + 0.2 * self.t_period - 2 * self.t_rise
 
         # circuit.raw_spice += (
         #     '* Hold CS inactive until just after the first valid clock capture.\n'
@@ -122,13 +126,18 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             model='NMOS_VTG', l=5e-08, w=1.44e-06
         )
 
+        # One-shot: once released the clamp must stay off for the whole simulation
+        # (the longest run, read&write, is 1 ns + 8*t_period).  With the previous
+        # 2*t_period / 4*t_period pulse the clamp re-engaged at ~23 ns and blocked
+        # every access in the 3rd and 4th cycles.
+        clamp_off = 100 * self.t_period
         circuit.PulseVoltageSource(
             'CSINIT', 'cs_init', self.gnd_node,
             initial_value=self.vdd @ u_V, pulsed_value=0 @ u_V,
             delay_time=release_time,
             rise_time=0.2 * self.t_rise, fall_time=0.2 * self.t_fall,
-            pulse_width=2 * self.t_period,
-            period=4 * self.t_period
+            pulse_width=clamp_off,
+            period=2 * clamp_off
         )
 
         circuit.PulseVoltageSource(
@@ -136,8 +145,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
             delay_time=release_time,
             rise_time=0.2 * self.t_rise, fall_time=0.2 * self.t_fall,
-            pulse_width=2 * self.t_period,
-            period=4 * self.t_period
+            pulse_width=clamp_off,
+            period=2 * clamp_off
         )
 
     def create_replica_column(self, circuit: Circuit):
@@ -183,15 +192,17 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         ).create()
         circuit.subcircuit(replica_column)   # Add to main circuit
         
-        # All Replica Column connections
+        # All Replica Column connections.  Only the RWL cell is an active replica; the
+        # other num_rows cells are pure bitline loads with their wordlines tied off, so a
+        # real-row access never discharges RBL in parallel with the replica cell.
         replica_connections = [
-            'VDD', 'VSS', 'RBL', 'RBLB','RWL',
-            *[f'WL{i}' for i in range(self.num_rows)]  # WL0 to WLn
+            'VDD', 'VSS', 'RBL', 'RBLB', 'RWL',
+            *[self.gnd_node for _ in range(self.num_rows)]
         ]
-        
+
         # Instantiate Replica Column circuit
         circuit.X(
-            'sram_17x1_replica_column', replica_column.NAME,
+            replica_column.NAME, replica_column.NAME,
             *replica_connections
         )
         return circuit
@@ -435,11 +446,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # Add subcircuit definition to this testbench
         circuit.subcircuit(d_latch)
         
-        # Connect D_latch instance to circuit
+        # Connect D_latch instance to circuit.  With a column mux there is one sense amp
+        # per mux group, so the latch input is SA_Q{target_col // mux_in}.
         circuit.X(
             'D_LATCH', d_latch.NAME,
-            'VDD', 'VSS', f'SA_Q{target_col}', 'S_EN', 'OUT', 'OUT_B'
-        )      
+            'VDD', 'VSS', f'SA_Q{target_col // self.mux_in}', 'S_EN', 'OUT', 'OUT_B'
+        )
         return circuit
 
     def create_read_periphery(self, circuit: Circuit, target_col: int):#创造读外围电路
@@ -475,6 +487,13 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         if self.choose_columnmux:
         # we temporarily fix this to 2  固定为2路复用
             self.mux_in = 2
+            if self.num_cols % self.mux_in != 0:
+                raise ValueError(
+                    f"choose_columnmux=True requires num_cols to be a multiple of "
+                    f"mux_in={self.mux_in}, got num_cols={self.num_cols}: some columns "
+                    f"would have no sense amplifier")
+            # The mux generates SELB internally; SELB ports/sources exist only when True.
+            use_external_selb = False
 
             # Column Mux
             cmux = ColumnMuxFactory(
@@ -486,7 +505,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 length=self.sram_config.column_mux.length.value,
                 w_rc=self.w_rc,
                 sweep_columnmux = self.sweep_columnmux,
-                use_external_selb=False, #选用哪种多路选择器
+                use_external_selb=use_external_selb, #选用哪种多路选择器
                 pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
                 nmos_modle_choices = self.sram_config.senseamp.nmos_model.choices,
                 param_model_file =self.sim_path + '/param_sweep_models.data',
@@ -504,49 +523,24 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     f'SA_INB{col}',  # SA inputs are Mux's outputs
                     # SELect signal, high valid, #SEL = self.mux_in
                     *[f'SEL{i}' for i in range(self.mux_in)],
-                    *[f'SELB{i}' for i in range(self.mux_in)],
+                    *([f'SELB{i}' for i in range(self.mux_in)] if use_external_selb else []),
                     # Inputs are BLs, #BLs  = self.mux_in
                     *[f'BL{i}' for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
                     # Inputs are BLBs, #BLBs = self.mux_in
                     *[f'BLB{i}' for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
                 )
-                # Set SEL signals   设置选择信号：目标列使用脉冲源，其他列接地
-            # for i in range(self.mux_in):
-            #     if i == target_col % self.mux_in:   #目标列所在的目标组
-            #         # Pulse setting of select signal is the same as WLE
-            #         circuit.PulseVoltageSource(
-            #             f'SEL_{i}', f'SEL{i}', self.gnd_node,
-            #             initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-            #             delay_time=self.t_pulse,
-            #             rise_time=self.t_rise, fall_time=self.t_fall,
-            #             pulse_width=self.t_pulse,
-            #             period=self.t_period
-            #         )
-            #     else:
-            #         circuit.V(f'SEL_{i}', f'SEL{i}', self.gnd_node, 0 @ u_V)
 
+            # Set SEL signals.  The column address is static for the whole cycle (the
+            # target column never changes), so SEL is a DC level: the target group is
+            # selected, the others are off.  This keeps the SA inputs precharged through
+            # the mux and does not depend on t_pulse or t_period.
             for i in range(self.mux_in):
-                if i == target_col % self.mux_in:   #目标列所在的目标组
-                    # Pulse setting of select signal is the same as WLE
-                    circuit.PulseVoltageSource(
-                        f'SEL_{i}', f'SEL{i}', self.gnd_node,
-                        initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-                        delay_time=self.t_pulse,
-                        rise_time=self.t_rise, fall_time=self.t_fall,
-                        pulse_width=self.t_pulse,
-                        period=self.t_period
-                    )
-                    circuit.PulseVoltageSource(
-                        f'SELB_{i}', f'SELB{i}', self.gnd_node,
-                        initial_value=self.vdd @ u_V, pulsed_value=0 @ u_V,
-                        delay_time=self.t_pulse,
-                        rise_time=self.t_rise, fall_time=self.t_fall,
-                        pulse_width=self.t_pulse,
-                        period=self.t_period,dc_offset=self.vdd
-                    )
-                else:
-                    circuit.V(f'SEL_{i}', f'SEL{i}', self.gnd_node, 0 @ u_V)
-                    circuit.V(f'SELB_{i}', f'SELB{i}', self.gnd_node, 1.0 @ u_V)
+                selected = (i == target_col % self.mux_in)   #目标列所在的目标组
+                circuit.V(f'SEL_{i}', f'SEL{i}', self.gnd_node,
+                          self.vdd @ u_V if selected else 0 @ u_V)
+                if use_external_selb:
+                    circuit.V(f'SELB_{i}', f'SELB{i}', self.gnd_node,
+                              0 @ u_V if selected else self.vdd @ u_V)
 
         # Sense Amplifer
         sa = SenseAmpFactory(
@@ -609,15 +603,38 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.wdrv_inst_name = write_drv.name
         self.wdrv_inst_prefix = f"X{write_drv.name}"
 
+        # Write-data hold latch.  w_en spans the whole clock-low phase and is
+        # released ~150-300 ps after the rising clock edge that ends the cycle,
+        # while the data register DIN_dff already updates ~100-150 ps after that
+        # same edge.  Without a hold element the write drivers briefly drive the
+        # *next* cycle's data into the still-selected row; with a row-scaled (4x)
+        # write driver at 64 rows this flipped the freshly written cell back
+        # (read&write 64x16: Q=1 at 12.9 ns, 0 at 13.4 ns).  The latch is
+        # transparent while w_en is low and holds while the drivers are enabled;
+        # it opens two gate delays after the drivers tristate, so the driver
+        # input can never change while the driver is on.
+        wen_inv = Pinv(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
+                       nmos_width=0.09e-6, pmos_width=0.27e-6, length=0.05e-6,
+                       num='_wen_bar')
+        circuit.subcircuit(wen_inv)
+        circuit.X('WEN_BAR', wen_inv.NAME, self.power_node, self.gnd_node, 'w_en', 'w_en_bar')
+        din_latch = D_latch(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG")
+        circuit.subcircuit(din_latch)
+
         # Instantiate write drivers for all columns 为每列添加写驱动器实例
         for col in range(self.num_cols):
+            circuit.X(
+                f'DIN_HOLD_{col}', din_latch.NAME,
+                self.power_node, self.gnd_node,
+                f'DIN_dff{col}', 'w_en_bar', f'DIN_hold{col}', f'DIN_holdb{col}',
+            )
             circuit.X(
                 self.wdrv_inst_name + f"_{col}",
                 write_drv.name,
                 self.power_node,  # Power net
                 self.gnd_node,  # Ground net
                 'w_en',  # Write Enable signal
-                f'DIN_dff{col}',  # Data In
+                f'DIN_hold{col}',  # Data In, held while w_en is high
                 f'BL{col}',  # Connect to column bitline
                 f'BLB{col}',  # Connect to column bitline bar
             )
@@ -645,28 +662,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                         pulse_width=0.2 * self.t_period , # 保持有效
                         period=4*self.t_period)
 
-        if operation == 'write':
-            prch = PrechargeFactory(
-                pmos_model=self.sram_config.precharge.pmos_model.value,
-                pmos_width=self.sram_config.precharge.pmos_width.value,
-                length=self.sram_config.precharge.length.value,
-                w_rc=self.w_rc,
-                num_rows=self.num_rows,
-                sweep_precharge=self.sweep_precharge,
-                pmos_modle_choices=self.sram_config.precharge.pmos_model.choices,
-                param_model_file=self.sim_path + '/param_sweep_models.data',
-            ).create()
-            circuit.subcircuit(prch)    #添加预充电电路到主电路
-            self.prch_inst_prefix = f"X{prch.name}"
-
-            # 只需要一列，激活RBLB
-            
-            circuit.X(
-                    f'{prch.name}_RBL',
-                    prch.name,
-                    self.power_node, 'PRE', 'RBL', 'RBLB'
-            )
-
+        # The precharge (all columns + replica column), the column mux and the
+        # sense amplifiers are created by create_read_periphery(), which
+        # create_testbench() now calls for every transient operation.
         return circuit
 
     def create_single_cell_for_snm(self, circuit: Circuit, operation: str):
@@ -774,7 +772,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         if operation == 'hold_snm':
             # For hold_snm measurement, keep WL low and add DC sources to Q/QB
             #对于hold_snm测量，保持低WL并在Q/QB中添加直流源
+            # BL/BLB need real sources: `.IC` is not applied in a .DC sweep and the
+            # access transistors are off, so the bitlines would otherwise float.
             circuit.V(f'WL_gnd', 'WL', self.gnd_node, 0 @ u_V)
+            circuit.V(f'BL_vdd', 'BL', self.gnd_node, self.vdd @ u_V)
+            circuit.V(f'BLB_vdd', 'BLB', self.gnd_node, self.vdd @ u_V)
 
         elif operation == 'read_snm':
             # For read_snm operation, keep WL high and add DC sources to Q/QB
@@ -823,9 +825,13 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         init_dict = {}
         vq = self.vdd @ u_V if self.q_init_val else 0 @ u_V
         vqb = 0 @ u_V if self.q_init_val else self.vdd @ u_V
+        # With an equivalent-circuit model (real_cell_mode != 0) only some cells exist.
+        core = getattr(self, 'sbckt_array', None)
 
         for row in range(self.num_rows):
             for col in range(self.num_cols):
+                if core is not None and not core._should_instantiate_real_cell(row, col):
+                    continue
                 # Data Q name is specified by cell_inst_prefix and cell location (row, col)
                 q_name = self.cell_inst_prefix + f'_{row}_{col}{self.heir_delimiter}Q'
                 qb_name = self.cell_inst_prefix + f'_{row}_{col}{self.heir_delimiter}QB'
@@ -854,6 +860,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         """
         self.target_row = target_row if target_row < self.num_rows else self.num_rows - 1
         self.target_col = target_col if target_col < self.num_cols else self.num_cols - 1
+        # Column-mux fan-in (fixed to 2 in create_read_periphery); needed before any
+        # SA_Q{col // mux_in} node name is built.
+        self.mux_in = 2 if self.choose_columnmux else 1
 
         circuit = Circuit(self.name)
         circuit.include(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}"))
@@ -945,6 +954,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     # This function returns a Dict of MOS models
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                     global_config=self.sram_config.global_config,
+                    pi_res=self.pi_res,
+                    pi_cap=self.pi_cap,
                 ).create()
             else:
                 sbckt_array = Sram10TCoreFactory(
@@ -968,12 +979,15 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                     q_init_val=self.q_init_val,
                     global_config=self.sram_config.global_config,
+                    pi_res=self.pi_res,
+                    pi_cap=self.pi_cap,
                 ).create()
         else:
             raise ValueError(f"Unknown SRAM cell type: {self.sram_cell_type}")
 
         # Add subcircuit definition to this testbench.
         circuit.subcircuit(sbckt_array)  #添加到主电路
+        self.sbckt_array = sbckt_array   # data_init() asks it which cells really exist
 
         # Instantiate the SRAM array.
         circuit.X(sbckt_array.name, sbckt_array.name, self.power_node, self.gnd_node,
@@ -1005,22 +1019,28 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         
         # 创建字线驱动器（使用译码器输出作为使能）
         self.create_wl_driver(circuit, target_row)
-        # Create D latch
-        self.create_D_latch(circuit, target_col)
 
-
-        # For read transient simulation, add pulse source to the array
-        if operation == 'read':
-            self.create_read_periphery(circuit, target_col)
-        # For write transient simulation, add pulse source to the array
-        elif operation == 'write':
+        # Column periphery.  Every transient testbench gets the full column
+        # periphery of the macro (precharge on all columns and on the replica
+        # column, column mux, sense amplifiers); the write testbenches add the
+        # write drivers on top.  Previously the 'write' deck had only the
+        # write drivers and an RBL precharge: the bitlines started from the
+        # artificial .IC state (BL=0, BLB=VDD) instead of being precharged,
+        # floated at the written values after the write pulse, and did not
+        # carry the sense-amplifier / mux load, so the write delay came out
+        # ~30-40 % shorter than the same write inside the read&write sequence.
+        if operation not in ('read', 'write', 'read&write'):
+            raise ValueError(f"Invalid test type {operation}. Use 'read', 'write' or 'read&write'")
+        self.create_read_periphery(circuit, target_col)
+        if operation == 'write':
             self.create_write_periphery(circuit)
         elif operation == 'read&write':
-            self.create_read_periphery(circuit, target_col)
             self.create_write_periphery(circuit, operation)
 
-        else:
-            raise ValueError(f"Invalid test type {operation}. Use 'read' or 'write'")
+        # Create the output D latch.  It captures SA_Q, which only exists when a read
+        # periphery is present; for a pure write its input would be a floating node.
+        if operation in ('read', 'read&write'):
+            self.create_D_latch(circuit, target_col)
         
         # 设置目标行地址
         n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
@@ -1042,7 +1062,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # 添加时钟信号源 VCLK
         circuit.PulseVoltageSource(
             'CLK', 'clk', self.gnd_node,
-            initial_value=0 @ u_V, pulsed_value=1.0 @ u_V,
+            initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
             delay_time=1.0 @ u_ns+0.2 * self.t_period,
             rise_time=self.t_rise, fall_time=self.t_fall,
             pulse_width=0.5 * self.t_period,
@@ -1052,7 +1072,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # 添加片选信号源 VCSB
         circuit.PulseVoltageSource(
             'CSB', 'csb', self.gnd_node,
-            initial_value=0 @ u_V, pulsed_value=1.0 @ u_V,
+            initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
             delay_time=1.0 @ u_ns,
             rise_time=self.t_rise, fall_time=self.t_fall,
             pulse_width=0.1 * self.t_period,
@@ -1063,7 +1083,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # 添加写使能信号源 VWEB
             circuit.PulseVoltageSource(
                 'WEB', 'web', self.gnd_node,
-                initial_value=0 @ u_V, pulsed_value=1.0 @ u_V,
+                initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
                 delay_time=1.0 @ u_ns + 0.1 * self.t_period,
                 rise_time=self.t_rise, fall_time=self.t_fall,
                 pulse_width=0.98 * self.t_period,
@@ -1073,7 +1093,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # 添加写使能信号源 VWEB
             circuit.PulseVoltageSource(
                 'WEB', 'web', self.gnd_node,
-                initial_value=1.0 @ u_V, pulsed_value=0 @ u_V,
+                initial_value=self.vdd @ u_V, pulsed_value=0 @ u_V,
                 delay_time=1.0 @ u_ns + 0.1 * self.t_period,
                 rise_time=self.t_rise, fall_time=self.t_fall,
                 pulse_width=0.98 * self.t_period,
@@ -1083,7 +1103,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # 添加写使能信号源 VWEB
             circuit.PulseVoltageSource(
                 'WEB', 'web', self.gnd_node,
-                initial_value=1.0 @ u_V, pulsed_value=0 @ u_V,
+                initial_value=self.vdd @ u_V, pulsed_value=0 @ u_V,
                 delay_time=1.0 @ u_ns + 0.1 * self.t_period,
                 rise_time=self.t_rise, fall_time=self.t_fall,
                 pulse_width=0.98 * self.t_period,

@@ -44,8 +44,10 @@ SRAM_10T_CELL:
       value: ["NMOS_VTG", "NMOS_VTG", "NMOS_VTG"]
       value_sweep: [[1], [1], [1]] # 参数扫描向量
       description: "0:PD NMOS type, 1:PG NMOS type, 2:FD NMOS type / 0: 下拉, 1:传输, 2:前馈 NMOS晶体管模型"
-  process_parameters: 
-    vars: [
+  # 工艺参数变量列表 (用于 gen_process_params 中的 vars): 二维数组，每行一次 MC
+  # 顺序: PGL, PGR, PDL1, PDL2, PUL, PDR1, PDR2, PUR, FD_L, FD_R -> 每个管子对应 vth0, u0, voff
+  process_parameters:
+    vars: [[
           0.4106, 0.045, -0.13,  # PGL
           0.4106, 0.045, -0.13,  # PGR
           0.4106, 0.045, -0.13,  # PDL1
@@ -54,6 +56,6 @@ SRAM_10T_CELL:
           0.4106, 0.045, -0.13,  # PDR1
           0.4106, 0.045, -0.13,  # PDR2
           -0.3842, 0.02, -0.126,  # PUR
-          0.4106, 0.045, -0.13,  # FDR
-          0.4106, 0.045, -0.13,  # FDL
-          ]
+          0.4106, 0.045, -0.13,  # FD_L
+          0.4106, 0.045, -0.13,  # FD_R
+          ]]

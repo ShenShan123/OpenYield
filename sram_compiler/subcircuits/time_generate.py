@@ -480,6 +480,11 @@ class DATA_DFF(BaseSubcircuit):
                    'VDD', 'VSS', f'DIN{i}', f'DIN_dff{i}', 'CLK')
 
 
+class AND2_WEN(AND2):
+    """AND2 with its own subcircuit name (write-enable gate of TIME)."""
+    NAME = "AND2_WEN"
+
+
 class TIME(BaseSubcircuit):
     """
     时序信号生成
@@ -675,19 +680,31 @@ class TIME(BaseSubcircuit):
                inv_rbl_delay_bar.NAME,
                'VDD', 'VSS', 'rbl_delay', 'rbl_delay_bar')
         
-        w_en_rbl_input = 'rbl_delay_bar'
-
-        if operation == 'write' and self.num_rows == 16 and self.num_cols == 512:
-            wen_delaychain = WenDelayChain(stages=6, loads_per_stage=4, w_rc=w_rc)
-            self.subcircuit(wen_delaychain)
-            self.X('wen_delaychain',
-                wen_delaychain.NAME,
-                'VDD', 'VSS', 'rbl_delay_bar', 'rbl_delay_bar_wen')
-            w_en_rbl_input = 'rbl_delay_bar_wen'
-        #产生写使能
+        #产生写使能: w_en = gated_clk_bar & we, i.e. the write drivers stay on
+        # for the whole clock-low (wordline) phase, exactly like the wordline.
+        #
+        # Previously w_en was also gated by rbl_delay_bar, so the write pulse
+        # ended as soon as the *replica cell* had discharged the replica
+        # bitline (~250 ps).  That replica path (cell pull-down through the
+        # pass gate) is stronger than the write path (row-scaled write driver,
+        # optionally through the column-mux transmission gate), so the pulse
+        # only had ~30 % margin nominally and Monte Carlo samples with a weak
+        # NMOS left the bitline at 0.3-0.4 V when w_en ended: the cell kept
+        # its old data.  The hard-coded 16x512 WenDelayChain that used to
+        # lengthen the pulse for one array size is no longer needed.
         w_en_ref_cols = 64
-        w_en_scale = max(1, ceil(self.num_cols / w_en_ref_cols))#按列数放大驱动晶体管尺寸
-        w_en=AND3(nmos_model_nand="NMOS_VTG",
+        # Buffer scaling: one unit (1.08/0.36 um inverter) per 64 columns.  The
+        # write drivers it drives are themselves scaled with the row count
+        # (WriteDriverFactory: max(8, rows)/16), so the w_en load grows with
+        # rows as well; without the row factor w_en released 40-70 ps after the
+        # wordline on 64-256-row arrays (285 ps with RC at 64x64) and the write
+        # drivers overlapped the start of the precharge.
+        s_en_scale = max(1, ceil(self.num_cols / w_en_ref_cols))#按列数放大驱动晶体管尺寸
+        wd_row_scale = max(8, self.num_rows) / 16.0
+        w_en_scale = max(s_en_scale, ceil(self.num_cols * wd_row_scale / w_en_ref_cols))
+        # Own subcircuit name: PySpice keeps one definition per name and scope, so
+        # a plain AND2 here would replace the (larger) gated-clock AND2 above.
+        w_en=AND2_WEN(nmos_model_nand="NMOS_VTG",
                 pmos_model_nand="PMOS_VTG",
                 nmos_model_inv="NMOS_VTG",
                 pmos_model_inv="PMOS_VTG",
@@ -701,7 +718,7 @@ class TIME(BaseSubcircuit):
         self.subcircuit(w_en)
         self.X('w_en',
                w_en.NAME,
-               'VDD','VSS' , w_en_rbl_input , 'gated_clk_bar' ,'we', 'w_en' )
+               'VDD','VSS' , 'gated_clk_bar' ,'we', 'w_en' )
         #产生灵敏放大器
         s_en=AND3(nmos_model_nand="NMOS_VTG",
                 pmos_model_nand="PMOS_VTG",
@@ -709,8 +726,8 @@ class TIME(BaseSubcircuit):
                 pmos_model_inv="PMOS_VTG",
                 nand_pmos_width=0.27e-6,
                 nand_nmos_width=0.18e-6,
-                inv_pmos_width=1.08e-6 * w_en_scale,
-                inv_nmos_width=0.36e-6 * w_en_scale,
+                inv_pmos_width=1.08e-6 * s_en_scale,
+                inv_nmos_width=0.36e-6 * s_en_scale,
                 length=0.05e-6,
                 w_rc=w_rc
             )

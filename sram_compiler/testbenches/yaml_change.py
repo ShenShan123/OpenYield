@@ -87,13 +87,14 @@ def summarize_from_csv(csv_path,operation):
     # 计算Power (PSTC + PDYN)
     power = df['PSTC'] + df['PDYN'] if operation == 'read' or operation == 'write' else df['PAVG']
     
+    # End-to-end access delays, same as Sram6TCoreMcTestbench.run_mc_simulation:
+    # summing the individual segments over-counted (they overlap).
     if operation == 'read':
-        # 计算Delay (TDECODER + TPRCH + TSA + TSWING + TS_EN + TWLDRV)
-        delay = (df['TDECODER'] + df['TPRCH'] + df['TSA'] + 
-                df['TSWING'] + df['TS_EN'] + df['TWLDRV'])
+        # wl_en -> data output valid
+        delay = df['TREAD_TOTAL']
     elif operation == 'write':
-        # 计算Delay (TDECODER + TPRCH + TSA + TSWING + TS_EN + TWLDRV)
-        delay = (df['TDECODER'] + df['TWDRV'] + df['TWLDRV'] + df['TWRITE_Q'] )
+        # wl_en -> Q written to 90% VDD
+        delay = df['TWRITE_TOTAL']
     elif operation == 'read&write':
         delay = (df['TVOUT_PERIOD'])
     

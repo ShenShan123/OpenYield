@@ -1,3 +1,4 @@
+import io
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import List, Dict
@@ -41,7 +42,13 @@ def parse_mc_measurements(netlist_prefix: str = "simulation",
             var_part, value_part = line.split('=', 1)
             var_name = var_part.strip()
             raw_value = value_part.split()[0].strip()
-            
+
+            # Xyce writes "FAILED" (with .OPTIONS MEASURE MEASFAIL=1) for a measure whose
+            # trigger/target never occurred; keep the column so the caller can see it.
+            if raw_value.upper() == 'FAILED':
+                print(f"[WARNING] Measurement {var_name} FAILED")
+                return var_name, missing_value
+
             # Numeric conversion
             value = float(raw_value) if '.' in raw_value or 'e' in raw_value.lower() else int(raw_value)
             
@@ -147,38 +154,35 @@ def read_prn_with_preprocess(prn_file_path):
         ValueError: For format errors
     """
     try:
-        # Read and preprocess header
+        # Read the file once; drop blank lines and the "End of Xyce(TM) Simulation"
+        # trailer explicitly (the old `comment='E'` trick relied on Xyce never printing
+        # an upper-case exponent).
         with open(prn_file_path, 'r') as f:
-            # Find first non-empty line for column headers
-            header_line = ''
-            while not header_line.strip():
-                header_line = f.readline()
-                if not header_line:  # Handle empty files
-                    raise ValueError("Empty PRN file")
+            lines = [l for l in f
+                     if l.strip() and not l.lstrip().startswith('End of Xyce')]
+        if not lines:
+            raise ValueError("Empty PRN file")
 
-            # Clean and validate header
-            headers = [h.strip() for h in header_line.split()]
-            if len(headers) < 2:
-                raise ValueError("Invalid header - insufficient columns")
-                
-            if headers[0].upper() != 'INDEX':
-                raise ValueError(f"First column must be 'INDEX', got '{headers[0]}'")
+        # Clean and validate header
+        headers = [h.strip() for h in lines[0].split()]
+        if len(headers) < 2:
+            raise ValueError("Invalid header - insufficient columns")
 
         # Read data with enhanced validation
         df = pd.read_csv(
-            prn_file_path,
-            sep='\s+',
-            skiprows=1,
+            io.StringIO(''.join(lines[1:])),
+            sep=r'\s+',
             header=None,
             names=headers,
             engine='python',
             dtype=np.float64,
-            comment='E',
             on_bad_lines='warn'
         )
 
-        # drop the default index
-        df = df.set_index(headers[0])
+        # Xyce prints a leading Index column unless every .PRINT says FORMAT=NOINDEX;
+        # accept both layouts and drop the index when it is there.
+        if headers[0].upper() == 'INDEX':
+            df = df.drop(columns=headers[0])
         df = df.reset_index(drop=True)
 
         # Determine analysis type from first data column

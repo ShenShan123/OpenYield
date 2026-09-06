@@ -292,16 +292,34 @@ mc_write_waveform.png                # Key-node waveform plot
 Read delay summary formula:
 
 ```text
-Delay = TDECODER + TPRCH + TSA + TSWING + TS_EN + TWLDRV
-Power = PSTC + PDYN
+Delay = TREAD_TOTAL      # wl_en rise -> output latch OUT valid (VDD/2)
+Power = PSTC + PDYN      # PSTC: quiescent window 1 ns + [0.4, 0.65]*t_period
 ```
 
 Write delay summary formula:
 
 ```text
-Delay = TDECODER + TWDRV + TWLDRV + TWRITE_Q
+Delay = TWRITE_TOTAL     # wl_en rise -> target cell Q reaches 90% VDD
 Power = PSTC + PDYN
 ```
+
+`PAVG = EREAD / t_period` (or `EWRITE / t_period`), where the energy is integrated
+over exactly one clock period starting at the first access
+(`1 ns + 0.7 * t_period`, the falling clock edge): wordline access, sensing or
+writing, the self-timed precharge that restores the bitlines, and the idle time
+until the next access. Every transient testbench carries the full column
+periphery (precharge on all columns and on the replica column, column mux,
+sense amplifiers); the write testbenches add the write drivers, each fed
+through a data-hold latch that is transparent while `w_en` is low, so a write
+cycle is `precharge -> write -> precharge` with the real bitline load and the
+write data cannot change while the drivers are enabled. `w_en` is asserted for
+the whole clock-low (wordline) phase.
+
+The segment measures (`TDECODER`, `TPRCH`, `TWLDRV`, `TSWING`, `TSA`, `TS_EN`,
+`TWDRV`, `TWRITE_Q`, ...) are still written to `.mt0` / `.data.csv` for inspection,
+but they overlap in time and are not summed: the delay is the end-to-end measure.
+A measure that Xyce could not evaluate is written as `FAILED` and makes
+`run_mc_simulation()` raise instead of reporting `0.0`.
 
 At the end, `main_sram.py` prints:
 
@@ -349,6 +367,18 @@ Note that the number of sweep points must match the Monte Carlo run count set in
 The platform supports two process variation modes:
 
 - `custom_mc=False`: Use Xyce built-in random sampling. The program automatically rewrites `vth0`, `u0`, and `voff` in the PDK model into `AGAUSS(...)` expressions according to `vth_std`, and generates `tmp_mc.spice`.
+  `.SAMPLING` is only emitted when `mc_runs > 1`; a single run (`mc_runs=1`) is the
+  nominal point (every `AGAUSS(...)` evaluates to its mean) and is therefore
+  deterministic. Pass `mc_seed=<int>` to `Sram6TCoreMcTestbench(...)` to make a
+  Monte Carlo sweep reproducible; without it Xyce draws a new seed every run
+  (printed in `<netlist>.log`, which now keeps the Xyce console output).
+  If Xyce stops a deck with `Time step too small` (seen on a few 512-row
+  arrays, where the Newton loop oscillates during the access), the flow
+  automatically retries once with a `.TRAN` maximum step of 20 ps
+  (`t_max_step=2e-11`): this keeps results within 0.5 % of the default settings
+  at ~1.8x the time steps. Pass `t_max_step` explicitly to use it from the
+  start, or `xyce_options=['.OPTIONS TIMEINT ERROPTION=1']` for a faster but
+  less accurate run (delays of converging decks shift by a few per cent).
 - `custom_mc=True`: Use a user-provided process-parameter table. The program writes `vars` into a `.data table` file and uses `.STEP data=table` to make Xyce simulate one row at a time.
 
 To use custom process variation, set the testbench initialization parameters in `main_sram.py` as follows:
