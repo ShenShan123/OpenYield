@@ -70,10 +70,10 @@ numbers on this release; the evidence tables are at the end of this entry.
 
 - **128x128 and 256x64 arrays** were run only with a 4 ns clock (3 h per
   deck instead of ~11 h): 6T read 475 / 568 ps, 256x64 write 149 ps, all
-  waveform checks pass; the 128x128 write and every 10T / mux / read&write
-  deck of these two sizes were not run. The `read&write` decks of the
-  largest arrays of the size table were still running at release time (see
-  the evidence section); the same flow runs them offline.
+  waveform checks pass; every 10T / mux / read&write deck of these two sizes
+  was not run. In the size table only the two 10T 16x512 `read&write` decks
+  are missing: they exceeded the 10 h job limit of the sweep harness (the 6T
+  16x512 `read&write` decks took 7 h); the same flow runs them offline.
 - **Energy cost of the fixes.** Reads cost more: 6T read PAVG at 100 MHz
   28.0 -> 29.3 uW (8x4, +5 %), 44.9 -> 50.0 (16x16, +11 %), 81.1 -> 94.6
   (32x32, +17 %), 202.9 -> 231.7 (64x64, +14 %); 2x128 is cheaper (158 ->
@@ -218,9 +218,9 @@ parentheses are the V2.0.1 results of the same configuration.
 
 #### Size sweep (nominal, all cells real, no RC, mux off / on)
 
-260 of 294 configurations completed in Xyce at release time, 260 pass every waveform check; failures: none.
+292 of 294 configurations completed in Xyce at release time, 292 pass every waveform check; failures: none.
 
-Not completed at release time (34; the same flow runs them offline): 10T_256x8_m0_rw, 10T_256x8_m1_rw, 10T_512x4_m0_rw, 10T_512x4_m1_rw, 6T_512x4_m0_rw, 6T_512x4_m1_rw, 10T_8x512_m0_rw, 10T_8x512_m1_rw, 6T_8x512_m0_rw, 6T_8x512_m1_rw, 10T_16x256_m0_rw, 10T_16x256_m1_rw, 6T_16x256_m0_rw, 6T_16x256_m1_rw, 10T_100x50_m0_read, 10T_100x50_m1_read, 10T_100x50_m0_write, 10T_100x50_m1_write, 6T_100x50_m0_read, 6T_100x50_m1_read, 6T_100x50_m0_write, 6T_100x50_m1_write, 10T_16x512_m0_read, 10T_16x512_m1_read, 10T_16x512_m0_write, 10T_16x512_m1_write, 10T_16x512_m0_rw, 10T_16x512_m1_rw, 6T_16x512_m0_read, 6T_16x512_m1_read, 6T_16x512_m0_write, 6T_16x512_m1_write, 6T_16x512_m0_rw, 6T_16x512_m1_rw.
+Not completed (2): 10T_16x512_m0_rw, 10T_16x512_m1_rw -- stopped by the 10 h job limit of the sweep harness (the 6T decks of the same size took 7 h); the same flow runs them offline.
 
 Delays in ps (read: `wl_en` rise -> `OUT`; write: `wl_en` rise -> Q at 90 %), V2.0.1 value in parentheses; `read&write` shows the measured period of `OUT` (40 ns = 4 clock cycles is the correct write-1 / read / write-0 / read sequence); PAVG at 100 MHz.
 
@@ -264,22 +264,22 @@ Delays in ps (read: `wl_en` rise -> `OUT`; write: `wl_en` rise -> Q at 90 %), V2
 | 32x32 | 6T | 332 (386) / 325 (355) | 100 (137) / 102 (138) | 40 ns / 40 ns | 94.6 (81.1) / 201.4 (227.8) | PASS (6/6 runs) |
 | 64x16 | 10T | 378 (401) / 373 (383) | 105 (125) / 106 (125) | 40 ns / 40 ns | 90.7 (76.3) / 156.8 (166.6) | PASS (6/6 runs) |
 | 64x16 | 6T | 358 (382) / 353 (366) | 93 (114) / 94 (114) | 40 ns / 40 ns | 89.9 (75.1) / 155.0 (165.8) | PASS (6/6 runs) |
-| 256x8 | 10T | 592 (579) / 591 (566) | 105 (78) / 107 (79) | n/a / n/a | 152.3 (124.9) / 225.1 (229.2) | PASS (4/4 runs) |
+| 256x8 | 10T | 592 (579) / 591 (566) | 105 (78) / 107 (79) | 40 ns / 40 ns | 152.3 (124.9) / 225.1 (229.2) | PASS (6/6 runs) |
 | 256x8 | 6T | 524 (526) / 521 (514) | 96 (68) / 96 (68) | 40 ns / 40 ns | 149.4 (122.2) / 223.3 (226.5) | PASS (6/6 runs) |
-| 512x4 | 10T | 869 (791) / 861 (783) | 105 (80) / 105 (77) | n/a / n/a | 175.0 (153.3) / 238.9 (248.2) | PASS (4/4 runs) |
-| 512x4 | 6T | 739 (709) / 734 (692) | 95 (70) / 94 (69) | n/a / n/a | 171.3 (148.3) / 234.9 (245.5) | PASS (4/4 runs) |
-| 8x512 | 10T | 355 (642) / 349 (557) | 197 (512) / 206 (509) | n/a / n/a | 597.4 (1034.5) / 3144.5 (7386.7) | PASS (4/4 runs) |
-| 8x512 | 6T | 350 (640) / 345 (550) | 202 (509) / 214 (509) | n/a / n/a | 590.5 (1078.5) / 3277.7 (7527.4) | PASS (4/4 runs) |
-| 16x256 | 10T | 361 (542) / 347 (457) | 146 (273) / 150 (275) | n/a / n/a | 372.7 (444.6) / 1250.9 (2340.0) | PASS (4/4 runs) |
-| 16x256 | 6T | 354 (535) / 339 (449) | 133 (261) / 139 (264) | n/a / n/a | 369.4 (441.7) / 1252.0 (2339.6) | PASS (4/4 runs) |
+| 512x4 | 10T | 869 (791) / 861 (783) | 105 (80) / 105 (77) | 40 ns / 40 ns | 175.0 (153.3) / 238.9 (248.2) | PASS (6/6 runs) |
+| 512x4 | 6T | 739 (709) / 734 (692) | 95 (70) / 94 (69) | 40 ns / 40 ns | 171.3 (148.3) / 234.9 (245.5) | PASS (6/6 runs) |
+| 8x512 | 10T | 355 (642) / 349 (557) | 197 (512) / 206 (509) | 40 ns / 40 ns | 597.4 (1034.5) / 3144.5 (7386.7) | PASS (6/6 runs) |
+| 8x512 | 6T | 350 (640) / 345 (550) | 202 (509) / 214 (509) | 40 ns / 40 ns | 590.5 (1078.5) / 3277.7 (7527.4) | PASS (6/6 runs) |
+| 16x256 | 10T | 361 (542) / 347 (457) | 146 (273) / 150 (275) | 40 ns / 40 ns | 372.7 (444.6) / 1250.9 (2340.0) | PASS (6/6 runs) |
+| 16x256 | 6T | 354 (535) / 339 (449) | 133 (261) / 139 (264) | 40 ns / 40 ns | 369.4 (441.7) / 1252.0 (2339.6) | PASS (6/6 runs) |
 | 64x64 | 10T | 408 (505) / 390 (440) | 120 (173) / 120 (173) | 40 ns / 40 ns | 237.4 (210.2) / 513.9 (613.0) | PASS (6/6 runs) |
 | 64x64 | 6T | 382 (492) / 366 (421) | 108 (162) / 108 (160) | 40 ns / 40 ns | 231.7 (202.9) / 504.8 (610.8) | PASS (6/6 runs) |
 | 128x32 | 10T | 460 (510) / 453 (467) | 116 (146) / 116 (145) | 40 ns / 40 ns | 224.5 (181.1) / 418.8 (462.8) | PASS (6/6 runs) |
 | 128x32 | 6T | 424 (468) / 419 (434) | 104 (135) / 105 (133) | 40 ns / 40 ns | 218.6 (174.8) / 416.7 (459.4) | PASS (6/6 runs) |
-| 100x50 | 10T | n/a / n/a | n/a / n/a | 40 ns / 40 ns | n/a / n/a | PASS (2/2 runs) |
-| 100x50 | 6T | n/a / n/a | n/a / n/a | 40 ns / 40 ns | n/a / n/a | PASS (2/2 runs) |
-| 16x512 | 10T | n/a / n/a | n/a / n/a | n/a / n/a | n/a / n/a | not run |
-| 16x512 | 6T | n/a / n/a | n/a / n/a | n/a / n/a | n/a / n/a | not run |
+| 100x50 | 10T | 452 (517) / 423 (464) | 120 (168) / 121 (168) | 40 ns / 40 ns | 266.7 (212.7) / 529.3 (607.9) | PASS (6/6 runs) |
+| 100x50 | 6T | 414 (488) / 396 (438) | 109 (157) / 110 (158) | 40 ns / 40 ns | 256.5 (205.4) / 525.6 (605.5) | PASS (6/6 runs) |
+| 16x512 | 10T | 369 (656) / 363 (567) | 170 (472) / 173 (471) | n/a / n/a | 738.9 (1228.1) / 3349.4 (7729.3) | PASS (4/4 runs) |
+| 16x512 | 6T | 360 (650) / 357 (559) | 158 (460) / 160 (460) | 40 ns / 40 ns | 729.8 (1286.9) / 3378.0 (7830.1) | PASS (6/6 runs) |
 
 #### Address change (`next_row`, middle address bit flipped unless noted; read decks with the other cells storing 1, write decks storing 0)
 
