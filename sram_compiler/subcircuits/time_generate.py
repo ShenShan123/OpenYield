@@ -17,7 +17,8 @@ class TaperedBuffer(BaseSubcircuit):
 
     def __init__(self, name, drive_scale=1.0,
                  nmos_model="NMOS_VTG", pmos_model="PMOS_VTG", length=0.05e-6,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 effort_based=False, load_units=None, fall_strength=1.0):
         self.NAME = name
         super().__init__(
             nmos_model, pmos_model,
@@ -26,13 +27,19 @@ class TaperedBuffer(BaseSubcircuit):
         )
         drive_scale = max(1.0, float(drive_scale))
         n_stages = 2 if drive_scale <= 16 else 4
+        if effort_based:
+            # Final stage drives up to eight times its input gate width.
+            # Pick an even chain length from that total path effort.
+            effort = 8.0 * drive_scale if load_units is None else max(1.0, float(load_units))
+            n_stages = max(2, 2 * ceil(log2(effort) / 6.0))
         self.drive_scale = drive_scale
         self.n_stages = n_stages
         prev = 'A'
         for k in range(n_stages):
             s = drive_scale ** ((k + 1) / n_stages)
-            inv = Pinv(nmos_model, pmos_model, 0.09e-6 * s, 0.27e-6 * s, length,
-                       num=f'_{name}_{k}')
+            n_strength = fall_strength if k == n_stages - 1 else 1.0
+            inv = Pinv(nmos_model, pmos_model, 0.09e-6 * s * n_strength, 0.27e-6 * s, length,
+                       num=f'_{name}_{k}', max_finger_width=2e-6 if effort_based else None)
             self.subcircuit(inv)
             out = 'Z' if k == n_stages - 1 else f'b{k}'
             self.X(f'inv{k}', inv.NAME, 'VDD', 'VSS', prev, out)
@@ -90,6 +97,7 @@ class pdrive(BaseSubcircuit):  # ////////缓冲器链，由一系列尺寸逐渐
                  length=0.05e-6,
                  drive_scale=1.0,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 fold_gates=False,
                  ):
 
         super().__init__(
@@ -103,10 +111,10 @@ class pdrive(BaseSubcircuit):  # ////////缓冲器链，由一系列尺寸逐渐
         s3 = drive_scale ** 0.75
         s4 = drive_scale
         # 创建不同尺寸的反相器
-        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6 * s1,0.27e-6 * s1,0.05e-6,num=1)
-        self.inv2 = Pinv(nmos_model, pmos_model,0.27e-6 * s2,0.81e-6 * s2,0.05e-6,num=2)
-        self.inv3 = Pinv(nmos_model, pmos_model,0.91e-6 * s3,2.43e-6 * s3,0.05e-6,num=3)
-        self.inv4 = Pinv(nmos_model, pmos_model,2.43e-6 * s4,7.29e-6 * s4,0.05e-6,num=4)
+        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6 * s1,0.27e-6 * s1,0.05e-6,num=1,max_finger_width=2e-6 if fold_gates else None)
+        self.inv2 = Pinv(nmos_model, pmos_model,0.27e-6 * s2,0.81e-6 * s2,0.05e-6,num=2,max_finger_width=2e-6 if fold_gates else None)
+        self.inv3 = Pinv(nmos_model, pmos_model,0.91e-6 * s3,2.43e-6 * s3,0.05e-6,num=3,max_finger_width=2e-6 if fold_gates else None)
+        self.inv4 = Pinv(nmos_model, pmos_model,2.43e-6 * s4,7.29e-6 * s4,0.05e-6,num=4,max_finger_width=2e-6 if fold_gates else None)
         
         # 添加子电路
         self.subcircuit(self.inv1)
@@ -194,6 +202,7 @@ class wl_pdrive(BaseSubcircuit):  # ////////用于字线驱动的缓冲器
                  length=0.05e-6,
                  drive_scale=1.0,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 fold_gates=False,
                  ):
 
         super().__init__(
@@ -207,8 +216,8 @@ class wl_pdrive(BaseSubcircuit):  # ////////用于字线驱动的缓冲器
         # rise and 600 ps to fall at 512 rows (40/90 ps at 64 rows).
         drive_scale = max(1.0, float(drive_scale))
         # 创建不同尺寸的反相器
-        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6 * drive_scale,0.27e-6 * drive_scale,0.05e-6,num=1)
-        self.inv2 = Pinv(nmos_model, pmos_model,0.45e-06 * drive_scale,1.35e-06 * drive_scale,0.05e-6,num=2)
+        self.inv1 = Pinv(nmos_model, pmos_model,0.09e-6 * drive_scale,0.27e-6 * drive_scale,0.05e-6,num=1,max_finger_width=2e-6 if fold_gates else None)
+        self.inv2 = Pinv(nmos_model, pmos_model,0.45e-06 * drive_scale,1.35e-06 * drive_scale,0.05e-6,num=2,max_finger_width=2e-6 if fold_gates else None)
         
         # 添加子电路
         self.subcircuit(self.inv1)
@@ -355,8 +364,11 @@ class DelayChain(BaseSubcircuit):#用于复制位线延迟的延迟链
                  pmos_width=5e-07, nmos_width=2.5e-07,
                  length=0.05e-6,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 stages=9,
                  ):
-
+        if isinstance(stages, bool) or not isinstance(stages, int) or stages < 1 or stages % 2 == 0:
+            raise ValueError("Replica delay stages must be a positive odd integer")
+        self.stages = stages
         super().__init__(
             nmos_model, pmos_model,
             nmos_width, pmos_width, length,
@@ -374,33 +386,13 @@ class DelayChain(BaseSubcircuit):#用于复制位线延迟的延迟链
         self.add_delay_chain()
     
     def add_delay_chain(self):
-        """构建延迟链电路"""
-        # 第一级反相器
-        self.X('dinv0', self.inv.NAME, 'VDD', 'VSS', 'in', 'dout_1')
-        
-        # 第一级的4个负载
-        for j in range(4):
-            self.X(f'dload_0_{j}', self.inv.NAME, 
-                   'VDD', 'VSS', 'dout_1', f'n_0_{j}')
-        
-        # 中间7级反相器 (第2级到第8级)
-        for i in range(1, 8):
-            # 反相器
-            self.X(f'dinv{i}', self.inv.NAME, 
-                   'VDD', 'VSS', f'dout_{i}', f'dout_{i+1}')
-            
-            # 负载
+        """Odd inverter chain, four unit loads per stage; preserve legacy names."""
+        for i in range(self.stages):
+            source = 'in' if i == 0 else f'dout_{i}'
+            target = 'out' if i == self.stages - 1 else f'dout_{i+1}'
+            self.X(f'dinv{i}', self.inv.NAME, 'VDD', 'VSS', source, target)
             for j in range(4):
-                self.X(f'dload_{i}_{j}', self.inv.NAME, 
-                       'VDD', 'VSS', f'dout_{i+1}', f'n_{i}_{j}')
-        
-        # 最后一级反相器 (第9级)
-        self.X('dinv8', self.inv.NAME, 'VDD', 'VSS', 'dout_8', 'out')
-        
-        # 最后一级的4个负载
-        for j in range(4):
-            self.X(f'dload_8_{j}', self.inv.NAME, 
-                   'VDD', 'VSS', 'out', f'n_8_{j}')
+                self.X(f'dload_{i}_{j}', self.inv.NAME, 'VDD', 'VSS', target, f'n_{i}_{j}')
             
 class WenDelayChain(BaseSubcircuit):
     NAME = "wen_delay_chain"
@@ -546,6 +538,10 @@ class TIME(BaseSubcircuit):
                  length=0.05e-6,num_rows=16,num_cols=8,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,operation='read',
                  num_sa=None, wl_load=None, pre_load=None, wen_load=None,
+                 dc_stages=9, effort_buffers=False,
+                 sen_load=None, iso_load=None,
+                 replica_precharge_guard=False,
+                 sen_effort=None,
                  ):
         """
         num_sa:   number of sense amplifiers driven by s_en (num_cols / mux_in);
@@ -584,6 +580,8 @@ class TIME(BaseSubcircuit):
             nodes.extend([f'DIN_dff{i}' for i in range(num_cols)])
 
         nodes += ['rbl','rbl_delay','rbl_delay_bar','s_en','w_en','PRE','sa_iso']
+        if replica_precharge_guard:
+            nodes.append('rwl')
         self.NODES = nodes
 
         super().__init__(
@@ -635,7 +633,13 @@ class TIME(BaseSubcircuit):
         self.subcircuit(addr_latch)
         addr_fanout_units = 5 * ceil(self.num_rows / 8.0)      # 0.09/0.27 um gate equivalents
         addr_scale = max(1, ceil(addr_fanout_units / 8.0 / 3.0))  # 3-unit output per 8 loads
-        addr_buf = TaperedBuffer('ABUF', drive_scale=addr_scale)
+        if effort_buffers:
+            # Four NAND3 inputs (1.25 units each) plus the input inverter.
+            # TaperedBuffer's last stage is one unit times drive_scale, not 3.
+            addr_fanout_units = 6 * ceil(self.num_rows / 8.0)
+            addr_scale = max(1, ceil(addr_fanout_units / 8.0))
+        addr_buf = TaperedBuffer('ABUF', drive_scale=addr_scale, effort_based=effort_buffers,
+                                 load_units=addr_fanout_units)
         self.subcircuit(addr_buf)
         for i in range(self.n_bits):
             self.X(f'addr_hold_{i}', addr_latch.NAME,
@@ -680,7 +684,7 @@ class TIME(BaseSubcircuit):
         clkbuf = pdrive(
             nmos_model="NMOS_VTG",
             pmos_model="PMOS_VTG",
-            drive_scale=clk_drive_scale
+            drive_scale=clk_drive_scale, fold_gates=effort_buffers
         )
         self.subcircuit(clkbuf)
         self.X('clkbuf',
@@ -751,8 +755,8 @@ class TIME(BaseSubcircuit):
         # keeps the fan-out <= 8: unchanged up to 16x16, 4x at 64x16, 16x at
         # 512x4.  Without it the wl_en edge was 280 ps (rise) / 600 ps (fall)
         # at 512 rows, which is also what opened the address-change hazard.
-        wl_en_scale = max(1, ceil(self.wl_load / 32.0))
-        wl_en=wl_pdrive(drive_scale=wl_en_scale)
+        wl_en_scale = max(1, ceil(self.wl_load / (24.0 if effort_buffers else 32.0)))
+        wl_en=wl_pdrive(drive_scale=wl_en_scale, fold_gates=effort_buffers)
         self.subcircuit(wl_en)
         self.X('wl_en',
                wl_en.NAME,
@@ -774,7 +778,7 @@ class TIME(BaseSubcircuit):
             'VDD', 'VSS', 'wl_en', 'wl_en_bar')
 
         #复制位线延迟链
-        delaychain=DelayChain()
+        delaychain=DelayChain(stages=dc_stages)
         self.subcircuit(delaychain)
         self.X('delaychain',
                delaychain.NAME,
@@ -823,7 +827,8 @@ class TIME(BaseSubcircuit):
                 w_rc=w_rc
                 )
         self.subcircuit(w_en)
-        if self.wen_load <= 32:
+        wen_effort = 6.0 if effort_buffers else 8.0
+        if self.wen_load <= 4 * wen_effort:
             wen_src = 'w_en'
             self.X('w_en',
                    w_en.NAME,
@@ -833,7 +838,7 @@ class TIME(BaseSubcircuit):
             self.X('w_en',
                    w_en.NAME,
                    'VDD','VSS' , 'gated_clk_bar' ,'we', 'w_en_unbuf' )
-            wen_buf = TaperedBuffer('WEN_BUF', drive_scale=ceil(self.wen_load / 8.0))
+            wen_buf = TaperedBuffer('WEN_BUF', effort_based=effort_buffers, drive_scale=ceil(self.wen_load / wen_effort), load_units=self.wen_load)
             self.subcircuit(wen_buf)
             self.X('w_en_buf', wen_buf.NAME, 'VDD', 'VSS', 'w_en_unbuf', 'w_en')
         #产生灵敏放大器
@@ -856,8 +861,10 @@ class TIME(BaseSubcircuit):
                 w_rc=w_rc
             )
         self.subcircuit(s_en)
-        sen_load = 0.75 * self.num_sa + 2.5 + 1.0   # footers + output latch + NOR below
-        if sen_load <= 32:
+        sen_load = 0.75 * self.num_sa + 3.5 if sen_load is None else float(sen_load)
+        self.sen_load = sen_load
+        sen_effort = (4.0 if effort_buffers else 8.0) if sen_effort is None else float(sen_effort)
+        if sen_load <= 4 * sen_effort:
             sen_src = 's_en'
             self.X('s_en',
                    s_en.NAME,
@@ -867,7 +874,7 @@ class TIME(BaseSubcircuit):
             self.X('s_en',
                    s_en.NAME,
                    'VDD','VSS' ,'rbl_delay', 'gated_clk_bar' ,'we_bar' ,'s_en_unbuf' )
-            sen_buf = TaperedBuffer('SEN_BUF', drive_scale=ceil(sen_load / 8.0))
+            sen_buf = TaperedBuffer('SEN_BUF', effort_based=effort_buffers, drive_scale=ceil(sen_load / sen_effort), load_units=sen_load)
             self.subcircuit(sen_buf)
             self.X('s_en_buf', sen_buf.NAME, 'VDD', 'VSS', 's_en_unbuf', 's_en')
 
@@ -889,12 +896,16 @@ class TIME(BaseSubcircuit):
                           nmos_width=0.36e-6, pmos_width=1.08e-6, length=0.05e-6,
                           num='_sa_iso')
         self.subcircuit(sa_iso_inv)
-        iso_load = 4.0 * self.num_sa
-        if iso_load <= 32:
+        iso_load = 4.0 * self.num_sa if iso_load is None else float(iso_load)
+        self.iso_load = iso_load
+        iso_effort = 3.0 if effort_buffers else 8.0
+        if iso_load <= (16 if effort_buffers else 32):
             self.X('sa_iso_inv', sa_iso_inv.NAME, 'VDD', 'VSS', 'sa_iso_bar', 'sa_iso')
         else:
             self.X('sa_iso_inv', sa_iso_inv.NAME, 'VDD', 'VSS', 'sa_iso_bar', 'sa_iso_unbuf')
-            iso_buf = TaperedBuffer('ISO_BUF', drive_scale=ceil(iso_load / 8.0))
+            iso_buf = TaperedBuffer('ISO_BUF', effort_based=effort_buffers,
+                                    drive_scale=ceil(iso_load / iso_effort), load_units=iso_load,
+                                    fall_strength=2.0 if effort_buffers else 1.0)
             self.subcircuit(iso_buf)
             self.X('sa_iso_buf', iso_buf.NAME, 'VDD', 'VSS', 'sa_iso_unbuf', 'sa_iso')
 
@@ -919,6 +930,16 @@ class TIME(BaseSubcircuit):
         # bitlines costs no dynamic energy (the charge that leaked away had to
         # be replaced by the next pulse anyway); the PSTC window now includes
         # the bitline leakage, which is supplied through the precharge devices.
+        pre_wordline_bar = 'wl_en_bar'
+        if replica_precharge_guard:
+            # With terminal RC, the physical WL outlives wl_en. Observe the
+            # matched replica WL before restoring bitlines. The half-unit
+            # observer keeps its added replica load small.
+            observer = Pinv('NMOS_VTG', 'PMOS_VTG', .045e-6, .135e-6,
+                            length=.05e-6, num='_rwl_precharge')
+            self.subcircuit(observer)
+            self.X('rwl_precharge_guard', observer.NAME, 'VDD', 'VSS', 'rwl', 'rwl_pre_bar')
+            pre_wordline_bar = 'rwl_pre_bar'
         pre_unbuf = PNAND3(nmos_model="NMOS_VTG",
                    pmos_model="PMOS_VTG",
                    nmos_width=0.27e-6,
@@ -929,7 +950,7 @@ class TIME(BaseSubcircuit):
         self.subcircuit(pre_unbuf)
         self.X('pre_unbuf',
             pre_unbuf.NAME,
-            'VDD', 'VSS', 'clk_buf', 'cs', 'wl_en_bar', 'PRE_UNBUF')
+            'VDD', 'VSS', 'clk_buf', 'cs', pre_wordline_bar, 'PRE_UNBUF')
 
         # PRE buffer sized for its load: 3 PMOS gates per precharge cell,
         # num_cols + 1 cells (replica column included), PMOS width scaled with
@@ -938,7 +959,10 @@ class TIME(BaseSubcircuit):
         # fan-out of ~49 per unit (PRE only reached 0.05-0.08 V on the largest
         # arrays and its edge was 120-150 ps).
         pre_scale = max(1, ceil(self.pre_load / 8.0))
-        pre = TaperedBuffer('PRE_BUF', drive_scale=pre_scale)
+        if effort_buffers:
+            # Restore transitions include precharge-gate Miller loading.
+            pre_scale = max(2, ceil(self.pre_load / 4.0))
+        pre = TaperedBuffer('PRE_BUF', effort_based=effort_buffers, drive_scale=pre_scale, load_units=self.pre_load)
         self.subcircuit(pre)
         self.X('pre',
                pre.NAME,

@@ -1,4 +1,8 @@
 import os
+import hashlib
+import json
+from pathlib import Path
+from per_device_mc.netlist import specialize_netlist
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
 # Only for yield analysis
 from utils import (  # type: ignore
@@ -10,7 +14,7 @@ from sram_compiler.testbenches.snm import process_xyce_montecarlo_prn
 from sram_compiler.testbenches.sram_6t_core_testbench import Sram6TCoreTestbench  # type: ignore
 from sram_compiler.config_yaml.sweep_config import SWEEP_CONFIGS
 import numpy as np
-from PySpice.Spice.Netlist import SubCircuitFactory
+from PySpice.Spice.Netlist import Circuit, SubCircuitFactory
 from math import ceil, log2
 
 class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
@@ -21,7 +25,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                  sweep_columnmux=False, sweep_writedriver=False, sweep_decoder=False,
                  corner='TT', choose_columnmux=True, real_cell_mode=0,
                  q_init_val=0, sim_path='sim', enable_waveform=True,
-                 mc_seed=None, xyce_options=None, t_max_step=None, next_row=None):
+                 mc_seed=None, xyce_options=None, t_max_step=None, next_row=None,
+                 driver_sizes=None, timing_config=None, variation_mode=None):
         """
                蒙特卡洛测试平台初始化
                参数:
@@ -60,11 +65,22 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             custom_mc, sweep_cell,sweep_precharge,sweep_senseamp,sweep_wordlinedriver,sweep_columnmux,sweep_writedriver,sweep_decoder,
             corner,choose_columnmux,real_cell_mode,q_init_val,sim_path,
             next_row=next_row,
+            driver_sizes=driver_sizes,
+            timing_config=timing_config,
         )
         self.sram_cell_type=sram_cell_type
         # enable_mc is an alias for mc (backward compatibility with experiment.py)
         if enable_mc is not None:
             mc = enable_mc
+        if variation_mode is None:
+            variation_mode = 'custom' if custom_mc else ('per-device' if mc else 'nominal')
+        if variation_mode not in ('nominal', 'shared', 'custom', 'per-device'):
+            raise ValueError('Unknown variation_mode')
+        if custom_mc != (variation_mode == 'custom'):
+            raise ValueError('custom_mc and variation_mode must agree')
+        self.variation_mode = variation_mode
+        self.variation_summary = {'variation_mode': variation_mode}
+        mc = variation_mode in ('shared', 'per-device')
         self.mc=mc
         self.enable_mc = mc  # backward-compat alias
         self.enable_waveform = enable_waveform
@@ -79,6 +95,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         self.sweep_cell =sweep_cell
         self.sram_config = sram_config
         self.vth_std = vth_std
+        if self.driver_sizes.source == 'table' and variation_mode == 'per-device' and vth_std != .05:
+            raise ValueError('Table-qualified timing requires the recorded 5% local mismatch model')
         self.mc_seed = mc_seed
         self.xyce_options = list(xyce_options) if xyce_options else []
         self.t_max_step = t_max_step
@@ -118,13 +136,37 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         #调用父类里的create_testbench函数
         # Standard MC needs a model lib with variables,
         # otherwise, process parameters are defined by user
-        if not self.mc:
+        if self.variation_mode in ('nominal', 'per-device'):
             pdk_path = getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")
+            pdk_path = Path(pdk_path).expanduser()
+            if not pdk_path.is_absolute():
+                pdk_path = Path(__file__).resolve().parents[2] / pdk_path
+            pdk_path = str(pdk_path.resolve())
             circuit._includes[0] = pdk_path
         else:
             if not self.custom_mc:  #不需要自定义的MC时
                 # Replace original included model lib with new path 替换为包含随机变量的模型文件
                 circuit._includes[0] = self.create_mc_model_file()
+
+        if self.variation_mode == 'per-device':
+            # Specialize before returning the circuit, so direct deck exporters
+            # and run_mc_simulation use exactly the same independent devices.
+            # Instance/node names and width expressions are retained verbatim.
+            source = str(circuit)
+            digest = hashlib.sha256(source.encode() + Path(pdk_path).read_bytes()
+                                    + repr(self.vth_std).encode()).hexdigest()[:16]
+            audit_path = Path(self.sim_path) / f'model_audit_{digest}.csv'
+            deck, self.variation_summary = specialize_netlist(
+                source, base_model_path=Path(pdk_path),
+                model_output_path=Path(self.sim_path) / f'models_per_device_{digest}.spice',
+                audit_path=audit_path,
+                mc_runs=None, vth_std=self.vth_std,
+                deck_base_dir=Path(__file__).resolve().parents[2],
+            )
+            self.variation_summary['audit_file'] = str(audit_path.resolve())
+            specialized = Circuit(circuit.title)
+            specialized.raw_spice = deck.split('\n', 1)[1]
+            circuit = specialized
 
         return circuit
 
@@ -544,6 +586,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
     def add_analysis(self, circuit, operation, num_mc):
         """ Add .DC / .TRAN analysis DC 扫描/瞬态分析"""
+        if self.variation_mode == 'per-device' and any((
+                self.sweep_cell, self.sweep_precharge, self.sweep_senseamp,
+                self.sweep_wordlinedriver, self.sweep_columnmux,
+                self.sweep_writedriver, self.sweep_decoder)):
+            raise ValueError('Local mismatch requires a separate deck per geometry; '
+                             'Xyce 7.4 does not execute the combined .STEP/.SAMPLING grid')
         if 'snm' in operation:
             u_tmp = self.vdd / np.sqrt(2)
             circuit.raw_spice += \
@@ -603,7 +651,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             if not self.mc:
                 circuit.raw_spice += \
                 f'.options samples numsamples={num_mc}\n'
-            elif num_mc > 1:
+            elif num_mc > 1 or self.variation_mode == 'per-device':
                 # Latin-hypercube sampling of the AGAUSS(...) model parameters.
                 # A fixed seed makes the sweep reproducible; without one Xyce
                 # picks a new seed every run (it is printed in the .log).
@@ -878,6 +926,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         
         circuit = self.create_testbench(operation, target_row, target_col)
         simulator = circuit.simulator(
+        simulator='xyce-serial',
         temperature=temperature,           # 通过 **kwargs 传递
         nominal_temperature=27    # 通过 **kwargs 传递
         )
@@ -917,6 +966,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
         with open(tb_path, 'w') as f:
             f.write(str(simulator))
+        with open(tb_path + '.variation.json', 'w') as f:
+            json.dump({**self.variation_summary, 'seed': self.mc_seed, 'samples': mc_runs,
+                       'driver_sizes': self.driver_sizes.to_dict(),
+                       'full_device_coverage': self.variation_mode == 'per-device'
+                                               and self.real_cell_mode == 0}, f, indent=2)
         # assert 0
         # Execute Xyce and parse results
         try:

@@ -56,18 +56,17 @@ class Dummy_Cell(BaseSubcircuit):
             wl_node = self.add_rc_networks_to_node(self.NODES[4], 1)
             # 内部存储节点
             q_node = self.add_rc_networks_to_node('Q', 1)
-            qb_node = self.add_rc_networks_to_node('QB', 1)
+            # The dummy cell fixes QB directly to VDD below. An unused QB RC
+            # branch would be a floating resistor/capacitor island at DC.
         else:
             bl_node, blb_node, wl_node = self.NODES[2], self.NODES[3], self.NODES[4]
-            q_node, qb_node = 'Q', 'QB'
+            q_node = 'Q'
 
         # 如果断开连接 (disconnect=True)，使用独立的内部节点名，避免短路
         if self.disconnect:
             data_q = 'QD'
-            data_qb = 'QBD'
         else:
             data_q = q_node
-            data_qb = qb_node
 
         # 2. 实例化 6个 晶体管
         # Pull-Down (Driver) NMOS

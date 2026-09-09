@@ -1,6 +1,7 @@
 from PySpice.Spice.Netlist import SubCircuitFactory, SubCircuit
 from PySpice.Unit import u_Ohm, u_pF, u_um, u_m
 from .base_subcircuit import BaseSubcircuit
+from math import ceil
 
 class Pinv(BaseSubcircuit):
     """
@@ -11,7 +12,8 @@ class Pinv(BaseSubcircuit):
 
     def __init__(self, nmos_model, pmos_model, 
                  nmos_width, pmos_width, length,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,num=''):
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,num='',
+                 max_finger_width=None):
         
         self.NAME = f"PINV{num}"
         super().__init__(
@@ -24,14 +26,22 @@ class Pinv(BaseSubcircuit):
         self.nmos_width = nmos_width
         self.pmos_width = pmos_width
         self.length = length
+        self.max_finger_width = max_finger_width
         
         self.add_inverter_transistors()
 
     def add_inverter_transistors(self):
+        def fingers(width):
+            if self.max_finger_width is None:
+                return {}
+            # BSIM4 W is total width; NF partitions it into fingers. Keep
+            # RGATEMOD enabled instead of making wide poly gates ideal.
+            count = max(1, ceil(round(float(width) / self.max_finger_width, 12)))
+            return {'raw_spice': f'NF={count}'} if count > 1 else {}
         self.M('pinv_pmos', 'Z', 'A', 'VDD', 'VDD', 
-            model=self.pmos_model, w=self.pmos_width, l=self.length)
+            model=self.pmos_model, w=self.pmos_width, l=self.length, **fingers(self.pmos_width))
         self.M('pinv_nmos', 'Z', 'A', 'VSS', 'VSS', 
-            model=self.nmos_model, w=self.nmos_width, l=self.length)
+            model=self.nmos_model, w=self.nmos_width, l=self.length, **fingers(self.nmos_width))
         
 class PNAND2(BaseSubcircuit):
     """

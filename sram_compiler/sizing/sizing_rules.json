@@ -1,0 +1,21 @@
+{
+  "version": "V2.0.5",
+  "rule_version": "v2.0.5-local-1",
+  "evidence": "DRIVER_SIZING_data.csv",
+  "evidence_revision": "d30a23b plus original V2.0.4 characterisation",
+  "status": "Full-local baseline under re-evaluation; coefficients retained from V2.0.4, not requalified",
+  "local_mismatch": {"scope": "all instantiated MOS", "relative_sigma": 0.05, "parameters": ["vth0", "u0", "voff"], "global_process": "fixed PDK corner"},
+  "wd_floor": {"SRAM_6T_CELL": 1.0, "SRAM_10T_CELL": 1.0},
+  "wd_floor_margin": 1.5,
+  "k_w": 0.0625,
+  "wd_input_floor": 0.5,
+  "wd_input_divisor": 4.0,
+  "pre_min": 0.5,
+  "pre_rows_divisor": 32.0,
+  "wl_inv_cols_divisor": 4.0,
+  "wl_nand_cols_divisor": 15.0,
+  "decoder_divisor": 4.0,
+  "unit_inverter_cap_f": 5e-16,
+  "peripheral_rc_cap_f": 1e-15,
+  "capacitance_basis": "Unit 0.09/0.27 um inverter, L=0.05 um, 1 fF output: input charge 0.554-0.564 fF over SS/125C/0.9V, TT/25C/1V, FF/-40C/1V; 0.5 fF rounds downward for load margin."
+}

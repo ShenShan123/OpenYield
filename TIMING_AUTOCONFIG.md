@@ -1,6 +1,11 @@
 # Automatic timing configuration for all array sizes — proposal (V2.0.3)
 
-Status: proposal with measured basis; not implemented. The numbers come from
+Status: original V2.0.3 proposal with measured basis. V2.0.4 now implements
+measured-phase timing and frozen testbench/table application in
+`sram_compiler/sizing/timing.py`; its full qualification is in progress and tracked
+in `DRIVER_SIZING_PROPOSAL.md`. The historical fits below choose a calibration
+clock only; they are not reused as qualification for the new periphery.
+The numbers come from
 the V2.0.2 sweeps (526 nominal / corner / period runs, see `TIMING_AUTOCONFIG_data.csv`) and from the worst-case PVT characterisation run for this
 proposal (section 3.4). Everything marked *phase 2* is optional follow-up.
 

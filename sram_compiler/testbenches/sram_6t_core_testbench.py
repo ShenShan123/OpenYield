@@ -9,13 +9,17 @@ from sram_compiler.testbenches.parameter_factor import (TIMEFactory,ReplicaColum
 from utils import parse_spice_models  # type: ignore
 from sram_compiler.testbenches.base_testbench import BaseTestbench  # type: ignore
 from math import ceil, log2
+from sram_compiler.sizing import resolve_driver_sizes
+from sram_compiler.sizing.table import physical_context, qualified_timing
+from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Cell
 
 class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自BaseTestbench
     def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
                  w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  custom_mc: bool = False,sweep_cell: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
                  sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,real_cell_mode:int = 0,
-                 q_init_val: int = 0, sim_path: str = '', next_row: int = None
+                 q_init_val: int = 0, sim_path: str = '', next_row: int = None,
+                 driver_sizes=None, timing_config=None
                  ):
         # 保存配置对象引用
         self.sram_config = sram_config  #包含所有子电路参数
@@ -38,6 +42,17 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.heir_delimiter = ':'
         # User defined MC simulation
         self.choose_columnmux=choose_columnmux
+        # Resolve from the baseline once. Optimizer/yield callers can inject the
+        # same immutable result into each candidate's testbench.
+        self.driver_sizes = driver_sizes if driver_sizes is not None else resolve_driver_sizes(
+            sram_config, cell_type=sram_cell_type, mux=choose_columnmux,
+            physical_context=physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode),
+        )
+        self.driver_sizes.validate_for(sram_config, sram_cell_type, choose_columnmux,
+                                       physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode))
+        if self.driver_sizes.source == 'table' and any((sweep_precharge, sweep_senseamp,
+                sweep_wordlinedriver, sweep_columnmux, sweep_writedriver, sweep_decoder)):
+            raise ValueError('Table-qualified periphery is frozen; use rules_only for peripheral sweeps')
         self.corner=corner#选择工艺角
         self.custom_mc = custom_mc  #是否启用mc
         self.sweep_cell = sweep_cell #cell单元是否用参数扫描
@@ -59,36 +74,41 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.next_row = next_row
         # default mux inputs
         self.mux_in = 1
+        self.timing_config = timing_config
+        if timing_config is None and self.driver_sizes.source == 'table':
+            options = global_cfg.sizing
+            table_path = options.get('table') if isinstance(options, dict) else getattr(options, 'table', None)
+            self.timing_config = qualified_timing(
+                self.driver_sizes, table_path,
+                physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode),
+            )
+            if self.timing_config is None:
+                raise ValueError('Qualified timing record is stale or unavailable for this physical context')
+        if self.timing_config is not None:
+            self.timing_config.apply(self)
         #self.set_vdd(5)
 
     def create_time_circuit(self, circuit: Circuit,operation: str):
         """Create time generation circuitry"""
         # Create TIME circuit
         self.operation=operation
-        # Fan-out information for the TIME buffers: s_en drives one sense amp
-        # per mux group, wl_en drives one (column-scaled) wordline-driver NAND2
-        # per row, PRE drives 3 (row-scaled) PMOS gates per column plus the
-        # replica column.
-        mux_in = 2 if self.choose_columnmux else 1
-        pre_pmos_width = (self.sram_config.precharge.pmos_width.value
-                          * PrechargeFactory.width_scale(self.num_rows))
-        # w_en load: per column the write driver's EN inverter and its two
-        # EN-gated NMOS (3 * nmos + pmos, row-scaled) plus the w_en_bar
-        # inverter of the data-hold latches (see create_write_periphery).
-        wd = self.sram_config.write_driver
-        wd_scale = WriteDriverFactory.width_scale(self.num_rows)
-        wen_load = (self.num_cols * (3 * float(wd.nmos_width.value) + float(wd.pmos_width.value))
-                    * wd_scale / 0.36e-6 + 4 * self._wenb_scale())
+        loads = self.driver_sizes.loads
         time_circuit = TIMEFactory(
             nmos_model="NMOS_VTG",
             pmos_model="PMOS_VTG",
             num_rows=self.num_rows,
             num_cols=self.num_cols,
             operation=self.operation,
-            num_sa=max(1, self.num_cols // mux_in),
-            wl_load=self.num_rows * WordlineDriverFactory.nand_scale(self.num_cols),
-            pre_load=(self.num_cols + 1) * 3 * float(pre_pmos_width) / 0.36e-6,
-            wen_load=wen_load,
+            num_sa=loads.num_sa,
+            wl_load=loads.wl_load,
+            pre_load=loads.pre_load,
+            wen_load=loads.wen_load,
+            dc_stages=self.driver_sizes.dc_stages,
+            effort_buffers=self.driver_sizes.effort_buffers,
+            sen_load=loads.sen_load,
+            iso_load=loads.iso_load,
+            replica_precharge_guard=self.driver_sizes.replica_precharge_guard,
+            sen_effort=loads.sen_effort,
         ).create()
         circuit.subcircuit(time_circuit)   # Add to main circuit
         
@@ -120,6 +140,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         
         # Add remaining nodes
         time_connections.extend(['rbl', 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE', 'sa_iso'])
+        if self.driver_sizes.replica_precharge_guard:
+            time_connections.append('RWL')
         
         # Instantiate TIME circuit
         circuit.X(
@@ -205,11 +227,24 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 'length': cell_cfg.length.value,
             }
 
+        if self.driver_sizes.replica_matched:
+            sizes = self.driver_sizes
+            replica_kwargs.update(
+                pd_nmos_model=sizes.replica_nmos_models[0],
+                pg_nmos_model=sizes.replica_nmos_models[1],
+                pu_pmos_model=sizes.replica_pmos_model,
+                pd_width=sizes.replica_nmos_widths[0],
+                pg_width=sizes.replica_nmos_widths[1],
+                pu_width=sizes.replica_pmos_width, length=sizes.replica_length,
+            )
+            if self.sram_cell_type == 'SRAM_10T_CELL':
+                replica_kwargs.update(fd_nmos_model=sizes.replica_nmos_models[2],
+                                      fd_width=sizes.replica_nmos_widths[2])
         replica_column = ReplicaColumnFactory(
             num_rows=self.num_rows,
             num_cols=self.num_cols,
             w_rc=self.w_rc,
-            sweep_replica=self.sweep_cell,
+            sweep_replica=self.sweep_cell and not self.driver_sizes.replica_matched,
             param_model_file=self.sim_path + '/param_sweep_models.data',
             sram_cell_type=self.sram_cell_type,
             **replica_kwargs
@@ -220,8 +255,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # other num_rows cells are pure bitline loads with their wordlines tied off, so a
         # real-row access never discharges RBL in parallel with the replica cell.
         replica_connections = [
-            'VDD', 'VSS', 'RBL', 'RBLB', 'RWL',
-            *[self.gnd_node for _ in range(self.num_rows)]
+            'VDD', 'VSS', 'RBL', 'RBLB',
+            *['RWL' if row < self.driver_sizes.replica_k else self.gnd_node
+              for row in range(self.num_rows + 1)]
         ]
 
         # Instantiate Replica Column circuit
@@ -350,6 +386,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     
     def create_and2_for_rwl(self, circuit: Circuit):
         """Create AND2_FOR_RWL subcircuit and instance for RWL control"""
+        if self.driver_sizes.replica_matched:
+            return self.create_replica_wordline(circuit)
         # Create AND2_FOR_RWL instance
         and2_for_rwl = AND2(
             nmos_model_nand="NMOS_VTG",
@@ -368,6 +406,26 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         )      
         return circuit
 
+    def create_replica_wordline(self, circuit: Circuit):
+        """Use the real row driver and match its baseline pass-gate count."""
+        driver = self._wordline_driver()
+        circuit.subcircuit(driver)
+        circuit.X('RWL', driver.NAME, 'VDD', 'VSS', 'VDD', 'wl_en', 'RWL')
+        sizes = self.driver_sizes
+        if self.num_cols > sizes.replica_k:
+            dummy = Dummy_Cell(
+                sizes.replica_nmos_models[0], sizes.replica_pmos_model,
+                sizes.replica_nmos_models[1], sizes.replica_nmos_widths[0],
+                sizes.replica_pmos_width, sizes.replica_nmos_widths[1],
+                sizes.replica_length, w_rc=self.w_rc,
+            )
+            circuit.subcircuit(dummy)
+            # The K active replica cells already contribute K access-gate pairs.
+            # Dummy_Cell keeps its bitline drains disconnected internally.
+            for col in range(self.num_cols - sizes.replica_k):
+                circuit.X(f'RWL_LOAD_{col}', dummy.NAME, 'VDD', 'VSS', 'VDD', 'VDD', 'RWL')
+        return circuit
+
     def create_decoder(self, circuit: Circuit):
         decoder_config = self.sram_config.decoder    #从总config类里提取decoder部分参数
         decoder = DecoderCascadeFactory(
@@ -383,6 +441,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             length=decoder_config.length.value,
             w_rc=False,  # default `w_rc` is False,暂时不支持
             sweep_decoder=self.sweep_decoder,
+            output_scale=self.driver_sizes.dec_inv,
             pmos_choices = self.sram_config.senseamp.pmos_model.choices,
             nmos_choices = self.sram_config.senseamp.nmos_model.choices,
             param_model_file =self.sim_path + '/param_sweep_models.data',
@@ -422,10 +481,10 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
 
         return circuit
     
-    def create_wl_driver(self, circuit: Circuit, target_row: int):  #创造字线驱动电路函数
-        """Create wordline driver for the target/standby row"""
+    def _wordline_driver(self):
+        """Build the common real/replica wordline driver definition."""
         wl_config = self.sram_config.wordline_driver    #从总config类里提取wordline部分参数
-        wldrv = WordlineDriverFactory(
+        return WordlineDriverFactory(
             nmos_model=wl_config.nmos_model.value[0],
             pmos_model=wl_config.pmos_model.value[0],
             nand_pmos_width=wl_config.pmos_width.value[0],
@@ -436,10 +495,16 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             num_cols=self.num_cols,
             w_rc=self.w_rc,  
             sweep_wordlinedriver = self.sweep_wordlinrdriver,
+            inverter_scale=self.driver_sizes.wl_inv,
+            nand_gate_scale=self.driver_sizes.wl_nand,
             pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
             nmos_modle_choices = self.sram_config.senseamp.nmos_model.choices,
             param_model_file =self.sim_path + '/param_sweep_models.data',
         ).create()
+
+    def create_wl_driver(self, circuit: Circuit, target_row: int):  #创造字线驱动电路函数
+        """Create wordline driver for the target/standby row"""
+        wldrv = self._wordline_driver()
         circuit.subcircuit(wldrv)   #添加到主电路
 
         # Wordline control & drivers
@@ -488,6 +553,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             w_rc=self.w_rc, 
             num_rows=self.num_rows,
             sweep_precharge = self.sweep_precharge,
+            scale=self.driver_sizes.pre,
             pmos_modle_choices = self.sram_config.precharge.pmos_model.choices,
             param_model_file =self.sim_path + '/param_sweep_models.data',
         ).create()
@@ -612,7 +678,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     def _wenb_scale(self):
         """Width scale of the w_en_bar inverter: 2 NAND2 inputs (0.45 um) per
         column on a 0.36 um unit inverter, fan-out <= 8."""
-        return max(1, ceil(2 * 0.45 * self.num_cols / 0.36 / 8.0))
+        return self.driver_sizes.loads.wenb_scale
 
     def create_write_periphery(self, circuit: Circuit, operation: str = 'write'):#创造写外围电路
         """Create write periphery circuitry, writing `1`s into a row,写驱动"""
@@ -625,6 +691,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             w_rc=self.w_rc, 
             num_rows=self.num_rows,
             sweep_writedriver = self.sweep_writedriver,
+            scale=self.driver_sizes.wd_in,
+            out_scale=self.driver_sizes.wd_out,
             pmos_modle_choices = self.sram_config.write_driver.pmos_model.choices,
             nmos_modle_choices = self.sram_config.write_driver.nmos_model.choices,
             param_model_file =self.sim_path + '/param_sweep_models.data',
@@ -633,6 +701,21 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         circuit.subcircuit(write_drv)   #添加写驱动子电路实例到主电路
         self.wdrv_inst_name = write_drv.name
         self.wdrv_inst_prefix = f"X{write_drv.name}"
+
+        if self.driver_sizes.canonical_read:
+            # The replica bitline must see the same disabled output-stack drain
+            # load as a real bitline, including on large row-scaled drivers.
+            circuit.X('REPLICA_WDRV_LOAD', write_drv.name,
+                      self.power_node, self.gnd_node, self.gnd_node, self.gnd_node,
+                      'RBL', 'RBLB')
+
+        if operation == 'read':
+            # Keep disabled output stacks on both bitlines during read accesses.
+            for col in range(self.num_cols):
+                circuit.X(f'{write_drv.name}_{col}', write_drv.name,
+                          self.power_node, self.gnd_node, 'w_en', self.gnd_node,
+                          f'BL{col}', f'BLB{col}')
+            return circuit
 
         # Write-data hold latch.  w_en spans the whole clock-low phase and is
         # released ~150-300 ps after the rising clock edge that ends the cycle,
@@ -894,6 +977,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         target_row: Row index of the target cell
         target_col: Column index of the target cell
         """
+        self.driver_sizes.validate_for(self.sram_config, self.sram_cell_type, self.choose_columnmux,
+                                       physical_context(self.w_rc, float(self.pi_res), float(self.pi_cap), self.real_cell_mode))
         self.target_row = target_row if target_row < self.num_rows else self.num_rows - 1
         self.target_col = target_col if target_col < self.num_cols else self.num_cols - 1
         # Column-mux fan-in (fixed to 2 in create_read_periphery); needed before any
@@ -1072,6 +1157,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             self.create_write_periphery(circuit)
         elif operation == 'read&write':
             self.create_write_periphery(circuit, operation)
+        elif self.driver_sizes.canonical_read:
+            self.create_write_periphery(circuit, 'read')
 
         # Create the output D latch.  It captures SA_Q, which only exists when a read
         # periphery is present; for a pure write its input would be a floating node.

@@ -6,6 +6,14 @@ The circuit generator models parasitic capacitance/resistance, leakage coupling,
 
 The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
 
+V2.0.5 makes fixed global corners plus independent local mismatch the default
+throughout the read/write array and periphery, and re-evaluates the V2.0.4 frozen
+driver sizing and measured clock rules. Qualification is in progress. See the
+[sizing guide](sram_compiler/sizing/README.md) and
+[implementation/qualification status](DRIVER_SIZING_PROPOSAL.md). The default
+`fixed` mode preserves legacy sizing; `rules_only` and `auto` are explicit opt-ins.
+Historical offline optimizer datasets do not qualify the new peripheral rules.
+
 ## Key Features
 
 * **Xyce Integration:** Utilizes the Xyce parallel circuit simulator for transistor-level simulations.

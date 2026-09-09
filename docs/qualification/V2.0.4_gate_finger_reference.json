@@ -1,0 +1,46 @@
+{
+  "version": "V2.0.4",
+  "passed": true,
+  "corner": "TT",
+  "temperature": 27,
+  "nmos_total_width_m": 6.156e-05,
+  "pmos_total_width_m": 9.234e-05,
+  "length_m": 5e-08,
+  "transient_load_f": 5.5e-13,
+  "dc_vgs_v": 1.0,
+  "dc_vds_v": 0.5,
+  "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+  "xyce_binary_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+  "source": "https://github.com/Xyce/Xyce/blob/master/src/DeviceModelPKG/OpenModels/N_DEV_MOSFET_B4p82.C",
+  "transient": [
+    {
+      "nf": 1,
+      "FALL_EDGE": 4.365053e-11,
+      "RISE_EDGE": 4.153286e-11
+    },
+    {
+      "nf": 16,
+      "FALL_EDGE": 1.354319e-11,
+      "RISE_EDGE": 1.427829e-11
+    },
+    {
+      "nf": 100,
+      "FALL_EDGE": 1.359831e-11,
+      "RISE_EDGE": 1.42785e-11
+    }
+  ],
+  "dc": [
+    {
+      "nf": 1,
+      "I_ON": -0.05355146
+    },
+    {
+      "nf": 16,
+      "I_ON": -0.05346544
+    },
+    {
+      "nf": 100,
+      "I_ON": -0.05295779
+    }
+  ]
+}

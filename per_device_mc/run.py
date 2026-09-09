@@ -20,7 +20,6 @@ if str(PROJECT_ROOT) not in sys.path:
 from PySpice.Unit import u_Ohm, u_pF  # type: ignore  # noqa: E402
 
 from config import SRAM_CONFIG  # type: ignore  # noqa: E402
-from per_device_mc.netlist import specialize_netlist  # noqa: E402
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import (  # type: ignore  # noqa: E402
     Sram6TCoreMcTestbench,
 )
@@ -255,6 +254,8 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         vth_std=args.vth_std,
         mc=is_shared,
         custom_mc=is_custom,
+        variation_mode=args.variation_mode,
+        mc_seed=args.seed,
         sweep_cell=False,
         sweep_precharge=False,
         sweep_senseamp=False,
@@ -271,7 +272,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
     )
     circuit = testbench.create_testbench(args.operation, target_row, target_col)
     temperature = config.global_config.temperature
-    simulator = circuit.simulator(temperature=temperature, nominal_temperature=27)
+    simulator = circuit.simulator(simulator='xyce-serial', temperature=temperature, nominal_temperature=27)
     testbench.add_analysis(simulator.circuit, args.operation, sample_count)
     testbench.add_meas_and_print(simulator, testbench.data_init(), args.operation)
     if is_custom:
@@ -293,21 +294,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
             + "\n"
         )
     deck_path = run_dir / "deck.sp"
-    variation_summary: dict[str, Any] = {}
-
-    if args.variation_mode == "per-device":
-        model_path = run_dir / "models_per_device.spice"
-        audit_path = run_dir / "model_audit.csv" if args.audit else None
-        base_model_path = Path(getattr(config.global_config, f"pdk_path_{args.corner}"))
-        deck_text, variation_summary = specialize_netlist(
-            deck_text,
-            base_model_path=base_model_path,
-            model_output_path=model_path,
-            mc_runs=mc_runs,
-            vth_std=args.vth_std,
-            deck_base_dir=PROJECT_ROOT,
-            audit_path=audit_path,
-        )
+    variation_summary = testbench.variation_summary
 
     deck_path.write_text(deck_text, encoding="utf-8")
     summary = {
@@ -323,6 +310,9 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         "mc_runs": mc_runs,
         "corner": args.corner,
         "cell_type": cell_type,
+        "full_device_coverage": args.real_cell_mode == 0 and args.variation_mode == "per-device",
+        "seed": args.seed,
+        "driver_sizes": testbench.driver_sizes.to_dict(),
         **variation_summary,
     }
     return deck_path, summary
@@ -369,7 +359,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-row", type=int)
     parser.add_argument("--target-col", type=int)
     parser.add_argument("--operation", choices=OPERATIONS, default="read")
-    parser.add_argument("--real-cell-mode", type=int, choices=range(5), default=1)
+    parser.add_argument("--real-cell-mode", type=int, choices=range(5), default=0)
     parser.add_argument(
         "--variation-mode", choices=VARIATION_MODES, default="per-device"
     )

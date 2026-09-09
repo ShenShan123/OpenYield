@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -96,11 +97,7 @@ def write_spice_models(models: dict[str, dict[str, Any]], path: Path) -> None:
                 if index % 4 == 0:
                     stream.write("\n+")
                 if isinstance(value, float):
-                    value_text = (
-                        f"{value:.3e}"
-                        if abs(value) < 1e-3 or abs(value) > 1e6
-                        else str(value)
-                    )
+                    value_text = repr(value)
                 else:
                     value_text = str(value)
                 stream.write(f"{name:>12} = {value_text:<26}")
@@ -208,9 +205,10 @@ class PerDeviceSpecializer:
         params = dict(source["parameters"])
         for param in MC_PARAMS:
             value = params.get(param)
-            if isinstance(value, (int, float)):
-                sigma = abs(float(value)) * self.vth_std
-                params[param] = f"{{AGAUSS({value}, {sigma:.5g}, 1)}}"
+            if not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise SpiceParseError(f'Model {base_model} lacks numeric {param}')
+            sigma = abs(float(value)) * self.vth_std
+            params[param] = f"{{AGAUSS({value}, {sigma!r}, 1)}}"
         self.model_clones[new_name] = {
             "name": new_name,
             "type": source["type"],
@@ -244,7 +242,7 @@ class PerDeviceSpecializer:
                 break
         target = self._lookup_subckt(scope, parts[target_index])
         if target is None:
-            return line, None
+            raise SpiceParseError(f"Cannot audit unresolved subcircuit: {line}")
         specialized = self._specialize_subckt(target, f"{hier_path}/{parts[0]}")
         parts[target_index] = specialized.name
         return " ".join(parts), specialized
@@ -312,7 +310,7 @@ def _patch_deck(
     base_model_path: Path,
     model_output_path: Path,
     deck_base_dir: Path,
-    mc_runs: int,
+    mc_runs: int | None,
 ) -> list[str]:
     patched: list[str] = []
     include_replaced = False
@@ -339,10 +337,11 @@ def _patch_deck(
         (index for index, line in enumerate(patched) if line.strip()), -1
     )
     insert_at = title_index + 1
-    patched[insert_at:insert_at] = [
-        ".SAMPLING useExpr=true",
-        f".options samples numsamples={mc_runs}",
-    ]
+    if mc_runs is not None:
+        patched[insert_at:insert_at] = [
+            ".SAMPLING useExpr=true",
+            f".options samples numsamples={mc_runs}",
+        ]
     return patched
 
 
@@ -369,16 +368,16 @@ def specialize_netlist(
     *,
     base_model_path: Path,
     model_output_path: Path,
-    mc_runs: int,
+    mc_runs: int | None,
     vth_std: float,
     deck_base_dir: Path | None = None,
     audit_path: Path | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    """Return a per-device MC deck and write its independent model cards."""
-    if mc_runs <= 0:
+    """Specialize every instantiated MOS; None defers sampling to the caller."""
+    if mc_runs is not None and mc_runs <= 0:
         raise ValueError("mc_runs must be positive")
-    if vth_std < 0:
-        raise ValueError("vth_std must be non-negative")
+    if not math.isfinite(vth_std) or vth_std < 0:
+        raise ValueError("vth_std must be finite and non-negative")
 
     base_model_path = base_model_path.expanduser().resolve()
     if not base_model_path.is_file():
@@ -406,11 +405,17 @@ def specialize_netlist(
     for item in specializer.audit:
         by_base_model[item.base_model] = by_base_model.get(item.base_model, 0) + 1
     summary = {
+        "variation_mode": "per-device",
+        "scope": "every instantiated MOS; NF fingers share one draw",
+        "parameters": list(MC_PARAMS),
+        "distribution": "independent Gaussian, relative sigma; no area scaling",
+        "base_model_sha256": hashlib.sha256(base_model_path.read_bytes()).hexdigest(),
         "base_model_file": str(base_model_path),
         "mc_model_file": str(model_output_path),
-        "mc_runs": mc_runs,
         "vth_std": vth_std,
         "unique_mc_models": len(specializer.audit),
         "by_base_model": by_base_model,
     }
+    if mc_runs is not None:
+        summary['mc_runs'] = mc_runs
     return "\n".join(output_lines) + "\n", summary

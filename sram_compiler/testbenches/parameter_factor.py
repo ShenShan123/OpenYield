@@ -166,12 +166,13 @@ class PrechargeFactory:
                 pmos_model, pmos_width=0.27e-6, length=50e-9, num_rows=16,
                 w_rc=False, 
                 sweep_precharge=False, 
-                pmos_modle_choices=None, param_model_file=None):
+                pmos_modle_choices=None, param_model_file=None, scale=None):
         
         self.pmos_model = pmos_model
         self.pmos_width = pmos_width
         self.length = length
         self.num_rows = num_rows
+        self.scale = self.width_scale(num_rows) if scale is None else scale
         self.w_rc = w_rc
         self.sweep = sweep_precharge
         if self.sweep:
@@ -187,13 +188,13 @@ class PrechargeFactory:
     def _calculate_dynamic_width(self):
         #The width of the transistor needs to 
         #be dynamically adjusted according to the number of rows.
-        return self.pmos_width * self.width_scale(self.num_rows)
+        return self.pmos_width * self.scale
 
     def _get_config(self):
         
         if self.sweep:
             # --- sweep model ---# Change to string variable name
-            pmos_width = 'pmos_width_precharge'
+            pmos_width = f'{{pmos_width_precharge*{self.scale}}}'
             length = 'length_precharge'
             pmos_model = self.pmos_choices[int(self.mos_model_index['pmos'])]
         else:
@@ -218,7 +219,8 @@ class WriteDriverFactory:
                  length=50e-9, num_rows=16,
                  w_rc=False, 
                  sweep_writedriver=False,
-                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None
+                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None,
+                 scale=None, out_scale=None
                 ):
         
         self.nmos_model = nmos_model
@@ -227,6 +229,8 @@ class WriteDriverFactory:
         self.pmos_width = pmos_width
         self.length = length
         self.num_rows = num_rows
+        self.scale = self.width_scale(num_rows) if scale is None else scale
+        self.out_scale = self.scale if out_scale is None else out_scale
         
         self.w_rc = w_rc
         self.sweep = sweep_writedriver
@@ -244,13 +248,15 @@ class WriteDriverFactory:
     def _calculate_dynamic_width(self, base_width):
         """Dynamically adjust the transistor width based on the number of rows.
         This is a simple linear scaling; you might need a more complex function."""
-        return base_width * self.width_scale(self.num_rows)
+        return base_width * self.scale
 
     def _get_config(self):
         if self.sweep:
             # --- sweep model ---
-            nmos_width = 'nmos_width_wrd'
-            pmos_width = 'pmos_width_wrd'
+            nmos_width = f'{{nmos_width_wrd*{self.scale}}}'
+            pmos_width = f'{{pmos_width_wrd*{self.scale}}}'
+            out_nmos_width = f'{{nmos_width_wrd*{self.out_scale}}}'
+            out_pmos_width = f'{{pmos_width_wrd*{self.out_scale}}}'
             length = 'length_wrd'
             nmos_model = self.nmos_choices[int(self.mos_model_index['nmos'])]
             pmos_model = self.pmos_choices[int(self.mos_model_index['pmos'])]
@@ -258,6 +264,8 @@ class WriteDriverFactory:
             # --- yaml model ---
             nmos_width = self._calculate_dynamic_width(self.nmos_width)
             pmos_width = self._calculate_dynamic_width(self.pmos_width)
+            out_nmos_width = self.nmos_width * self.out_scale
+            out_pmos_width = self.pmos_width * self.out_scale
             length = self.length
             nmos_model = self.nmos_model
             pmos_model = self.pmos_model
@@ -267,6 +275,8 @@ class WriteDriverFactory:
             "pmos_model": pmos_model,
             "nmos_width": nmos_width,
             "pmos_width": pmos_width,
+            "out_nmos_width": out_nmos_width,
+            "out_pmos_width": out_pmos_width,
             "length": length,
             "w_rc": self.w_rc,
         }
@@ -291,7 +301,8 @@ class WordlineDriverFactory:
                  num_cols=16,  # Load parameter
                  w_rc=False, 
                  sweep_wordlinedriver=False,
-                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None
+                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None,
+                 inverter_scale=None, nand_gate_scale=None
                  ):
         
         self.nmos_model = nmos_model
@@ -303,6 +314,8 @@ class WordlineDriverFactory:
         self.inv_base_pmos_width = inv_pmos_width  
         self.length = length
         self.num_cols = num_cols
+        self.inverter_scale = self.inv_scale(num_cols) if inverter_scale is None else inverter_scale
+        self.nand_gate_scale = self.nand_scale(num_cols) if nand_gate_scale is None else nand_gate_scale
         
         self.w_rc = w_rc
         self.sweep = sweep_wordlinedriver
@@ -332,11 +345,11 @@ class WordlineDriverFactory:
         """
         Calculate dynamic width for the output inverter based on column load.
         """
-        scale = self.inv_scale(self.num_cols)
+        scale = self.inverter_scale
         return (self.inv_base_nmos_width * scale, self.inv_base_pmos_width * scale)
 
     def _calculate_nand_width(self):
-        scale = self.nand_scale(self.num_cols)
+        scale = self.nand_gate_scale
         return (self.nand_nmos_width * scale, self.nand_pmos_width * scale)
 
     def _get_config(self):
@@ -348,10 +361,10 @@ class WordlineDriverFactory:
             # Use string parameter names for SPICE netlist
             # Keep the same column-load scaling as the fixed-value mode, as a SPICE
             # expression on the swept parameter.
-            nscale = self.nand_scale(self.num_cols)
+            nscale = self.nand_gate_scale
             nand_nmos_width = f'{{nmos_width_wld_nandn*{nscale}}}'
             nand_pmos_width = f'{{pmos_width_wld_nandp*{nscale}}}'
-            scale = self.inv_scale(self.num_cols)
+            scale = self.inverter_scale
             inv_nmos_width = f'{{nmos_width_wld_invn*{scale}}}'
             inv_pmos_width = f'{{pmos_width_wld_invp*{scale}}}'
             length = 'length_wld'
@@ -634,10 +647,11 @@ class DecoderCascadeFactory:
                  # --- Sweep 模式专用 ---
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
-                 param_model_file=None
+                 param_model_file=None, output_scale=1.0
                  ):
         
         self.num_rows = num_rows
+        self.output_scale = output_scale
         self.nmos_model_inv = nmos_model_inv
         self.pmos_model_inv = pmos_model_inv
         self.nmos_model_nand = nmos_model_nand
@@ -714,7 +728,8 @@ class DecoderCascadeFactory:
             'pmos_model_inv': pmos_model_inv,
             'nmos_model_nand': nmos_model_nand,
             'pmos_model_nand': pmos_model_nand,
-            'w_rc': self.w_rc
+            'w_rc': self.w_rc,
+            'output_scale': self.output_scale,
         }
 
     def create(self):
@@ -927,6 +942,10 @@ class TIMEFactory:
                  length=0.05e-6, num_rows=16, num_cols=8,
                  w_rc=False, operation='read',
                  num_sa=None, wl_load=None, pre_load=None, wen_load=None,
+                 dc_stages=9, effort_buffers=False,
+                 sen_load=None, iso_load=None,
+                 replica_precharge_guard=False,
+                 sen_effort=None,
                  ):
 
         self.nmos_model = nmos_model
@@ -943,6 +962,12 @@ class TIMEFactory:
         self.wl_load = wl_load
         self.pre_load = pre_load
         self.wen_load = wen_load
+        self.dc_stages = dc_stages
+        self.effort_buffers = effort_buffers
+        self.sen_load = sen_load
+        self.iso_load = iso_load
+        self.replica_precharge_guard = replica_precharge_guard
+        self.sen_effort = sen_effort
     def create(self):
         return TIME(
             nmos_model=self.nmos_model,
@@ -958,6 +983,12 @@ class TIMEFactory:
             wl_load=self.wl_load,
             pre_load=self.pre_load,
             wen_load=self.wen_load,
+            dc_stages=self.dc_stages,
+            effort_buffers=self.effort_buffers,
+            sen_load=self.sen_load,
+            iso_load=self.iso_load,
+            replica_precharge_guard=self.replica_precharge_guard,
+            sen_effort=self.sen_effort,
         )
     
 class Sram10TCellFactory:

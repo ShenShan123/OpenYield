@@ -7,6 +7,93 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.0.5 — 2026-09-08 — full local mismatch and driver re-evaluation
+
+In progress; no release qualification is claimed. The full working plan remains
+in `DRIVER_SIZING_PROPOSAL.md`.
+
+- The MC testbench defaults to independent per-MOS `vth0`, `u0`, and `voff`
+  mismatch at a fixed global corner. Nominal and shared-card variation are
+  explicit alternatives; the per-device CLI defaults to full transistor arrays.
+- Canonical specialization preserves connectivity, widths, sweep expressions
+  and `NF`, with immutable model artifacts and per-device CSV audits. Combined
+  local sampling and legacy `.STEP` sweeps fail explicitly after a Xyce check
+  showed that only the first geometry was executed.
+- All five corners now have local read and write checks. Dedicated write-tail
+  ensembles, fast-corner hazards, separate diagnostic screening, execution
+  provenance and stricter qualification/report gates are included.
+- The finalized 8x4 pilot passes all 12 nominal calibration decks and 120 local
+  waveform samples for 6T/10T and mux on/off. Coefficients remain provisional.
+- The three-sample representative-array screen (8x4, 16x16, 64x64, 256x8,
+  16x256; both cells; mux on/off; 16x16 with RC) completed: 759 local samples
+  scored, 723 pass every check, 36 fail only the wordline-phase budget on the
+  16x16 explicit-RC reads (the reads themselves are functional; the wordline
+  rule has no RC term). 28 four-rank cases and the 10T 64x64 / 16x256
+  calibrations timed out at 1,800 s on a shared host, and three materialized
+  MPI samples failed the DC operating point; these are unscored, not failed.
+  See the Stage C outcome in `DRIVER_SIZING_PROPOSAL.md`.
+- Review fixes: the optimizer objective (`exp_utils.evaluate_sram`) requests
+  the nominal corner explicitly instead of inheriting one unseeded per-device
+  sample; `local_review` records calibration execution errors instead of
+  labelling them waveform failures. Twenty fixed-mode decks are byte-identical
+  to the previous release; default-mode 8x4 Xyce runs and the per-device CLI
+  pass.
+- Large-array runs use MPI cores with saved numeric local LHS model cards,
+  bypassing a reproduced Xyce 7.4 MPI random-expression initialization crash.
+  Four-core read/write checks pass; a 64x64 full-device waveform check passes
+  in 854 seconds. MPI/serial timing and power measures match for an identical
+  small-array sample. Worker/rank budgets and timeout cleanup are explicit.
+
+## V2.0.4 — 2026-09-07 — baseline driver sizing and measured timing
+
+Qualification is in progress. The full working proposal and completed/open
+checklist are in `DRIVER_SIZING_PROPOSAL.md`; its original text and supplied
+characterisation CSV are preserved.
+
+### Changes
+
+- Added immutable baseline driver sizing with separate write-input/output
+  scales, load-based precharge and wordline rules, configurable replica K/N,
+  decoder output scaling, and exact baseline/physical-context table lookup.
+  `fixed` remains the default; `rules_only` and unmatched `auto` results are
+  explicitly unverified.
+- Matched real and replica wordline drivers and gate loads, froze replica
+  devices across cell candidates, and included disabled write-stack loading
+  on real and replica bitlines in canonical read decks.
+- Corrected control-buffer loading and tapering. Wide inverter gates use
+  BSIM4 `NF` with at most 2 um per finger, preserving total width and the PDK
+  gate-resistance model. This closes measured wide-array control-edge failures.
+- Included explicit RC enable-pin loads, removed a floating dummy-cell RC
+  branch, and delayed RC precharge until the matched physical wordline is low.
+- Added measured clock derivation from SS read and SS/SF write phases, with
+  25% margin and upward 50 ps quantisation. The period remains frozen during
+  candidate and variation evaluation.
+- Added resumable Xyce qualification, waveform/phase checks, shared and local
+  mismatch cases, eight-cycle read/write sequences, SA offset ensembles, and
+  evidence-bound report/table export. Failed or incomplete evidence cannot
+  produce qualified table records.
+- Integrated baseline reuse and resolved-width area estimates into the
+  optimizer adapter, corrected its actual array geometry, and report original
+  access-limit violations. Per-device MC records sizing provenance; both
+  simulation entry paths select Xyce explicitly.
+- Added `AGENTS.md`, sizing documentation, and focused regression coverage.
+
+### Qualification and remaining work
+
+- The full campaign covers 112 physical configurations: both cell types,
+  27 historical sizes and valid mux choices, RC sensitivity, and 32x1 optimizer
+  cases. It schedules 1,786 decks and 6,538 waveform samples. Completion and
+  table promotion are pending; see the proposal for current status.
+- Folded-driver 16x256 and 16x512 TT read pilots pass all waveform checks.
+  Independent gate-charge/fingering evidence is in `docs/qualification/`.
+- Four 100-copy SA/latch offset ensembles pass at SS and cold FF, including
+  mid-common-mode and precharged-bitline input profiles. Full local sensing
+  qualification awaits the replica/cell ensembles.
+- Original 200 ps read / 100 ps write constraints remain separate from phase
+  qualification; default K=1/N=9 does not claim compliance with the read limit.
+  Peripheral sweep ranges, equivalent-cell approximations, and the obsolete
+  rare-event `main_estimation.py` backend/API migration remain open.
+
 ## V2.0.3 — 2026-09-06 — changelog compacted, automatic timing configuration proposed
 
 Scope: documentation and characterisation only. No compiler, testbench or

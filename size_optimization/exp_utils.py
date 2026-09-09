@@ -20,6 +20,8 @@ import csv
 import json
 import traceback
 import yaml
+import hashlib
+from functools import lru_cache
 from pathlib import Path
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -31,6 +33,8 @@ from config import SRAM_CONFIG
 # 导入SRAM仿真模块
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from sram_compiler.sizing import resolve_driver_sizes
+from sram_compiler.sizing.table import physical_context
 from utils import estimate_bitcell_area, estimate_total_area, estimate_array_area, estimate_scaled_array_area
 
 
@@ -220,7 +224,7 @@ def get_composite_initial_params():
     return bc
 
 
-def estimate_scaled_total_area(params, num_rows=32, num_cols=1, num_arrays=1):
+def estimate_scaled_total_area(params, num_rows=32, num_cols=1, num_arrays=1, driver_sizes=None):
     """Pitch-scaling area model: 列/行间距随 bitcell 尺寸缩放，外围电路随 SA/WLD/Precharge 宽度缩放。返回 m²。"""
     sa_max_w  = max(params.get("sa_p_width", 0.54e-6),
                     params.get("sa_n_width", 0.27e-6))
@@ -229,6 +233,10 @@ def estimate_scaled_total_area(params, num_rows=32, num_cols=1, num_arrays=1):
                     params.get("wld_nand_n_width", 0.18e-6),
                     params.get("wld_inv_n_width",  0.09e-6))
     prc_max_w = params.get("prc_p_width", 0.27e-6)
+    if driver_sizes is not None:
+        wld_max_w = driver_sizes.area_wordline_width
+        prc_max_w = driver_sizes.area_precharge_width
+        sa_max_w = driver_sizes.area_senseamp_width
     return estimate_scaled_array_area(
         num_rows, num_cols, num_arrays,
         w_access=params["pg_width"],
@@ -1053,7 +1061,25 @@ def collect_peripheral_param_columns(params):
     return fieldnames, row_dict
 
 
-def evaluate_sram(params, timeout=120):
+@lru_cache(maxsize=64)
+def _baseline_sizes(rows, cols, mux, w_rc, configuration_stamp):
+    """Cache a baseline before any candidate is applied; never run sizing SPICE here."""
+    cfg = _load_sram_config_from_yaml()
+    cfg.global_config.num_rows, cfg.global_config.num_cols = rows, cols
+    return resolve_driver_sizes(cfg, mux=mux, physical_context=physical_context(w_rc))
+
+
+def _configuration_stamp():
+    root = Path(__file__).resolve().parents[1]
+    digest = hashlib.sha256()
+    for path in sorted((root / 'sram_compiler/config_yaml').glob('*.yaml')):
+        digest.update(path.read_bytes())
+    for path in sorted((root / 'tran_models').glob('*.spice')):
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def evaluate_sram(params, timeout=120, driver_sizes=None, timing_config=None):
     """
     Execute SRAM evaluation with given parameters
     使用给定参数执行SRAM评估
@@ -1065,7 +1091,15 @@ def evaluate_sram(params, timeout=120):
     sram_config = SRAM_CONFIG()
     sram_config.load_all_configs(global_file=os.path.join(project_root, "sram_compiler/config_yaml/global.yaml"), circuit_configs={"SRAM_6T_CELL": os.path.join(project_root, "sram_compiler/config_yaml/sram_6t_cell.yaml"), "WORDLINEDRIVER": os.path.join(project_root, "sram_compiler/config_yaml/wordline_driver.yaml"), "PRECHARGE": os.path.join(project_root, "sram_compiler/config_yaml/precharge.yaml"), "COLUMNMUX": os.path.join(project_root, "sram_compiler/config_yaml/mux.yaml"), "SENSEAMP": os.path.join(project_root, "sram_compiler/config_yaml/sa.yaml"), "WRITEDRIVER": os.path.join(project_root, "sram_compiler/config_yaml/write_driver.yaml"), "DECODER": os.path.join(project_root, "sram_compiler/config_yaml/decoder.yaml")})
 
-    # Apply peripheral params if present
+    num_rows, num_cols = int(params.get('num_rows', 32)), int(params.get('num_cols', 1))
+    choose_mux = bool(params.get('choose_columnmux', False))
+    sram_config.global_config.num_rows = num_rows
+    sram_config.global_config.num_cols = num_cols
+    sizing_mode = sram_config.global_config.sizing.get('mode', 'fixed')
+    w_rc = bool(params.get('w_rc', sizing_mode == 'fixed'))
+    if driver_sizes is None and sizing_mode != 'fixed':
+        driver_sizes = _baseline_sizes(num_rows, num_cols, choose_mux, w_rc, _configuration_stamp())
+    # Apply candidate values only after the baseline has been frozen.
     apply_params_to_sram_config(sram_config, params)
 
     try:
@@ -1077,12 +1111,14 @@ def evaluate_sram(params, timeout=120):
         # 设置仿真参数
         vdd = 1.0
         pdk_path = os.path.join(project_root, "tran_models/models_TT.spice")
-        num_rows = 32
-        num_cols = 1
         num_mc = 1
         temperature = sram_config.global_config.temperature
 
-        area = estimate_scaled_total_area(params, num_rows=num_rows, num_cols=num_cols, num_arrays=1)
+        if driver_sizes is None:
+            driver_sizes = resolve_driver_sizes(sram_config, mux=choose_mux,
+                                                physical_context=physical_context(w_rc))
+        area = estimate_scaled_total_area(params, num_rows=num_rows, num_cols=num_cols,
+                                          num_arrays=1, driver_sizes=driver_sizes)
         print(f"Estimated 6T SRAM cell area: {area*1e12:.2f} µm²")
         print(f"估算的6T SRAM单元面积: {area*1e12:.2f} µm²")
 
@@ -1090,11 +1126,14 @@ def evaluate_sram(params, timeout=120):
         mc_testbench = Sram6TCoreMcTestbench(
             sram_config,
             sram_cell_type="SRAM_6T_CELL",
-            w_rc=True,  # Whether add RC to nets
+            w_rc=w_rc,
             pi_res=100 @ u_Ohm,
             pi_cap=0.001 @ u_pF,
             vth_std=0.05,  # Process parameter variation is a percentage of its value in model lib
             custom_mc=False,  # Use your own process params?
+            # num_mc = 1: the objective must be deterministic. The MC testbench now
+            # defaults to per-device mismatch, where one unseeded sample is random.
+            variation_mode='nominal',
             sweep_cell=False,        # 优化时参数由 sram_config 直接设置，无需 sweep
             sweep_precharge=False,
             sweep_senseamp=False,
@@ -1103,6 +1142,9 @@ def evaluate_sram(params, timeout=120):
             sweep_writedriver=False,
             sweep_decoder=False,
             corner="TT",  # or FF or SS or FS or SF
+            choose_columnmux=choose_mux,
+            driver_sizes=driver_sizes,
+            timing_config=timing_config,
             q_init_val=0,
             sim_path="sim",
         )
@@ -1177,8 +1219,12 @@ def evaluate_sram(params, timeout=120):
             read_delay = float(r_delay[0]) if isinstance(r_delay, np.ndarray) else float(r_delay)
             write_delay = float(w_delay[0]) if isinstance(w_delay, np.ndarray) else float(w_delay)
 
-            read_delay_feasible = True
-            write_delay_feasible = True
+            if not all(np.isfinite(value) and value > 0 for value in
+                       (read_delay, write_delay, read_power, write_power, area)):
+                raise ValueError('Simulation returned invalid delay, power or area')
+            limits = sram_config.global_config.metrics.delay.upper
+            read_delay_feasible = read_delay <= float(limits[0])
+            write_delay_feasible = write_delay <= float(limits[1])
             max_delay = max(read_delay, write_delay)
             if min_snm > 0 and max_power > 0 and area > 0 and max_delay > 0:
                 merit = np.log10(min_snm / (max_power * np.sqrt(area) * max_delay))
@@ -1190,11 +1236,14 @@ def evaluate_sram(params, timeout=120):
             # 4目标，全部最小化: [-SNM, power, area, delay]
             objectives = [-min_snm, max_power, area, max_delay]
 
-            constraints = [0.0, 0.0]
+            constraints = [max(0.0, read_delay / float(limits[0]) - 1.0),
+                           max(0.0, write_delay / float(limits[1]) - 1.0)]
 
             # Construct detailed results
             # 构建详细结果
             result = {"hold_snm": hold_snm_val, "read_snm": read_snm_val, "write_snm": write_snm_val, "min_snm": min_snm, "read_power": read_power, "write_power": write_power, "max_power": max_power, "read_delay": read_delay, "write_delay": write_delay, "max_delay": max_delay, "area": area, "merit": merit, "read_delay_feasible": read_delay_feasible, "write_delay_feasible": write_delay_feasible}
+            result['driver_sizes'] = driver_sizes.to_dict()
+            result['timing'] = mc_testbench.timing_config.to_dict() if mc_testbench.timing_config else {'source': 'fixed', 't_period': float(mc_testbench.t_period)}
 
             end_time = time.time()
             print(f"Simulation completed successfully! Time taken: {end_time - start_time:.2f} seconds")

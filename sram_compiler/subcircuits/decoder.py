@@ -15,9 +15,12 @@ class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
                  # Base widths for Inverter transistors
                  inv_pmos_width=0.27e-6, inv_nmos_width=0.09e-6,
                  length=0.05e-6,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 output_scale=1.0
                  ):
 
+        if output_scale != 1.0:
+            self.NAME = "DECODER3_8_OUTPUT_SCALED"
         super().__init__(
             nmos_model_inv, pmos_model_inv,
             nand_nmos_width, nand_pmos_width, length,
@@ -72,6 +75,10 @@ class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
             self.and_gates.append(and_gate)
         #创建八个用于使能的与门
         self.and_for_en = []
+        def scaled(width):
+            if output_scale == 1.0:
+                return width
+            return f'{{{width}*{output_scale}}}' if isinstance(width, str) else width * output_scale
         for _ in range(8):
             and_for_en = AND2(
                 nmos_model_nand=nmos_model_nand,
@@ -80,8 +87,8 @@ class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
                 pmos_model_inv=pmos_model_inv,
                 nand_pmos_width=nand_pmos_width,
                 nand_nmos_width=nand_nmos_width,
-                inv_pmos_width=inv_pmos_width,
-                inv_nmos_width=inv_nmos_width,
+                inv_pmos_width=scaled(inv_pmos_width),
+                inv_nmos_width=scaled(inv_nmos_width),
                 length=length,
                 w_rc=w_rc,
             )
@@ -135,6 +142,7 @@ class DECODER_CASCADE(BaseSubcircuit):
                  nand_pmos_width=0.27e-6, nand_nmos_width=0.18e-6,
                  length=0.05e-6,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 output_scale=1.0,
                  ):
         # 计算地址位数和级数
         self.w_rc=w_rc
@@ -191,6 +199,7 @@ class DECODER_CASCADE(BaseSubcircuit):
                     nand_nmos_width=nand_nmos_width,
                     length=length,
                     w_rc=self.w_rc,
+                    output_scale=output_scale if level == self.n_levels - 1 else 1.0,
                 )
                 self.subcircuit(decoder)
                 level_decoders.append(decoder)

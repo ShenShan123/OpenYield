@@ -57,7 +57,8 @@ class WriteDriver(BaseSubcircuit):
 
     def __init__(self, nmos_model, pmos_model,
                  nmos_width, pmos_width, length,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 out_nmos_width=None, out_pmos_width=None):
         
         super().__init__(
             nmos_model, pmos_model,
@@ -69,6 +70,8 @@ class WriteDriver(BaseSubcircuit):
         self.pmos_model = pmos_model
         self.nmos_width = nmos_width
         self.pmos_width = pmos_width
+        self.out_nmos_width = nmos_width if out_nmos_width is None else out_nmos_width
+        self.out_pmos_width = pmos_width if out_pmos_width is None else out_pmos_width
         self.length = length
         self.w_rc = w_rc
         
@@ -97,13 +100,13 @@ class WriteDriver(BaseSubcircuit):
         self.M(4, 'ENB', en_node, 'VSS', 'VSS', model=self.nmos_model, w=self.nmos_width, l=self.length)
 
         # --- Tristate Driver for BL ---
-        self.M(5, 'int1', db_node, 'VDD', 'VDD', model=self.pmos_model, w=self.pmos_width, l=self.length)
-        self.M(6, bl_node, enb_node, 'int1', 'VDD', model=self.pmos_model, w=self.pmos_width, l=self.length)
-        self.M(7, bl_node, en_node, 'int2', 'VSS', model=self.nmos_model, w=self.nmos_width, l=self.length)
-        self.M(8, 'int2', db_node, 'VSS', 'VSS', model=self.nmos_model, w=self.nmos_width, l=self.length)
+        self.M(5, 'int1', db_node, 'VDD', 'VDD', model=self.pmos_model, w=self.out_pmos_width, l=self.length)
+        self.M(6, bl_node, enb_node, 'int1', 'VDD', model=self.pmos_model, w=self.out_pmos_width, l=self.length)
+        self.M(7, bl_node, en_node, 'int2', 'VSS', model=self.nmos_model, w=self.out_nmos_width, l=self.length)
+        self.M(8, 'int2', db_node, 'VSS', 'VSS', model=self.nmos_model, w=self.out_nmos_width, l=self.length)
 
         # --- Tristate Driver for BLB ---
-        self.M(9, 'int3', d_node, 'VDD', 'VDD', model=self.pmos_model, w=self.pmos_width, l=self.length)
-        self.M(10, blb_node, enb_node, 'int3', 'VDD', model=self.pmos_model, w=self.pmos_width, l=self.length)
-        self.M(11, blb_node, en_node, 'int4', 'VSS', model=self.nmos_model, w=self.nmos_width, l=self.length)
-        self.M(12, 'int4', d_node, 'VSS', 'VSS', model=self.nmos_model, w=self.nmos_width, l=self.length)
+        self.M(9, 'int3', d_node, 'VDD', 'VDD', model=self.pmos_model, w=self.out_pmos_width, l=self.length)
+        self.M(10, blb_node, enb_node, 'int3', 'VDD', model=self.pmos_model, w=self.out_pmos_width, l=self.length)
+        self.M(11, blb_node, en_node, 'int4', 'VSS', model=self.nmos_model, w=self.out_nmos_width, l=self.length)
+        self.M(12, 'int4', d_node, 'VSS', 'VSS', model=self.nmos_model, w=self.out_nmos_width, l=self.length)
