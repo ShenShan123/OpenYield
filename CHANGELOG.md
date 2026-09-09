@@ -32,6 +32,18 @@ in `DRIVER_SIZING_PROPOSAL.md`.
   calibrations timed out at 1,800 s on a shared host, and three materialized
   MPI samples failed the DC operating point; these are unscored, not failed.
   See the Stage C outcome in `DRIVER_SIZING_PROPOSAL.md`.
+- RC symmetry between the array and the replica column: with `w_rc` the
+  fixed-mode replica wordline driver (AND2) now carries the same two RC
+  segments on its inputs and RWL output as the real wordline drivers, and the
+  replica bitline reaches the timing block through the same two segments a
+  real bitline sees at its sense-amplifier input. Cells, dummy loads,
+  precharge and write-driver stubs were already identical on both sides; the
+  equivalent-cell modes aggregate the same stubs. Non-RC decks are unchanged.
+  Measured effect (8x4 6T, TT, fixed mode, RC read): the replica wordline led
+  the real wordline by 36 ps before and 13 ps after (rules_only: 1 ps), so
+  the read access rises from 392 to 434 ps; the write access is unchanged.
+  The wordline model with RC is the driver's two output segments plus one
+  stub per cell pin (a star, no series segments between columns).
 - Review fixes: the optimizer objective (`exp_utils.evaluate_sram`) requests
   the nominal corner explicitly instead of inheriting one unseeded per-device
   sample; `local_review` records calibration execution errors instead of

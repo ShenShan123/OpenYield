@@ -138,8 +138,18 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             time_connections.extend(data_input_nodes)
             time_connections.extend(data_output_nodes)
         
-        # Add remaining nodes
-        time_connections.extend(['rbl', 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE', 'sa_iso'])
+        # Add remaining nodes.  With RC, the replica bitline reaches the timing
+        # block through the same two segments a real bitline sees at its
+        # sense-amplifier input (SenseAmp 'IN'), so RBL and BL carry the same
+        # wire configuration end to end.
+        rbl_node = 'rbl'
+        if self.w_rc:
+            rbl_node = 'RBL_sense'
+            circuit.R('R_RBL_SENSE_0', 'RBL', 'RBL_sense_seg0', self.pi_res)
+            circuit.C('Cg_RBL_SENSE_0', 'RBL_sense_seg0', self.gnd_node, self.pi_cap)
+            circuit.R('R_RBL_SENSE_1', 'RBL_sense_seg0', rbl_node, self.pi_res)
+            circuit.C('Cg_RBL_SENSE_1', rbl_node, self.gnd_node, self.pi_cap)
+        time_connections.extend([rbl_node, 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE', 'sa_iso'])
         if self.driver_sizes.replica_precharge_guard:
             time_connections.append('RWL')
         
@@ -389,11 +399,14 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         if self.driver_sizes.replica_matched:
             return self.create_replica_wordline(circuit)
         # Create AND2_FOR_RWL instance
+        # Same RC configuration as the real wordline drivers: two segments on
+        # the inputs and on the RWL output when the array carries RC.
         and2_for_rwl = AND2(
             nmos_model_nand="NMOS_VTG",
             pmos_model_nand="PMOS_VTG",
             nmos_model_inv="NMOS_VTG",
             pmos_model_inv="PMOS_VTG",
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             )
         
         # Add subcircuit definition to this testbench

@@ -4,6 +4,8 @@ import io
 import unittest
 from contextlib import redirect_stdout
 
+from PySpice.Unit import u_Ohm, u_pF
+
 from per_device_mc.run import load_config
 from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.subcircuits.decoder import DECODER_CASCADE
@@ -89,6 +91,74 @@ class PathTests(unittest.TestCase):
         self.assertIn('VDD VSS w_en VSS BL3 BLB3 WRITEDRIVER', deck)
         self.assertIn('XREPLICA_WDRV_LOAD VDD VSS VSS VSS RBL RBLB WRITEDRIVER', deck)
         self.assertEqual(sizes.replica_nmos_widths[1], 0.135e-6)
+
+    def test_replica_bitline_and_wordline_share_the_array_rc_configuration(self):
+        def blocks(deck):
+            found, stack = {}, []
+            for line in deck.splitlines():
+                if line.startswith('.subckt '):
+                    stack.append(line.split()[1])
+                    found.setdefault(stack[-1], [])
+                elif line.startswith('.ends'):
+                    stack.pop()
+                elif stack:
+                    found[stack[-1]].append(line)
+                else:
+                    found.setdefault('__top__', []).append(line)
+            return found
+
+        def count(lines, prefix):
+            return sum(line.startswith(prefix) for line in lines)
+
+        def instance_subckt(lines, name):
+            return next(line.split()[-1] for line in lines if line.split()[:1] == [name])
+
+        for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
+            for mode in ('fixed', 'rules_only'):
+                for mux in (False, True):
+                    for w_rc in (True, False):
+                        with self.subTest(cell=cell, mode=mode, mux=mux, w_rc=w_rc), \
+                                redirect_stdout(io.StringIO()):
+                            cfg = load_config(4, 4, 'TT')
+                            cfg.global_config.sram_cell_type = cell
+                            cfg.global_config.sizing = {'mode': mode}
+                            tb = Sram6TCoreTestbench(cfg, sram_cell_type=cell, choose_columnmux=mux,
+                                                     w_rc=w_rc, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF)
+                            deck = str(tb.create_testbench('read', 3, 3))
+                        found = blocks(deck)
+                        top = found['__top__']
+                        segments = 2 if w_rc else 0
+                        # Wordline: the real and replica drivers carry the same output RC.
+                        real_driver = instance_subckt(top, 'XWL_DRV_3')
+                        replica_driver = instance_subckt(top, 'XRWL')
+                        self.assertEqual(count(found[real_driver], 'RR_Z_'), segments)
+                        self.assertEqual(count(found[replica_driver], 'RR_Z_'), segments)
+                        self.assertEqual(count(found[replica_driver], 'RR_B_' if replica_driver == 'WORDLINEDRIVER' else 'RR_A_'), segments)
+                        # Every wordline pin of a real, replica or dummy cell has the same stub.
+                        array = instance_subckt(top, next(
+                            line.split()[0] for line in top if line.startswith('XSRAM_') and '_CORE_' in line))
+                        cell_block = instance_subckt(found[array], f'X{cell}_3_3')
+                        replica_column = instance_subckt(top, next(
+                            line.split()[0] for line in top if 'replica_column' in line))
+                        replica_cell = instance_subckt(found[replica_column], 'XReplica_CELL_0')
+                        stub = 1 if w_rc else 0
+                        for block, names in ((cell_block, ('RR_BL_', 'RR_BLB_', 'RR_WL_')),
+                                             (replica_cell, ('RR_RBL_', 'RR_RBLB_', 'RR_WL_'))):
+                            for name in names:
+                                self.assertEqual(count(found[block], name), stub, (block, name))
+                        if mode == 'rules_only':
+                            dummy = instance_subckt(top, 'XRWL_LOAD_0')
+                            self.assertEqual(count(found[dummy], 'RR_WL_'), stub)
+                        # Bitline: replica precharge is the array precharge; the replica
+                        # bitline reaches TIME through the sense-amplifier input segments.
+                        self.assertEqual(instance_subckt(top, 'XPRECHARGE_RBL'), instance_subckt(top, 'XPRECHARGE_0'))
+                        sense = instance_subckt(top, 'XSENSEAMP_0')
+                        self.assertEqual(count(found[sense], 'RR_IN_'), segments)
+                        self.assertEqual(count(top, 'RR_RBL_SENSE_'), segments)
+                        self.assertEqual(count(top, 'CCg_RBL_SENSE_'), segments)
+                        time_line = next(line for line in top if line.startswith('XTIME '))
+                        self.assertEqual(' RBL_sense ' in time_line, w_rc)
+                        self.assertEqual(' rbl ' in time_line, not w_rc)
 
     def test_rc_precharge_waits_for_the_matched_physical_wordline(self):
         with redirect_stdout(io.StringIO()):

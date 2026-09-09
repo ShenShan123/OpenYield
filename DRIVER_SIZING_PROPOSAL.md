@@ -164,6 +164,16 @@ holds the ledger; the observed rule families are:
   rule has no parasitic term (`parasitic_factor` only multiplies the precharge
   and write loads). Stage D must add the RC wordline load to the rule or
   restate the wordline fraction for RC decks before any coefficient changes.
+  RC audit after the screen: with `w_rc` every wordline pin (real, replica
+  and dummy cells, both cell types, equivalent-cell aggregates) carries one
+  100 ohm / 1 fF stub and every wordline driver output two segments; the
+  fixed-mode replica driver (AND2) lacked them and now matches, and the
+  replica bitline now enters TIME through the same two segments the real
+  bitlines see at the sense-amplifier input. At 8x4/TT the fixed-mode RC
+  replica wordline led the real one by 36 ps before the change and 13 ps
+  after (the legacy AND2 stays unscaled and lightly loaded); the matched
+  driver of rules_only mode tracks within 1 ps. The RC screen above predates
+  that change; rerun the 16x16 RC cases before Stage D uses them.
 - **Execution, not circuit, losses.** 28 four-rank cases (6T 64x64, 256x8 and
   16x256 sequences, fast-corner reads and writes, write boxes) hit the 1,800 s
   diagnostic limit and the twelve 10T 64x64 / 16x256 nominal calibration decks

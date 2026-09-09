@@ -67,7 +67,9 @@ The 6T write floor is also used provisionally for 10T, as proposed.
 Widths are still based on the circuit YAMLs in metres. Write M1–M4 use `wd_in`;
 M5–M12 use `wd_out`. PRE and write-enable loads count these actual gate widths;
 WL loads use the configured NAND widths and the matched replica input.
-Fixed mode retains the old replica-load omission for comparisons.
+Fixed mode retains the old replica-load omission for comparisons. With `w_rc`,
+the replica wordline driver and the replica bitline's sense input carry the same
+RC segments as the real wordline drivers and sense-amplifier inputs in every mode.
 Precharge/write sweeps now retain the resolved scale in SPICE expressions, as
 wordline sweeps already did. Their previous unscaled sweep behavior is corrected
 even in fixed mode. TIME buffer sizing remains based on the baseline loads;
