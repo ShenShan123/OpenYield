@@ -4,7 +4,7 @@ This document introduces the basic usage of the SRAM compiler, simulation flow, 
 
 - `sram_compiler/per_device_mc/run.py`: Default circuit-generation and simulation CLI with per-device local mismatch and in-memory YAML loading.
 - `main_sram.py`: Legacy single-simulation demo that rewrites YAML configuration.
-- `utils.py`: Utilities for result parsing, statistics generation, waveform plotting, area estimation, and SPICE model read/write operations.
+- `utils/`: Shared modules for measurements, waveforms, plotting, area estimation, and SPICE model read/write operations; existing `from utils import ...` imports remain supported.
 - `sram_compiler/`: Core code for SRAM configuration, subcircuit generation, and testbench construction.
 
 Run commands from the repository root; code paths below are relative to that
@@ -61,7 +61,7 @@ python -c "import PySpice, pandas, numpy, matplotlib"
 ```text
 OpenYield/
 ├── main_sram.py                         # Entry script for a single SRAM simulation
-├── utils.py                             # Utilities for parsing, statistics, plotting, and area estimation
+├── utils/                               # Shared parsing, statistics, plotting, model, and area helpers
 ├── tran_models/                         # TT/FF/SS/FS/SF SPICE model files
 ├── sram_compiler/
 │   ├── README.md                        # This compiler and testbench guide
@@ -374,9 +374,10 @@ At the end, `main_sram.py` prints:
 [OUTPUT] y[0]=Delay, y[1]=Power, y[2]=Area
 ```
 
-## 12. Common `utils.py` Tools
+## 12. Common `utils/` Tools
 
-`utils.py` provides the following utilities:
+The [utilities package](../utils/README.md) provides the following helpers,
+also available through the existing `from utils import ...` API:
 
 - `parse_mc_measurements()`: Parse Xyce `.mt0/.mt1/...` measurement files.
 - `generate_mc_statistics()`: Generate statistics such as mean, standard deviation, percentiles, skewness, and kurtosis.

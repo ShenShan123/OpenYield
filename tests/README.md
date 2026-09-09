@@ -6,6 +6,10 @@ mismatch, numeric and swept geometry, sampling, optimizer integration, and
 qualification-table validation. They use full transistor arrays and require
 neither Xyce nor the ignored local development scripts.
 
+Keep these tests in Git: they document expected behavior and let every checkout
+verify compiler and utility changes. `test_utils.py` also checks measurement
+parsing, transient/DC sample splitting, plot files, and existing import paths.
+
 Run from the repository root:
 
 ```bash

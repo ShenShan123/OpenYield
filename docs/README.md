@@ -23,6 +23,7 @@ The supplied evidence CSVs remain at the repository root:
 | Directory guide | Contents |
 |---|---|
 | [SRAM compiler](../sram_compiler/README.md) | Configuration, circuit generation, simulations, and waveform outputs |
+| [Shared utilities](../utils/README.md) | Measurement and waveform parsing, plots, SPICE models, and area estimates |
 | [Compiler regression tests](../tests/README.md) | Simulator-free checks that run without local development scripts |
 | [Per-device mismatch](../sram_compiler/per_device_mc/README.md) | Default local mismatch, CLI, and in-memory configuration |
 | [Driver sizing](../sram_compiler/sizing/README.md) | Frozen driver sizes, timing, and qualification workflows |

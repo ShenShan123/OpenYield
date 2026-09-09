@@ -36,6 +36,7 @@ from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTest
 from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.sizing.table import physical_context
 from utils import estimate_bitcell_area, estimate_total_area, estimate_array_area, estimate_scaled_array_area
+from utils.plotting import plot_merit_history, plot_pareto_frontier
 
 
 def seed_set(seed):
@@ -1407,46 +1408,6 @@ def save_best_result(best_result, algorithm_name, filename):
 
     with open(filename, "w") as jsonfile:
         json.dump(result_data, jsonfile, indent=2, default=str)
-
-
-def plot_merit_history(merit_history, algorithm_name, filename):
-    """
-    Plot Merit function history
-    绘制Merit函数历史
-    """
-    plt.figure(figsize=(10, 6))
-    plt.plot(merit_history, "b-", linewidth=2)
-    plt.xlabel("Iteration")
-    plt.ylabel("Best Merit")
-    plt.title(f"{algorithm_name} Optimization: Merit vs Iteration")
-    plt.grid(True, alpha=0.3)
-    plt.savefig(filename, dpi=300, bbox_inches="tight")
-    plt.close()
-
-
-def plot_pareto_frontier(pareto_front, algorithm_name, filename):
-    """
-    Plot Pareto frontier
-    绘制Pareto前沿
-    """
-    if len(pareto_front) == 0:
-        return
-
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(111, projection="3d")
-
-    snm_vals = [p["min_snm"] for p in pareto_front]
-    power_vals = [p["max_power"] for p in pareto_front]
-    area_vals = [p["area"] for p in pareto_front]
-
-    ax.scatter(snm_vals, power_vals, area_vals, c="red", s=50)
-    ax.set_xlabel("Min SNM (V)")
-    ax.set_ylabel("Max Power (W)")
-    ax.set_zlabel("Area (m²)")
-    ax.set_title(f"{algorithm_name} Pareto Frontier")
-
-    plt.savefig(filename, dpi=300, bbox_inches="tight")
-    plt.close()
 
 
 def update_pareto_front(pareto_front, objectives, result):

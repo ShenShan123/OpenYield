@@ -4,6 +4,9 @@ V2.0.6 documentation location: `sram_compiler/CIRCUIT_REVIEW.md`. This document
 preserves the historical reviews below; current qualification status is in the
 [working proposal](../docs/DRIVER_SIZING_PROPOSAL.md).
 
+Historical `utils.py` line references below refer to the reviewed revision.
+The current helpers live in the [utilities package](../utils/README.md).
+
 **Date:** 2026-09-05
 **Scope:** 6T / 10T SRAM cores, equivalent-circuit model, timing-generation circuit,
 DC (SNM) and transient (read / write / read&write) testbenches, measurement setup,

@@ -21,6 +21,8 @@ Documentation: [compiler guide](sram_compiler/README.md),
 [sizing optimization](size_optimization/README.md),
 [yield estimation](yield_estimation/README.md), and
 [plans and release history](docs/README.md).
+Shared measurement, waveform, plotting, area, and SPICE helpers are documented
+in the [utilities guide](utils/README.md).
 Reusable compiler tests live in `tests/`; local development and qualification
 scripts live under ignored `dev/`. See the [development guide](docs/DEVELOPMENT.md).
 
@@ -304,7 +306,12 @@ OpenYield includes SRAM yield estimators based on Monte Carlo and importance sam
 OpenYield/
 ├── main_sram.py                  # Legacy simulation demo (rewrites YAML)
 ├── config.py                     # Compatibility re-export of the YAML loader
-├── utils.py                      # Result parsing, waveform plotting, and area utilities
+├── utils/                        # Shared runtime utilities (legacy imports preserved)
+│   ├── measurements.py           # Monte Carlo measurement parsing and statistics
+│   ├── waveforms.py              # Xyce PRN loading and sample splitting
+│   ├── plotting.py               # Waveforms, SRAM comparisons, and optimizer plots
+│   ├── area.py                   # Bitcell, array, and macro area estimates
+│   └── spice.py                  # SPICE model parsing and writing
 ├── environment.yml               # Conda environment specification
 ├── docs/
 │   ├── README.md                 # Plans and release history index

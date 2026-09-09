@@ -37,7 +37,7 @@ python3 -m unittest tests.test_driver_paths.PathTests.test_matched_replica_and_c
 # Offline optimizer package
 python3 -m unittest discover -s size_optimization/openyield_v2/tests -v
 # Static checks
-python3 -m compileall -q sram_compiler size_optimization/exp_utils.py && git diff --check
+python3 -m compileall -q sram_compiler utils tests size_optimization/exp_utils.py && git diff --check
 
 # Generate (and optionally run) one deck; defaults: full array, per-device mismatch, 100 runs
 python3 -m sram_compiler.per_device_mc.run --rows 8 --cols 4 --operation read --mc-runs 2 --seed 3 --run-xyce --output-dir outputs/per_device_mc
@@ -49,6 +49,11 @@ python3 -m unittest discover -s dev/tests -v
 `docs/DEVELOPMENT.md` contains the local qualification and reference-experiment
 commands. Keep these scripts in ignored `dev/`; a fresh checkout must run the
 compiler and tracked tests without them.
+
+`utils/` holds shared measurement, waveform, plotting, area, and SPICE helpers.
+Its package exports preserve `from utils import ...`. The hardcoded plotting
+experiment is local-only in `dev/plot_data_demo.py`; comparison plots default
+to `outputs/plots/`. Reusable utility tests stay tracked in `tests/`.
 
 Never run repository-wide test discovery: several `test*.py` files under `size_optimization/` and
 `yield_estimation/` are long experiments. Do not use `main_sram.py` as a smoke test; it rewrites

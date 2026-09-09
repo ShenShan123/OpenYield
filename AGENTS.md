@@ -27,7 +27,8 @@ transient/DC/Monte Carlo simulations, and evaluates sizing and yield.
   `size_optimization/openyield_v2/` is a separate offline surrogate workflow.
 - `yield_estimation/` contains MC/importance-sampling algorithms; some legacy
   entry points still use machine-local paths/imports.
-- `utils.py` handles SPICE models, measurements, plotting, and area estimates;
+- `utils/` separates SPICE models, measurements, waveform parsing, plotting, and
+  area estimates. Its package exports preserve `from utils import ...` callers;
   `tran_models/` contains FreePDK45 models for TT/FF/SS/FS/SF.
 
 Data flow: YAML → configuration objects → factories/subcircuits → testbench

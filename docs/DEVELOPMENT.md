@@ -11,13 +11,20 @@ checkout. Run commands from the repository root.
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m unittest discover -s size_optimization/openyield_v2/tests -v
-python3 -m compileall -q sram_compiler tests size_optimization/exp_utils.py
+python3 -m compileall -q sram_compiler utils tests size_optimization/exp_utils.py
 git diff --check
 ```
 
 The compiler tests require no local development tools or Xyce executable.
 `testbenches/` contains the compiler's simulation construction API, which is
 runtime code and remains tracked inside `sram_compiler/`.
+
+Keep reusable regression tests in Git alongside the implementation so every
+checkout can verify fixes. Only ad hoc experiments, machine-specific scripts,
+and tests of ignored local tools belong under `dev/`. Shared utility checks in
+`tests/test_utils.py` cover parsing, sample boundaries, headless plots, and
+compatibility imports. The former plotting script's hardcoded dataset remains
+local-only in `dev/plot_data_demo.py`.
 
 ## Local-only tools
 

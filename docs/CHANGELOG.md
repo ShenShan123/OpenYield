@@ -38,6 +38,23 @@ artifact format remain V2.0.5. See the [working proposal](DRIVER_SIZING_PROPOSAL
   pass. The tracked-file export passes compiler/optimizer tests and CLI generation
   with `dev/` absent. No new Xyce simulation or electrical qualification was run
   for this move.
+- 2026-09-09 utility follow-up: replaced root `utils.py` with a `utils/` package
+  for measurements, waveform loading, plots, area estimates, and SPICE models.
+  Existing `from utils import ...` imports and optimizer plot imports remain valid.
+  Reusable comparison plots from `plot_data.py` now live in `utils.plotting`;
+  their hardcoded experiment is retained locally in ignored `dev/plot_data_demo.py`.
+- Comparison plots create their output directory, save under `outputs/plots/`
+  by default, scope their style changes, and close figures. Display is optional
+  with `show=True`. Fixed an existing transient/DC splitting compatibility bug:
+  DataFrame slices preserve the signal labels that NumPy splitting discarded.
+- Four tracked utility regressions cover failed measurements, indexed and
+  index-free transient/DC waveforms, headless comparison plots, and optimizer
+  import compatibility. Reusable `tests/` remain versioned alongside the code.
+- Utility follow-up validation: 38 compiler/utility tests, 20 local development
+  tests, and 6 offline optimizer tests pass; the four utility tests also pass
+  under Python 3.9. A tracked-file export passes tests and direct CLI generation
+  without `dev/`. All eight read/write artifacts still match the original
+  baseline byte for byte; SPICE model output and 6T/10T area estimates are unchanged.
 
 ## V2.0.5 — 2026-09-08 — full local mismatch and driver re-evaluation
 

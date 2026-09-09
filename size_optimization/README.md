@@ -12,6 +12,10 @@ objective-function, and two-stage optimization guide.
 
 The original scripts call the current OpenYield configuration and evaluation code through `exp_utils.py`.
 
+Shared merit-history and Pareto plots now live in
+[`utils.plotting`](../utils/README.md); `exp_utils.py` re-exports them so existing
+optimization scripts keep their current imports.
+
 | Method | Entry point |
 |---|---|
 | Simulated annealing | `demo_sa.py` |
