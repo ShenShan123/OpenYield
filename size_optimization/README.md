@@ -2,6 +2,12 @@
 
 This directory contains the original circuit-backed optimization scripts and the separate OpenYield V2 offline optimizer package.
 
+In OpenYield V2.0.6, the detailed algorithm guide lives in this directory. The
+offline package's name, OpenYield V2, identifies its optimizer workflow.
+
+See [电路算法说明文档.md](电路算法说明文档.md) for the detailed parameter-space,
+objective-function, and two-stage optimization guide.
+
 ## Circuit-backed scripts
 
 The original scripts call the current OpenYield configuration and evaluation code through `exp_utils.py`.

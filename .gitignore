@@ -19,6 +19,8 @@ sim/
 sim1/
 miniconda/
 **/__pycache__
+# Local development experiments, qualification runners, and their tests.
+/dev/
 size_optimization/experiment/
 size_optimization/smac_output/
 equivalent_modeling/results/

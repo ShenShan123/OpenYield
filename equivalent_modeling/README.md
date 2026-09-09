@@ -2,6 +2,12 @@
 
 本文档介绍等效电路（Equivalent Circuit）功能的参数配置和使用方法，代码实现在 `sram_compiler/subcircuits/sram_cell_add_equivalent.py`。
 
+V2.0.6 将原根目录的等效电路说明迁移到本目录的 `README.md`，历史测量结果保持原版本标记。
+
+请从仓库根目录运行文中的命令；代码路径也相对于仓库根目录。
+参见 [SRAM 编译器指南](../sram_compiler/README.md) 和
+[默认逐器件局部失配流程](../sram_compiler/per_device_mc/README.md)。
+
 ---
 
 ## 1. 功能说明
@@ -176,4 +182,3 @@ Sram6TCoreMcTestbench(real_cell_mode=1)   # 1=等效十字
 | `sram_compiler/subcircuits/sram_10t_core.py` | 10T 版本，等效逻辑与 6T 共用 |
 | `sram_compiler/testbenches/parameter_factor.py` | `Sram6TCoreFactory`，将 `real_cell_mode` 从 testbench 传到 core |
 | `equivalent_modeling/main_sram.py` | 等效电路与真实电路准确度对比实验入口 |
-

@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from statistics import NormalDist
 
-from per_device_mc.sampling import materialize_decks, standard_normal_draws
+from sram_compiler.per_device_mc.sampling import materialize_decks, standard_normal_draws
 
 
 class LocalSamplingTests(unittest.TestCase):

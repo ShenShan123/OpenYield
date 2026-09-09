@@ -6,7 +6,7 @@ from contextlib import redirect_stdout
 
 from PySpice.Unit import u_Ohm, u_pF
 
-from per_device_mc.run import load_config
+from sram_compiler.per_device_mc.run import load_config
 from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.subcircuits.decoder import DECODER_CASCADE
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Cell

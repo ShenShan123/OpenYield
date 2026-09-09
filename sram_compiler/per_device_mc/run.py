@@ -13,13 +13,13 @@ from pathlib import Path
 from typing import Any
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from PySpice.Unit import u_Ohm, u_pF  # type: ignore  # noqa: E402
 
-from config import SRAM_CONFIG  # type: ignore  # noqa: E402
+from sram_compiler.config_yaml.config import SRAM_CONFIG  # type: ignore  # noqa: E402
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import (  # type: ignore  # noqa: E402
     Sram6TCoreMcTestbench,
 )

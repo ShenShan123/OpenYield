@@ -1,10 +1,25 @@
-# SRAM Compiler and Test Platform User Guide
+# SRAM Compiler and Test Platform User Guide — V2.0.6
 
 This document introduces the basic usage of the SRAM compiler, simulation flow, Monte Carlo testing, waveform plotting, and result statistics. It mainly covers the following files and directories:
 
-- `main_sram.py`: Entry script for a single SRAM simulation. This is the recommended starting point for new users.
+- `sram_compiler/per_device_mc/run.py`: Default circuit-generation and simulation CLI with per-device local mismatch and in-memory YAML loading.
+- `main_sram.py`: Legacy single-simulation demo that rewrites YAML configuration.
 - `utils.py`: Utilities for result parsing, statistics generation, waveform plotting, area estimation, and SPICE model read/write operations.
 - `sram_compiler/`: Core code for SRAM configuration, subcircuit generation, and testbench construction.
+
+Run commands from the repository root; code paths below are relative to that
+root. See the [per-device runner](per_device_mc/README.md),
+[driver sizing guide](sizing/README.md), [circuit review](CIRCUIT_REVIEW.md),
+and [plans and release history](../docs/README.md) for detailed references.
+
+V2.0.6 incorporates the default local mismatch runner, model specialization,
+and sampling into this compiler directory. This guide was previously the root
+`readme_compiler.md`.
+
+Reusable regression tests are in top-level `tests/`. Local development and
+qualification scripts are kept in ignored `dev/`; see the
+[development guide](../docs/DEVELOPMENT.md). The `testbenches/` modules below
+are the runtime simulation API used to generate and run SRAM circuits.
 
 ## 1. What This Platform Can Do
 
@@ -13,7 +28,7 @@ This platform uses PySpice to generate transistor-level SRAM netlists and calls 
 - 6T / 10T SRAM cell, array, and complete peripheral circuit modeling.
 - Read, write, and combined read/write transient simulations.
 - Hold / read / write SNM DC analysis.
-- Xyce Monte Carlo process variation simulation.
+- Xyce Monte Carlo with independent per-device local mismatch by default.
 - Custom process-parameter table simulation.
 - RC parasitic modeling for wordline, bitline, and other key nodes.
 - Equivalent-model acceleration for non-target cells.
@@ -24,14 +39,14 @@ This platform uses PySpice to generate transistor-level SRAM netlists and calls 
 It is recommended to use the conda environment provided by the project:
 
 ```bash
-conda env create -f environment_openyield.yml
+conda env create -f environment.yml
 conda activate openyield
 ```
 
 If the environment already exists, update it with:
 
 ```bash
-conda env update -f environment_openyield.yml
+conda env update -f environment.yml
 ```
 
 It is recommended to check that the following commands work:
@@ -49,6 +64,13 @@ OpenYield/
 ├── utils.py                             # Utilities for parsing, statistics, plotting, and area estimation
 ├── tran_models/                         # TT/FF/SS/FS/SF SPICE model files
 ├── sram_compiler/
+│   ├── README.md                        # This compiler and testbench guide
+│   ├── CIRCUIT_REVIEW.md                # Circuit review and verification evidence
+│   ├── per_device_mc/                   # Default local mismatch generation and sampling
+│   │   ├── run.py                      # CLI and in-memory load_config() helper
+│   │   ├── netlist.py                  # Independent model specialization per retained MOS
+│   │   └── sampling.py                 # Materialized local draws for MPI execution
+│   ├── sizing/                         # Driver sizing, measured timing, and qualified-table lookup
 │   ├── config_yaml/                     # Global and module-level YAML parameter files
 │   │   ├── global.yaml
 │   │   ├── config.py                    # YAML loader that converts data into dot-accessible config objects
@@ -86,7 +108,19 @@ OpenYield/
 
 ## 4. Quick Start: Run One SRAM Simulation
 
-Run:
+Generate a full-array deck with the default per-device local mismatch:
+
+```bash
+python -m sram_compiler.per_device_mc.run \
+  --rows 8 --cols 4 --operation read --mc-runs 2 --seed 3 --audit
+```
+
+Add `--run-xyce` to simulate. Outputs are written under `outputs/per_device_mc/`.
+Use `--variation-mode nominal` for a deterministic corner run (omit `--mc-runs`
+or set it to 1). The runner loads configuration in memory; see its
+[guide](per_device_mc/README.md) for output and variation options.
+
+The legacy demo is also available:
 
 ```bash
 python main_sram.py
@@ -263,7 +297,9 @@ Meanings:
 - `w_rc=True`: Add RC parasitic networks to key nodes.
 - `pi_res` / `pi_cap`: Resistance and capacitance values of each segment in the pi-shaped RC network.
 - `vth_std=0.05`: Gaussian perturbation ratio for `vth0/u0/voff` in Xyce built-in MC.
-- `mc=True`: Enable Xyce Monte Carlo.
+- `mc=True`: Enable independent per-device local mismatch (the default).
+- `mc=False` / `variation_mode='nominal'`: Use the fixed PDK corner without random mismatch.
+- `variation_mode='shared'`: Explicitly select the legacy shared-model Monte Carlo flow.
 - `custom_mc=True`: Use a custom parameter table instead of Xyce built-in random sampling.
 - `sweep_*`: Enable parameter sweep for the corresponding module.
 - `use_equivalent=True`: Use equivalent models to accelerate non-target cell simulation.
@@ -375,13 +411,20 @@ Note that the number of sweep points must match the Monte Carlo run count set in
 
 ### 13.1 Custom Process Variation
 
-The platform supports two process variation modes:
+The platform supports four process variation modes:
 
-- `custom_mc=False`: Use Xyce built-in random sampling. The program automatically rewrites `vth0`, `u0`, and `voff` in the PDK model into `AGAUSS(...)` expressions according to `vth_std`, and generates `tmp_mc.spice`.
-  `.SAMPLING` is only emitted when `mc_runs > 1`; a single run (`mc_runs=1`) is the
-  nominal point (every `AGAUSS(...)` evaluates to its mean) and is therefore
-  deterministic. Pass `mc_seed=<int>` to `Sram6TCoreMcTestbench(...)` to make a
-  Monte Carlo sweep reproducible; without it Xyce draws a new seed every run
+- `variation_mode='nominal'` (also selected by `mc=False`): Use the fixed corner
+  without random mismatch.
+- `variation_mode='shared'`: Explicitly select the legacy flow, which writes
+  `AGAUSS(...)` expressions into `tmp_mc.spice`; devices sharing a base model
+  share its random parameters.
+- `variation_mode='per-device'` (the default with `mc=True` and `custom_mc=False`):
+  Keep the global PDK corner fixed and generate independent `vth0`, `u0`, and
+  `voff` expressions for every retained array and peripheral MOS. Specialization
+  in `sram_compiler/per_device_mc/netlist.py` writes model cards and a device audit.
+  `.SAMPLING` is emitted even for `mc_runs=1`, which is one random sample.
+  Pass `mc_seed=<int>` to `Sram6TCoreMcTestbench(...)` to make sampling
+  reproducible; without it Xyce draws a new seed every run
   (printed in `<netlist>.log`, which now keeps the Xyce console output).
   If Xyce stops a deck with `Time step too small` (seen on a few 512-row
   arrays, where the Newton loop oscillates during the access), the flow
@@ -394,8 +437,11 @@ The platform supports two process variation modes:
   different row at the clock edge that ends the access; the wordline and the
   cell of that row are added to the `.PRINT` so the address-change hold
   margin can be inspected (the address is held by a latch while the wordline
-  is on, see `CHANGELOG.md` V2.0.2).
-- `custom_mc=True`: Use a user-provided process-parameter table. The program writes `vars` into a `.data table` file and uses `.STEP data=table` to make Xyce simulate one row at a time.
+  is on, see `docs/CHANGELOG.md` V2.0.2).
+- `custom_mc=True` (selects `variation_mode='custom'`): Use a user-provided process-parameter table. The program writes `vars` into a `.data table` file and uses `.STEP data=table` to make Xyce simulate one row at a time.
+
+Per-device mismatch requires a separate deck per geometry; legacy `.STEP`
+geometry sweeps cannot be combined with local sampling.
 
 To use custom process variation, set the testbench initialization parameters in `main_sram.py` as follows:
 
@@ -609,4 +655,3 @@ at 0.9 ns and fails at 0.8 ns; at TT / 125 C the same array needs ~1.7 ns).
 Periods from 0.6 ns to 100 ns were simulated; note that `PSTC` / `PDYN` are
 only a quiescent / dynamic split for `t_period >= 5 ns` (a warning is
 printed otherwise, because the start-up precharge overlaps the PSTC window).
-

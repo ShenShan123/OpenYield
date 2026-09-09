@@ -1,4 +1,4 @@
-# OpenYield: SRAM yield analysis and optimization
+# OpenYield V2.0.6: SRAM yield analysis and optimization
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
 
@@ -6,13 +6,23 @@ The circuit generator models parasitic capacitance/resistance, leakage coupling,
 
 The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
 
-V2.0.5 makes fixed global corners plus independent local mismatch the default
-throughout the read/write array and periphery, and re-evaluates the V2.0.4 frozen
-driver sizing and measured clock rules. Qualification is in progress. See the
+V2.0.6 incorporates per-device local mismatch generation into
+`sram_compiler/per_device_mc/` and organizes plans and guides under `docs/` and
+their corresponding code directories. It retains the V2.0.5 default of fixed
+global corners plus independent local mismatch throughout the read/write array
+and periphery. Driver sizing and measured-clock qualification remain in progress. See the
 [sizing guide](sram_compiler/sizing/README.md) and
-[implementation/qualification status](DRIVER_SIZING_PROPOSAL.md). The default
+[implementation/qualification status](docs/DRIVER_SIZING_PROPOSAL.md). The default
 `fixed` mode preserves legacy sizing; `rules_only` and `auto` are explicit opt-ins.
 Historical offline optimizer datasets do not qualify the new peripheral rules.
+
+Documentation: [compiler guide](sram_compiler/README.md),
+[equivalent models](equivalent_modeling/README.md),
+[sizing optimization](size_optimization/README.md),
+[yield estimation](yield_estimation/README.md), and
+[plans and release history](docs/README.md).
+Reusable compiler tests live in `tests/`; local development and qualification
+scripts live under ignored `dev/`. See the [development guide](docs/DEVELOPMENT.md).
 
 ## Key Features
 
@@ -86,7 +96,10 @@ The simulation code is in `sram_compiler/testbenches/`.
 
 Circuit and simulation parameters are configured through YAML files in `sram_compiler/config_yaml/`.
 
-The main simulation entry point is `main_sram.py`.
+Generate a deck with `python -m sram_compiler.per_device_mc.run`; add
+`--run-xyce` to simulate. Per-device local mismatch is the default.
+`main_sram.py` is the legacy simulation demo and rewrites its YAML configuration.
+See the [compiler guide](sram_compiler/README.md) for both workflows.
 
 #### Configuration via YAML
 
@@ -108,7 +121,7 @@ Transistor widths and models for each cell type are in:
 #### Running a Simulation
 
 ```bash
-python main_sram.py
+python -m sram_compiler.per_device_mc.run --rows 8 --cols 4 --mc-runs 2 --run-xyce
 ```
 
 Or programmatically:
@@ -175,14 +188,16 @@ To analyze and characterize the equivalent model for different array sizes:
 python equivalent_modeling/main_sram.py
 ```
 
-This compares simulation results with and without the equivalent model across different array configurations. See [`等效电路说明文档.md`](等效电路说明文档.md) for the model description.
+This compares simulation results with and without the equivalent model across different array configurations. See [`equivalent_modeling/README.md`](equivalent_modeling/README.md) for the model description.
 
 #### Per-device process variation
 
-`per_device_mc/run.py` keeps circuit topology and process variation as separate options:
+The compiler's [per-device runner](sram_compiler/per_device_mc/README.md)
+defaults to independent local mismatch and keeps circuit topology and process
+variation as separate options:
 
 ```bash
-python per_device_mc/run.py \
+python -m sram_compiler.per_device_mc.run \
   --rows 16 --cols 16 \
   --real-cell-mode 1 \
   --variation-mode per-device \
@@ -199,7 +214,7 @@ Variation modes:
 | `nominal` | No process variation |
 | `shared` | Existing model-card Monte Carlo; devices sharing a base model share its random parameters |
 | `custom` | Parameter-table flow using `process_parameters.vars` from the cell YAML; a one-dimensional 10T table is treated as one sample |
-| `per-device` | Independent `vth0`, `u0`, and `voff` expressions for every MOS retained in the generated netlist |
+| `per-device` (default) | Independent `vth0`, `u0`, and `voff` expressions for every MOS retained in the generated netlist |
 
 `--vth-std` is the relative standard deviation used for all three varied parameters; the default is `0.05`.
 
@@ -287,18 +302,33 @@ OpenYield includes SRAM yield estimators based on Monte Carlo and importance sam
 
 ```
 OpenYield/
-├── main_sram.py                  # Main simulation entry point
-├── config.py                     # Centralized YAML config loader
+├── main_sram.py                  # Legacy simulation demo (rewrites YAML)
+├── config.py                     # Compatibility re-export of the YAML loader
 ├── utils.py                      # Result parsing, waveform plotting, and area utilities
 ├── environment.yml               # Conda environment specification
-├── per_device_mc/
-│   ├── run.py                    # Variation-mode runner and Xyce entry point
-│   └── netlist.py                # Independent model cards for retained MOS devices
+├── docs/
+│   ├── README.md                 # Plans and release history index
+│   ├── DRIVER_SIZING_PROPOSAL.md # Full working design and qualification status
+│   ├── TIMING_AUTOCONFIG.md      # Original timing proposal
+│   ├── CHANGELOG.md              # Release history
+│   ├── DEVELOPMENT.md            # Regression checks and local development tools
+│   └── design/                  # Archived original design proposal
 ├── sram_compiler/
+│   ├── README.md                 # Compiler and simulation guide
+│   ├── CIRCUIT_REVIEW.md         # Circuit review and verification evidence
 │   ├── config_yaml/              # YAML configuration files for all circuits
+│   ├── per_device_mc/            # Default local mismatch generation and execution
+│   │   ├── run.py                # CLI and in-memory configuration helper
+│   │   ├── netlist.py            # Independent model cards for retained MOS devices
+│   │   └── sampling.py           # Materialized local draws for MPI runs
+│   ├── sizing/                  # Driver rules, timing, and qualified-table lookup
 │   ├── subcircuits/              # Circuit generation modules (6T, 10T, peripherals)
 │   └── testbenches/              # Simulation testbench classes
+├── tests/                       # Reusable compiler regression tests
+├── dev/                         # Local experiments and qualification tools (ignored)
 ├── size_optimization/
+│   ├── README.md                 # Optimization entry points
+│   ├── 电路算法说明文档.md        # Detailed sizing algorithm guide
 │   ├── exp_utils.py              # Shared optimization utilities and parameter spaces
 │   ├── experiment.py             # Two-stage optimization driver
 │   ├── demo_sa.py                # Simulated Annealing
@@ -318,8 +348,8 @@ OpenYield/
 │   ├── moead/                    # MOEAD implementation
 │   └── openyield_v2/             # Offline evolutionary/Bayesian optimizer package and datasets
 ├── equivalent_modeling/
+│   ├── README.md                 # Equivalent circuit modes and accuracy boundary
 │   └── main_sram.py              # Equivalent circuit analysis script
-├── 等效电路说明文档.md            # Equivalent circuit modes and accuracy boundary
 ├── tran_models/                  # FreePDK45 transistor model files
 └── yield_estimation/             # Yield estimation algorithms
 ```

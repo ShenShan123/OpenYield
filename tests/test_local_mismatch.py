@@ -7,10 +7,8 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from per_device_mc.netlist import SpiceParseError, _parse_subckts, specialize_netlist
-from per_device_mc.run import load_config
-from sram_compiler.sizing.campaign import architectures, verification_cases
-from sram_compiler.sizing.timing import TimingConfig
+from sram_compiler.per_device_mc.netlist import SpiceParseError, _parse_subckts, specialize_netlist
+from sram_compiler.per_device_mc.run import load_config
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 
 
@@ -98,27 +96,6 @@ Xright D G 0 0 pair
                 tb.add_analysis(circuit, 'write', 2 if sampled else 1)
                 self.assertNotIn('MC_NMOS_', str(circuit))
                 self.assertEqual('.SAMPLING' in str(circuit), sampled)
-
-    def test_every_verification_path_uses_full_local_mismatch(self):
-        timing = TimingConfig(5e-9, 1e-9, 1e-9, 1e-9)
-        for base in architectures([(8, 4), (16, 16), (256, 8), (32, 1)]):
-            cases = verification_cases(base, timing)
-            self.assertTrue(all(case.variation == 'per-device' and case.real_cell_mode == 0
-                                and case.samples == 10 for case in cases))
-            self.assertTrue({'read', 'write'} <= {case.operation for case in cases})
-            for operation in ('read', 'write'):
-                self.assertEqual({case.corner for case in cases if case.operation == operation},
-                                 {'TT', 'SS', 'SF', 'FS', 'FF'})
-            if base.rows >= 256:
-                self.assertTrue(all(case.next_row for case in cases
-                                    if case.corner == 'FF' and case.temperature == -40
-                                    and case.cell_variant == 'baseline' and case.operation != 'read&write'))
-            if base.rows in (16, 256) and not base.mux and not base.w_rc:
-                for corner in ('SS', 'SF'):
-                    tails = [case for case in cases if case.operation == 'write'
-                             and case.corner == corner and case.seed >= 4026]
-                    self.assertEqual(sum(case.samples for case in tails), 100)
-                    self.assertEqual(len({case.seed for case in tails}), 10)
 
     def test_local_geometry_sweep_cannot_silently_run_at_mean_or_skip_steps(self):
         with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):

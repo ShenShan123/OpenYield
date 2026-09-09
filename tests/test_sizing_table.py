@@ -7,7 +7,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from per_device_mc.run import load_config
+from sram_compiler.per_device_mc.run import load_config
 from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.sizing.table import (
     current_scoring_version,

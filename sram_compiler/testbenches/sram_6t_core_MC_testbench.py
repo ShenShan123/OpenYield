@@ -2,7 +2,7 @@ import os
 import hashlib
 import json
 from pathlib import Path
-from per_device_mc.netlist import specialize_netlist
+from sram_compiler.per_device_mc.netlist import specialize_netlist
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
 # Only for yield analysis
 from utils import (  # type: ignore

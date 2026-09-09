@@ -10,15 +10,22 @@ from typing import Any
 from .timing import TimingConfig
 
 DEFAULT_TABLE = Path(__file__).with_name('sizing_table.json')
+SCORING_SOURCES = Path(__file__).with_name('scoring_sources.json')
 
 
 def current_scoring_version():
-    """Content identity of the acceptance code, independent of checkout path."""
+    """Identity of approved scoring sources and runtime code, without local tools.
+
+    Development runners verify their files against the tracked source manifest
+    before producing evidence. Table consumers only need that manifest and the
+    compiler, so an ordinary checkout never imports or opens ignored scripts.
+    """
     digest = hashlib.sha256()
-    for name in ('qualification.py', 'timing.py', 'campaign.py', 'report.py', 'table.py', 'offset.py', 'execution.py'):
+    digest.update(SCORING_SOURCES.read_bytes())
+    for name in ('timing.py', 'table.py'):
         digest.update(Path(__file__).with_name(name).read_bytes())
     root = Path(__file__).resolve().parents[2]
-    for name in ('per_device_mc/netlist.py', 'per_device_mc/sampling.py',
+    for name in ('sram_compiler/per_device_mc/netlist.py', 'sram_compiler/per_device_mc/sampling.py',
                  'sram_compiler/testbenches/sram_6t_core_MC_testbench.py'):
         digest.update((root / name).read_bytes())
     return digest.hexdigest()

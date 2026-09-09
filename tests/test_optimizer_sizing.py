@@ -5,7 +5,7 @@ import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from per_device_mc.run import load_config
+from sram_compiler.per_device_mc.run import load_config
 from size_optimization import exp_utils
 
 

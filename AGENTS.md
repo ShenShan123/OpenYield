@@ -1,5 +1,9 @@
 # OpenYield project instructions
 
+Current release: **V2.0.6** (compiler integration and documentation organization).
+The sizing rule and qualification artifact identities remain V2.0.5; preserve
+historical version labels when referring to measurements or archived proposals.
+
 ## Purpose and architecture
 
 OpenYield generates 6T/10T SRAM transistor netlists with PySpice, runs Xyce
@@ -14,8 +18,11 @@ transient/DC/Monte Carlo simulations, and evaluates sizing and yield.
 - `Sram6TCoreTestbench` builds both cell types and their periphery;
   `Sram6TCoreMcTestbench` adds variation, stimuli, measures, and Xyce execution.
 - `sram_compiler/sizing/` owns driver sizing rules and resolved loads.
-- `per_device_mc/run.py` provides a CLI and in-memory `load_config()` helper.
-  `per_device_mc/netlist.py` specializes retained MOS devices for local MC.
+- Reusable compiler regression tests live in top-level `tests/`.
+  Local experiments, qualification runners, and their tests live under ignored
+  `dev/`; they are optional and must not become runtime dependencies.
+- `sram_compiler/per_device_mc/run.py` provides a CLI and in-memory `load_config()` helper.
+  `sram_compiler/per_device_mc/netlist.py` specializes retained MOS devices for local MC.
 - `size_optimization/exp_utils.py` connects legacy optimizers to simulation.
   `size_optimization/openyield_v2/` is a separate offline surrogate workflow.
 - `yield_estimation/` contains MC/importance-sampling algorithms; some legacy
@@ -43,16 +50,17 @@ netlist → Xyce → measurements/waveforms → metrics/optimizer or yield estim
   approximations. Generated decks or passing measures alone do not prove
   waveform correctness, retention, sensing margin, or timing qualification.
 - Do not run `main_sram.py` as a smoke test: it rewrites tracked YAML files.
-  Prefer `per_device_mc/run.py` or in-memory configuration in tests.
+  Prefer `sram_compiler/per_device_mc/run.py` or in-memory configuration in tests.
 - Keep generated decks/results under ignored `outputs/` or a temporary path.
+  Keep ad hoc development scripts under ignored `dev/`, outside `sram_compiler/`.
   Preserve supplied CSV evidence. Avoid whole-repository test discovery:
   several files named `test` are expensive experiment/demo entry points.
-- Keep `DRIVER_SIZING_PROPOSAL.md` as the full working proposal; update specific
+- Keep `docs/DRIVER_SIZING_PROPOSAL.md` as the full working proposal; update specific
   sections as implementation progresses rather than replacing it with a summary.
   The original is backed up in `docs/design/DRIVER_SIZING_PROPOSAL_V2.0.4.md`.
-  `TIMING_AUTOCONFIG.md` retains the original proposal; measured-period support
+  `docs/TIMING_AUTOCONFIG.md` retains the original proposal; measured-period support
   now lives in `sram_compiler/sizing/timing.py`. Qualification status is recorded
-  at the top of `DRIVER_SIZING_PROPOSAL.md`.
+  at the top of `docs/DRIVER_SIZING_PROPOSAL.md`.
 
 ## Environment and verification
 
@@ -62,7 +70,7 @@ netlist → Xyce → measurements/waveforms → metrics/optimizer or yield estim
 - Xyce may need the `openyield` Conda environment activated; check `command -v
   Xyce` before simulation. Full-array netlist generation (`real_cell_mode=0`)
   needs no simulator; equivalent modes can run Xyce for parameter extraction.
-- Driver checks: `python3 -m unittest discover -s sram_compiler/tests -v`.
+- Driver checks: `python3 -m unittest discover -s tests -v`.
 - Offline optimizer checks:
   `python3 -m unittest discover -s size_optimization/openyield_v2/tests -v`.
 - For generation smoke, use the in-memory example in
@@ -70,10 +78,15 @@ netlist → Xyce → measurements/waveforms → metrics/optimizer or yield estim
   PySpice simulator object, explicitly select `simulator='xyce-serial'`; the
   package default can try to load an unavailable `libngspice.so` even for deck
   export. The updated MC testbench and per-device runner select Xyce explicitly.
-- Full V2.0.4 campaign: `python3 -m sram_compiler.sizing.campaign --xyce /path/to/Xyce
+- Local development checks, if `dev/` is available:
+  `python3 -m unittest discover -s dev/tests -v`.
+- Full driver qualification campaign (requires ignored local `dev/`; V2.0.5
+  evidence format retained in V2.0.6): `python3 -m dev.sizing.campaign --xyce /path/to/Xyce
   --workers 48`. It is expensive; use `--sizes 8x4 --pilot` for a small check.
   Keep solver/model/seed provenance with results. Match physical RC and equivalent
   modes when looking up qualified records; never promote partial or failed runs.
+  `docs/DEVELOPMENT.md` documents local tools and the tracked scoring-source
+  manifest; compiler table lookup must work when `dev/` is absent.
 - For circuit changes inspect emitted MOS widths, connectivity, and sweep
   expressions, then run focused simulations and waveform checks as appropriate.
   Report exactly which validation ran and which qualification remains pending.

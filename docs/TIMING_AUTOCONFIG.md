@@ -1,9 +1,10 @@
 # Automatic timing configuration for all array sizes — proposal (V2.0.3)
 
-Status: original V2.0.3 proposal with measured basis. V2.0.4 now implements
-measured-phase timing and frozen testbench/table application in
-`sram_compiler/sizing/timing.py`; its full qualification is in progress and tracked
-in `DRIVER_SIZING_PROPOSAL.md`. The historical fits below choose a calibration
+Status in V2.0.6: original V2.0.3 proposal with measured basis, relocated into
+`docs/`. The measured-phase timing and frozen testbench/table application
+introduced in V2.0.4 remain in `sram_compiler/sizing/timing.py`;
+full qualification is in progress and tracked
+in `docs/DRIVER_SIZING_PROPOSAL.md`. The historical fits below choose a calibration
 clock only; they are not reused as qualification for the new periphery.
 The numbers come from
 the V2.0.2 sweeps (526 nominal / corner / period runs, see `TIMING_AUTOCONFIG_data.csv`) and from the worst-case PVT characterisation run for this
@@ -255,7 +256,7 @@ a DC write-ability limit of the 0.5x write driver that the row-scaling rule
 (`max(8, rows) / 16`) gives to arrays with <= 8 rows at SF / 125 C / 0.9 V;
 the 16x16 array (1x driver) writes every sample at the same corner.
 It is exactly the kind of failure the yield flow should see at that corner;
-it is listed as an open item in `CHANGELOG.md` V2.0.3.
+it is listed as an open item in `docs/CHANGELOG.md` V2.0.3.
 
 ## 4. Proposed method
 

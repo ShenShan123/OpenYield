@@ -1,5 +1,9 @@
 # OpenYield SRAM Circuit & Testbench Review
 
+V2.0.6 documentation location: `sram_compiler/CIRCUIT_REVIEW.md`. This document
+preserves the historical reviews below; current qualification status is in the
+[working proposal](../docs/DRIVER_SIZING_PROPOSAL.md).
+
 **Date:** 2026-09-05
 **Scope:** 6T / 10T SRAM cores, equivalent-circuit model, timing-generation circuit,
 DC (SNM) and transient (read / write / read&write) testbenches, measurement setup,
@@ -839,7 +843,7 @@ python main_sram.py
 The findings of Part I were fixed in the working tree and then verified by
 simulation across array sizes. This part records the method and the
 additional defects found only by running the circuits; the complete list of
-changes is in `CHANGELOG.md`.
+changes is in `docs/CHANGELOG.md`.
 
 ## Method
 
@@ -1275,7 +1279,7 @@ V2.0.1 left three circuit items open: the address-path hold hazard, the
 cycle-time dependence of the floating bitlines after the self-timed precharge
 pulse, and the columns/64 sizing of the `s_en` buffer. This part records what
 the V2.0.2 sweeps found around them, what was changed, and how the changes
-were verified. The change list is in `CHANGELOG.md`.
+were verified. The change list is in `docs/CHANGELOG.md`.
 
 ## Method
 
@@ -1342,7 +1346,7 @@ from the floating bitline capacitance. Writes are cheaper on every array
 (D20). Read delays drop 8-25 ps on small arrays and 25-135 ps on the
 column-heavy ones (2x128 458 -> 322 ps, 64x64 492 -> 382 ps); write delays
 drop 15-60 % on arrays with >= 32 rows or >= 64 columns (64x64 162 -> 108 ps,
-2x128 191 -> 176 ps, 8x512 509 -> 202 ps). The size table in `CHANGELOG.md`
+2x128 191 -> 176 ps, 8x512 509 -> 202 ps). The size table in `docs/CHANGELOG.md`
 lists both versions side by side. The sizing follows one fan-out rule
 (`nand_scale`, `TaperedBuffer` scale); a power-optimised design would relax
 it where the timing margin allows.

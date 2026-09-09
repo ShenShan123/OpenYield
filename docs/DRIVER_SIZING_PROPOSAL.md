@@ -1,6 +1,19 @@
-# Automatic driver sizing for all array sizes — proposal (V2.0.5)
+# Automatic driver sizing for all array sizes — proposal (V2.0.6)
 
-Status (2026-09-08): **V2.0.5**, resumed with full local process mismatch first.
+Status (2026-09-08): **V2.0.6** integrates the default local mismatch flow into
+`sram_compiler/per_device_mc/` and relocates the working plans into `docs/`.
+The V2.0.5 full-local driver and timing re-evaluation remains in progress.
+The integration checks passed 51 compiler/development tests and 6 offline
+optimizer tests; read/write CLI artifacts matched the previous layout byte for byte.
+Developer experiments and qualification helpers now live in ignored `dev/sizing/`,
+with their tests in `dev/tests/`; reusable compiler tests live in tracked `tests/`.
+The separated suites pass 34 compiler tests, 20 local development tests, and
+6 offline optimizer tests. Commands below using `dev.sizing` require those local
+files; see [DEVELOPMENT.md](DEVELOPMENT.md). Runtime table lookup uses a tracked
+source-hash manifest and does not require the ignored scripts.
+No new Xyce simulation or electrical qualification is claimed for V2.0.6.
+
+The following campaign checkpoints retain their original evidence versions.
 The previous campaign was terminated and is historical evidence only (684
 completed cases, 2,663 waveform samples, two unresolved simulator underflows).
 No release qualification is claimed. The new campaign must independently vary
@@ -10,7 +23,7 @@ timing/control buffers. The implementation and measurements below are being
 updated at each execution checkpoint; the 2026-09-08 review checkpoint below is
 the first committed V2.0.5 state.
 The full original design and measured basis remain below. Source revision
-`d30a23b` plus the uncommitted V2.0.3 documents (`TIMING_AUTOCONFIG.md`).
+`d30a23b` plus the uncommitted V2.0.3 documents (`docs/TIMING_AUTOCONFIG.md`).
 The numbers in section 3 come from a characterisation campaign run for this
 proposal (163 Xyce decks, `DRIVER_SIZING_data.csv`, harness in the session
 scratchpad, see section 3.0);
@@ -42,10 +55,14 @@ count and wall-clock estimates. Do not restart the old broad campaign.
 | E — independent verification | Full historical size/cell/mux matrix and RC sensitivity, all PVT read/write checks with local mismatch; 100-sample read and write tail ensembles; sequences/hazards/half-select; independent validation seeds | Pending D |
 | F — evidence and disposition | Export rule-by-rule findings, unresolved failures and exact coverage; promote only complete passing records with matching mismatch model, scope, solver, baseline and scoring provenance | Pending E |
 
-Version contract: the user designated this revision **V2.0.5**. Active rule
-identity is `v2.0.5-local-1`; coefficients are unchanged starting values from
-V2.0.4 and remain unqualified under the new scope. Future campaign/report
-artifacts use `outputs/qualification/V2.0.5/`. The pre-label integration and
+Version contract: the user designated this revision **V2.0.6**. This is the
+compiler/package and documentation release; the active sizing rule identity
+remains `v2.0.5-local-1`, and coefficients remain unqualified starting values
+from V2.0.4. The existing qualification tools retain their V2.0.5 artifact
+format and default `outputs/qualification/V2.0.5/` directory. The package move
+updates the scoring fingerprint to use runtime sources plus the tracked local-tool
+source manifest; it does not promote earlier
+records or relabel measurements. The pre-label integration and
 finalized pilots retain their original `V2.0.4-local/` paths so their absolute
 model includes and evidence remain reproducible. Original V2.0.4 measurements,
 stopped campaign and archived proposal remain historical evidence.
@@ -132,8 +149,8 @@ the pre-label `outputs/qualification/V2.0.4-local/mpi-benchmark/` directory.
 Resume/inspect the scheduled diagnostic screen from the repository root:
 
 ```bash
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m sram_compiler.sizing.local_review --workers 20 --mpi-ranks 4 --samples 3 --timeout 1800 --xyce /path/to/openyield/bin/Xyce
-python3 -m sram_compiler.sizing.local_review --summarize
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m dev.sizing.local_review --workers 20 --mpi-ranks 4 --samples 3 --timeout 1800 --xyce /path/to/openyield/bin/Xyce
+python3 -m dev.sizing.local_review --summarize
 ```
 
 `review/schedule.json` records the admitted matrix; each architecture has an
@@ -183,7 +200,7 @@ holds the ledger; the observed rule families are:
   fan-out rule (`cols/4`, `cols/15`) without a wire term and why the wordline
   check reads the row net. The model was inherited from the cell-level RC
   insertion (the bitlines use the same star); it was not chosen for the rule.
-  `python3 -m sram_compiler.sizing.wordline_model` compares it with a
+  `python3 -m dev.sizing.wordline_model` compares it with a
   distributed line built from the same driver and cells (TT, 25 C, fixed-mode
   driver scale; `docs/qualification/V2.0.5_wordline_model.json`):
 
@@ -383,7 +400,7 @@ The PDK resistance model remains enabled. A reference with unchanged total
 constant. Evidence: `docs/qualification/V2.0.4_gate_finger_check.json` and
 `V2.0.4_gate_finger_dc.json`; `V2.0.4_gate_finger_reference.json` records the
 conditions and model/simulator hashes. Reproduce both checks with
-`python3 -m sram_compiler.sizing.gate_fingers --xyce /path/to/Xyce`.
+`python3 -m dev.sizing.gate_fingers --xyce /path/to/Xyce`.
 The folded-driver 16x256 and 16x512 read pilots
 pass every check (16x256 isolation edges about 20/16 ps). The release remains
 V2.0.4.
@@ -422,7 +439,7 @@ bitline that sets the period (section 11, item 1).
 - [x] Accounted for explicit peripheral enable-pin capacitors in control loads.
   A measured reference inverter has 0.554-0.564 fF input charge capacitance across
   the sampled corners; the rule uses 0.5 fF for load margin. The reproducible
-  experiment is `sram_compiler/sizing/gate_cap.py` and its data is
+  experiment is `dev/sizing/gate_cap.py` and its data is
   `docs/qualification/V2.0.4_unit_gate_cap.json`.
 - [x] Validate the RC precharge handoff guard in the 16x16 pilot. RC waveforms showed precharge
   beginning 49-86 ps before the physical WL reached its low threshold. The new
@@ -468,7 +485,7 @@ thresholds, timestep limits, models, and required sample counts are unchanged.
 ### Validation completed / in progress
 
 - [x] 35 simulator-free regression tests pass:
-  `python3 -m unittest discover -s sram_compiler/tests -v`.
+  `python3 -m unittest discover -s tests -v`.
   Coverage includes floors/load crossovers, actual gate loads, modes/overrides,
   invalid inputs, immutable reuse and fingerprints, split MOS widths, numeric
   and swept factory paths, TIME integration, and full-array read/write generation
@@ -509,7 +526,7 @@ thresholds, timestep limits, models, and required sample counts are unchanged.
    and per-device MC path are updated. The legacy `main_estimation.py` still imports
    an absent `spice` backend and uses obsolete algorithm/testbench APIs; porting
    those rare-event algorithms is separate from the current compiler campaign.
-3. [ ] Implement the automatic timing dependency in `TIMING_AUTOCONFIG.md`, then
+3. [ ] Implement the automatic timing dependency in `docs/TIMING_AUTOCONFIG.md`, then
    add reproducible `verify()` waveform/phase-budget checks, coefficient provenance
    in `sizing_rules.json`, hash-keyed `sizing_table.json`, and `auto` lookup with
    explicitly unverified rule fallback. The measured-period path, runner, rules,
@@ -565,7 +582,7 @@ thresholds, timestep limits, models, and required sample counts are unchanged.
    cols, mux)` computes all scales from the YAML base widths, then the TIME
    buffer loads *from those scales* (today the testbench recomputes the
    loads from the rules by hand), and the factories consume the immutable
-   result. Like the clock period of `TIMING_AUTOCONFIG.md`, the sizes are
+   result. Like the clock period of `docs/TIMING_AUTOCONFIG.md`, the sizes are
    derived once from the baseline cell and frozen as the spec for size
    optimisation and yield analysis; a candidate cell that the frozen
    periphery cannot write or read fails, the periphery is not re-sized around it.
@@ -663,7 +680,7 @@ and re-run the characterisation of section 7.
 
 ### 2.1 What "timing requirement" means for the drivers
 
-`TIMING_AUTOCONFIG.md` sets the clock period per array from the two
+`docs/TIMING_AUTOCONFIG.md` sets the clock period per array from the two
 clock phases measured at the worst case, `T = 2 * max(low, high) * (1 +
 margin)`, with `low = TCLK_WLEN + access` (wordline phase) and `high =
 max(TRESTORE, TCLK_DEC)` (precharge / decode phase). The read access is
@@ -695,7 +712,7 @@ The requirements are ordered; a lower item never overrides a higher one.
    2029 ps at 512, status table), so the budget a driver has grows with the
    rows: the timing requirement is relaxed by the array itself, and a
    driver that meets `alpha` at 8 rows with a given `rows / scale` meets it
-   with a larger `rows / scale` at 512. The period of `TIMING_AUTOCONFIG.md`
+   with a larger `rows / scale` at 512. The period of `docs/TIMING_AUTOCONFIG.md`
    is then set by the array, not by the periphery, and its 25 % margin
    covers the drivers as well. Within the budget, *smaller is better*: every
    unit of driver width on a bitline adds drain capacitance to the phase
@@ -870,7 +887,7 @@ What the sweep shows:
 ### 3.2 Precharge
 
 Sweep of the precharge PMOS scale at SS / 125 C / 0.9 V, read and write
-decks (10 ns clock; `T` marks the period `TIMING_AUTOCONFIG.md` would
+decks (10 ns clock; `T` marks the period `docs/TIMING_AUTOCONFIG.md` would
 assign). `TRESTORE` = rising clock edge -> discharged bitline back at
 0.9 VDD; `TPRCH` = `PRE` fall -> bitline at 0.9 VDD from 0 V (start-up
 precharge, the raw PMOS charging time); the bitline levels are read at the
@@ -1161,7 +1178,7 @@ The load terms use `rows` and `cols` only; the floors and coefficients
 (`wd_floor`, `R_w`, `R_pre`, `k_w_fit`, `t0_w`, `k_pre`, `t0_pre`) are per
 (cell type, PDK) constants fitted in section 3 and stored next to the rules
 with the hash of the inputs they were fitted for. `timing_model` is the
-phase model of `TIMING_AUTOCONFIG.md` (the two proposals share the
+phase model of `docs/TIMING_AUTOCONFIG.md` (the two proposals share the
 worst-case phases); it is used only for the budget *asserts*, never to size
 a driver, so there is no loop between the period and the sizes: the read
 phase that sets the budgets is the bitline-limited phase, which the driver
@@ -1180,7 +1197,7 @@ Two-sided rule, evaluated on the matched replica wordline:
   section 7 item 5) + replica / cell mismatch (3 sigma) + 100 mV; until
   those two are measured `dV_min` = 0.3 V;
 - late side: `TCLK_WLEN + sen_minus_wl + TSA + latch` is the read phase
-  the period is derived from (`TIMING_AUTOCONFIG.md`), so it is never
+  the period is derived from (`docs/TIMING_AUTOCONFIG.md`), so it is never
   violated, only paid for.
 
 `N` = 1 always (the chain only adds latency, item 1 above); `K` is the
@@ -1245,7 +1262,7 @@ loads, and with them the buffers, shrink 2-4x on the tall arrays.
 
 | source of uncertainty | how it is covered | size |
 |---|---|---|
-| global process / voltage / temperature | every speed term sized and checked at SS / 125 C / 0.9 V, write-ability at SF / 125 C / 0.9 V, leakage at FF and FS / 125 C (the corners `TIMING_AUTOCONFIG.md` section 3.4 measured as worst per phase) | 2.1-2.3x on every control phase, up to 3.8x on the write access, relative to TT |
+| global process / voltage / temperature | every speed term sized and checked at SS / 125 C / 0.9 V, write-ability at SF / 125 C / 0.9 V, leakage at FF and FS / 125 C (the corners `docs/TIMING_AUTOCONFIG.md` section 3.4 measured as worst per phase) | 2.1-2.3x on every control phase, up to 3.8x on the write access, relative to TT |
 | global variation beyond the corner | the MC testbench's `AGAUSS(5 %)` on `vth0 / u0 / voff` per model card is a random global shift on top of the corner; verification decks run 10 seeded samples and require 0 failures *and* the analog margins below (a marginal pass is not a pass) | worst of 10 samples over the mean: write access +16 % (8x4, 1.0x), +20 % (box cell, 1.5x), +48 % (box cell at the 1.0x floor); read phase +7 % (section 3.4) |
 | DC write-ability | floor = smallest scale that writes the parameter-box cell (max PU, min PG, max PD) at SF / 125 C / 0.9 V with 10 / 10 samples, times `wd_floor_margin` = 1.5 (a driver whose NMOS is 33 % weaker than the model still writes); acceptance: driven bitline < 0.1 VDD, `q_written`, `q_retained` | section 3.1 |
 | sensing margin | `dv_at_sen >= dV_min` for the slowest cell of the parameter box against the nominal replica, `dV_min` = SA offset (3 sigma, per-device flow) + replica / cell mismatch (3 sigma) + 100 mV; placeholder 0.3 V (100 + 100 + 100 mV) until measured; `K >= 2` halves the replica's own sigma | section 3.4: 0.75-0.84 V at <= 16 rows, 0.62 V at 64 rows with `(2, 1)` |

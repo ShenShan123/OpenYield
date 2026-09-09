@@ -4,13 +4,45 @@ The full evidence tables of V2.0.1 and V2.0.2 (294 size-sweep decks with
 delay and power per configuration, 108 corner runs, the address-change and
 clock-period sweeps, seeded Monte Carlo) were removed from this file in V2.0.3.
 They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
-`CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
+`sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
+
+## V2.0.6 — 2026-09-08 — compiler integration and documentation organization
+
+This release reorganizes the compiler and documentation. Driver and timing
+qualification remain in progress; the inherited rule identity and qualification
+artifact format remain V2.0.5. See the [working proposal](DRIVER_SIZING_PROPOSAL.md).
+
+- Integrated the local mismatch runner, netlist specialization, and sampling
+  into `sram_compiler/per_device_mc/`, retaining per-device mismatch as the default.
+  The CLI is now `python -m sram_compiler.per_device_mc.run`.
+- Moved working proposals and release history into `docs/`, and placed compiler,
+  equivalent-model, and optimization documentation beside their code with README
+  links. The original design snapshot and supplied CSV evidence are preserved.
+- Updated imports, repository-relative data lookup, qualification source
+  fingerprints, directory trees, and current-version documentation. The compiler
+  guide now describes a single per-device run as one random local sample.
+- Moved nine development experiment/qualification helpers into ignored
+  `dev/sizing/`, and their tests into `dev/tests/`. Reusable compiler regression
+  tests live in tracked top-level `tests/`. Runtime simulation testbenches remain
+  part of the compiler. `.gitignore` excludes future local development scripts.
+- Runtime qualified-table lookup uses a tracked scoring-source hash manifest
+  instead of opening development scripts. Local qualification tools check that
+  manifest before emitting evidence; stale source identities remain rejected.
+- Validation: 34 compiler tests, 20 local development tests, and 6 offline
+  optimizer tests pass; module and
+  direct-script CLI read/write generation reproduce all eight baseline deck,
+  model, audit, and summary files byte for byte, including execution outside the
+  repository. Nominal/shared CLI generation, Python 3.9/3.11 compilation,
+  qualification scheduling dry-run, local Markdown links, and `git diff --check`
+  pass. The tracked-file export passes compiler/optimizer tests and CLI generation
+  with `dev/` absent. No new Xyce simulation or electrical qualification was run
+  for this move.
 
 ## V2.0.5 — 2026-09-08 — full local mismatch and driver re-evaluation
 
-In progress; no release qualification is claimed. The full working plan remains
-in `DRIVER_SIZING_PROPOSAL.md`.
+Electrical qualification remained in progress at this checkpoint. The full
+working plan continues in `docs/DRIVER_SIZING_PROPOSAL.md`.
 
 - The MC testbench defaults to independent per-MOS `vth0`, `u0`, and `voff`
   mismatch at a fixed global corner. Nominal and shared-card variation are
@@ -31,7 +63,7 @@ in `DRIVER_SIZING_PROPOSAL.md`.
   rule has no RC term). 28 four-rank cases and the 10T 64x64 / 16x256
   calibrations timed out at 1,800 s on a shared host, and three materialized
   MPI samples failed the DC operating point; these are unscored, not failed.
-  See the Stage C outcome in `DRIVER_SIZING_PROPOSAL.md`.
+  See the Stage C outcome in `docs/DRIVER_SIZING_PROPOSAL.md`.
 - RC symmetry between the array and the replica column: with `w_rc` the
   fixed-mode replica wordline driver (AND2) now carries the same two RC
   segments on its inputs and RWL output as the real wordline drivers, and the
@@ -66,7 +98,7 @@ in `DRIVER_SIZING_PROPOSAL.md`.
 ## V2.0.4 — 2026-09-07 — baseline driver sizing and measured timing
 
 Qualification is in progress. The full working proposal and completed/open
-checklist are in `DRIVER_SIZING_PROPOSAL.md`; its original text and supplied
+checklist are in `docs/DRIVER_SIZING_PROPOSAL.md`; its original text and supplied
 characterisation CSV are preserved.
 
 ### Changes
@@ -120,11 +152,11 @@ algorithm code was changed.
 
 ### Changes
 
-- **`CHANGELOG.md` compacted:** the V2.0.1 and V2.0.2 entries shrink from
+- **`docs/CHANGELOG.md` compacted:** the V2.0.1 and V2.0.2 entries shrink from
   900 to 300 lines and keep their fixes, open items, code changes and observations; the
   evidence is condensed to representative sizes and one corner table. The
   full tables are in `git show c3f6f44:CHANGELOG.md`.
-- **`TIMING_AUTOCONFIG.md`** (new): proposal for setting the SRAM timing
+- **`docs/TIMING_AUTOCONFIG.md`** (new): proposal for setting the SRAM timing
   automatically for every array size. Findings it rests on:
   - the only free timing knob of this architecture is the clock period (and
     duty): wordline enable and write enable are the clock-low phase,
@@ -188,7 +220,7 @@ algorithm code was changed.
 - **Not characterised at the worst case:** 128x128 and 256x64, the column
   mux, 10T beyond 16x16, and the equivalent-circuit / `w_rc` variants; the
   phase model is fitted at TT / 25 C and derated, it has not been re-fitted
-  on worst-case data (the table in `TIMING_AUTOCONFIG.md` section 3.4 is the
+  on worst-case data (the table in `docs/TIMING_AUTOCONFIG.md` section 3.4 is the
   anchor for the seven characterised sizes).
 - **Testbench prerequisites for short periods** (unchanged, from V2.0.2):
   the PSTC window overlaps the start-up precharge for `t_period < 5 ns`;
@@ -302,7 +334,7 @@ were not touched.
 - `sram_6t_core_testbench.py`: `next_row`; `create_time_circuit()` passes the
   fan-out information; `create_write_periphery()` sizes the `w_en_bar`
   inverter with the column count (`_wenb_scale()`).
-- `readme_compiler.md` sections 10, 11, 13.1, 14.5; `CIRCUIT_REVIEW.md`
+- `sram_compiler/README.md` sections 10, 11, 13.1, 14.5; `sram_compiler/CIRCUIT_REVIEW.md`
   Part III (defects D12-D20, sizing tables).
 
 ### Observations (verified, not changed)
@@ -443,7 +475,7 @@ yield-estimation algorithms were not reviewed.
   step, which keeps results of converging decks within 0.5 %; `t_max_step`
   and `xyce_options` are exposed on `Sram6TCoreMcTestbench`.
 - **Static-review fixes carried into this release** (details in
-  `CIRCUIT_REVIEW.md` Part I): column-mux port mismatch that aborted every
+  `sram_compiler/CIRCUIT_REVIEW.md` Part I): column-mux port mismatch that aborted every
   muxed read; free-running `SEL` pulse; wrong output-latch index and floating
   latch input on writes; replica column driven by the real wordlines (now one
   active replica cell, dummies tied to VSS); CS start-up clamp fighting the

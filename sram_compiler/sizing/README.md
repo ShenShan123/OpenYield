@@ -1,10 +1,16 @@
-# V2.0.5 driver sizing
+# V2.0.6 driver sizing
 
-V2.0.5 resolves precharge, split write-driver, wordline and decoder output scales
+V2.0.6 retains the V2.0.5 sizing rules, which resolve precharge, split
+write-driver, wordline and decoder output scales
 with their TIME loads. The real and replica wordlines share a driver, and the
 replica includes the real bitline's disabled write-stack load. The full design
 and current qualification status are in
-[`DRIVER_SIZING_PROPOSAL.md`](../../DRIVER_SIZING_PROPOSAL.md).
+[`docs/DRIVER_SIZING_PROPOSAL.md`](../../docs/DRIVER_SIZING_PROPOSAL.md).
+
+The local mismatch package now lives in `sram_compiler/per_device_mc/`.
+The active rule identity remains `v2.0.5-local-1`; local qualification tools in
+ignored `dev/` retain their V2.0.5 artifact format and default output paths. The V2.0.6 package move
+does not establish new electrical qualification.
 
 ## Use
 
@@ -13,7 +19,7 @@ array rules, including their small-array write limitation. To opt into the
 proposal, set `mode: rules_only` in the YAML or configure it in memory:
 
 ```python
-from per_device_mc.run import load_config
+from sram_compiler.per_device_mc.run import load_config
 from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 
@@ -102,7 +108,7 @@ The default sizing mode is still the unqualified legacy `fixed` mode.
 Run the simulator-free regression suite from the repository root:
 
 ```bash
-python3 -m unittest discover -s sram_compiler/tests -v
+python3 -m unittest discover -s tests -v
 ```
 
 The tests cover rule crossovers, configured gate loads, mode overrides, invalid
@@ -111,81 +117,16 @@ expressions, TIME integration, and full-array 6T/10T read/write generation with
 both mux choices. Equivalent-cell generation can invoke Xyce for extraction;
 the fast suite deliberately uses full transistor arrays.
 
-The resumable campaign derives a clock from nominal SS read and SS/SF write
-phases, freezes it, then runs full-local variation, corner, hazard and RC
-checks. A case's completion marker must match its exact deck/model/seed inputs
-and simulator binary before simulation output is reused. Cached waveforms are
-rescored on each run. Shared and nominal runs cannot qualify the local policy.
-If Xyce aborts an individual transient with `Time step too small`, the runner
-detects its missing waveform interval even when Xyce returns success. It retries
-the same seeded ensemble once with a tighter 5 ps maximum step, preserving the
-original attempt and recording the actual timestep. Failed electrical checks or
-nonfinite signals do not trigger this retry.
-RC calibration uses a longer initial clock because the historical fit excludes
-the explicit 100-ohm/1-fF networks; its final clock still comes from measurement.
+Runtime qualification lookup uses `scoring_sources.json`, which pins the
+reviewed local scoring sources by content hash. It hashes that manifest together
+with the runtime acceptance inputs, and rejects stale or incomplete records.
+The compiler never opens files from ignored `dev/`; local qualification runners
+verify their source hashes before recording or promoting evidence. Changes to
+the scoring manifest invalidate earlier scoring identities.
 
-```bash
-python3 -m sram_compiler.sizing.campaign --dry-run
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m sram_compiler.sizing.campaign --sizes 8x4 --pilot --xyce /path/to/Xyce --workers 4
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m sram_compiler.sizing.campaign --screen --xyce /path/to/Xyce --workers 24
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m sram_compiler.sizing.campaign --xyce /path/to/Xyce --workers 24
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m sram_compiler.sizing.offset --xyce /path/to/Xyce
-python3 -m sram_compiler.sizing.report outputs/qualification/V2.0.5 --table sram_compiler/sizing/sizing_table.json
-```
-
-The independent gate-load and wide-gate reference experiments are reproducible:
-
-```bash
-python3 -m sram_compiler.sizing.gate_cap --xyce /path/to/Xyce
-python3 -m sram_compiler.sizing.gate_fingers --xyce /path/to/Xyce
-python3 -m sram_compiler.sizing.wordline_model --xyce /path/to/Xyce
-```
-
-The wordline check drives real RC cells with the array's wordline driver and
-compares the compiler's per-pin stub model (an ideal row net, a star) with a
-distributed line per column pitch; it records first- and last-cell arrival and
-slew. The star model is kept for the wordline sizing rule by decision; the
-proposal's Stage C outcome records the distributed-line numbers as reference.
-
-The fingering check holds total MOS widths fixed, compares transient edges at
-NF=1/16/100, and verifies nearly unchanged DC current. Its reference metadata
-includes the model and simulator binary hashes.
-
-Use `--sizes 8x4 --pilot` on the campaign for a small check. Full-array Monte
-Carlo is expensive; the timeout defaults to six hours per sample (60 hours for
-a ten-sample deck), and incomplete runs remain failures. Process counts change
-scheduling, not circuit tolerances.
-`--screen` includes PVT, sequences and RC, postponing the dedicated 100-sample
-ensembles. Both pilot and screening runs are ineligible for table promotion.
-The full schedule has 112 configurations, 336 calibration decks, 1,682 local
-verification decks and 17,156 waveform samples. Review failures before expanding
-the schedule. A root lock prevents two campaigns writing the same checkpoint.
-The report refuses incomplete campaigns and requires both local sensing and
-SS/SF write-tail evidence before promotion. The table remains empty.
-
-Large arrays (at least 1,024 cells) use four MPI ranks by default. Set
-`--mpi-ranks` and `--parallel-min-cells` to adjust this; `workers × mpi-ranks`
-must fit the available cores. Use the MPI launcher beside the Xyce binary,
-with one BLAS thread per rank. Xyce 7.4's native random-expression sampling
-crashed on the large MPI test, so these runs sample local Gaussian LHS values
-before execution and save numeric cards for each transient. Each parameter's
-stream is stable across candidate widths and unrelated device insertions.
-Serial small-array checks use native Xyce sampling. Both backends record their
-provenance; saved MPI cards support exact reproduction on one or more cores.
-The four-core 64x64 execution check passes. The three-sample rule screen finished
-on 2026-09-08; its outcome (36 RC wordline-budget failures, timeouts and three
-DCOP aborts on materialized MPI samples) is in `DRIVER_SIZING_PROPOSAL.md`.
-
-For a bounded representative-array diagnostic before the full campaign:
-
-```bash
-python3 -m sram_compiler.sizing.local_review --workers 20 --mpi-ranks 4 --samples 3 --timeout 1800 --xyce /path/to/openyield/bin/Xyce
-python3 -m sram_compiler.sizing.local_review --summarize
-python3 -m sram_compiler.sizing.local_review --sizes 16x16 --rc-only --workers 4 --output-dir outputs/qualification/V2.0.5/review-rc-fix --xyce /path/to/openyield/bin/Xyce
-```
-
-`--rc-only` keeps only the explicit-RC 16x16 architectures, for reruns after a
-change to the RC topology. Use a fresh `--output-dir` to keep earlier evidence.
+Development experiments, campaign runners, and their tests are local-only under
+ignored `dev/`. See the [development guide](../../docs/DEVELOPMENT.md) for their
+inventory, commands, and source-fingerprint maintenance.
 
 Half-select waveform qualification remains a separate open requirement and
 blocks table promotion, even if all currently scheduled cases pass.
@@ -193,6 +134,6 @@ blocks table promotion, even if all currently scheduled cases pass.
 The default replica remains `(1, 9)`. Original YAML 200/100 ps access limits are
 reported separately; passing the phase-based specification does not waive them.
 `exp_utils.py` now reports these constraint violations, freezes baseline sizing,
-and uses actual resolved YAML widths for area. `per_device_mc/run.py` records the
+and uses actual resolved YAML widths for area. `sram_compiler/per_device_mc/run.py` records the
 same baseline across variation samples. The obsolete rare-event algorithm entry
 point `main_estimation.py` still requires a separate API/backend migration.

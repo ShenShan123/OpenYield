@@ -4,9 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 OpenYield generates 6T/10T SRAM transistor netlists with PySpice, simulates them with Xyce
 (FreePDK45 models in `tran_models/`), and evaluates delay, power, SNM, area, driver sizing
-and yield. `AGENTS.md` holds the detailed working conventions; `DRIVER_SIZING_PROPOSAL.md`
+and yield. `AGENTS.md` holds the detailed working conventions; `docs/DRIVER_SIZING_PROPOSAL.md`
 is the live design/qualification document (update its sections in place, status at the top;
-the original is archived under `docs/design/`). `CHANGELOG.md` is per release (V2.0.x).
+the original is archived under `docs/design/`). `docs/CHANGELOG.md` is per release (V2.0.x).
+
+Current release: **V2.0.6**, integrating the default local mismatch package into
+`sram_compiler/` and reorganizing documentation. The inherited sizing rule
+identity and qualification artifact format remain V2.0.5; their versioned
+paths in the commands below identify that evidence workflow.
 
 ## Environment
 
@@ -26,30 +31,29 @@ the original is archived under `docs/design/`). `CHANGELOG.md` is per release (V
 
 ```bash
 # Simulator-free regression suite for the compiler, sizing and per-device paths (~10 s)
-python3 -m unittest discover -s sram_compiler/tests -v
+python3 -m unittest discover -s tests -v
 # One test
-python3 -m unittest sram_compiler.tests.test_driver_paths.PathTests.test_matched_replica_and_canonical_read
+python3 -m unittest tests.test_driver_paths.PathTests.test_matched_replica_and_canonical_read
 # Offline optimizer package
 python3 -m unittest discover -s size_optimization/openyield_v2/tests -v
 # Static checks
-python3 -m compileall -q sram_compiler per_device_mc size_optimization/exp_utils.py && git diff --check
+python3 -m compileall -q sram_compiler size_optimization/exp_utils.py && git diff --check
 
 # Generate (and optionally run) one deck; defaults: full array, per-device mismatch, 100 runs
-python3 per_device_mc/run.py --rows 8 --cols 4 --operation read --mc-runs 2 --seed 3 --run-xyce --output-dir outputs/per_device_mc
+python3 -m sram_compiler.per_device_mc.run --rows 8 --cols 4 --operation read --mc-runs 2 --seed 3 --run-xyce --output-dir outputs/per_device_mc
 
-# Driver-sizing qualification (all under sram_compiler/sizing; --dry-run prints the schedule)
-python3 -m sram_compiler.sizing.campaign --dry-run
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m sram_compiler.sizing.campaign --sizes 8x4 --pilot --workers 4 --xyce /path/to/Xyce
-python3 -m sram_compiler.sizing.local_review --sizes 16x16 --rc-only --workers 4 --output-dir outputs/qualification/V2.0.5/review-rc-fix --xyce /path/to/Xyce
-python3 -m sram_compiler.sizing.local_review --summarize --output-dir <root>
-python3 -m sram_compiler.sizing.report outputs/qualification/V2.0.5 --table sram_compiler/sizing/sizing_table.json
-# Reproducible reference experiments: gate_cap, gate_fingers, offset, wordline_model (each takes --xyce)
+# Local development-tool tests (requires the ignored dev/ workspace)
+python3 -m unittest discover -s dev/tests -v
 ```
+
+`docs/DEVELOPMENT.md` contains the local qualification and reference-experiment
+commands. Keep these scripts in ignored `dev/`; a fresh checkout must run the
+compiler and tracked tests without them.
 
 Never run repository-wide test discovery: several `test*.py` files under `size_optimization/` and
 `yield_estimation/` are long experiments. Do not use `main_sram.py` as a smoke test; it rewrites
 `sram_compiler/config_yaml/global.yaml` and `sram_6t_cell.yaml` in place. For an in-memory run use
-`per_device_mc.run.load_config(rows, cols, corner)`, set fields on `config.global_config`, build
+`sram_compiler.per_device_mc.run.load_config(rows, cols, corner)`, set fields on `config.global_config`, build
 `Sram6TCoreMcTestbench(...)` and call `run_mc_simulation(...)` with `sim_path` under `outputs/`.
 
 ## Architecture
@@ -73,20 +77,22 @@ Sizing layer (`sram_compiler/sizing/`): `resolve_driver_sizes()` returns an immu
 replica K/N, baseline fingerprints) once per baseline; both testbenches consume it and reject a
 changed geometry, periphery or PDK. `sizing.mode: fixed` (default) reproduces the legacy netlists
 byte for byte; `rules_only` opts into the V2.0.4/V2.0.5 rules; `auto` needs an exact record in
-`sizing_table.json` (currently empty). `qualification.py` generates a case, runs Xyce and scores
-waveforms; `campaign.py`/`local_review.py` schedule cases; `report.py`/`table.py` gate promotion;
-`execution.py` handles MPI runs with materialized LHS model cards from `per_device_mc/sampling.py`.
+`sizing_table.json` (currently empty). Runtime `table.py` checks the tracked
+`scoring_sources.json` manifest and runtime code hashes without reading ignored
+scripts. Local `dev/sizing/` contains the qualification, campaign, report,
+diagnostic, reference-experiment, and MPI execution tools; they verify their
+source hashes against that manifest before producing qualification evidence.
 
 Variation: `Sram6TCoreMcTestbench` modes are `nominal`, `shared` (one AGAUSS card per base model),
 `custom` (parameter table from the cell YAML) and `per-device` (independent `vth0/u0/voff` per MOS,
-specialized in `create_testbench()` by `per_device_mc/netlist.py`). `mc=True` now means per-device,
+specialized in `create_testbench()` by `sram_compiler/per_device_mc/netlist.py`). `mc=True` now means per-device,
 so `mc_runs=1` without `mc_seed` is one unseeded random sample, not nominal; deterministic callers
 must pass `variation_mode='nominal'`. Per-device cannot be combined with the legacy `.STEP` sweeps.
 
 Parasitics: `w_rc` adds per-pin RC stubs inside each subcircuit (100 ohm / 1 fF) plus two segments on
 driver outputs and periphery inputs; row and column nets between cells are ideal (a star, kept by
 decision for the wordline sizing rule). The replica wordline/bitline must carry exactly the array's
-RC configuration in every mode; `sram_compiler/tests/test_driver_paths.py` enforces it.
+RC configuration in every mode; `tests/test_driver_paths.py` enforces it.
 `real_cell_mode` 0-4 replaces unused cells by the extracted 5-capacitor equivalent
 (`subcircuits/sram_cell_add_equivalent.py`), which aggregates the same stubs.
 
