@@ -205,7 +205,9 @@ holds the ledger; the observed rule families are:
   distributed wordline therefore needs pitch-based segment values, the
   wordline check moved to the last cell, the replica wordline routed through
   the same line length, and a wire term in the rule that no driver width
-  removes (Elmore 0.5 N^2 R C). Decision for Stage D; the star is retained.
+  removes (Elmore 0.5 N^2 R C). Decision (user, 2026-09-08): keep the
+  inherited star model for the wordline sizing rule; the distributed-line
+  numbers stay as reference only and are not a Stage D item.
 - **Execution, not circuit, losses.** 28 four-rank cases (6T 64x64, 256x8 and
   16x256 sequences, fast-corner reads and writes, write boxes) hit the 1,800 s
   diagnostic limit and the twelve 10T 64x64 / 16x256 nominal calibration decks

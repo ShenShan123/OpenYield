@@ -48,7 +48,8 @@ in `DRIVER_SIZING_PROPOSAL.md`.
   wordline check (evidence in `docs/qualification/V2.0.5_wordline_model.json`):
   at 256 columns a 1 ohm / 0.1 fF-per-column line delays the last cell by
   36 ps and widens its slew by 78 ps relative to the compiler's star model; at
-  16 columns the difference is 1 ps. `local_review --rc-only` reruns only the
+  16 columns the difference is 1 ps. The inherited star model is kept for the
+  wordline sizing rule by decision. `local_review --rc-only` reruns only the
   explicit-RC 16x16 architectures.
 - Review fixes: the optimizer objective (`exp_utils.evaluate_sram`) requests
   the nominal corner explicitly instead of inheriting one unseeded per-device

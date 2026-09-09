@@ -144,8 +144,8 @@ python3 -m sram_compiler.sizing.wordline_model --xyce /path/to/Xyce
 The wordline check drives real RC cells with the array's wordline driver and
 compares the compiler's per-pin stub model (an ideal row net, a star) with a
 distributed line per column pitch; it records first- and last-cell arrival and
-slew. The compiler keeps the star model; the proposal's Stage C outcome lists
-what a distributed wordline would change.
+slew. The star model is kept for the wordline sizing rule by decision; the
+proposal's Stage C outcome records the distributed-line numbers as reference.
 
 The fingering check holds total MOS widths fixed, compares transient edges at
 NF=1/16/100, and verifies nearly unchanged DC current. Its reference metadata
