@@ -174,6 +174,38 @@ holds the ledger; the observed rule families are:
   after (the legacy AND2 stays unscaled and lightly loaded); the matched
   driver of rules_only mode tracks within 1 ps. The RC screen above predates
   that change; rerun the 16x16 RC cases before Stage D uses them.
+- **Wordline wire model: a star, not a distributed line.** The compiler
+  inserts RC per subcircuit pin: every cell's WL pin gets one 100 ohm / 1 fF
+  stub and the driver output two segments, while the row net between the
+  cells is ideal. N stubs in parallel are 100/N ohm and N fF, so the wordline
+  is a lumped capacitance, the driver width alone sets its delay, and every
+  cell of the row sees the same edge. That is why the wordline rule is a
+  fan-out rule (`cols/4`, `cols/15`) without a wire term and why the wordline
+  check reads the row net. The model was inherited from the cell-level RC
+  insertion (the bitlines use the same star); it was not chosen for the rule.
+  `python3 -m sram_compiler.sizing.wordline_model` compares it with a
+  distributed line built from the same driver and cells (TT, 25 C, fixed-mode
+  driver scale; `docs/qualification/V2.0.5_wordline_model.json`):
+
+  | Columns | Row model | First cell arrival / slew (ps) | Last cell arrival / slew (ps) |
+  |---|---|---:|---:|
+  | 16 | star (compiler) | 46 / 44 | 46 / 44 |
+  | 16 | distributed, 100 ohm + 1 fF per column | 46 / 81 | 73 / 100 |
+  | 16 | distributed, 1 ohm + 0.1 fF per column | 47 / 47 | 48 / 47 |
+  | 256 | star (compiler) | 92 / 159 | 92 / 159 |
+  | 256 | distributed, 100 ohm + 1 fF per column | 42 / 48 | no 50 % crossing in the 2 ns pulse |
+  | 256 | distributed, 1 ohm + 0.1 fF per column | 79 / 211 | 128 / 237 |
+
+  At 16 columns a metal-pitch line (about 1 ohm and 0.1 fF per 0.6 um cell
+  pitch in this node) is indistinguishable from the star. At 256 columns it
+  delays the last cell by 36 ps, widens its slew by 78 ps and delays its fall
+  by 37 ps while the first cell gets faster, because the line shields the
+  driver. Chaining the compiler's generic 100 ohm / 1 fF stub per column is
+  not a wire model: 25.6 kohm and 256 fF at 256 columns never reach 50 %. A
+  distributed wordline therefore needs pitch-based segment values, the
+  wordline check moved to the last cell, the replica wordline routed through
+  the same line length, and a wire term in the rule that no driver width
+  removes (Elmore 0.5 N^2 R C). Decision for Stage D; the star is retained.
 - **Execution, not circuit, losses.** 28 four-rank cases (6T 64x64, 256x8 and
   16x256 sequences, fast-corner reads and writes, write boxes) hit the 1,800 s
   diagnostic limit and the twelve 10T 64x64 / 16x256 nominal calibration decks

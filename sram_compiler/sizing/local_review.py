@@ -155,6 +155,7 @@ def main():
     parser.add_argument('--output-dir', type=Path,
                         default=Path(__file__).resolve().parents[2] / 'outputs/qualification/V2.0.5/review')
     parser.add_argument('--summarize', action='store_true', help='Read completed and partial checkpoints without running simulations')
+    parser.add_argument('--rc-only', action='store_true', help='Only the explicit-RC sensitivity architectures (16x16)')
     args = parser.parse_args()
     root = args.output_dir.resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -173,6 +174,10 @@ def main():
         # A small RC sensitivity case first; tall/large RC is in full qualification.
         bases += [replace(base, w_rc=True, parasitic_factor=2) for base in list(bases)
                   if (base.rows, base.cols) == (16, 16)]
+        if args.rc_only:
+            bases = [base for base in bases if base.w_rc]
+            if not bases:
+                parser.error('--rc-only needs 16x16 in --sizes')
         bases = [replace(base, mpi_ranks=args.mpi_ranks if base.rows * base.cols >= args.parallel_min_cells else 1)
                  for base in bases]
         import os

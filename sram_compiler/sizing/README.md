@@ -138,7 +138,14 @@ The independent gate-load and wide-gate reference experiments are reproducible:
 ```bash
 python3 -m sram_compiler.sizing.gate_cap --xyce /path/to/Xyce
 python3 -m sram_compiler.sizing.gate_fingers --xyce /path/to/Xyce
+python3 -m sram_compiler.sizing.wordline_model --xyce /path/to/Xyce
 ```
+
+The wordline check drives real RC cells with the array's wordline driver and
+compares the compiler's per-pin stub model (an ideal row net, a star) with a
+distributed line per column pitch; it records first- and last-cell arrival and
+slew. The compiler keeps the star model; the proposal's Stage C outcome lists
+what a distributed wordline would change.
 
 The fingering check holds total MOS widths fixed, compares transient edges at
 NF=1/16/100, and verifies nearly unchanged DC current. Its reference metadata
@@ -174,7 +181,11 @@ For a bounded representative-array diagnostic before the full campaign:
 ```bash
 python3 -m sram_compiler.sizing.local_review --workers 20 --mpi-ranks 4 --samples 3 --timeout 1800 --xyce /path/to/openyield/bin/Xyce
 python3 -m sram_compiler.sizing.local_review --summarize
+python3 -m sram_compiler.sizing.local_review --sizes 16x16 --rc-only --workers 4 --output-dir outputs/qualification/V2.0.5/review-rc-fix --xyce /path/to/openyield/bin/Xyce
 ```
+
+`--rc-only` keeps only the explicit-RC 16x16 architectures, for reruns after a
+change to the RC topology. Use a fresh `--output-dir` to keep earlier evidence.
 
 Half-select waveform qualification remains a separate open requirement and
 blocks table promotion, even if all currently scheduled cases pass.

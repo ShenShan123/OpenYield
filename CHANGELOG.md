@@ -44,6 +44,12 @@ in `DRIVER_SIZING_PROPOSAL.md`.
   the read access rises from 392 to 434 ps; the write access is unchanged.
   The wordline model with RC is the driver's two output segments plus one
   stub per cell pin (a star, no series segments between columns).
+- Added `sizing/wordline_model.py`, a reproducible star-versus-distributed
+  wordline check (evidence in `docs/qualification/V2.0.5_wordline_model.json`):
+  at 256 columns a 1 ohm / 0.1 fF-per-column line delays the last cell by
+  36 ps and widens its slew by 78 ps relative to the compiler's star model; at
+  16 columns the difference is 1 ps. `local_review --rc-only` reruns only the
+  explicit-RC 16x16 architectures.
 - Review fixes: the optimizer objective (`exp_utils.evaluate_sram`) requests
   the nominal corner explicitly instead of inheriting one unseeded per-device
   sample; `local_review` records calibration execution errors instead of

@@ -1,0 +1,103 @@
+{
+  "setup": "TT 25 C 1.0 V; fixed-mode RC wordline driver for 16 x cols; real 6T cells with the compiler stub (100 ohm, 1 fF) on every WL pin; bitlines at VDD; A pulses, wl_en high",
+  "variants": {
+    "star": "ideal row net between cells (compiler netlist)",
+    "unit": "series 100 ohm and shunt 1 fF per column pitch",
+    "pitch": "series 1.0 ohm and shunt 1e-16 F per column pitch"
+  },
+  "measures": {
+    "T_NEAR": "A 50 % to first cell gate 50 % (s)",
+    "T_FAR": "A 50 % to last cell gate 50 % (s)",
+    "SLEW_NEAR": "first cell gate 10-90 % (s)",
+    "SLEW_FAR": "last cell gate 10-90 % (s)",
+    "T_FAR_FALL": "A 50 % falling to last cell gate 50 % falling (s)"
+  },
+  "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+  "xyce_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+  "results": [
+    {
+      "cols": 16,
+      "variant": "star",
+      "series_res_ohm": 0.0,
+      "shunt_cap_f": 0.0,
+      "wl_inv": 4.0,
+      "wl_nand": 2.0,
+      "returncode": 0,
+      "T_NEAR": 4.619221e-11,
+      "T_FAR": 4.619221e-11,
+      "SLEW_NEAR": 4.408797e-11,
+      "SLEW_FAR": 4.408797e-11,
+      "T_FAR_FALL": 5.690172e-11
+    },
+    {
+      "cols": 16,
+      "variant": "unit",
+      "series_res_ohm": 100.0,
+      "shunt_cap_f": 1e-15,
+      "wl_inv": 4.0,
+      "wl_nand": 2.0,
+      "returncode": 0,
+      "T_NEAR": 4.598633e-11,
+      "T_FAR": 7.31843e-11,
+      "SLEW_NEAR": 8.056498e-11,
+      "SLEW_FAR": 1.003983e-10,
+      "T_FAR_FALL": 9.311731e-11
+    },
+    {
+      "cols": 16,
+      "variant": "pitch",
+      "series_res_ohm": 1.0,
+      "shunt_cap_f": 1e-16,
+      "wl_inv": 4.0,
+      "wl_nand": 2.0,
+      "returncode": 0,
+      "T_NEAR": 4.736589e-11,
+      "T_FAR": 4.752816e-11,
+      "SLEW_NEAR": 4.668119e-11,
+      "SLEW_FAR": 4.669253e-11,
+      "T_FAR_FALL": 5.935894e-11
+    },
+    {
+      "cols": 256,
+      "variant": "star",
+      "series_res_ohm": 0.0,
+      "shunt_cap_f": 0.0,
+      "wl_inv": 64.0,
+      "wl_nand": 8.0,
+      "returncode": 0,
+      "T_NEAR": 9.188659e-11,
+      "T_FAR": 9.188659e-11,
+      "SLEW_NEAR": 1.588746e-10,
+      "SLEW_FAR": 1.588794e-10,
+      "T_FAR_FALL": 9.591975e-11
+    },
+    {
+      "cols": 256,
+      "variant": "unit",
+      "series_res_ohm": 100.0,
+      "shunt_cap_f": 1e-15,
+      "wl_inv": 64.0,
+      "wl_nand": 8.0,
+      "returncode": 0,
+      "T_NEAR": 4.232113e-11,
+      "T_FAR": null,
+      "SLEW_NEAR": 4.762507e-11,
+      "SLEW_FAR": null,
+      "T_FAR_FALL": null
+    },
+    {
+      "cols": 256,
+      "variant": "pitch",
+      "series_res_ohm": 1.0,
+      "shunt_cap_f": 1e-16,
+      "wl_inv": 64.0,
+      "wl_nand": 8.0,
+      "returncode": 0,
+      "T_NEAR": 7.912323e-11,
+      "T_FAR": 1.278087e-10,
+      "SLEW_NEAR": 2.110653e-10,
+      "SLEW_FAR": 2.373116e-10,
+      "T_FAR_FALL": 1.327087e-10
+    }
+  ]
+}
