@@ -21,6 +21,8 @@ transient/DC/Monte Carlo simulations, and evaluates sizing and yield.
 - Reusable compiler regression tests live in top-level `tests/`.
   Local experiments, qualification runners, and their tests live under ignored
   `dev/`; they are optional and must not become runtime dependencies.
+- Root `main_sram.py` is the script entrance: it uses `load_config()`, applies its
+  settings in memory, and defaults to seeded per-device mismatch over the full array.
 - `sram_compiler/per_device_mc/run.py` provides a CLI and in-memory `load_config()` helper.
   `sram_compiler/per_device_mc/netlist.py` specializes retained MOS devices for local MC.
 - `size_optimization/exp_utils.py` connects legacy optimizers to simulation.
@@ -50,8 +52,10 @@ netlist → Xyce → measurements/waveforms → metrics/optimizer or yield estim
 - Distinguish shared-model MC from per-device mismatch; equivalent cells are
   approximations. Generated decks or passing measures alone do not prove
   waveform correctness, retention, sensing margin, or timing qualification.
-- Do not run `main_sram.py` as a smoke test: it rewrites tracked YAML files.
-  Prefer `sram_compiler/per_device_mc/run.py` or in-memory configuration in tests.
+- `main_sram.py` reads YAML in memory and runs Xyce, so it is not a simulator-free
+  smoke test. Prefer `sram_compiler/per_device_mc/run.py` (generation only) or
+  in-memory configuration in tests. `sram_compiler/testbenches/yaml_change.py`
+  rewrites tracked YAML files and needs `ruamel.yaml`; do not call it from tests.
 - Keep generated decks/results under ignored `outputs/` or a temporary path.
   Keep ad hoc development scripts under ignored `dev/`, outside `sram_compiler/`.
   Preserve supplied CSV evidence. Avoid whole-repository test discovery:

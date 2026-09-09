@@ -98,10 +98,13 @@ The simulation code is in `sram_compiler/testbenches/`.
 
 Circuit and simulation parameters are configured through YAML files in `sram_compiler/config_yaml/`.
 
-Generate a deck with `python -m sram_compiler.per_device_mc.run`; add
-`--run-xyce` to simulate. Per-device local mismatch is the default.
-`main_sram.py` is the legacy simulation demo and rewrites its YAML configuration.
-See the [compiler guide](sram_compiler/README.md) for both workflows.
+`main_sram.py` is the main entrance: edit its settings block and run
+`python main_sram.py` to generate one array and simulate it with Xyce. It reads
+the YAML files in memory and defaults to seeded per-device local mismatch over
+the full transistor array. `python -m sram_compiler.per_device_mc.run` exposes
+the same defaults as command-line options for scripted generation; add
+`--run-xyce` to simulate. See the [compiler guide](sram_compiler/README.md)
+for both workflows.
 
 #### Configuration via YAML
 
@@ -123,6 +126,9 @@ Transistor widths and models for each cell type are in:
 #### Running a Simulation
 
 ```bash
+# Main entrance: edit the settings block at the top of the script first
+python main_sram.py
+# Command-line runner with the same defaults
 python -m sram_compiler.per_device_mc.run --rows 8 --cols 4 --mc-runs 2 --run-xyce
 ```
 
@@ -152,9 +158,10 @@ mc_testbench = Sram6TCoreMcTestbench(
     sram_cell_type="SRAM_6T_CELL",  # or "SRAM_10T_CELL"
     w_rc=True,
     pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-    vth_std=0.05,
-    mc=True,
-    real_cell_mode=1,  # use the equivalent circuit for unused cells
+    vth_std=0.05,                  # relative sigma of vth0/u0/voff
+    variation_mode='per-device',   # the default; 'nominal', 'shared', 'custom' are explicit
+    mc_seed=20260711,              # reproducible sampling; None draws a new seed per run
+    real_cell_mode=0,              # full array; 1-4 use the equivalent circuit for unused cells
     corner='TT',
     sim_path='sim/',
 )
@@ -304,7 +311,7 @@ OpenYield includes SRAM yield estimators based on Monte Carlo and importance sam
 
 ```
 OpenYield/
-├── main_sram.py                  # Legacy simulation demo (rewrites YAML)
+├── main_sram.py                  # Main entrance: one array, seeded per-device mismatch, YAML read in memory
 ├── config.py                     # Compatibility re-export of the YAML loader
 ├── utils/                        # Shared runtime utilities (legacy imports preserved)
 │   ├── measurements.py           # Monte Carlo measurement parsing and statistics
@@ -366,7 +373,7 @@ OpenYield/
 * Ensure Xyce is installed and available in your system PATH.
 * The circuit generator, per-device runner, equivalent-model scripts, and OpenYield V2 package resolve repository data from the project root. Legacy `yield_estimation/` demos still contain their original machine-local paths and were not changed in this integration.
 * FreePDK45 model files are included in `tran_models/`.
-* Simulation output directories (`sim/`) are created automatically and are excluded from git.
+* Simulation output directories (`sim/`, `sim1/`, `outputs/`) are created automatically and are excluded from git.
 
 ## Contributing
 

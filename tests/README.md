@@ -9,6 +9,9 @@ neither Xyce nor the ignored local development scripts.
 Keep these tests in Git: they document expected behavior and let every checkout
 verify compiler and utility changes. `test_utils.py` also checks measurement
 parsing, transient/DC sample splitting, plot files, and existing import paths.
+`test_main_entrance.py` checks that `main_sram.py` defaults to seeded per-device
+mismatch over the full array and applies its settings in memory without
+changing the tracked YAML files.
 
 Run from the repository root:
 

@@ -55,6 +55,40 @@ artifact format remain V2.0.5. See the [working proposal](DRIVER_SIZING_PROPOSAL
   under Python 3.9. A tracked-file export passes tests and direct CLI generation
   without `dev/`. All eight read/write artifacts still match the original
   baseline byte for byte; SPICE model output and 6T/10T area estimates are unchanged.
+- 2026-09-09 entrance follow-up: `main_sram.py` is the main entrance again. It
+  loads the YAML files in memory through `load_config()`, applies its `ARRAY`,
+  `CORNER` and `CELL_6T` settings to the loaded configuration, and no longer
+  rewrites `global.yaml` or `sram_6t_cell.yaml`. It passes
+  `variation_mode='per-device'`, `mc_seed=20260711` and `real_cell_mode=0`
+  explicitly; before, `mc=True` with the equivalent-cell cross and no seed gave
+  one unseeded local sample over the retained devices only. The previous script
+  could not start at all: it imported `ruamel.yaml`, which neither the conda
+  environment nor the workspace interpreter installs. `VARIATION_MODE` selects
+  `nominal`, `shared` or `custom`; custom tables pass through `get_custom_vars()`
+  and the sample count through `resolve_mc_runs()`, so a table/sample mismatch
+  fails before generation. The 10T area estimate now uses the 10T cell widths.
+- Removed dead root files: the empty `conda` and `refreshenv`, and
+  `main_estimation.py`, which imported a `sram_yield_estimation` package and a
+  positional testbench API that no longer exist. `demo_run_a_testbench.py`
+  remains the yield-estimation entrance (explicit custom tables). `main_opt.py`
+  stays: its `config_sram.yaml` resolves inside `size_optimization/`.
+- Documentation: the root, compiler, per-device, sizing, tests, yield-estimation
+  and equivalent-model guides describe the entrance and its defaults. The
+  compiler guide's `use_equivalent=True` switch, which the testbench never had,
+  is replaced by `real_cell_mode`; its output-file list shows the per-device
+  model cards, audit and variation summary.
+- Entrance validation: `tests/test_main_entrance.py` (two tests) checks the
+  seeded per-device full-array default and that script settings reach the deck
+  while the tracked YAML digests stay unchanged. 40 compiler/utility tests pass
+  under Python 3.11; the entrance and packaging tests also pass under 3.9.
+  Relative Markdown links resolve and `git diff --check` passes.
+  The default `python main_sram.py` run (16x16 6T, TT, write on cell 15/15,
+  RC, one seeded local sample, full array: 3,479 unique per-device model cards)
+  completed with Xyce 7.4 in 5 min 13 s single-threaded: all 13 write measures
+  valid, write access 287.5 ps (`TWRITE_TOTAL`), 169.4 uW, minimum-clock
+  estimate 1.01 ns; the target cell's Q/QB flip is visible in the `.prn`. The
+  tracked YAML files were unchanged after the run. Nominal, shared and custom
+  modes were exercised only through the testbench-level regression tests.
 
 ## V2.0.5 — 2026-09-08 — full local mismatch and driver re-evaluation
 

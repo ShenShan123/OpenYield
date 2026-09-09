@@ -43,7 +43,8 @@ SRAM 每次读写只涉及目标行目标列的一个单元，但整个阵列的
 
 ### 2.1 开启等效电路
 
-在 `main_sram.py` 中设置：
+`main_sram.py` 默认 `REAL_CELL_MODE = 0`（全真实晶体管，逐器件失配覆盖全部器件）。
+要启用等效电路，在 `main_sram.py` 顶部的设置区改为 `REAL_CELL_MODE = 1`；直接构造测试平台时设置：
 
 ```python
 mc_testbench = Sram6TCoreMcTestbench(
@@ -57,6 +58,7 @@ mc_testbench = Sram6TCoreMcTestbench(
 ```
 
 开启等效电路（`real_cell_mode=1`）时必须同时设置 `w_rc=True`，否则缺少线阻会低估大阵列延迟。
+等效模式下，默认的逐器件局部失配只作用于保留的真实晶体管；被替换的单元是近似模型。
 
 ### 2.2 精度对比实验
 

@@ -54,9 +54,9 @@ Dependencies: Standard libraries (numpy, torch, gpytorch, sklearn.cluster)
 
 Usage
 ---
-### 1. Run All Algorithms
+### 1. Run an Algorithm
 <pre> python demo_run_a_testbench.py </pre>
-Run main_estimation.py to select and execute different algorithms within the file, with parameter settings provided for circuits of different dimensionalities.
+Set `RUN_MODEL` at the top of `demo_run_a_testbench.py` (repository root) to select the algorithm; parameter settings are provided for circuits of different dimensionalities. The script uses the explicit custom process-parameter table mode of `Sram6TCoreMcTestbench` (`custom_mc=True`), not the compiler's default per-device mismatch. The former `main_estimation.py` targeted a removed package and testbench API and was deleted in V2.0.6.
 
 Output
 -----

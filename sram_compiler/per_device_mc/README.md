@@ -7,6 +7,10 @@ Gaussian expressions. The default relative sigma is 5% for all three parameters.
 Array and peripheral MOS devices are included; fingers within one MOS share its
 draw. This model does not apply area scaling or calibrated parameter correlations.
 
+`main_sram.py` at the repository root is the script entrance with the same
+default: seeded per-device mismatch (`MC_SEED = 20260711`) over the full array,
+with the YAML files read in memory. This runner is the command-line form.
+
 Run commands from the repository root:
 
 ```bash

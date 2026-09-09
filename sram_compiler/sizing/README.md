@@ -134,6 +134,8 @@ blocks table promotion, even if all currently scheduled cases pass.
 The default replica remains `(1, 9)`. Original YAML 200/100 ps access limits are
 reported separately; passing the phase-based specification does not waive them.
 `exp_utils.py` now reports these constraint violations, freezes baseline sizing,
-and uses actual resolved YAML widths for area. `sram_compiler/per_device_mc/run.py` records the
-same baseline across variation samples. The obsolete rare-event algorithm entry
-point `main_estimation.py` still requires a separate API/backend migration.
+and uses actual resolved YAML widths for area. `sram_compiler/per_device_mc/run.py` and `main_sram.py` record the
+same baseline across variation samples. The obsolete rare-event entry point
+`main_estimation.py` (a removed API and package) was deleted on 2026-09-09;
+`demo_run_a_testbench.py` is the yield-estimation entrance and uses explicit
+custom tables.

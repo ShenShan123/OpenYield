@@ -252,6 +252,9 @@ holds the ledger; the observed rule families are:
   the nominal corner explicitly. `main_sram.py` keeps `mc=True`, which under
   V2.0.5 means one unseeded local-mismatch sample when `monte_carlo_runs` is 1;
   pass `variation_mode='nominal'` or `mc_seed` there for a reproducible run.
+  (Resolved 2026-09-09: `main_sram.py` now passes `variation_mode='per-device'`,
+  `mc_seed=20260711` and `real_cell_mode=0` explicitly and reads the YAML in
+  memory; see the V2.0.6 changelog entry.)
 
 ### Rule disposition under the new mismatch contract
 

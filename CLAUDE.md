@@ -41,6 +41,8 @@ python3 -m compileall -q sram_compiler utils tests size_optimization/exp_utils.p
 
 # Generate (and optionally run) one deck; defaults: full array, per-device mismatch, 100 runs
 python3 -m sram_compiler.per_device_mc.run --rows 8 --cols 4 --operation read --mc-runs 2 --seed 3 --run-xyce --output-dir outputs/per_device_mc
+# Main entrance (conda env + Xyce): edit the settings block, then
+python main_sram.py
 
 # Local development-tool tests (requires the ignored dev/ workspace)
 python3 -m unittest discover -s dev/tests -v
@@ -56,8 +58,9 @@ experiment is local-only in `dev/plot_data_demo.py`; comparison plots default
 to `outputs/plots/`. Reusable utility tests stay tracked in `tests/`.
 
 Never run repository-wide test discovery: several `test*.py` files under `size_optimization/` and
-`yield_estimation/` are long experiments. Do not use `main_sram.py` as a smoke test; it rewrites
-`sram_compiler/config_yaml/global.yaml` and `sram_6t_cell.yaml` in place. For an in-memory run use
+`yield_estimation/` are long experiments. `main_sram.py` is the main entrance (settings block at
+the top; seeded per-device mismatch over the full array; YAML read in memory); it runs Xyce, so it
+is not a simulator-free smoke test. For an in-memory run use
 `sram_compiler.per_device_mc.run.load_config(rows, cols, corner)`, set fields on `config.global_config`, build
 `Sram6TCoreMcTestbench(...)` and call `run_mc_simulation(...)` with `sim_path` under `outputs/`.
 

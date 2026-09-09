@@ -2,8 +2,8 @@
 
 This document introduces the basic usage of the SRAM compiler, simulation flow, Monte Carlo testing, waveform plotting, and result statistics. It mainly covers the following files and directories:
 
-- `sram_compiler/per_device_mc/run.py`: Default circuit-generation and simulation CLI with per-device local mismatch and in-memory YAML loading.
-- `main_sram.py`: Legacy single-simulation demo that rewrites YAML configuration.
+- `main_sram.py`: Main entrance for one SRAM generation and simulation run. It reads the YAML files in memory and defaults to seeded per-device local mismatch over the full transistor array.
+- `sram_compiler/per_device_mc/run.py`: Command-line runner with the same defaults, for scripted or batch generation.
 - `utils/`: Shared modules for measurements, waveforms, plotting, area estimation, and SPICE model read/write operations; existing `from utils import ...` imports remain supported.
 - `sram_compiler/`: Core code for SRAM configuration, subcircuit generation, and testbench construction.
 
@@ -60,7 +60,7 @@ python -c "import PySpice, pandas, numpy, matplotlib"
 
 ```text
 OpenYield/
-├── main_sram.py                         # Entry script for a single SRAM simulation
+├── main_sram.py                         # Main entrance for a single SRAM simulation (settings block at the top)
 ├── utils/                               # Shared parsing, statistics, plotting, model, and area helpers
 ├── tran_models/                         # TT/FF/SS/FS/SF SPICE model files
 ├── sram_compiler/
@@ -102,13 +102,40 @@ OpenYield/
 │       ├── sram_6t_core_MC_testbench.py # Monte Carlo testbench that generates Xyce MC netlists and parses results
 │       ├── parameter_factor.py          # Factory methods that create subcircuit instances from YAML configs
 │       ├── snm.py                       # SNM curve parsing, crossing detection, and statistics table generation
-│       └── yaml_change.py               # In-place YAML updates and delay/power summary from CSV files
+│       └── yaml_change.py               # Optional in-place YAML updates (needs ruamel.yaml) and CSV summary
 └── sim1/                                # Default output directory for main_sram.py
 ```
 
 ## 4. Quick Start: Run One SRAM Simulation
 
-Generate a full-array deck with the default per-device local mismatch:
+`main_sram.py` is the main entrance. Edit the settings block at the top of the
+script, then run it from the repository root inside the `openyield` environment:
+
+```bash
+python main_sram.py
+```
+
+Its defaults are a 16x16 6T array without column mux at TT, a `write` access on
+the last row and column, per-device local mismatch with the fixed seed
+`MC_SEED = 20260711`, and the full transistor array (`REAL_CELL_MODE = 0`).
+The execution flow is:
+
+1. Load all YAML files in memory with `sram_compiler.per_device_mc.run.load_config()`
+   and apply `ARRAY`, `CORNER` and `CELL_6T` to the loaded configuration. The
+   tracked YAML files are not modified.
+2. Resolve the sample count: `MC_RUNS`, or `monte_carlo_runs` from `global.yaml`
+   when `MC_RUNS` is `None`. Nominal mode needs exactly one run; custom mode
+   needs one run per row of `process_parameters.vars`.
+3. Create a timestamped output directory, such as `sim1/20260909_053000_mc_6t/`.
+4. Estimate the bitcell area.
+5. Build `Sram6TCoreMcTestbench` with `variation_mode=VARIATION_MODE`,
+   `mc_seed=MC_SEED` and `real_cell_mode=REAL_CELL_MODE`.
+6. Run the read, write, read&write or SNM simulation selected by `OPERATION`.
+7. Save the netlist, per-device model cards, Xyce outputs, CSV statistics and
+   the waveform plot, then print the mean delay, power and area over the samples.
+
+The command-line runner offers the same defaults as options, for scripted or
+batch generation:
 
 ```bash
 python -m sram_compiler.per_device_mc.run \
@@ -117,34 +144,22 @@ python -m sram_compiler.per_device_mc.run \
 
 Add `--run-xyce` to simulate. Outputs are written under `outputs/per_device_mc/`.
 Use `--variation-mode nominal` for a deterministic corner run (omit `--mc-runs`
-or set it to 1). The runner loads configuration in memory; see its
-[guide](per_device_mc/README.md) for output and variation options.
+or set it to 1). See its [guide](per_device_mc/README.md) for output and
+variation options.
 
-The legacy demo is also available:
-
-```bash
-python main_sram.py
-```
-
-The execution flow of `main_sram.py` is:
-
-1. Call `update_global_yaml_inplace()` to modify the array size and column mux switch in `global.yaml`.
-2. Call `update_sram6t_yaml_inplace()` to modify 6T cell parameters in `sram_6t_cell.yaml`.
-3. Load all YAML configuration files.
-4. Create a timestamped output directory, such as `sim1/20260529_223000_mc_6t/`.
-5. Estimate the SRAM bitcell area.
-6. Build `Sram6TCoreMcTestbench`.
-7. Run read, write, or SNM simulation according to `operation`.
-8. Save the netlist, Xyce outputs, CSV statistics, and waveform plots.
-
-Note: `main_sram.py` currently writes configuration values back to the YAML files. Before running it, make sure the parameters at the top of the script are the values you want. You can also disable the in-place update flow: comment out lines 12-26 and then modify all parameters directly in the YAML files. Steps 1 and 2 mainly demonstrate that `ruamel.yaml` can modify YAML files without breaking their formatting; this feature may be useful for updating parameters in optimization scripts.
+`sram_compiler/testbenches/yaml_change.py` still provides the in-place YAML
+update helpers (`update_global_yaml_inplace()`, `update_sram6t_yaml_inplace()`)
+that earlier versions of `main_sram.py` called on every run. They need
+`ruamel.yaml`, which the conda environment does not install; use them only when
+you intend to change the tracked YAML files.
 
 ## 5. Modify the Array Size
 
-Modify the following in `main_sram.py` or `global.yaml`:
+Modify the following in `main_sram.py` (it overrides `num_rows`, `num_cols` and
+`choose_columnmux` from `global.yaml` in memory):
 
 ```python
-global_config_update = [16, 16, False]
+ARRAY = [16, 16, False]
 ```
 
 The meaning is:
@@ -156,17 +171,18 @@ The meaning is:
 For example:
 
 ```python
-global_config_update = [64, 128, False]
+ARRAY = [64, 128, False]
 ```
 
 This builds a `64 x 128` SRAM array and does not enable column mux. Column mux is temporarily unsupported because the timing has not been fully configured.
 
 ## 6. Modify the 6T SRAM Cell Size
 
-Modify the following in `main_sram.py` or `global.yaml`:
+Modify the following in `main_sram.py` (applied to the loaded configuration in
+memory) or edit `sram_6t_cell.yaml` directly:
 
 ```python
-sram6t_config_update = [
+CELL_6T = [
     2.05e-7, 1.35e-7, 9.0e-8, 50.0e-9,
     "NMOS_VTG", "NMOS_VTG", "PMOS_VTG"
 ]
@@ -219,6 +235,11 @@ Available `corner` values:
 TT, FF, SS, FS, SF
 ```
 
+`main_sram.py` takes the corner from its `CORNER` setting and the array size and
+column mux from `ARRAY`; `global.yaml` still supplies `vdd`, `temperature`,
+`monte_carlo_runs` (used when `MC_RUNS` is `None`), `sram_cell_type`, the
+`sizing` block and the PDK paths.
+
 ## 8. Configuration File Description
 
 Each YAML file under `sram_compiler/config_yaml/` corresponds to one module:
@@ -247,7 +268,7 @@ Each module parameter usually contains:
 Modify the following in `main_sram.py`:
 
 ```python
-operation = 'write'
+OPERATION = 'write'
 ```
 
 Supported values:
@@ -265,18 +286,21 @@ Read and write operations generate `.data.csv` and `.stats.csv`. SNM operations 
 
 ## 10. Key Testbench Switches
 
-The commonly used parameters of `Sram6TCoreMcTestbench` in `main_sram.py` are:
+`main_sram.py` builds `Sram6TCoreMcTestbench` in `build_testbench()` with these
+parameters:
 
 ```python
 mc_testbench = Sram6TCoreMcTestbench(
-    sram_config,
-    sram_cell_type=sram_cell_type,
+    config,
+    sram_cell_type=config.global_config.sram_cell_type,
     w_rc=True,
     pi_res=100 @ u_Ohm,
     pi_cap=0.001 @ u_pF,
     vth_std=0.05,
-    mc=True,
-    custom_mc=False,
+    mc=variation_mode in ("shared", "per-device"),
+    custom_mc=variation_mode == "custom",
+    variation_mode=variation_mode,     # VARIATION_MODE, default "per-device"
+    mc_seed=mc_seed,                   # MC_SEED, default 20260711
     sweep_cell=False,
     sweep_precharge=False,
     sweep_senseamp=False,
@@ -284,9 +308,9 @@ mc_testbench = Sram6TCoreMcTestbench(
     sweep_columnmux=False,
     sweep_writedriver=False,
     sweep_decoder=False,
-    corner=corner,
-    choose_columnmux=choose_columnmux,
-    use_equivalent=True,
+    corner=config.global_config.corner,
+    choose_columnmux=bool(config.global_config.choose_columnmux),
+    real_cell_mode=real_cell_mode,     # REAL_CELL_MODE, default 0
     q_init_val=0,
     sim_path=sim_path,
 )
@@ -296,16 +320,17 @@ Meanings:
 
 - `w_rc=True`: Add RC parasitic networks to key nodes.
 - `pi_res` / `pi_cap`: Resistance and capacitance values of each segment in the pi-shaped RC network.
-- `vth_std=0.05`: Gaussian perturbation ratio for `vth0/u0/voff` in Xyce built-in MC.
-- `mc=True`: Enable independent per-device local mismatch (the default).
-- `mc=False` / `variation_mode='nominal'`: Use the fixed PDK corner without random mismatch.
-- `variation_mode='shared'`: Explicitly select the legacy shared-model Monte Carlo flow.
-- `custom_mc=True`: Use a custom parameter table instead of Xyce built-in random sampling.
-- `sweep_*`: Enable parameter sweep for the corresponding module.
-- `use_equivalent=True`: Use equivalent models to accelerate non-target cell simulation.
+- `vth_std=0.05`: Relative Gaussian sigma for `vth0/u0/voff` in the shared and per-device modes.
+- `variation_mode='per-device'` (the default): Independent local mismatch for every retained MOS at the fixed corner.
+- `variation_mode='nominal'`: The fixed PDK corner without random mismatch; exactly one run.
+- `variation_mode='shared'`: The legacy shared-model Monte Carlo flow.
+- `variation_mode='custom'`: A user-provided parameter table instead of Xyce random sampling (see 13.1).
+- `mc` / `custom_mc`: Derived from `variation_mode`; the testbench rejects inconsistent combinations.
+- `mc_seed`: Xyce sampling seed; `None` draws a new seed every run.
+- `sweep_*`: Enable parameter sweep for the corresponding module (not combinable with per-device mismatch).
+- `real_cell_mode`: `0` keeps the full transistor array; `1`-`4` replace unused cells with the equivalent circuit.
 - `q_init_val`: Initial stored value of the target cell.
-- `mc_seed`, `t_max_step`, `xyce_options`: reproducible Monte Carlo seed and Xyce
-  solver knobs (see 13.1).
+- `t_max_step`, `xyce_options`: Xyce solver knobs (see 13.1).
 - `next_row`: row address captured at the clock edge that ends a `read` / `write`
   access, to exercise the address-change hold path (default: the address stays
   at `target_row`).
@@ -321,8 +346,11 @@ sim1/20260529_223000_mc_6t/
 Common files:
 
 ```text
-tmp_mc.spice                         # Temporary model file with Monte Carlo expressions
+models_per_device_<hash>.spice       # Per-device model cards (default mode; shared mode writes tmp_mc.spice)
+model_audit_<hash>.csv               # Device-to-model audit of the specialized netlist
 mc_write_16x16_rc1_tb.sp             # Generated Xyce netlist
+mc_write_16x16_rc1_tb.sp.variation.json  # Variation mode, seed, sample count, frozen driver sizes
+mc_write_16x16_rc1_tb.log            # Xyce console output
 mc_write_16x16_rc1_tb.sp.prn         # Waveform output
 mc_write_16x16_rc1_tb.sp.mt0         # Measure results of MC run 0
 mc_write_16x16_rc1_tb.data.csv       # Raw measurement data of all MC samples
@@ -368,10 +396,10 @@ but they overlap in time and are not summed: the delay is the end-to-end measure
 A measure that Xyce could not evaluate is written as `FAILED` and makes
 `run_mc_simulation()` raise instead of reporting `0.0`.
 
-At the end, `main_sram.py` prints:
+At the end, `main_sram.py` prints the mean over the samples:
 
 ```text
-[OUTPUT] y[0]=Delay, y[1]=Power, y[2]=Area
+[OUTPUT] mean of N sample(s): y[0]=Delay(... ns), y[1]=Power(... uW), y[2]=Area(... µm²)
 ```
 
 ## 12. Common `utils/` Tools
@@ -444,33 +472,26 @@ The platform supports four process variation modes:
 Per-device mismatch requires a separate deck per geometry; legacy `.STEP`
 geometry sweeps cannot be combined with local sampling.
 
-To use custom process variation, set the testbench initialization parameters in `main_sram.py` as follows:
+To use custom process variation, set the following in `main_sram.py`:
 
 ```python
-mc_testbench = Sram6TCoreMcTestbench(
-   ...
-    mc=True,
-    custom_mc=True,
-    ...
-)
+VARIATION_MODE = "custom"
 ```
 
-At the same time, `run_mc_simulation()` must receive `vars`. `vars` comes from `process_parameters.vars` in `sram_compiler/config_yaml/sram_6t_cell.yaml` and is read in `main_sram.py`:
+The script then builds the testbench with `custom_mc=True`, reads the table with
+`sram_compiler.per_device_mc.run.get_custom_vars()` from `process_parameters.vars`
+in `sram_compiler/config_yaml/sram_6t_cell.yaml` (or the 10T file), resolves the
+sample count with `resolve_mc_runs()`, and passes the table to
+`run_mc_simulation()`:
 
 ```python
-vars = sram_config.sram_6t_cell.process_parameters.vars
-```
-
-Then pass it to `run_mc_simulation()`:
-
-```python
-data_csv_path = mc_testbench.run_mc_simulation(
-    operation=operation,
-    target_row=num_rows - 1,
-    target_col=num_cols - 1,
-    mc_runs=num_mc,
+delay, pavg, pstc, pdyn = testbench.run_mc_simulation(
+    operation=OPERATION,
+    target_row=target_row,
+    target_col=target_col,
+    mc_runs=mc_runs,
     temperature=temperature,
-    vars=vars,
+    vars=custom_vars,
 )
 ```
 
@@ -480,7 +501,7 @@ data_csv_path = mc_testbench.run_mc_simulation(
 (mc_runs, number_of_parameters)
 ```
 
-In other words, the number of rows in `vars` must equal `monte_carlo_runs` in `global.yaml`; each row corresponds to one simulation sample.
+In other words, the number of rows in `vars` must equal the sample count (`MC_RUNS`, or `monte_carlo_runs` in `global.yaml` when `MC_RUNS` is `None`); each row corresponds to one simulation sample. A mismatch fails before generation.
 
 #### 13.1.1 `vars` Format for 6T Cells
 
@@ -622,7 +643,7 @@ Try the following first:
 
 - Reduce `num_rows` / `num_cols`.
 - Set `monte_carlo_runs` to 1.
-- Enable `use_equivalent=True`.
+- Set `REAL_CELL_MODE = 1` (equivalent cells for the unused array).
 - For large arrays, run only one of `read` or `write` first, instead of enabling all sweep switches at the beginning.
 - Keep `w_rc=False` for quick functional verification, then enable RC later.
 
