@@ -1067,7 +1067,8 @@ def _baseline_sizes(rows, cols, mux, w_rc, configuration_stamp):
     """Cache a baseline before any candidate is applied; never run sizing SPICE here."""
     cfg = _load_sram_config_from_yaml()
     cfg.global_config.num_rows, cfg.global_config.num_cols = rows, cols
-    return resolve_driver_sizes(cfg, mux=mux, physical_context=physical_context(w_rc))
+    return resolve_driver_sizes(cfg, mux=mux, physical_context=physical_context(
+        w_rc, interconnect=getattr(cfg.global_config, 'interconnect', None)))
 
 
 def _configuration_stamp():
@@ -1117,7 +1118,8 @@ def evaluate_sram(params, timeout=120, driver_sizes=None, timing_config=None):
 
         if driver_sizes is None:
             driver_sizes = resolve_driver_sizes(sram_config, mux=choose_mux,
-                                                physical_context=physical_context(w_rc))
+                                                physical_context=physical_context(
+                                                    w_rc, interconnect=getattr(sram_config.global_config, 'interconnect', None)))
         area = estimate_scaled_total_area(params, num_rows=num_rows, num_cols=num_cols,
                                           num_arrays=1, driver_sizes=driver_sizes)
         print(f"Estimated 6T SRAM cell area: {area*1e12:.2f} µm²")

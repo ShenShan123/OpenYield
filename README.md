@@ -1,4 +1,4 @@
-# OpenYield V2.0.6: SRAM yield analysis and optimization
+# OpenYield V2.0.7: SRAM yield analysis and optimization
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
 
@@ -6,15 +6,17 @@ The circuit generator models parasitic capacitance/resistance, leakage coupling,
 
 The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
 
-V2.0.6 incorporates per-device local mismatch generation into
-`sram_compiler/per_device_mc/` and organizes plans and guides under `docs/` and
-their corresponding code directories. It retains the V2.0.5 default of fixed
-global corners plus independent local mismatch throughout the read/write array
-and periphery. Driver sizing and measured-clock qualification remain in progress. See the
+V2.0.7 corrects RC parameter propagation and equivalent-extraction context,
+adds opt-in distributed wordline/bitline wiring, and matches the replica paths
+and waveform probes to that topology. See the
+[distributed RC guide](docs/design/DISTRIBUTED_RC_MODEL.md).
+Fixed global corners plus independent per-device mismatch remain the default.
+The default `fixed` sizing mode retains legacy driver scales; `rules_only` and
+`auto` remain explicit opt-ins. V2.0.5 sizing coefficients and historical
+qualification artifacts retain their identities; extracted-array timing and
+yield qualification remain in progress. See the
 [sizing guide](sram_compiler/sizing/README.md) and
-[implementation/qualification status](docs/DRIVER_SIZING_PROPOSAL.md). The default
-`fixed` mode preserves legacy sizing; `rules_only` and `auto` are explicit opt-ins.
-Historical offline optimizer datasets do not qualify the new peripheral rules.
+[qualification status](docs/DRIVER_SIZING_PROPOSAL.md).
 
 Documentation: [compiler guide](sram_compiler/README.md),
 [equivalent models](equivalent_modeling/README.md),

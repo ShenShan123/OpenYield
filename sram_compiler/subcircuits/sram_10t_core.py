@@ -1,6 +1,7 @@
 from PySpice.Spice.Netlist import SubCircuitFactory, Circuit
 from PySpice.Unit import u_Ohm, u_pF
 from .base_subcircuit import BaseSubcircuit
+from sram_compiler.interconnect import resolve_interconnect, add_array_wires, cell_wire_nodes
 from .sram_cell_add_equivalent import add_10t_equivalent_circuit
 
 class Sram10TCell(BaseSubcircuit):
@@ -14,7 +15,8 @@ class Sram10TCell(BaseSubcircuit):
                  pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  disconnect=False,
                  suffix='',          # 良率模式专用：后缀
-                 model_dict=None     # 良率模式专用：模型参数字典
+                 model_dict=None, # 良率模式专用：模型参数字典
+                 cell_pin_rc=None
                  ):
         
         if disconnect:
@@ -37,6 +39,7 @@ class Sram10TCell(BaseSubcircuit):
         self.fd_width = fd_width  # Width for pass gate transistors
         self.length = length
         
+        self.cell_pin_rc = w_rc if cell_pin_rc is None else w_rc and cell_pin_rc
         self.w_rc = w_rc
         self.disconnect = disconnect
         self.suffix = suffix
@@ -71,17 +74,18 @@ class Sram10TCell(BaseSubcircuit):
 
     def add_10T_cell(self):
         # 1. 节点处理 
-        if self.w_rc:
+        if self.cell_pin_rc:
             bl_node = self.add_rc_networks_to_node(self.NODES[2], 1)
             blb_node = self.add_rc_networks_to_node(self.NODES[3], 1)
             wl_node = self.add_rc_networks_to_node(self.NODES[4], 1) 
-            q_node = self.add_rc_networks_to_node('Q', 1)
-            qb_node = self.add_rc_networks_to_node('QB', 1)
-
         else:
             bl_node, blb_node, wl_node = self.NODES[2], self.NODES[3], self.NODES[4]
+        if self.w_rc:
+            q_node = self.add_rc_networks_to_node('Q', 1)
+            qb_node = self.add_rc_networks_to_node('QB', 1)
+        else:
             q_node, qb_node = 'Q', 'QB'
-            
+
         if self.disconnect:
             data_q, data_qb = 'QD', 'QBD'
         else:
@@ -176,6 +180,7 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
                  global_config=None,
                  pi_res=None,
                  pi_cap=None,
+                 interconnect=None
                  ):
         #  disconnect=False, target_row=None, target_col=None):
 
@@ -213,6 +218,9 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
         self.pi_res = pi_res if pi_res is not None else BaseSubcircuit.DEFAULT_PI_RES
         self.pi_cap = pi_cap if pi_cap is not None else BaseSubcircuit.DEFAULT_PI_CAP
 
+        self.interconnect = resolve_interconnect(interconnect)
+        add_array_wires(self)
+
         # Build the array
         self.build_array(num_rows, num_cols)        #构建阵列
         # set instance prefix and the name of 10t cell
@@ -226,6 +234,7 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
                 self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model, self.fd_nmos_model,
                 self.pd_width, self.pu_width, self.pg_width, self.fd_width, self.length,
                 w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
+                cell_pin_rc=self.interconnect.cell_pin_rc,
                 model_dict=self.model_dict,
                 suffix=f"_{num_rows}x{num_cols}" if self.model_dict is not None else ""
             )
@@ -242,6 +251,7 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
                         self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model, self.fd_nmos_model,
                         self.pd_width, self.pu_width, self.pg_width, self.fd_width, self.length,
                         w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
+                        cell_pin_rc=self.interconnect.cell_pin_rc,
                         model_dict=self.model_dict,
                         suffix=f"_{row}_{col}" 
                     )                    
@@ -253,9 +263,7 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
                         subckt_10t_cell.name,                    #引用的子电路类型，即Sram10TCell
                         self.NODES[0],  # Power net             #连接的节点名
                         self.NODES[1],  # Ground net
-                        f'BL{col}',  # Connect to column bitline
-                        f'BLB{col}',  # Connect to column bitline bar
-                        f'WL{row}',  # Connect to row wordline
+                        *cell_wire_nodes(self, row, col),
                     )
         if self.real_cell_mode != 0:#非全真实模式：对未实例化的单元添加等效电路
             print(f"[DEBUG] generating equivalent circuit for unused cells")

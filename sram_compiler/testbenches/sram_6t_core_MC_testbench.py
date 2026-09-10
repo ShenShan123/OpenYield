@@ -26,7 +26,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                  corner='TT', choose_columnmux=True, real_cell_mode=0,
                  q_init_val=0, sim_path='sim', enable_waveform=True,
                  mc_seed=None, xyce_options=None, t_max_step=None, next_row=None,
-                 driver_sizes=None, timing_config=None, variation_mode=None, temperature=None):
+                 driver_sizes=None, timing_config=None, variation_mode=None, temperature=None,
+                 interconnect=None):
         """
                蒙特卡洛测试平台初始化
                参数:
@@ -68,6 +69,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             driver_sizes=driver_sizes,
             timing_config=timing_config,
             temperature=temperature,
+            interconnect=interconnect,
         )
         self.sram_cell_type=sram_cell_type
         # enable_mc is an alias for mc (backward compatibility with experiment.py)
@@ -175,6 +177,13 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # Internal nodes' names of the target cell
         target_node_q = self.cell_inst_prefix + f'_{self.target_row}_{self.target_col}{self.heir_delimiter}Q'
         target_node_qb = self.cell_inst_prefix + f'_{self.target_row}_{self.target_col}{self.heir_delimiter}QB'
+        local_wl = f'WL{self.target_row}'
+        local_bl, local_blb = f'BL{self.target_col}', f'BLB{self.target_col}'
+        sense_bl, sense_blb = local_bl, local_blb
+        if self.interconnect.distributed and operation in ('read', 'write', 'read&write'):
+            local_wl = self.cell_probe('WL')
+            local_bl, local_blb = self.cell_probe('BL'), self.cell_probe('BLB')
+            sense_bl, sense_blb = self.sense_input_probe('IN'), self.sense_input_probe('INB')
         #获取目标单元的内部节点名称（Q 和 QB）
         if operation == 'hold_snm' or operation == 'read_snm' or operation == 'write_snm':
             # Initial V(BL) and V(BLB) for the  cell
@@ -211,7 +220,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.measure(
                 'TRAN', 'TPRCH',
                 f'TRIG V(PRE)={self.half_vdd} FALL=1 ' +
-                f'TARG V(BL{self.target_col})={float(self.vdd) * 0.9} RISE=1')  # modified for Xyce
+                f'TARG V({local_bl})={float(self.vdd) * 0.9} RISE=1')  # modified for Xyce
 
             # Decoder delay (TDECODER): address capture -> decoder output
             self._add_decoder_measure(simulator)
@@ -221,18 +230,18 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.measure(
                 'TRAN', 'TWLDRV',
                 f'TRIG V(wl_en)={self.half_vdd} RISE=1 ' +
-                f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
+                f'TARG V({local_wl})={self.half_vdd} RISE=1')
 
             # Add measurements for read delay (TREAD),读延迟
             # which is defined as the time from the WL rise to BL swing to VDD/2
             simulator.measure(
                 'TRAN', 'TWL',
-                f'WHEN V(WL{self.target_row})={self.half_vdd} RISE=1 ')  # modified for Xyce
+                f'WHEN V({local_wl})={self.half_vdd} RISE=1 ')  # modified for Xyce
             # Define minimum Vswing = 250mV
             vswing = 0.25
             simulator.measure(
                 'TRAN', 'TBL',
-                f"WHEN V(BL{self.target_col})='V(BLB{self.target_col})-{vswing}' FALL=1")
+                f"WHEN V({sense_bl})='V({sense_blb})-{vswing}' FALL=1")
             simulator.measure('TRAN', 'TSWING', f"PARAM='TBL-TWL'")
 
             # Sense-amp delay (TSA): sense-enable assertion -> data output valid.  OUT is
@@ -282,8 +291,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             
             # Add print for read operation
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX V(S_EN) V(WL{self.target_row}) V(DEC_WL{self.target_row}) ' + \
-                f'V(BL{self.target_col}) V(BLB{self.target_col}) ' + \
+                f'.PRINT TRAN FORMAT=NOINDEX V(S_EN) V({local_wl}) V(DEC_WL{self.target_row}) ' + \
+                f'V({local_bl}) V({local_blb}) ' + \
                 f'V({target_node_q}) V({target_node_qb}) \n'
             if self.choose_columnmux:
                 simulator.circuit.raw_spice += \
@@ -314,7 +323,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.measure(
                 'TRAN', 'TWLDRV',
                 f'TRIG V(WL_EN)={self.half_vdd} RISE=1 ' +
-                f'TARG V(WL{self.target_row})={self.half_vdd} RISE=1')
+                f'TARG V({local_wl})={self.half_vdd} RISE=1')
             #写驱动延迟
             # Write driver delay (TWDRV): w_en assertion -> the driven bitline
             # reaches VDD/2.  The bitlines are precharged to VDD before the
@@ -324,17 +333,17 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             simulator.measure(
                 'TRAN', 'TWDRV',
                 f'TRIG V(w_en)={self.half_vdd} RISE=1 ' +
-                f'TARG V(BLB{self.target_col})={self.half_vdd} FALL=1')
+                f'TARG V({local_blb})={self.half_vdd} FALL=1')
             #写延迟
             # Measurements for write delay (TWRITE_Q/QB),
             # which is defined as the time from the WL rise to data Q rise to 90% VDD.
             simulator.measure(
                 'TRAN', 'TWRITE_Q',
-                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1',
+                f'TRIG V({local_wl})={self.half_vdd} RISE=1',
                 f"TARG V({target_node_q})={float(self.vdd) * 0.9:.2f} RISE=1")
             simulator.measure(
                 'TRAN', 'TWRITE_QB',
-                f'TRIG V(WL{self.target_row})={self.half_vdd} RISE=1',
+                f'TRIG V({local_wl})={self.half_vdd} RISE=1',
                 f"TARG V({target_node_qb})={float(self.vdd) * 0.1:.2f} FALL=1")
             #总延迟
             simulator.measure(
@@ -349,8 +358,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # Add print for write operation
             address_signals = ' '.join([f'V(A{i}) V(A_DFF{i})' for i in range(ceil(log2(self.num_rows)))])
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX {address_signals} V(we) V(WL{self.target_row}) V(DEC_WL{self.target_row}) V(BL{self.target_col})' + \
-                f' V(BLB{self.target_col}) V({target_node_q}) V({target_node_qb})\n'
+                f'.PRINT TRAN FORMAT=NOINDEX {address_signals} V(we) V({local_wl}) V(DEC_WL{self.target_row}) V({local_bl})' + \
+                f' V({local_blb}) V({target_node_q}) V({target_node_qb})\n'
             simulator.circuit.raw_spice += \
                 f'.PRINT TRAN FORMAT=NOINDEX V(cs) V(clk_buf) V(clk_bar) V(gated_clk_bar) V(DIN0) V(DIN_dff0)' + \
                 f' V(w_en) V(wl_en) V(web) V(RBL) V(RBL_DELAY_BAR) V(PRE) V(SA_ISO)\n'
@@ -384,8 +393,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'.PRINT TRAN FORMAT=NOINDEX {address_signals} V(RBL) V(RBL_DELAY) V(RBL_DELAY_BAR) V(W_EN) V(PRE) V(SA_ISO)\n'
             
             simulator.circuit.raw_spice += \
-                f'.PRINT TRAN FORMAT=NOINDEX V(S_EN) V(WL{self.target_row}) ' + \
-                f'V(BL{self.target_col}) V(BLB{self.target_col}) ' + \
+                f'.PRINT TRAN FORMAT=NOINDEX V(S_EN) V({local_wl}) ' + \
+                f'V({local_bl}) V({local_blb}) ' + \
                 f'V({target_node_q}) V({target_node_qb}) \n'
             if self.choose_columnmux:
                 simulator.circuit.raw_spice += \
@@ -418,12 +427,31 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         else:
             raise ValueError(f"Invalid operation: {operation}")
 
+        if self.interconnect.distributed and operation in ('read', 'write', 'read&write'):
+            self._add_interconnect_print(simulator)
+
+    def _add_interconnect_print(self, simulator):
+        """Export physical wire endpoints and sense inputs for waveform scoring."""
+        probes = ['RWL', 'RWL_far', self.sense_input_probe('IN'), self.sense_input_probe('INB')]
+        probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
+        for row in range(self.num_rows):
+            probes += [f'WL{row}', f'{self.arr_inst_prefix}:WL{row}_far']
+        for col in range(self.num_cols):
+            for pin in ('BL', 'BLB'):
+                probes += [f'{pin}{col}', f'{self.arr_inst_prefix}:{pin}{col}_far']
+        if self.w_rc:
+            probes += [f'{self.cell_inst_prefix}_{self.target_row}_{self.target_col}:{pin}_end'
+                       for pin in ('Q', 'QB')]
+        signals = ' '.join(f'V({node})' for node in dict.fromkeys(probes))
+        simulator.circuit.raw_spice += f'.PRINT TRAN FORMAT=NOINDEX {signals}\n'
+
     def _add_next_row_print(self, simulator):
         """Wordline, decoder output and cell of `next_row` (address-change hold check)."""
         if self.next_row is None or self.next_row == self.target_row:
             return
         row, col = self.next_row, self.target_col
-        signals = f'V(WL{row}) V(DEC_WL{row})'
+        wl = f'{self.arr_inst_prefix}:WL{row}_far' if self.interconnect.distributed else f'WL{row}'
+        signals = f'V({wl}) V(DEC_WL{row})'
         core = getattr(self, 'sbckt_array', None)
         if core is None or core._should_instantiate_real_cell(row, col):
             q = self.cell_inst_prefix + f'_{row}_{col}{self.heir_delimiter}Q'
@@ -498,6 +526,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         TRESTORE  : rising clock edge that ends the access -> `restored_bitline`
                     back at 0.9 VDD (control path + self-timed precharge).
         """
+        if self.interconnect.distributed:
+            restored_bitline = f'{self.arr_inst_prefix}:{restored_bitline}_far'
         vdd = float(self.vdd)
         t_end = float(1.0 @ u_ns) + 1.2 * float(self.t_period)   # edge ending access 1
         simulator.measure(

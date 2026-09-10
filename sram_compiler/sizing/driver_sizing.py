@@ -86,7 +86,7 @@ class DriverSizes:
             raise ValueError("Frozen driver sizes require the baseline peripheral configuration")
         if _digest(_pdk_inputs(cfg)) != self.pdk_key:
             raise ValueError("Frozen driver sizes require the baseline PDK model contents")
-        if context is not None and self.physical_key and _digest(context) != self.physical_key:
+        if context is not None and _digest(context) != self.physical_key:
             raise ValueError('Frozen driver sizes belong to a different physical context')
         if self.source == 'table' and context is not None:
             from .table import record_key
@@ -147,6 +147,13 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     The result's key describes the baseline, not any later candidate cell/PVT.
     """
     cfg = sram_config.global_config
+    from .table import physical_context as make_context
+    from sram_compiler.interconnect import resolve_interconnect
+    context = (make_context(interconnect=getattr(cfg, 'interconnect', None))
+               if physical_context is None else dict(_mapping(physical_context)))
+    wire = resolve_interconnect(context.get('interconnect', getattr(cfg, 'interconnect', None)))
+    context['interconnect'] = wire.to_dict()
+    distributed = wire.distributed
     rows, cols = cfg.num_rows, cfg.num_cols
     for name, value in (("num_rows", rows), ("num_cols", cols)):
         if isinstance(value, bool) or not isinstance(value, int) or value < 1:
@@ -185,10 +192,12 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
             raise ValueError(f"{name} must be a positive integer")
     if replica_k > rows + 1 or dc_stages % 2 != 1:
         raise ValueError("replica K must not exceed rows + 1; N must be odd")
-    replica_matched = replica.get("matched", mode != "fixed")
+    replica_matched = replica.get("matched", mode != "fixed" or distributed)
     scale_decoder = options.get("scale_decoder", mode != "fixed")
     effort_buffers = options.get("effort_buffers", mode != "fixed")
-    canonical_read = options.get("canonical_read", mode != "fixed")
+    canonical_read = options.get("canonical_read", mode != "fixed" or distributed)
+    if distributed and (not replica_matched or not canonical_read or replica_k > rows):
+        raise ValueError('Distributed wiring requires a matched replica, canonical read and K <= rows')
     if any(not isinstance(value, bool) for value in
            (replica_matched, scale_decoder, effort_buffers, canonical_read)):
         raise ValueError("replica.matched and circuit feature switches must be boolean")
@@ -222,14 +231,12 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     # Normalize unit conversion noise before TIME applies ceil(load / 32).
     # The nominal 0.18 + 0.27 um gate must be exactly one unit, not 1 + epsilon.
     nand_units = round(nand_gate / 0.45e-6, 12)
-    from .table import physical_context as make_context
-    context = make_context() if physical_context is None else _mapping(physical_context)
     rc_input_units = (_positive('pi_cap', context.get('pi_cap', _RULES['peripheral_rc_cap_f'])) / _RULES['unit_inverter_cap_f']
-                      if mode != 'fixed' and context.get('w_rc', False) else 0.0)
+                      if (mode != 'fixed' or distributed) and context.get('w_rc', False) else 0.0)
     # Wordline-driver A and B each have two RC sections; other peripheral
     # enables have one. TIME itself has no optional RC wrapper in this compiler.
     rc_wl_units = 2 * rc_input_units / 1.25
-    num_sa = cols // (2 if mux else 1)
+    num_sa = cols // (2 if mux else 1) + int(distributed)
     sa = sram_config.senseamp
     sa_n_units = round(_positive('SA NMOS width', sa.nmos_width.value) / 0.36e-6, 12)
     sa_iso_units = round(2 * (4 / 3) * _positive('SA PMOS width', sa.pmos_width.value) / 0.36e-6, 12)
@@ -261,7 +268,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
                        + 2 * rc_input_units / (5 * decoder_units)) if scale_decoder else 1.0,
         'replica_matched': replica_matched, 'replica_k': replica_k, 'dc_stages': dc_stages,
         'effort_buffers': effort_buffers, 'canonical_read': canonical_read,
-        'replica_precharge_guard': bool(rc_input_units and replica_matched),
+        'replica_precharge_guard': distributed or bool(rc_input_units and replica_matched),
         'replica_nmos_models': tuple(cell.nmos_model.value),
         'replica_nmos_widths': tuple(cell.nmos_width.value),
         'replica_pmos_model': cell.pmos_model.value,
@@ -298,7 +305,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         from dataclasses import replace
 
         from .table import lookup_record, record_key
-        record = lookup_record(result, options.get('table'), physical_context)
+        record = lookup_record(result, options.get('table'), context)
         if record is not None:
             result = replace(result, source='table', qualified_context_key=record_key(result.key, record['physical']))
     return result

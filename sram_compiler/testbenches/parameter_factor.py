@@ -553,8 +553,10 @@ class Sram6TCoreFactory:
                  global_config=None,         # GlobalConfig — passed to core for equiv circuit
                  pi_res=None,               # PI network resistance
                  pi_cap=None,               # PI network capacitance
+                 interconnect=None
                  ):
 
+        self.interconnect = interconnect
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.target_row = target_row
@@ -650,6 +652,7 @@ class Sram6TCoreFactory:
             'global_config': self.global_config,
             'pi_res': self.pi_res,
             'pi_cap': self.pi_cap,
+            'interconnect': self.interconnect,
         }
 
     def create(self):
@@ -781,7 +784,6 @@ class DummyColumnFactory:
                  pd_nmos_model, pu_pmos_model, pg_nmos_model,
                  pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, length=50e-9,
                  w_rc=False, disconnect=False,
-
                  pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
@@ -837,7 +839,6 @@ class DummyRowFactory:
                  pd_nmos_model, pu_pmos_model, pg_nmos_model,
                  pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, length=50e-9,
                  w_rc=False, disconnect=False,
-
 
                  pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
@@ -898,10 +899,11 @@ class ReplicaColumnFactory:
                  sweep_replica=False,
                  pmos_choices=None, nmos_choices=None,param_model_file=None,
                  sram_cell_type=None,
-
-                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 interconnect=None
                  ):
         
+        self.interconnect = interconnect
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.pd_nmos_model = pd_nmos_model
@@ -986,6 +988,7 @@ class ReplicaColumnFactory:
             'pi_res': self.pi_res,
             'pi_cap': self.pi_cap,
             'sram_cell_type': self.sram_cell_type,
+            'interconnect': self.interconnect,
         }
         
     def create(self):
@@ -1175,8 +1178,10 @@ class Sram10TCoreFactory:
                  q_init_val=0,
                  param_model_file=None,
                  global_config=None,         # GlobalConfig — for equiv circuit tester
+                 interconnect=None
                  ):
 
+        self.interconnect = interconnect
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.target_row = target_row
@@ -1282,6 +1287,7 @@ class Sram10TCoreFactory:
             'global_config': self.global_config,
             'pi_res': self.pi_res,
             'pi_cap': self.pi_cap,
+            'interconnect': self.interconnect,
         }
 
     def create(self):

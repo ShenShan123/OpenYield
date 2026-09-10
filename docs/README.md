@@ -1,4 +1,4 @@
-# OpenYield V2.0.6 documentation
+# OpenYield V2.0.7 documentation
 
 Project plans and release history live here. Usage guides live beside the code
 they describe. Commands and code paths in the documents are relative to the
@@ -31,3 +31,6 @@ The supplied evidence CSVs remain at the repository root:
 | [Equivalent modeling](../equivalent_modeling/README.md) | Equivalent circuit modes, usage, and accuracy boundaries |
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |
 | [Yield estimation](../yield_estimation/README.md) | Monte Carlo and importance-sampling algorithms |
+
+- [Distributed RC plan](design/DISTRIBUTED_RC_PLAN.md) and
+  [V2.0.7 model/configuration guide](design/DISTRIBUTED_RC_MODEL.md).

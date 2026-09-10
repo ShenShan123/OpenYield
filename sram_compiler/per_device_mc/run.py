@@ -11,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+import yaml
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -20,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from PySpice.Unit import u_Ohm, u_pF  # type: ignore  # noqa: E402
 
 from sram_compiler.config_yaml.config import SRAM_CONFIG  # type: ignore  # noqa: E402
+from sram_compiler.interconnect import resolve_interconnect
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import (  # type: ignore  # noqa: E402
     Sram6TCoreMcTestbench,
 )
@@ -121,8 +123,11 @@ def make_run_name(
     target_row: int,
     target_col: int,
     mc_runs: int,
+    interconnect=None,
 ) -> str:
     settings = {
+        "compiler_version": "V2.0.7",
+        "interconnect": resolve_interconnect(interconnect).to_dict(),
         "cell_type": cell_type,
         "rows": args.rows,
         "cols": args.cols,
@@ -227,6 +232,13 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         raise ValueError(f"target_col must be in [0, {args.cols - 1}]")
 
     config = load_config(args.rows, args.cols, args.corner)
+    wire_file = getattr(args, 'interconnect_config', None)
+    if wire_file is not None:
+        wire_file = Path(wire_file).expanduser()
+        if not wire_file.is_absolute():
+            wire_file = PROJECT_ROOT / wire_file
+        config.global_config.interconnect = yaml.safe_load(wire_file.read_text())
+    interconnect = resolve_interconnect(config.global_config.interconnect)
     cell_type = config.global_config.sram_cell_type
     custom_vars = (
         get_custom_vars(config, cell_type) if args.variation_mode == "custom" else None
@@ -238,6 +250,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         target_row=target_row,
         target_col=target_col,
         mc_runs=mc_runs,
+        interconnect=interconnect,
     )
     run_dir = args.output_dir.expanduser().resolve() / run_name
     clean_generated_outputs(run_dir)
@@ -269,6 +282,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         q_init_val=args.q_init_val,
         sim_path=str(run_dir),
         enable_waveform=args.waveform,
+        interconnect=interconnect,
     )
     circuit = testbench.create_testbench(args.operation, target_row, target_col)
     temperature = config.global_config.temperature
@@ -298,6 +312,8 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
 
     deck_path.write_text(deck_text, encoding="utf-8")
     summary = {
+        "compiler_version": "V2.0.7",
+        "interconnect": interconnect.to_dict(),
         "deck": str(deck_path),
         "run_dir": str(run_dir),
         "rows": args.rows,
@@ -370,6 +386,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--pi-res-ohm", type=float, default=100.0)
     parser.add_argument("--pi-cap-pf", type=float, default=0.001)
+    parser.add_argument("--interconnect-config", type=Path,
+                        help="YAML interconnect mapping; relative paths resolve from the project root")
     parser.add_argument("--q-init-val", type=int, choices=(0, 1), default=0)
     parser.add_argument(
         "--output-dir",

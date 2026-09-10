@@ -21,7 +21,8 @@ class Dummy_Cell(BaseSubcircuit):
                  pd_width, pu_width, pg_width, length,
                  w_rc=False,
                  pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 disconnect=False
+                 disconnect=False,
+                 cell_pin_rc=None
                  ):
         
         if disconnect:
@@ -42,6 +43,7 @@ class Dummy_Cell(BaseSubcircuit):
         self.pu_width = pu_width
         self.pg_width = pg_width
         self.length = length
+        self.cell_pin_rc = w_rc if cell_pin_rc is None else w_rc and cell_pin_rc
         self.w_rc = w_rc
         self.disconnect = disconnect
 
@@ -49,18 +51,13 @@ class Dummy_Cell(BaseSubcircuit):
         self.add_dummy_components()
 
     def add_dummy_components(self):
-        # 1. 处理节点 (RC 和 Disconnect)
-        if self.w_rc:
+        if self.cell_pin_rc:
             bl_node = self.add_rc_networks_to_node(self.NODES[2], 1)
             blb_node = self.add_rc_networks_to_node(self.NODES[3], 1)
             wl_node = self.add_rc_networks_to_node(self.NODES[4], 1)
-            # 内部存储节点
-            q_node = self.add_rc_networks_to_node('Q', 1)
-            # The dummy cell fixes QB directly to VDD below. An unused QB RC
-            # branch would be a floating resistor/capacitor island at DC.
         else:
-            bl_node, blb_node, wl_node = self.NODES[2], self.NODES[3], self.NODES[4]
-            q_node = 'Q'
+            bl_node, blb_node, wl_node = self.NODES[2:5]
+        q_node = self.add_rc_networks_to_node('Q', 1) if self.w_rc else 'Q'
 
         # 如果断开连接 (disconnect=True)，使用独立的内部节点名，避免短路
         if self.disconnect:

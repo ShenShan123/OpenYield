@@ -10,6 +10,7 @@ from utils import parse_spice_models  # type: ignore
 from sram_compiler.testbenches.base_testbench import BaseTestbench  # type: ignore
 from math import ceil, log2
 from copy import copy
+from sram_compiler.interconnect import resolve_interconnect, add_tapped_line, cell_wire_nodes
 from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.sizing.table import physical_context, qualified_timing
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Cell
@@ -20,12 +21,14 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                  custom_mc: bool = False,sweep_cell: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
                  sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,real_cell_mode:int = 0,
                  q_init_val: int = 0, sim_path: str = '', next_row: int = None,
-                 driver_sizes=None, timing_config=None, temperature=None
+                 driver_sizes=None, timing_config=None, temperature=None, interconnect=None
                  ):
         # 保存配置对象引用
         self.sram_config = sram_config  #包含所有子电路参数
         global_cfg = sram_config.global_config
         self.temperature = global_cfg.temperature if temperature is None else temperature
+        self.interconnect = resolve_interconnect(
+            getattr(global_cfg, 'interconnect', None) if interconnect is None else interconnect)
 
         super().__init__(
             f'SRAM_6T_CORE_{global_cfg.num_rows}x{global_cfg.num_cols}_TB',
@@ -48,10 +51,10 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # same immutable result into each candidate's testbench.
         self.driver_sizes = driver_sizes if driver_sizes is not None else resolve_driver_sizes(
             sram_config, cell_type=sram_cell_type, mux=choose_columnmux,
-            physical_context=physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode),
+            physical_context=physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode, self.interconnect),
         )
         self.driver_sizes.validate_for(sram_config, sram_cell_type, choose_columnmux,
-                                       physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode))
+                                       physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode, self.interconnect))
         if self.driver_sizes.source == 'table' and any((sweep_precharge, sweep_senseamp,
                 sweep_wordlinedriver, sweep_columnmux, sweep_writedriver, sweep_decoder)):
             raise ValueError('Table-qualified periphery is frozen; use rules_only for peripheral sweeps')
@@ -82,7 +85,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             table_path = options.get('table') if isinstance(options, dict) else getattr(options, 'table', None)
             self.timing_config = qualified_timing(
                 self.driver_sizes, table_path,
-                physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode),
+                physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode, self.interconnect),
             )
             if self.timing_config is None:
                 raise ValueError('Qualified timing record is stale or unavailable for this physical context')
@@ -145,7 +148,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # sense-amplifier input (SenseAmp 'IN'), so RBL and BL carry the same
         # wire configuration end to end.
         rbl_node = 'rbl'
-        if self.w_rc:
+        if self.interconnect.distributed:
+            # Use the same mux and sense-input devices as a real column. The
+            # read periphery instantiates them later in this deck.
+            rbl_node = ('XREPLICA_SENSEAMP:IN_end' if self.w_rc else
+                        ('RBL_MUX' if self.choose_columnmux else 'RBL'))
+        elif self.w_rc:
             rbl_node = 'RBL_sense'
             circuit.R('R_RBL_SENSE_0', 'RBL', 'RBL_sense_seg0', self.pi_res)
             circuit.C('Cg_RBL_SENSE_0', 'RBL_sense_seg0', self.gnd_node, self.pi_cap)
@@ -153,7 +161,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             circuit.C('Cg_RBL_SENSE_1', rbl_node, self.gnd_node, self.pi_cap)
         time_connections.extend([rbl_node, 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE', 'sa_iso'])
         if self.driver_sizes.replica_precharge_guard:
-            time_connections.append('RWL')
+            time_connections.append('RWL_far' if self.interconnect.distributed else 'RWL')
         
         # Instantiate TIME circuit
         circuit.X(
@@ -259,9 +267,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             sweep_replica=self.sweep_cell and not self.driver_sizes.replica_matched,
             param_model_file=self.sim_path + '/param_sweep_models.data',
             sram_cell_type=self.sram_cell_type,
+            interconnect=self.interconnect,
             **replica_kwargs
         ).create()
         circuit.subcircuit(replica_column)   # Add to main circuit
+        self.replica_inst_prefix = f'X{replica_column.name}'
         
         # All Replica Column connections.  Only the RWL cell is an active replica; the
         # other num_rows cells are pure bitline loads with their wordlines tied off, so a
@@ -271,6 +281,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             *['RWL' if row < self.driver_sizes.replica_k else self.gnd_node
               for row in range(self.num_rows + 1)]
         ]
+        if self.interconnect.distributed:
+            k = self.driver_sizes.replica_k
+            replica_connections = ['VDD', 'VSS', 'RBL', 'RBLB', *[
+                f'RWL_tap{self.num_cols - k + row - (self.num_rows - k)}'
+                if row >= self.num_rows - k else self.gnd_node
+                for row in range(self.num_rows)]]
 
         # Instantiate Replica Column circuit
         circuit.X(
@@ -426,6 +442,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         driver = self._wordline_driver()
         circuit.subcircuit(driver)
         circuit.X('RWL', driver.NAME, 'VDD', 'VSS', 'VDD', 'wl_en', 'RWL')
+        if self.interconnect.distributed:
+            add_tapped_line(circuit, 'RWL', 'RWL', self.num_cols, self.interconnect.wl)
         sizes = self.driver_sizes
         if self.num_cols > sizes.replica_k:
             dummy = Dummy_Cell(
@@ -433,12 +451,14 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 sizes.replica_nmos_models[1], sizes.replica_nmos_widths[0],
                 sizes.replica_pmos_width, sizes.replica_nmos_widths[1],
                 sizes.replica_length, w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
+                cell_pin_rc=self.interconnect.cell_pin_rc,
             )
             circuit.subcircuit(dummy)
             # The K active replica cells already contribute K access-gate pairs.
             # Dummy_Cell keeps its bitline drains disconnected internally.
             for col in range(self.num_cols - sizes.replica_k):
-                circuit.X(f'RWL_LOAD_{col}', dummy.NAME, 'VDD', 'VSS', 'VDD', 'VDD', 'RWL')
+                node = f'RWL_tap{col}' if self.interconnect.distributed else 'RWL'
+                circuit.X(f'RWL_LOAD_{col}', dummy.NAME, 'VDD', 'VSS', 'VDD', 'VDD', node)
         return circuit
 
     def create_decoder(self, circuit: Circuit):
@@ -616,6 +636,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 param_model_file =self.sim_path + '/param_sweep_models.data',
             ).create()
             circuit.subcircuit(cmux)    #添加列多路选择器实例到主电路
+            if self.interconnect.distributed:
+                circuit.X('REPLICA_MUX', cmux.name, self.power_node, self.gnd_node,
+                          'RBL_MUX', 'RBLB_MUX', 'VDD', 'VSS',
+                          *(['VSS', 'VDD'] if use_external_selb else []),
+                          'RBL', 'VDD', 'RBLB', 'VDD')
             self.cmux_inst_prefix = f"X{cmux.name}"
 
             # Add Column Mux for all columns    为每组列添加多路复用器实例
@@ -662,6 +687,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         ).create()
         circuit.subcircuit(sa)  #添加灵敏放大器实例到主电路
         self.sa_inst_prefix = f'X{sa.name}'
+        if self.interconnect.distributed:
+            circuit.X('REPLICA_SENSEAMP', sa.name, self.power_node, self.gnd_node,
+                      's_en', 'sa_iso',
+                      'RBL_MUX' if self.choose_columnmux else 'RBL',
+                      'RBLB_MUX' if self.choose_columnmux else 'RBLB',
+                      'REPLICA_SA_Q', 'REPLICA_SA_QB')
 
         if self.choose_columnmux:
             # Add SA circuitry for all columns  #为每组多路选择器下接灵敏放大器
@@ -985,6 +1016,29 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
 
         return init_dict
 
+    def cell_probe(self, pin, row=None, col=None):
+        """Actual access-device terminal; legacy star probes keep their names."""
+        row = self.target_row if row is None else row
+        col = self.target_col if col is None else col
+        if pin not in ('BL', 'BLB', 'WL'):
+            raise ValueError('Cell probe must be BL, BLB or WL')
+        if not self.interconnect.distributed:
+            return f'WL{row}' if pin == 'WL' else f'{pin}{col}'
+        if self.w_rc and self.interconnect.cell_pin_rc:
+            return f'{self.cell_inst_prefix}_{row}_{col}:{pin}_end'
+        node = cell_wire_nodes(self.sbckt_array, row, col)[('BL', 'BLB', 'WL').index(pin)]
+        return f'{self.arr_inst_prefix}:{node}'
+
+    def sense_input_probe(self, pin='IN', col=None):
+        col = self.target_col if col is None else col
+        if pin not in ('IN', 'INB'):
+            raise ValueError('Sense input must be IN or INB')
+        if self.w_rc:
+            return f'{self.sa_inst_prefix}_{col // self.mux_in}:{pin}_end'
+        if self.choose_columnmux:
+            return f'SA_IN{"B" if pin == "INB" else ""}{col // self.mux_in}'
+        return f'BL{"B" if pin == "INB" else ""}{col}'
+
     def create_testbench(self, operation, target_row, target_col):
         """
         Create a testbench for the SRAM array.
@@ -999,7 +1053,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         operating_config.vdd = float(self.vdd)
         operating_config.temperature = self.temperature
         self.driver_sizes.validate_for(self.sram_config, self.sram_cell_type, self.choose_columnmux,
-                                       physical_context(self.w_rc, float(self.pi_res), float(self.pi_cap), self.real_cell_mode))
+                                       physical_context(self.w_rc, float(self.pi_res), float(self.pi_cap), self.real_cell_mode, self.interconnect))
         self.target_row = target_row if target_row < self.num_rows else self.num_rows - 1
         self.target_col = target_col if target_col < self.num_cols else self.num_cols - 1
         # Column-mux fan-in (fixed to 2 in create_read_periphery); needed before any
@@ -1044,6 +1098,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                     q_init_val=self.q_init_val,
                     global_config=operating_config,
+                    interconnect=self.interconnect,
                 ).create()
             else:
                 sbckt_array = Sram6TCoreFactory(
@@ -1065,6 +1120,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                     q_init_val=self.q_init_val,
                     global_config=operating_config,
+                    interconnect=self.interconnect,
                 ).create()
         elif self.sram_cell_type == 'SRAM_10T_CELL':
             # Instantiate 10T SRAM array 根据是否使用 MC 创建 SRAM Core
@@ -1092,6 +1148,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     # This function returns a Dict of MOS models
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                     global_config=operating_config,
+                    interconnect=self.interconnect,
                 ).create()
             else:
                 sbckt_array = Sram10TCoreFactory(
@@ -1115,6 +1172,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                     q_init_val=self.q_init_val,
                     global_config=operating_config,
+                    interconnect=self.interconnect,
                 ).create()
         else:
             raise ValueError(f"Unknown SRAM cell type: {self.sram_cell_type}")

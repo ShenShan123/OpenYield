@@ -1,6 +1,7 @@
 """The physical RC settings must reach every circuit and cached extraction."""
 
 import contextlib
+from dataclasses import replace
 import io
 from pathlib import Path
 import tempfile
@@ -109,6 +110,8 @@ class RcConfigurationTests(unittest.TestCase):
         sizes = resolve_driver_sizes(cfg, physical_context=first)
         with self.assertRaisesRegex(ValueError, 'physical context'):
             sizes.validate_for(cfg, 'SRAM_6T_CELL', False, physical_context(True, 200, 1e-15))
+        with self.assertRaisesRegex(ValueError, 'physical context'):
+            replace(sizes, physical_key='').validate_for(cfg, 'SRAM_6T_CELL', False, first)
 
 
 if __name__ == '__main__':

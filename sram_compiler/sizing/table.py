@@ -25,14 +25,16 @@ def current_scoring_version():
     for name in ('timing.py', 'table.py'):
         digest.update(Path(__file__).with_name(name).read_bytes())
     root = Path(__file__).resolve().parents[2]
-    for name in ('sram_compiler/per_device_mc/netlist.py', 'sram_compiler/per_device_mc/sampling.py',
-                 'sram_compiler/testbenches/sram_6t_core_MC_testbench.py'):
-        digest.update((root / name).read_bytes())
+    for path in sorted((root / 'sram_compiler').rglob('*.py')):
+        digest.update(str(path.relative_to(root)).encode())
+        digest.update(path.read_bytes())
     return digest.hexdigest()
 
 
-def physical_context(w_rc=False, pi_res=100.0, pi_cap=1e-15, real_cell_mode=0):
+def physical_context(w_rc=False, pi_res=100.0, pi_cap=1e-15, real_cell_mode=0, interconnect=None):
+    from sram_compiler.interconnect import resolve_interconnect
     result: dict[str, Any] = {'w_rc': bool(w_rc), 'real_cell_mode': int(real_cell_mode)}
+    result['interconnect'] = resolve_interconnect(interconnect).to_dict()
     if w_rc:
         result.update(pi_res=float(pi_res), pi_cap=float(pi_cap))
     return result

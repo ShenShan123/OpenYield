@@ -7,6 +7,49 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.0.7 — 2026-09-09 — RC corrections and distributed interconnect
+
+- Corrected RC propagation through factories, real/replica/dummy cells and
+  peripheral circuits. The common local default is now 100 ohm / 1 fF;
+  testbenches previously defaulted to 10 ohm while most circuits silently
+  retained 100 ohm. Sizing loads now consume configured peripheral capacitance.
+- Equivalent extraction uses the effective corner, VDD and temperature, with
+  the main simulator's 27 C nominal model temperature. Its cache fingerprints
+  selected PDK contents, storage-node RC and extraction settings. Unsupported
+  equivalent-cell dimension sweeps fail explicitly; full-real sweeps remain
+  supported.
+- Added opt-in distributed WL/BL/BLB pi ladders, independent metal geometry,
+  centered cell taps and subdivision that conserves total wire R/C. Equivalent
+  cells retain the wire geometry and load individual taps. Local cell-pin
+  parasitics are selectable separately from storage and peripheral parasitics.
+- Distributed replica paths match array wire lengths and tap loads, including
+  mux/sense input circuits. TIME observes the far replica wordline before
+  precharge; transient probes use local cell terminals, sense inputs and far
+  bitline endpoints. Star remains the default topology.
+- Frozen baselines and run/qualification identities include the physical wire
+  model. Runtime source fingerprints cover compiler topology; local scoring
+  and report tools use distributed probes and physical identities. Historical
+  V2.0.5 measurements and rule labels are preserved; no new sizing-table
+  qualification or coefficient recalibration is claimed.
+- Added a [configuration guide](design/DISTRIBUTED_RC_MODEL.md) and an
+  illustrative YAML example, selectable with `--interconnect-config` or through
+  the existing global YAML/Python configuration path.
+- Validation: 65 tracked compiler/optimizer tests and 112 subtests pass under
+  Python 3.11; all 59 compiler tests pass under Python 3.9. The new interconnect
+  module has 91.6% statement coverage from its tracked unit/integration checks.
+  Local development tests, CLI generation and a runtime export without `dev/`
+  are also checked. See the [validation record](design/DISTRIBUTED_RC_VALIDATION.md).
+- Xyce waveform diagnostics: 19 passing cases cover full-real 6T/10T read/write
+  sequences, mux paths, near/middle/far positions, subdivision, equivalent
+  mode 4, seeded per-device samples, SS/SF at 125 C / 0.9 V, and next-row read/write
+  hazards. Two additional 6T SS/SF stress cases fail at 2.5 ns; both pass at
+  5 ns. Failed stress evidence is retained. These small-array checks use
+  illustrative metal parameters and do not establish extracted-array yield.
+- Compatibility: against a detached V2.0.6 worktree (`029626b`), eight 4x4
+  6T/10T read/write star decks with RC off or explicit 100 ohm are byte-for-byte
+  identical. Four decks using the previous default differ only at ten replica
+  resistors corrected from 10 to 100 ohm.
+
 ## V2.0.6 — 2026-09-08 — compiler integration and documentation organization
 
 This release reorganizes the compiler and documentation. Driver and timing

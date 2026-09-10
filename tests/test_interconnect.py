@@ -1,7 +1,6 @@
 """Distributed wires conserve geometry and keep cells at physical taps."""
 
 import contextlib
-import copy
 import io
 import unittest
 from unittest.mock import patch
@@ -39,6 +38,17 @@ def build_core(cell_type=Sram6TCore, mode=0, sweep=False, interconnect=None):
 
 
 class WireTests(unittest.TestCase):
+    def test_cli_run_identity_includes_wire_configuration(self):
+        from sram_compiler.per_device_mc.run import make_run_name
+        from types import SimpleNamespace
+        args = SimpleNamespace(rows=4, cols=4, operation='read', real_cell_mode=0,
+                               variation_mode='nominal', vth_std=.05, corner='TT',
+                               pi_res_ohm=100, pi_cap_pf=.001, q_init_val=0, waveform=True, seed=5)
+        options = dict(cell_type='SRAM_6T_CELL', target_row=3, target_col=3, mc_runs=1)
+        first = make_run_name(args, **options, interconnect=wire_config())
+        second = make_run_name(args, **options, interconnect=wire_config(2))
+        self.assertNotEqual(first, second)
+
     def test_pi_sections_conserve_total_resistance_capacitance_and_tap_count(self):
         for count in (1, 4, 32):
             for refinement in (1, 4):
@@ -109,6 +119,23 @@ class ArrayWireTests(unittest.TestCase):
         self.assertIn('RR_WL_', str(list(core.subcircuits)[0]))
         self.assertIn('Rwire_WL', str(core))
 
+    def test_equivalent_write_power_uses_local_wordline_voltage(self):
+        caps = {'caps': dict(c_wl=1e-16, c_bl=1e-16, c_blb=1e-16,
+                             c_wl_bl=1e-17, c_wl_blb=1e-17)}
+        fit = dict(wl_ratios=[0., 1.], avg_currents=[1e-9, 1e-6])
+        with contextlib.redirect_stdout(io.StringIO()), patch.object(
+                equivalent, '_cached_extraction', side_effect=lambda tester, name, fn: caps if name == 'caps' else fit):
+            core = Sram6TCore(4, 4, 'NMOS_VTG', 'PMOS_VTG', 'NMOS_VTG',
+                             w_rc=True, real_cell_mode=4, target_row=3, target_col=3,
+                             interconnect=wire_config(), write_power_model=True)
+        sources = [line for line in core.raw_spice.splitlines() if line.startswith('BIWL_POWER_')]
+        self.assertEqual(len(sources), 15)
+        self.assertTrue(all('_tap' in line for line in sources))
+
+    def test_equivalent_sweeps_fail_with_actionable_error(self):
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, 'numeric.*real_cell_mode=0'):
+            build_core(mode=4, sweep=True)
+
     def test_equivalent_modes_preserve_wire_geometry_and_local_coupling(self):
         caps = {'caps': dict(c_wl=1e-16, c_bl=2e-16, c_blb=3e-16, c_wl_bl=1e-17, c_wl_blb=2e-17)}
         for cell_type in (Sram6TCore, Sram10TCore):
@@ -169,8 +196,8 @@ class ArrayWireTests(unittest.TestCase):
             simulator = circuit.simulator(simulator='xyce-serial', temperature=25)
             tb.add_meas_and_print(simulator, tb.data_init(), 'write')
             deck = str(simulator)
-            self.assertIn(f'V({tb.cell_probe("WL")})', deck)
-            self.assertIn(f'V({tb.cell_probe("BL")})', deck)
+            self.assertTrue(f'V({tb.cell_probe("WL")})' in deck)
+            self.assertTrue(f'V({tb.cell_probe("BL")})' in deck)
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 from PySpice.Spice.Netlist import SubCircuitFactory, Circuit
 from PySpice.Unit import u_Ohm, u_pF
 from .base_subcircuit import BaseSubcircuit
+from sram_compiler.interconnect import resolve_interconnect, add_tapped_line
 from .sram_6t_core import Sram6TCell
 import os
 # from utils import model_dict2str
@@ -23,7 +24,8 @@ class Replica_Cell(BaseSubcircuit):
                  sram_cell_type: str = "SRAM_6T_CELL",
                  w_rc=False,
                  pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 disconnect=False
+                 disconnect=False,
+                 cell_pin_rc=None
                  ):
         
         if disconnect:
@@ -49,25 +51,22 @@ class Replica_Cell(BaseSubcircuit):
         self.length = length
 
         self.sram_cell_type = sram_cell_type
+        self.cell_pin_rc = w_rc if cell_pin_rc is None else w_rc and cell_pin_rc
         self.w_rc = w_rc
         self.disconnect = disconnect
 
-        # 处理节点名称
-        if not self.w_rc:
-            bl_node = self.NODES[2]
-            blb_node = self.NODES[3]
-            wl_node = self.NODES[4]
-            q_node = 'Q'
-            qb_node = 'QB'
-        else:
+        if self.cell_pin_rc:
             bl_node = self.add_rc_networks_to_node(self.NODES[2], 1)
             blb_node = self.add_rc_networks_to_node(self.NODES[3], 1)
             wl_node = self.add_rc_networks_to_node(self.NODES[4], 1)
+        else:
+            bl_node, blb_node, wl_node = self.NODES[2:5]
+        if self.w_rc:
             q_node = self.add_rc_networks_to_node('Q', 1)
-            qb_node = (
-                self.add_rc_networks_to_node('QB', 1)
-                if self.sram_cell_type == 'SRAM_10T_CELL' else 'QB'
-            )
+            qb_node = (self.add_rc_networks_to_node('QB', 1)
+                       if self.sram_cell_type == 'SRAM_10T_CELL' else 'QB')
+        else:
+            q_node, qb_node = 'Q', 'QB'
 
         if self.sram_cell_type == 'SRAM_10T_CELL':
             self.add_10T_cell(bl_node, blb_node, wl_node, q_node, qb_node)
@@ -144,9 +143,12 @@ class Replica_Column(SubCircuitFactory):
                  pg_width=0.135e-6, length=50e-9, fd_width: float = None,   
                  w_rc=False,
                  sram_cell_type: str = 'SRAM_6T_CELL',
-                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 interconnect=None
                  ):
-        self.NAME = f"sram_{num_rows+1}x1_replica_column"
+        self.interconnect = resolve_interconnect(interconnect)
+        self.cell_count = num_rows if self.interconnect.distributed else num_rows + 1
+        self.NAME = f"sram_{self.cell_count}x1_replica_column"
         
         # Define nodes - shared bitlines and individual wordlines
         self.NODES = (
@@ -154,7 +156,7 @@ class Replica_Column(SubCircuitFactory):
             'VSS',  # Ground
             'RBL',   # Bitline
             'RBLB',  # Bitline bar
-            *[f'WL{i}' for i in range(num_rows+1)],  # Wordlines (0 to num_rows)多生成一行
+            *[f'WL{i}' for i in range(self.cell_count)],  # Wordlines (0 to num_rows)多生成一行
         )
         
         super().__init__()
@@ -175,6 +177,9 @@ class Replica_Column(SubCircuitFactory):
         self.pi_res = pi_res
         self.pi_cap = pi_cap
         self.sram_cell_type = sram_cell_type
+        if self.interconnect.distributed:
+            add_tapped_line(self, 'RBL', 'RBL', num_rows, self.interconnect.bl)
+            add_tapped_line(self, 'RBLB', 'RBLB', num_rows, self.interconnect.bl)
         # Build the array
         self.build_array(self.num_rows,self.num_cols)        #构建阵列
         # set instance prefix and the name of replica cell
@@ -189,19 +194,20 @@ class Replica_Column(SubCircuitFactory):
             self.pg_width, self.length, self.fd_width,
             w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             sram_cell_type=self.sram_cell_type,
+            cell_pin_rc=self.interconnect.cell_pin_rc,
         )
 
         # define the cell subcircuit
         self.subcircuit(replica_cell)
 
         # Instantiate replica cells - sharing the same bitlines but connecting to different wordlines
-        for row in range(num_rows+1):
+        for row in range(self.cell_count):
             self.X(
                 replica_cell.name + f"_{row}",  # Instance name
                 replica_cell.name,              # Subcircuit type
                 self.NODES[0],                  # Power net (VDD)
                 self.NODES[1],                  # Ground net (VSS)
-                self.NODES[2],                  # Shared bitline (BL)
-                self.NODES[3],                  # Shared bitline bar (BLB)
+                f'RBL_tap{row}' if self.interconnect.distributed else self.NODES[2],
+                f'RBLB_tap{row}' if self.interconnect.distributed else self.NODES[3],
                 f'WL{row}',                     # Individual wordline connection
             )

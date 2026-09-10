@@ -18,7 +18,8 @@ from pathlib import Path
 import numpy as np
 from scipy.optimize import curve_fit
 from PySpice.Spice.Netlist import Circuit
-from PySpice.Unit import u_V, u_Ohm, u_F
+from PySpice.Unit import u_V, u_Ohm, u_F, u_pF
+from sram_compiler.interconnect import cell_wire_nodes
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
@@ -70,6 +71,9 @@ class SRAMCellParasiticTester:
         fd_width=None,
         length=74.0e-9,
         q_init_val=0,
+        storage_rc=False,
+        pi_res=100 @ u_Ohm,
+        pi_cap=0.001 @ u_pF,
     ):
         self.cell_type = cell_type.upper()
         if self.cell_type not in ("6T", "10T"):
@@ -86,6 +90,9 @@ class SRAMCellParasiticTester:
         self.fd_width  = fd_width
         self.length    = length
         self.q_init_val = q_init_val
+        self.storage_rc = storage_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
 
         self.subckt_name = "SRAM_6T_CELL" if self.cell_type == "6T" else "SRAM_10T_CELL"
 
@@ -122,6 +129,8 @@ class SRAMCellParasiticTester:
                 pu_width=self.pu_width,
                 pg_width=self.pg_width,
                 length=self.length,
+                w_rc=self.storage_rc, cell_pin_rc=False,
+                pi_res=self.pi_res, pi_cap=self.pi_cap,
             )
         from .sram_10t_core import Sram10TCell
         return Sram10TCell(
@@ -134,6 +143,8 @@ class SRAMCellParasiticTester:
             pg_width=self.pg_width,
             fd_width=self.fd_width,
             length=self.length,
+            w_rc=self.storage_rc, cell_pin_rc=False,
+            pi_res=self.pi_res, pi_cap=self.pi_cap,
         )
 
     def _init_circuit(self):
@@ -207,7 +218,7 @@ class SRAMCellParasiticTester:
 
         simulator = self.circuit.simulator(
             temperature=self.config.temperature,
-            nominal_temperature=self.config.temperature,
+            nominal_temperature=27,
             simulator="xyce-parallel",
         )
 
@@ -307,7 +318,7 @@ class SRAMCellParasiticTester:
 
         simulator = circuit.simulator(
             temperature=self.config.temperature,
-            nominal_temperature=self.config.temperature,
+            nominal_temperature=27,
             simulator="xyce-parallel",
         )
         analysis = simulator.transient(step_time=self.step_time, end_time=self.end_time)
@@ -424,7 +435,7 @@ class SRAMCellParasiticTester:
 
         simulator = self.circuit.simulator(
             temperature=self.config.temperature,
-            nominal_temperature=self.config.temperature,
+            nominal_temperature=27,
             simulator="xyce-parallel",
         )
         vq  = self.config.vdd @ u_V if q_state else 0 @ u_V
@@ -470,7 +481,7 @@ class SRAMCellParasiticTester:
 
         simulator = self.circuit.simulator(
             temperature=self.config.temperature,
-            nominal_temperature=self.config.temperature,
+            nominal_temperature=27,
             simulator="xyce-parallel",
         )
         vq  = self.config.vdd @ u_V if self.q_init_val else 0 @ u_V
@@ -708,6 +719,9 @@ def _build_tester_from_core(core, cell_type):
         "pg_width":       core.pg_width,
         "length":         core.length,
         "q_init_val":     core.q_init_val,
+        "storage_rc":     core.w_rc,
+        "pi_res":         core.pi_res,
+        "pi_cap":         core.pi_cap,
     }
 
     if cell_type == "10T":
@@ -753,7 +767,7 @@ def _add_wl_controlled_static_power(core, tester, rows_with_unused,
 
     # Build a piecewise-linear lookup expression from simulation points.
     # if(x<=x0, y0, if(x<=x1, y0+m0*(x-x0), ... , yn))
-    wl_ratio_var = f"(V(WL{{row}})/{vdd_value:.12e})"
+    wl_ratio_var = f"(V({{node}})/{vdd_value:.12e})"
     segment_exprs = []
     for i in range(len(wl_ratios) - 1):
         x0 = float(wl_ratios[i])
@@ -769,8 +783,8 @@ def _add_wl_controlled_static_power(core, tester, rows_with_unused,
     first_y = float(avg_currents[0])
     last_y = float(avg_currents[-1])
 
-    def _build_table_expr(row):
-        x_expr = wl_ratio_var.format(row=row)
+    def _build_table_expr(node):
+        x_expr = wl_ratio_var.format(node=node)
         expr = f"{last_y:.12e}"
         for x1, y0, m, x0 in reversed(segment_exprs):
             expr = (f"if({x_expr}<={x1:.12e}, "
@@ -783,7 +797,16 @@ def _add_wl_controlled_static_power(core, tester, rows_with_unused,
         count_unused = core._count_unused_cells_in_row(row)
         if count_unused == 0:
             continue
-        table_expr = _build_table_expr(row)
+        if core.interconnect.distributed:
+            for col in range(core.num_cols):
+                if not core._is_unused_cell(row, col):
+                    continue
+                wl = (f'EQ_{row}_{col}_WL' if core.w_rc and core.interconnect.cell_pin_rc
+                      else cell_wire_nodes(core, row, col)[2])
+                table_expr = _build_table_expr(wl)
+                core.raw_spice += f'BIWL_POWER_{row}_{col} VDD VSS I={{{table_expr}}}\n'
+            continue
+        table_expr = _build_table_expr(f'WL{row}')
         core.raw_spice += (
             f"BIWL_POWER_{row} VDD VSS I={{{count_unused:.12e}*({table_expr})}}\n"
         )
@@ -810,8 +833,11 @@ def _extraction_key(tester):
         float(tester.length), int(tester.q_init_val),
         float(cfg.vdd), float(cfg.temperature), str(tester.corner),
         hashlib.sha256(model_path.read_bytes()).hexdigest(),
-        'five-cap-v2.0.7', tester.step_time, tester.rise_time,
+        'five-cap-v2.0.7', 27.0, tester.step_time, tester.rise_time,
         tester.hold_time, tester.end_time,
+        bool(tester.storage_rc),
+        float(tester.pi_res) if tester.storage_rc else None,
+        float(tester.pi_cap) if tester.storage_rc else None,
     )
 
 
@@ -832,6 +858,11 @@ def _add_equivalent_circuit_impl(core, cell_type):
     OpenYield2.5.  Cross-coupling caps are added between WL and BL/BLB
     mid-nodes.  Cell caps are placed at the RC mid-node for physical accuracy.
     """
+    dimensions = [core.pd_width, core.pu_width, core.pg_width, core.length]
+    if cell_type == '10T':
+        dimensions.append(core.fd_width)
+    if any(isinstance(value, str) for value in dimensions):
+        raise ValueError('Equivalent extraction needs numeric cell geometry; use real_cell_mode=0 for SPICE sweeps')
     from .base_subcircuit import BaseSubcircuit
     pi_res = getattr(core, "pi_res", BaseSubcircuit.DEFAULT_PI_RES)
     pi_cap = getattr(core, "pi_cap", BaseSubcircuit.DEFAULT_PI_CAP)
@@ -891,12 +922,34 @@ def _add_equivalent_circuit_impl(core, cell_type):
     # (pi_res / pi_cap) is inserted in front of them; without it the caps sit
     # directly on the line node.
     def _line_node(line, unused):
-        if not core.w_rc:
+        if not core.w_rc or not core.interconnect.cell_pin_rc:
             return line
         mid = f"{line}_rc_mid"
         core.C(f"cap_{line}", mid,  core.NODES[1], pi_cap * unused)
         core.R(f"res_{line}", line, mid,           pi_res / unused)
         return mid
+
+    if core.interconnect.distributed:
+        # Each omitted cell remains a local multiport load. Wire segments were
+        # already built independently of the real/equivalent occupancy mask.
+        for row in rows_with_unused:
+            for col in cols_with_unused:
+                if not core._is_unused_cell(row, col):
+                    continue
+                bl, blb, wl = cell_wire_nodes(core, row, col)
+                if core.w_rc and core.interconnect.cell_pin_rc:
+                    nodes = []
+                    for pin, line in (('BL', bl), ('BLB', blb), ('WL', wl)):
+                        mid = f'EQ_{row}_{col}_{pin}'
+                        core.R(f'eq_{row}_{col}_{pin}', line, mid, pi_res)
+                        core.C(f'eq_wire_{row}_{col}_{pin}', mid, core.NODES[1], pi_cap)
+                        nodes.append(mid)
+                    bl, blb, wl = nodes
+                for pin, node, cap in (('WL', wl, wl_c), ('BL', bl, bl_c), ('BLB', blb, blb_c)):
+                    core.C(f'eq_{pin}_{row}_{col}', node, core.NODES[1], cap)
+                core.C(f'eq_WLBL_{row}_{col}', wl, bl, wl_bl_c)
+                core.C(f'eq_WLBLB_{row}_{col}', wl, blb, wl_blb_c)
+        return
 
     # ── WL lines of rows containing unused cells ──────────────────────────────
     wl_nodes = {}

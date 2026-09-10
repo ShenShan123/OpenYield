@@ -1,6 +1,6 @@
-# V2.0.6 driver sizing
+# V2.0.7 driver sizing
 
-V2.0.6 retains the V2.0.5 sizing rules, which resolve precharge, split
+V2.0.7 retains the V2.0.5 sizing coefficients, which resolve precharge, split
 write-driver, wordline and decoder output scales
 with their TIME loads. The real and replica wordlines share a driver, and the
 replica includes the real bitline's disabled write-stack load. The full design
@@ -139,3 +139,7 @@ same baseline across variation samples. The obsolete rare-event entry point
 `main_estimation.py` (a removed API and package) was deleted on 2026-09-09;
 `demo_run_a_testbench.py` is the yield-estimation entrance and uses explicit
 custom tables.
+
+V2.0.7 binds every frozen baseline to its physical RC configuration and uses the
+actual configured peripheral capacitance in load accounting. Distributed wires
+require new qualification; see the [RC guide](../../docs/design/DISTRIBUTED_RC_MODEL.md).

@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.0.6
+# Compiler regression tests — V2.0.7
 
 These reusable tests are tracked outside the circuit generator. They cover
 driver sizing and frozen loads, MOS connectivity and widths, per-device
@@ -29,3 +29,7 @@ Tests of local experiments and qualification runners live under ignored
 `dev/tests/`. See the [development guide](../docs/DEVELOPMENT.md) for those
 optional tools. Keep runtime testbenches in `sram_compiler/testbenches/`;
 they construct the simulator circuits used by the project.
+
+V2.0.7 adds `test_rc_configuration.py` and `test_interconnect.py` for RC-value
+propagation, extraction context/cache identity, distributed pi-section R/C
+conservation, cell/equivalent taps, matched replica paths and local MC probes.
