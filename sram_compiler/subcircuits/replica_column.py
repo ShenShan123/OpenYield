@@ -144,6 +144,7 @@ class Replica_Column(SubCircuitFactory):
                  pg_width=0.135e-6, length=50e-9, fd_width: float = None,   
                  w_rc=False,
                  sram_cell_type: str = 'SRAM_6T_CELL',
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         self.NAME = f"sram_{num_rows+1}x1_replica_column"
         
@@ -171,6 +172,8 @@ class Replica_Column(SubCircuitFactory):
         self.fd_width = fd_width if fd_width is not None else pg_width  # 默认fd宽度与pg相同
         # other config
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.sram_cell_type = sram_cell_type
         # Build the array
         self.build_array(self.num_rows,self.num_cols)        #构建阵列
@@ -184,7 +187,7 @@ class Replica_Column(SubCircuitFactory):
             self.pd_nmos_model, self.pu_pmos_model, self.pg_pmos_model, self.fd_nmos_model,
             self.pd_width, self.pu_width,
             self.pg_width, self.length, self.fd_width,
-            w_rc=self.w_rc,
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             sram_cell_type=self.sram_cell_type,
         )
 

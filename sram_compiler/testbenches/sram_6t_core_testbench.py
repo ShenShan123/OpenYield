@@ -9,21 +9,23 @@ from sram_compiler.testbenches.parameter_factor import (TIMEFactory,ReplicaColum
 from utils import parse_spice_models  # type: ignore
 from sram_compiler.testbenches.base_testbench import BaseTestbench  # type: ignore
 from math import ceil, log2
+from copy import copy
 from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.sizing.table import physical_context, qualified_timing
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Cell
 
 class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自BaseTestbench
     def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  custom_mc: bool = False,sweep_cell: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
                  sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,real_cell_mode:int = 0,
                  q_init_val: int = 0, sim_path: str = '', next_row: int = None,
-                 driver_sizes=None, timing_config=None
+                 driver_sizes=None, timing_config=None, temperature=None
                  ):
         # 保存配置对象引用
         self.sram_config = sram_config  #包含所有子电路参数
         global_cfg = sram_config.global_config
+        self.temperature = global_cfg.temperature if temperature is None else temperature
 
         super().__init__(
             f'SRAM_6T_CORE_{global_cfg.num_rows}x{global_cfg.num_cols}_TB',
@@ -253,7 +255,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         replica_column = ReplicaColumnFactory(
             num_rows=self.num_rows,
             num_cols=self.num_cols,
-            w_rc=self.w_rc,
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             sweep_replica=self.sweep_cell and not self.driver_sizes.replica_matched,
             param_model_file=self.sim_path + '/param_sweep_models.data',
             sram_cell_type=self.sram_cell_type,
@@ -327,7 +329,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
             pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
             length=self.sram_config.sram_6t_cell.length.value,
-            w_rc=self.w_rc,
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
         ).create()
         # Add subcircuit definition to this testbench.
         circuit.subcircuit(dummy_row)
@@ -375,7 +377,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
             pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
             length=self.sram_config.sram_6t_cell.length.value,
-            w_rc=self.w_rc,
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
         ).create()
         # Add subcircuit definition to this testbench.
         circuit.subcircuit(dummy_row_2)
@@ -430,7 +432,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 sizes.replica_nmos_models[0], sizes.replica_pmos_model,
                 sizes.replica_nmos_models[1], sizes.replica_nmos_widths[0],
                 sizes.replica_pmos_width, sizes.replica_nmos_widths[1],
-                sizes.replica_length, w_rc=self.w_rc,
+                sizes.replica_length, w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             )
             circuit.subcircuit(dummy)
             # The K active replica cells already contribute K access-gate pairs.
@@ -506,7 +508,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             inv_nmos_width =wl_config.nmos_width.value[1],
             length=wl_config.length.value,
             num_cols=self.num_cols,
-            w_rc=self.w_rc,  
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             sweep_wordlinedriver = self.sweep_wordlinrdriver,
             inverter_scale=self.driver_sizes.wl_inv,
             nand_gate_scale=self.driver_sizes.wl_nand,
@@ -563,7 +565,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             pmos_model=self.sram_config.precharge.pmos_model.value,
             pmos_width=self.sram_config.precharge.pmos_width.value,
             length=self.sram_config.precharge.length.value,
-            w_rc=self.w_rc, 
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             num_rows=self.num_rows,
             sweep_precharge = self.sweep_precharge,
             scale=self.driver_sizes.pre,
@@ -606,7 +608,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 nmos_width=self.sram_config.column_mux.nmos_width.value,
                 pmos_width=self.sram_config.column_mux.pmos_width.value,
                 length=self.sram_config.column_mux.length.value,
-                w_rc=self.w_rc,
+                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                 sweep_columnmux = self.sweep_columnmux,
                 use_external_selb=use_external_selb, #选用哪种多路选择器
                 pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
@@ -652,7 +654,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             nmos_width=self.sram_config.senseamp.nmos_width.value,
             pmos_width=self.sram_config.senseamp.pmos_width.value,
             length=self.sram_config.senseamp.length.value,
-            w_rc=self.w_rc, 
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             sweep_senseamp = self.sweep_senseamp,
             pmos_modle_choices = self.sram_config.senseamp.pmos_model.choices,
             nmos_modle_choices = self.sram_config.senseamp.nmos_model.choices,
@@ -701,7 +703,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             nmos_width=self.sram_config.write_driver.nmos_width.value,
             pmos_width=self.sram_config.write_driver.pmos_width.value,
             length=self.sram_config.write_driver.length.value,
-            w_rc=self.w_rc, 
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             num_rows=self.num_rows,
             sweep_writedriver = self.sweep_writedriver,
             scale=self.driver_sizes.wd_in,
@@ -821,7 +823,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
                     pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
                     length=self.sram_config.sram_6t_cell.length.value,
-                    w_rc=self.w_rc, 
+                    w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     disconnect=True,  # NOTE: Key argument to disconnect the internal data nodes!!
                     sweep = self.sweep_cell,
                     yield_mode=True,
@@ -842,7 +844,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
                     pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
                     length=self.sram_config.sram_6t_cell.length.value,
-                    w_rc=self.w_rc,
+                    w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     disconnect=True,  # NOTE: Key argument to disconnect the internal data nodes!!
                     sweep = self.sweep_cell,
                     yield_mode=False,
@@ -863,7 +865,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     pg_width=self.sram_config.sram_10t_cell.nmos_width.value[1],
                     fd_width=self.sram_config.sram_10t_cell.nmos_width.value[2],
                     length=self.sram_config.sram_10t_cell.length.value,
-                    w_rc=self.w_rc,
+                    w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     disconnect=True,  # NOTE: Key argument to disconnect the internal data nodes!!
                     sweep = self.sweep_cell,
                     yield_mode=True,
@@ -885,7 +887,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     pg_width=self.sram_config.sram_10t_cell.nmos_width.value[1],
                     fd_width=self.sram_config.sram_10t_cell.nmos_width.value[2],
                     length=self.sram_config.sram_10t_cell.length.value,
-                    w_rc=self.w_rc,
+                    w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     disconnect=True,  # NOTE: Key argument to disconnect the internal data nodes!!
                     sweep = self.sweep_cell,
                     yield_mode=False,
@@ -990,6 +992,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         target_row: Row index of the target cell
         target_col: Column index of the target cell
         """
+        # Extraction consumes the actual operating point without mutating the
+        # baseline configuration shared by optimizer/PVT callers.
+        operating_config = copy(self.sram_config.global_config)
+        operating_config.corner = self.corner
+        operating_config.vdd = float(self.vdd)
+        operating_config.temperature = self.temperature
         self.driver_sizes.validate_for(self.sram_config, self.sram_cell_type, self.choose_columnmux,
                                        physical_context(self.w_rc, float(self.pi_res), float(self.pi_cap), self.real_cell_mode))
         self.target_row = target_row if target_row < self.num_rows else self.num_rows - 1
@@ -1024,7 +1032,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     self.sram_config.sram_6t_cell.pmos_width.value,
                     self.sram_config.sram_6t_cell.nmos_width.value[1],
                     self.sram_config.sram_6t_cell.length.value,
-                    w_rc=self.w_rc,
+                    w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     sweep_core=self.sweep_cell,
                     yield_mode=True,
                     real_cell_mode=self.real_cell_mode,
@@ -1035,9 +1043,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     # This function returns a Dict of MOS models
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                     q_init_val=self.q_init_val,
-                    global_config=self.sram_config.global_config,
-                    pi_res=self.pi_res,
-                    pi_cap=self.pi_cap,
+                    global_config=operating_config,
                 ).create()
             else:
                 sbckt_array = Sram6TCoreFactory(
@@ -1049,7 +1055,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     self.sram_config.sram_6t_cell.pmos_width.value,
                     self.sram_config.sram_6t_cell.nmos_width.value[1],
                     self.sram_config.sram_6t_cell.length.value,
-                    w_rc=self.w_rc,
+                    w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     sweep_core=self.sweep_cell,
                     yield_mode=False,
                     real_cell_mode=self.real_cell_mode,
@@ -1058,9 +1064,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                     q_init_val=self.q_init_val,
-                    global_config=self.sram_config.global_config,
-                    pi_res=self.pi_res,
-                    pi_cap=self.pi_cap,
+                    global_config=operating_config,
                 ).create()
         elif self.sram_cell_type == 'SRAM_10T_CELL':
             # Instantiate 10T SRAM array 根据是否使用 MC 创建 SRAM Core
@@ -1076,7 +1080,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     self.sram_config.sram_10t_cell.nmos_width.value[1],
                     self.sram_config.sram_10t_cell.nmos_width.value[2],
                     self.sram_config.sram_10t_cell.length.value,
-                    w_rc=self.w_rc,
+                    w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     sweep_core=self.sweep_cell,
                     yield_mode=True,
                     real_cell_mode=self.real_cell_mode,
@@ -1087,9 +1091,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     q_init_val=self.q_init_val,
                     # This function returns a Dict of MOS models
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
-                    global_config=self.sram_config.global_config,
-                    pi_res=self.pi_res,
-                    pi_cap=self.pi_cap,
+                    global_config=operating_config,
                 ).create()
             else:
                 sbckt_array = Sram10TCoreFactory(
@@ -1103,7 +1105,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     self.sram_config.sram_10t_cell.nmos_width.value[1],
                     self.sram_config.sram_10t_cell.nmos_width.value[2],
                     self.sram_config.sram_10t_cell.length.value,
-                    w_rc=self.w_rc,
+                    w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     sweep_core=self.sweep_cell,
                     yield_mode=False,
                     real_cell_mode=self.real_cell_mode,
@@ -1112,9 +1114,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     nmos_choices = self.sram_config.sram_10t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                     q_init_val=self.q_init_val,
-                    global_config=self.sram_config.global_config,
-                    pi_res=self.pi_res,
-                    pi_cap=self.pi_cap,
+                    global_config=operating_config,
                 ).create()
         else:
             raise ValueError(f"Unknown SRAM cell type: {self.sram_cell_type}")

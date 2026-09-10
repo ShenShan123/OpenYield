@@ -41,7 +41,8 @@ class SenseAmpFactory:
                  nmos_width, pmos_width, length,
                  w_rc=False, 
                  sweep_senseamp=False,
-                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None
+                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None,
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
         self.nmos_model = nmos_model
@@ -50,6 +51,8 @@ class SenseAmpFactory:
         self.pmos_width = pmos_width
         self.length = length
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.sweep = sweep_senseamp
         if self.sweep:
             self.pmos_choices = pmos_modle_choices
@@ -86,6 +89,8 @@ class SenseAmpFactory:
             'pmos_width': pmos_width,
             'length': length,
             'w_rc': self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
         }
 
     def create(self):
@@ -107,7 +112,8 @@ class ColumnMuxFactory:
                  w_rc=False, 
                  sweep_columnmux=False,
                  use_external_selb=False,
-                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None
+                 pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None,
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
         self.num_in = num_in
@@ -118,6 +124,8 @@ class ColumnMuxFactory:
         self.length = length
 
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.sweep = sweep_columnmux
         self.use_external_selb = use_external_selb
         if self.sweep:
@@ -152,6 +160,8 @@ class ColumnMuxFactory:
             'pmos_width': pmos_width,
             'length': length,
             'w_rc': self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
             'num_in': self.num_in,
             'use_external_selb': self.use_external_selb,
         }
@@ -166,7 +176,9 @@ class PrechargeFactory:
                 pmos_model, pmos_width=0.27e-6, length=50e-9, num_rows=16,
                 w_rc=False, 
                 sweep_precharge=False, 
-                pmos_modle_choices=None, param_model_file=None, scale=None):
+                pmos_modle_choices=None, param_model_file=None, scale=None,
+                pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 ):
         
         self.pmos_model = pmos_model
         self.pmos_width = pmos_width
@@ -174,6 +186,8 @@ class PrechargeFactory:
         self.num_rows = num_rows
         self.scale = self.width_scale(num_rows) if scale is None else scale
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.sweep = sweep_precharge
         if self.sweep:
             self.pmos_choices = pmos_modle_choices
@@ -208,6 +222,8 @@ class PrechargeFactory:
             "pmos_width": pmos_width,
             "length": length,
             "w_rc": self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
             }
     def create(self):
         config = self._get_config()
@@ -220,8 +236,9 @@ class WriteDriverFactory:
                  w_rc=False, 
                  sweep_writedriver=False,
                  pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None,
-                 scale=None, out_scale=None
-                ):
+                 scale=None, out_scale=None,
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 ):
         
         self.nmos_model = nmos_model
         self.pmos_model = pmos_model
@@ -233,6 +250,8 @@ class WriteDriverFactory:
         self.out_scale = self.scale if out_scale is None else out_scale
         
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.sweep = sweep_writedriver
         if self.sweep:
             self.pmos_choices = pmos_modle_choices
@@ -279,6 +298,8 @@ class WriteDriverFactory:
             "out_pmos_width": out_pmos_width,
             "length": length,
             "w_rc": self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
         }
     def create(self):
         config = self._get_config()
@@ -302,7 +323,8 @@ class WordlineDriverFactory:
                  w_rc=False, 
                  sweep_wordlinedriver=False,
                  pmos_modle_choices=None, nmos_modle_choices=None,param_model_file=None,
-                 inverter_scale=None, nand_gate_scale=None
+                 inverter_scale=None, nand_gate_scale=None,
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
         self.nmos_model = nmos_model
@@ -318,6 +340,8 @@ class WordlineDriverFactory:
         self.nand_gate_scale = self.nand_scale(num_cols) if nand_gate_scale is None else nand_gate_scale
         
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.sweep = sweep_wordlinedriver
         if self.sweep:
             self.pmos_choices = pmos_modle_choices
@@ -398,6 +422,8 @@ class WordlineDriverFactory:
             'inv_pmos_width': inv_pmos_width,
             'length': length,
             'w_rc': self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
         }
 
     def create(self):
@@ -418,7 +444,8 @@ class Sram6TCellFactory:
                  # 附加数据
                  model_dict=None,  
                  suffix='',        
-                 pmos_choices=None, nmos_choices=None,param_model_file=None
+                 pmos_choices=None, nmos_choices=None,param_model_file=None,
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
         self.pd_model = pd_model
@@ -427,6 +454,8 @@ class Sram6TCellFactory:
         self.dims = {'pd': pd_width, 'pu': pu_width, 'pg': pg_width, 'l': length}
         
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.disconnect = disconnect
         self.sweep = sweep
         self.yield_mode = yield_mode
@@ -482,6 +511,8 @@ class Sram6TCellFactory:
             'pg_width': pg_width,
             'length': length,
             'w_rc': self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
             'disconnect': self.disconnect,
             'suffix': suffix,
             'model_dict': model_dict
@@ -647,7 +678,8 @@ class DecoderCascadeFactory:
                  # --- Sweep 模式专用 ---
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
-                 param_model_file=None, output_scale=1.0
+                 param_model_file=None, output_scale=1.0,
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
         self.num_rows = num_rows
@@ -668,6 +700,8 @@ class DecoderCascadeFactory:
         
         # 寄生参数
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         
         # Sweep 控制
         self.sweep = sweep_decoder
@@ -729,6 +763,8 @@ class DecoderCascadeFactory:
             'nmos_model_nand': nmos_model_nand,
             'pmos_model_nand': pmos_model_nand,
             'w_rc': self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
             'output_scale': self.output_scale,
         }
 
@@ -738,12 +774,15 @@ class DecoderCascadeFactory:
         """
         config = self._get_config()
         return DECODER_CASCADE(**config)
+
             
 class DummyColumnFactory:
     def __init__(self, num_rows,
                  pd_nmos_model, pu_pmos_model, pg_nmos_model,
                  pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, length=50e-9,
                  w_rc=False, disconnect=False,
+
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
         self.num_rows = num_rows
@@ -755,6 +794,8 @@ class DummyColumnFactory:
         self.pg_width = pg_width
         self.length = length
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.disconnect = disconnect
 
 
@@ -780,6 +821,8 @@ class DummyColumnFactory:
             'pg_width': pg_width,
             'length': length,
             'w_rc': self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
             'disconnect': self.disconnect,
         }
         
@@ -788,12 +831,15 @@ class DummyColumnFactory:
         return Dummy_Column(**config)
 
 
+
 class DummyRowFactory:
     def __init__(self, num_cols,
                  pd_nmos_model, pu_pmos_model, pg_nmos_model,
                  pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, length=50e-9,
                  w_rc=False, disconnect=False,
 
+
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
         self.num_cols = num_cols
@@ -805,6 +851,8 @@ class DummyRowFactory:
         self.pg_width = pg_width
         self.length = length
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.disconnect = disconnect
         
 
@@ -830,12 +878,15 @@ class DummyRowFactory:
             'pg_width': pg_width,
             'length': length,
             'w_rc': self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
             'disconnect': self.disconnect,
         }
         
     def create(self):
         config = self._get_config()
         return Dummy_Row(**config)     
+
         
         
 class ReplicaColumnFactory:
@@ -847,6 +898,8 @@ class ReplicaColumnFactory:
                  sweep_replica=False,
                  pmos_choices=None, nmos_choices=None,param_model_file=None,
                  sram_cell_type=None,
+
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
         self.num_rows = num_rows
@@ -861,6 +914,8 @@ class ReplicaColumnFactory:
         self.length = length
         self.fd_width = fd_width
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.sram_cell_type = sram_cell_type
         
         self.sweep = sweep_replica
@@ -928,6 +983,8 @@ class ReplicaColumnFactory:
             'length': length,
             'fd_width': fd_width,
             'w_rc': self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
             'sram_cell_type': self.sram_cell_type,
         }
         
@@ -1002,7 +1059,8 @@ class Sram10TCellFactory:
                  # 附加数据
                  model_dict=None,  
                  suffix='',        
-                 pmos_choices=None, nmos_choices=None,param_model_file=None
+                 pmos_choices=None, nmos_choices=None,param_model_file=None,
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         
         self.pd_model = pd_model
@@ -1012,6 +1070,8 @@ class Sram10TCellFactory:
         self.dims = {'pd': pd_width, 'pu': pu_width, 'pg': pg_width, 'fd': fd_width, 'l': length}
         
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.disconnect = disconnect
         self.sweep = sweep
         self.yield_mode = yield_mode
@@ -1075,6 +1135,8 @@ class Sram10TCellFactory:
             'fd_width': fd_width,
             'length': length,
             'w_rc': self.w_rc,
+            'pi_res': self.pi_res,
+            'pi_cap': self.pi_cap,
             'disconnect': self.disconnect,
             'suffix': suffix,
             'model_dict': model_dict

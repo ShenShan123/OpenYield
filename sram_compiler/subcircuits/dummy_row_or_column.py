@@ -99,7 +99,9 @@ class Dummy_Column(SubCircuitFactory):
                  pd_nmos_model: str, pu_pmos_model: str, pg_nmos_model: str,
                  pd_width: float, pu_width: float, pg_width: float, length: float,
                  w_rc=False,
-                 disconnect=False,):
+                 disconnect=False,
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 ):
         # Set the nodes dynamically
         self.NAME = f"sram_{num_rows+3}x1_Dummy_column"
         # Define nodes - shared bitlines and individual wordlines
@@ -121,6 +123,8 @@ class Dummy_Column(SubCircuitFactory):
         self.pg_width = pg_width
         self.length = length
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.disconnect = disconnect
    
         
@@ -135,7 +139,7 @@ class Dummy_Column(SubCircuitFactory):
             self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model,
             self.pd_width, self.pu_width,
             self.pg_width, self.length,
-            w_rc=self.w_rc,      
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             disconnect=self.disconnect,
         )
         # define the cell subcircuit
@@ -153,6 +157,7 @@ class Dummy_Column(SubCircuitFactory):
                 f'WL{row}', 
             )
 
+
 # ==============================================================================
 # 3. Dummy Row (行阵列 - 纯电路拓扑)
 # ==============================================================================
@@ -164,6 +169,7 @@ class Dummy_Row(SubCircuitFactory):
                  pd_width: float, pu_width: float, pg_width: float, length: float,
                  w_rc=False,
                  disconnect=False,
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
                  ):
         # Set the name and nodes
         self.NAME = f"sram_1x{num_cols+1}_Dummy_row"
@@ -189,6 +195,8 @@ class Dummy_Row(SubCircuitFactory):
         self.length = length
 
         self.w_rc = w_rc
+        self.pi_res = pi_res
+        self.pi_cap = pi_cap
         self.disconnect = disconnect
 
         # Build the array
@@ -203,7 +211,7 @@ class Dummy_Row(SubCircuitFactory):
             self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model,
             self.pd_width, self.pu_width,
             self.pg_width, self.length,
-            w_rc=self.w_rc,
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             disconnect=self.disconnect, 
         )
 
@@ -221,7 +229,3 @@ class Dummy_Row(SubCircuitFactory):
                 f'BLB{col}', 
                 'WL',
             )
-
-
-             
-              

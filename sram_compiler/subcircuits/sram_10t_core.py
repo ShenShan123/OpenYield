@@ -225,7 +225,7 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
             subckt_10t_cell = Sram10TCell(
                 self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model, self.fd_nmos_model,
                 self.pd_width, self.pu_width, self.pg_width, self.fd_width, self.length,
-                w_rc=self.w_rc,
+                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                 model_dict=self.model_dict,
                 suffix=f"_{num_rows}x{num_cols}" if self.model_dict is not None else ""
             )
@@ -241,7 +241,7 @@ class Sram10TCore(SubCircuitFactory):    #构建sram阵列
                     subckt_10t_cell = Sram10TCell(
                         self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model, self.fd_nmos_model,
                         self.pd_width, self.pu_width, self.pg_width, self.fd_width, self.length,
-                        w_rc=self.w_rc,
+                        w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                         model_dict=self.model_dict,
                         suffix=f"_{row}_{col}" 
                     )                    

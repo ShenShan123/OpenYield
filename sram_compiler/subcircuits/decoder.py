@@ -69,7 +69,7 @@ class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
                 inv_pmos_width=inv_pmos_width,
                 inv_nmos_width=inv_nmos_width,
                 length=length,
-                w_rc=w_rc,
+                w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
             )
             self.subcircuit(and_gate)
             self.and_gates.append(and_gate)
@@ -90,7 +90,7 @@ class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
                 inv_pmos_width=scaled(inv_pmos_width),
                 inv_nmos_width=scaled(inv_nmos_width),
                 length=length,
-                w_rc=w_rc,
+                w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
             )
             self.subcircuit(and_for_en)
             self.and_for_en.append(and_for_en)
@@ -198,7 +198,7 @@ class DECODER_CASCADE(BaseSubcircuit):
                     nand_pmos_width=nand_pmos_width,
                     nand_nmos_width=nand_nmos_width,
                     length=length,
-                    w_rc=self.w_rc,
+                    w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     output_scale=output_scale if level == self.n_levels - 1 else 1.0,
                 )
                 self.subcircuit(decoder)

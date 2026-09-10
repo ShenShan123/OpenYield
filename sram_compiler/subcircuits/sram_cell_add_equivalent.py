@@ -12,6 +12,7 @@ Key improvements over the previous version:
 
 import os
 import sys
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -798,6 +799,9 @@ _EXTRACTION_CACHE = {}
 
 def _extraction_key(tester):
     cfg = tester.config
+    model_path = Path(getattr(cfg, f'pdk_path_{tester.corner}')).expanduser()
+    if not model_path.is_absolute():
+        model_path = Path(_PROJECT_ROOT) / model_path
     return (
         tester.cell_type, tester.pd_nmos_model, tester.pu_pmos_model,
         tester.pg_nmos_model, tester.fd_nmos_model,
@@ -805,6 +809,9 @@ def _extraction_key(tester):
         None if tester.fd_width is None else float(tester.fd_width),
         float(tester.length), int(tester.q_init_val),
         float(cfg.vdd), float(cfg.temperature), str(tester.corner),
+        hashlib.sha256(model_path.read_bytes()).hexdigest(),
+        'five-cap-v2.0.7', tester.step_time, tester.rise_time,
+        tester.hold_time, tester.end_time,
     )
 
 

@@ -69,6 +69,7 @@ class DriverSizes:
     area_wordline_width: float = 0.0
     area_senseamp_width: float = 0.0
     rule_version: str = RULE_VERSION
+    physical_key: str = ""
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -85,6 +86,8 @@ class DriverSizes:
             raise ValueError("Frozen driver sizes require the baseline peripheral configuration")
         if _digest(_pdk_inputs(cfg)) != self.pdk_key:
             raise ValueError("Frozen driver sizes require the baseline PDK model contents")
+        if context is not None and self.physical_key and _digest(context) != self.physical_key:
+            raise ValueError('Frozen driver sizes belong to a different physical context')
         if self.source == 'table' and context is not None:
             from .table import record_key
             if self.qualified_context_key != record_key(self.key, context):
@@ -219,8 +222,9 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     # Normalize unit conversion noise before TIME applies ceil(load / 32).
     # The nominal 0.18 + 0.27 um gate must be exactly one unit, not 1 + epsilon.
     nand_units = round(nand_gate / 0.45e-6, 12)
-    context = {} if physical_context is None else _mapping(physical_context)
-    rc_input_units = (_RULES['peripheral_rc_cap_f'] / _RULES['unit_inverter_cap_f']
+    from .table import physical_context as make_context
+    context = make_context() if physical_context is None else _mapping(physical_context)
+    rc_input_units = (_positive('pi_cap', context.get('pi_cap', _RULES['peripheral_rc_cap_f'])) / _RULES['unit_inverter_cap_f']
                       if mode != 'fixed' and context.get('w_rc', False) else 0.0)
     # Wordline-driver A and B each have two RC sections; other peripheral
     # enables have one. TIME itself has no optional RC wrapper in this compiler.
@@ -272,11 +276,13 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         "path_options": path_options,
         "rules": _RULES,
         "rc_input_units": rc_input_units,
+        "physical": context,
     }
     result = DriverSizes(
         rows=rows, cols=cols, cell_type=cell_type, mux=mux, **scales, loads=loads,
         source="rule" if mode == "rules_only" else "fixed",
         key=_digest(baseline), peripheral_key=_digest(periphery), pdk_key=_digest(pdk),
+        physical_key=_digest(context),
         area_precharge_width=pre_width,
         area_wordline_width=max(
             _positive('WL NAND NMOS width', wl.nmos_width.value[0]) * scales['wl_nand'],

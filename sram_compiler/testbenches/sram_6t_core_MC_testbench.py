@@ -19,14 +19,14 @@ from math import ceil, log2
 
 class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
-                 w_rc=False, pi_res=10 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  vth_std=0.05, mc=True, enable_mc=None, custom_mc=False,
                  sweep_cell=False, sweep_precharge=False, sweep_senseamp=False, sweep_wordlinedriver=False,
                  sweep_columnmux=False, sweep_writedriver=False, sweep_decoder=False,
                  corner='TT', choose_columnmux=True, real_cell_mode=0,
                  q_init_val=0, sim_path='sim', enable_waveform=True,
                  mc_seed=None, xyce_options=None, t_max_step=None, next_row=None,
-                 driver_sizes=None, timing_config=None, variation_mode=None):
+                 driver_sizes=None, timing_config=None, variation_mode=None, temperature=None):
         """
                蒙特卡洛测试平台初始化
                参数:
@@ -67,6 +67,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             next_row=next_row,
             driver_sizes=driver_sizes,
             timing_config=timing_config,
+            temperature=temperature,
         )
         self.sram_cell_type=sram_cell_type
         # enable_mc is an alias for mc (backward compatibility with experiment.py)
@@ -924,6 +925,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                     param_model_names=cfg['model_params']
                 )
         
+        self.temperature = temperature
         circuit = self.create_testbench(operation, target_row, target_col)
         simulator = circuit.simulator(
         simulator='xyce-serial',

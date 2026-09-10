@@ -15,10 +15,19 @@ from sram_compiler.sizing.table import physical_context
 from sram_compiler.subcircuits import sram_cell_add_equivalent as equivalent
 from sram_compiler.subcircuits.sram_6t_core import Sram6TCore
 from sram_compiler.subcircuits.sram_10t_core import Sram10TCore
+from sram_compiler.subcircuits.decoder import DECODER_CASCADE
 from sram_compiler.testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
 
 
 class RcConfigurationTests(unittest.TestCase):
+    def test_decoder_nested_gates_receive_rc_values(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            decoder = DECODER_CASCADE('NMOS_VTG', 'PMOS_VTG', 'NMOS_VTG', 'PMOS_VTG',
+                                      num_rows=8, w_rc=True, pi_res=777 @ u_Ohm, pi_cap=.007 @ u_pF)
+        values = [line for line in str(decoder).splitlines() if line.startswith('RR_')]
+        self.assertTrue(values)
+        self.assertTrue(all(line.endswith('777Ohm') for line in values))
+
     def test_nondefault_values_reach_real_replica_and_peripheral_stubs(self):
         for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
             for mode in ('fixed', 'rules_only'):
