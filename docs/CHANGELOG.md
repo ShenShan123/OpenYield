@@ -7,6 +7,38 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.0.8 — 2026-09-09 — audit of the distributed interconnect release
+
+- Reviewed the V2.0.7 code and the three `docs/design/DISTRIBUTED_RC_*.md`
+  documents against the implementation. Replica tap mapping, wire R/C
+  conservation, probe names, extraction context and identity handling were
+  confirmed; the quoted V2.0.7 deltas reproduce from the retained results.
+- Fixed `InterconnectConfig`: a directly constructed distributed configuration
+  defaulted `cell_pin_rc` to true, contradicting the documented default that
+  only `resolve_interconnect()` applied. `None` now resolves to the documented
+  default on every construction path.
+- Added `interconnect.load_interconnect()` (project-root YAML loader shared by
+  the CLI's `--interconnect-config`) and the `INTERCONNECT_CONFIG` setting of
+  `main_sram.py`, so the main entrance selects wires in memory without editing
+  tracked YAML. CLI run names and summaries stamp `V2.0.8`.
+- Documentation corrections: periphery positions are fixed (WL drivers at
+  column zero, bitline periphery at row zero), half-select column disturbance
+  is not exercised by any sequence deck, TIME's distributed replica input is a
+  Xyce hierarchical node connection, and the ~0.99 V "sense differential" is a
+  replica-timed full-discharge functional check rather than a margin. The
+  equivalent-model guide now states that distributed mode replaces the
+  aggregated `pi_res/N`, `pi_cap*N` branches with per-tap loads.
+- Validation: 61 tracked compiler tests pass under Python 3.9 and 3.11
+  (two new regressions), 6 optimizer and 21 local development tests pass.
+  72 star decks (6T/10T, three operations, mux, RC off/default/custom, fixed
+  and rules_only) are byte-for-byte identical to V2.0.7 commit `315333b`.
+  Fifteen additional Xyce waveform cases pass: 8x4 and 4x8 (K=2) arrays,
+  distributed metal without `w_rc`, `cell_pin_rc: true`, equivalent modes 1-3
+  with actual extraction, 8x4 SS/SF at 125 C / 0.9 V, 16x16 6T with 1x and 10x
+  wires at far and near cells, and 8x4/16x16 10T per-device mux samples. See
+  the [validation record](design/DISTRIBUTED_RC_VALIDATION.md). Metal values
+  remain illustrative; no sizing-table record or coefficient is promoted.
+
 ## V2.0.7 — 2026-09-09 — RC corrections and distributed interconnect
 
 - Corrected RC propagation through factories, real/replica/dummy cells and

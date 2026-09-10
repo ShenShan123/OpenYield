@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.0.7
+# Compiler regression tests — V2.0.8
 
 These reusable tests are tracked outside the circuit generator. They cover
 driver sizing and frozen loads, MOS connectivity and widths, per-device
@@ -33,3 +33,5 @@ they construct the simulator circuits used by the project.
 V2.0.7 adds `test_rc_configuration.py` and `test_interconnect.py` for RC-value
 propagation, extraction context/cache identity, distributed pi-section R/C
 conservation, cell/equivalent taps, matched replica paths and local MC probes.
+V2.0.8 adds the `cell_pin_rc` default for directly constructed configurations,
+the project-root YAML loader, and the `main_sram.py` interconnect setting.

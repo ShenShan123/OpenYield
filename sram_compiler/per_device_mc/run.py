@@ -11,7 +11,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
-import yaml
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -21,7 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from PySpice.Unit import u_Ohm, u_pF  # type: ignore  # noqa: E402
 
 from sram_compiler.config_yaml.config import SRAM_CONFIG  # type: ignore  # noqa: E402
-from sram_compiler.interconnect import resolve_interconnect
+from sram_compiler.interconnect import load_interconnect, resolve_interconnect
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import (  # type: ignore  # noqa: E402
     Sram6TCoreMcTestbench,
 )
@@ -126,7 +125,7 @@ def make_run_name(
     interconnect=None,
 ) -> str:
     settings = {
-        "compiler_version": "V2.0.7",
+        "compiler_version": "V2.0.8",
         "interconnect": resolve_interconnect(interconnect).to_dict(),
         "cell_type": cell_type,
         "rows": args.rows,
@@ -234,10 +233,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
     config = load_config(args.rows, args.cols, args.corner)
     wire_file = getattr(args, 'interconnect_config', None)
     if wire_file is not None:
-        wire_file = Path(wire_file).expanduser()
-        if not wire_file.is_absolute():
-            wire_file = PROJECT_ROOT / wire_file
-        config.global_config.interconnect = yaml.safe_load(wire_file.read_text())
+        config.global_config.interconnect = load_interconnect(wire_file)
     interconnect = resolve_interconnect(config.global_config.interconnect)
     cell_type = config.global_config.sram_cell_type
     custom_vars = (
@@ -312,7 +308,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
 
     deck_path.write_text(deck_text, encoding="utf-8")
     summary = {
-        "compiler_version": "V2.0.7",
+        "compiler_version": "V2.0.8",
         "interconnect": interconnect.to_dict(),
         "deck": str(deck_path),
         "run_dir": str(run_dir),

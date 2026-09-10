@@ -1,4 +1,4 @@
-# OpenYield V2.0.7 development tools
+# OpenYield V2.0.8 development tools
 
 The circuit generator lives in `sram_compiler/`. Reusable compiler regression
 tests live in the tracked top-level `tests/` directory. Local experiments,
@@ -83,7 +83,7 @@ Path("sram_compiler/sizing/scoring_sources.json").write_text(
 A changed manifest invalidates earlier scoring identities. Re-run the affected
 qualification before publishing replacement records; do not update old result
 hashes or promote partial/failed runs. The rule identity and evidence format
-remain V2.0.5 in V2.0.7; changed physical/scoring hashes require new evidence.
+remain V2.0.5 in V2.0.8; changed physical/scoring hashes require new evidence.
 
 ## Local qualification workflow
 
@@ -169,6 +169,10 @@ historical evidence remain in [DRIVER_SIZING_PROPOSAL.md](DRIVER_SIZING_PROPOSAL
 V2.0.7 adds the [distributed RC model](design/DISTRIBUTED_RC_MODEL.md).
 Local `Case` settings accept `interconnect`, `pi_res` (ohms) and `pi_cap`
 (farads); scorers read physical endpoints and actual sense inputs.
-The release diagnostic runner is `dev/validate_distributed_rc.py`; its results
-are under ignored `outputs/validation/V2.0.7/`. These diagnostics do not promote
+The release diagnostic runner is `dev/validate_distributed_rc.py`; its V2.0.7
+results are under ignored `outputs/validation/V2.0.7/` and the V2.0.8 audit
+cases under `outputs/validation/V2.0.8/` (`--output` selects the directory).
+V2.0.8 case files additionally accept `w_rc`, `cell_pin_rc`, `replica_k`,
+`wire_scale` (multiplies the illustrative per-pitch R and C), `pi_res_ohm`,
+`pi_cap_pf` and a per-case Xyce `timeout`. These diagnostics do not promote
 a sizing-table record. See the [validation scope](design/DISTRIBUTED_RC_VALIDATION.md).

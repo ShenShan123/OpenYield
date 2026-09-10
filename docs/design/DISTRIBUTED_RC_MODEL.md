@@ -1,11 +1,15 @@
-# Distributed wordline and bitline RC — V2.0.7
+# Distributed wordline and bitline RC — V2.0.8
+
+Introduced in V2.0.7 and audited in V2.0.8 (see the
+[validation record](DISTRIBUTED_RC_VALIDATION.md)).
 
 The default remains the star topology. Distributed wiring is opt-in and
 requires explicit metal geometry; the compiler supplies no extracted defaults.
 The [implementation plan](DISTRIBUTED_RC_PLAN.md) records the work sequence.
 
 Enable it through `global.yaml`'s `interconnect` mapping, the appended
-`interconnect=` testbench argument, or the CLI:
+`interconnect=` testbench argument, the `INTERCONNECT_CONFIG` setting of
+`main_sram.py` (a YAML path applied in memory), or the CLI:
 
 ```bash
 python3 -m sram_compiler.per_device_mc.run --rows 4 --cols 4 \
@@ -25,7 +29,7 @@ the default.
 | Field | Meaning |
 |---|---|
 | `mode` | `star` or `distributed` |
-| `cell_pin_rc` | Keep local cell WL/BL/BLB stubs; defaults to true for star and false for distributed |
+| `cell_pin_rc` | Keep local cell WL/BL/BLB stubs; defaults to true for star and false for distributed, whether resolved from a mapping or constructed as `InterconnectConfig` directly (V2.0.8 fix) |
 | `wl`, `bl` | Separate geometry mappings; BL and BLB use the same geometry |
 | `layer` | Technology/layer identifier, included in the physical fingerprint |
 | `pitch_m`, `width_m` | Cell pitch along the wire and metal width, in metres |
@@ -39,7 +43,8 @@ and positive. Unknown fields are rejected. Wire coupling between adjacent
 lines is not included in this first implementation.
 
 WL drivers connect at column zero; bitline precharge, write, mux and sense
-circuits connect at row zero. Cells sit at half-pitch centers. Each row has
+circuits connect at row zero. These periphery positions are fixed in this
+implementation, not configurable. Cells sit at half-pitch centers. Each row has
 `num_cols * wl.pitch_m` wire length and each bitline has
 `num_rows * bl.pitch_m`. There is a half pitch before the first cell and after
 the last cell. Every resistor segment has half its capacitance at each end;
@@ -63,7 +68,11 @@ array row count; its K active cells occupy the far rows and the last K RWL
 taps. Dummy gates fill the remaining RWL taps. Replica bitlines have the same
 wire length as array bitlines, and the replica also carries the corresponding
 mux (when enabled), sense-input circuit, precharge and write-driver load.
-The TIME precharge guard observes `RWL_far`.
+The TIME precharge guard observes `RWL_far`. With `w_rc`, TIME's replica
+bitline input is the replica sense amplifier's internal node after its input
+RC (`XREPLICA_SENSEAMP:IN_end`); without `w_rc` it is the mux output or `RBL`.
+That connection is a Xyce hierarchical node reference and is not portable to
+simulators that only allow such names in probes.
 
 Transient wordline and write-bitline measurements use the selected cell's
 local terminal. Read swing uses the actual sense-amplifier input; restoration
@@ -92,6 +101,10 @@ Compared with V2.0.6 commit `029626b`, all eight checked 4x4 6T/10T read/write
 star decks with RC off or explicit 100 ohm are byte-for-byte identical.
 The four decks using the old default differ only at ten replica-path resistors,
 now 100 ohm. Custom RC settings and equivalent extraction intentionally change.
+V2.0.8 changes no generated deck: 72 star decks (6T/10T, read/write/read&write,
+mux on/off, RC off/default/custom, fixed and rules_only) generated from commit
+`315333b` and from V2.0.8 are byte-for-byte identical apart from the checkout
+path inside `.include`.
 
 Frozen driver baselines and qualification identities include the wire model,
 geometry, subdivisions and local RC configuration. Changes cannot silently

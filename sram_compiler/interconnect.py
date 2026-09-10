@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from math import isfinite
+from pathlib import Path
 from typing import Mapping
 
 from PySpice.Unit import u_Ohm
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _mapping(value):
@@ -68,13 +71,17 @@ class WireRC:
 @dataclass(frozen=True)
 class InterconnectConfig:
     mode: str = 'star'
-    cell_pin_rc: bool = True
+    # None resolves to the documented default: local cell WL/BL/BLB stubs stay
+    # with the star topology and are omitted once distributed wires carry them.
+    cell_pin_rc: bool | None = None
     wl: WireRC | None = None
     bl: WireRC | None = None
 
     def __post_init__(self):
         if self.mode not in ('star', 'distributed'):
             raise ValueError('Interconnect mode must be star or distributed')
+        if self.cell_pin_rc is None:
+            object.__setattr__(self, 'cell_pin_rc', not self.distributed)
         if not isinstance(self.cell_pin_rc, bool):
             raise ValueError('cell_pin_rc must be boolean')
         if self.distributed and not all(isinstance(wire, WireRC) for wire in (self.wl, self.bl)):
@@ -99,8 +106,6 @@ def resolve_interconnect(options=None):
     unknown = values.keys() - {'mode', 'cell_pin_rc', 'wl', 'bl'}
     if unknown:
         raise ValueError(f'Unknown interconnect options: {sorted(unknown)}')
-    mode = values.get('mode', 'star')
-    values.setdefault('cell_pin_rc', mode != 'distributed')
     for key in ('wl', 'bl'):
         if values.get(key) is not None and not isinstance(values[key], WireRC):
             try:
@@ -108,6 +113,24 @@ def resolve_interconnect(options=None):
             except TypeError as exc:
                 raise ValueError(f'Invalid {key} wire geometry: {exc}') from exc
     return InterconnectConfig(**values)
+
+
+def load_interconnect(path):
+    """Read an interconnect YAML mapping; relative paths resolve from the project root.
+
+    The mapping is returned unresolved so callers can store it on
+    ``global_config.interconnect`` exactly as a YAML ``interconnect:`` block.
+    """
+    import yaml
+
+    path = Path(path).expanduser()
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    values = yaml.safe_load(path.read_text())
+    if not isinstance(values, Mapping):
+        raise ValueError(f'Interconnect file must contain a mapping: {path}')
+    resolve_interconnect(values)
+    return dict(values)
 
 
 def add_tapped_line(circuit, prefix, start, count, wire, ground='VSS'):

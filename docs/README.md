@@ -1,4 +1,4 @@
-# OpenYield V2.0.7 documentation
+# OpenYield V2.0.8 documentation
 
 Project plans and release history live here. Usage guides live beside the code
 they describe. Commands and code paths in the documents are relative to the
@@ -32,5 +32,6 @@ The supplied evidence CSVs remain at the repository root:
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |
 | [Yield estimation](../yield_estimation/README.md) | Monte Carlo and importance-sampling algorithms |
 
-- [Distributed RC plan](design/DISTRIBUTED_RC_PLAN.md) and
-  [V2.0.7 model/configuration guide](design/DISTRIBUTED_RC_MODEL.md).
+- [Distributed RC plan](design/DISTRIBUTED_RC_PLAN.md),
+  [model/configuration guide](design/DISTRIBUTED_RC_MODEL.md) and
+  [validation record](design/DISTRIBUTED_RC_VALIDATION.md) (V2.0.7 implementation, V2.0.8 audit).

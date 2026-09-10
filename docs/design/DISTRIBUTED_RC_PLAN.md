@@ -1,9 +1,11 @@
 # Parasitic RC correction and distributed interconnect plan
 
-Status: implemented for V2.0.7 after the 2026-09-09 review of V2.0.6.
+Status: implemented for V2.0.7 after the 2026-09-09 review of V2.0.6; audited
+in V2.0.8 (2026-09-09), see the [audit status](#v208-audit-status) below.
 See [the model guide](DISTRIBUTED_RC_MODEL.md) for configuration and compatibility,
-and [the changelog](../CHANGELOG.md) for validation scope. Extracted-array sizing
-and yield qualification remain separate from this implementation.
+and [the validation record](DISTRIBUTED_RC_VALIDATION.md) for the evidence.
+Extracted-array sizing and yield qualification remain separate from this
+implementation.
 
 Correct SRAM read, write and hold behavior before recalibrating driver sizing
 or estimating yield. The V2.0.6 model used ideal shared row/column nets with
@@ -29,8 +31,8 @@ provides reference evidence; its segment values are illustrative, not extracted.
 3. **Build physical wire segments and taps.** Start with full-real 6T/10T
    arrays: connect each cell to its own WL and BL/BLB taps through shared series
    wire segments. Use pi sections with each segment's total capacitance split
-   between its endpoints. Place precharge, write, mux and sense circuits at
-   their specified physical locations. Extend equivalent modes by attaching
+   between its endpoints. Connect WL drivers at column zero and the bitline
+   precharge, write, mux and sense circuits at row zero. Extend equivalent modes by attaching
    omitted-cell loads at local taps; preserve wire length and never replace a
    wire ladder with the current parallel-branch `R/N` aggregate.
 
@@ -48,6 +50,16 @@ provides reference evidence; its segment values are illustrative, not extracted.
    precharge restoration and next-row hazards. Check segment refinement and
    equivalent-model accuracy against full-real arrays. After nominal behavior
    passes, qualify PVT and per-device mismatch before recalibrating sizing.
+
+## V2.0.8 audit status
+
+| Item | Status |
+|---|---|
+| 1. RC configuration bugs | Done. Regressions in `tests/test_rc_configuration.py`; 72 star decks unchanged between V2.0.7 and V2.0.8. |
+| 2. Explicit distributed mode | Done. V2.0.8 fixes the `cell_pin_rc` default of a directly constructed `InterconnectConfig` and adds `main_sram.py`'s `INTERCONNECT_CONFIG`. |
+| 3. Wire segments and taps | Done for full-real and equivalent arrays. Periphery positions are fixed (WL drivers at column zero, bitline periphery at row zero); no wire coupling. |
+| 4. Timing and qualification identities | Done. Replica lengths, taps and far-wordline guard are tested; identities include the wire model. No qualified record exists for any distributed configuration. |
+| 5. Validation | Nominal function checked on 4x4 (V2.0.7) plus 8x4, 4x8 and 16x16 arrays, illustrative metal only (V2.0.8). Half-select column disturbance is not exercised: the sequence decks write every column. PVT/mismatch qualification and sizing recalibration remain open. |
 
 Completion requires passing waveform checks, not just generated decks or
 successful measures. Compare any changed fixed-mode default decks against the

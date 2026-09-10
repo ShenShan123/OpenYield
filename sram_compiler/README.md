@@ -1,4 +1,4 @@
-# SRAM Compiler and Test Platform User Guide — V2.0.7
+# SRAM Compiler and Test Platform User Guide — V2.0.8
 
 This document introduces the basic usage of the SRAM compiler, simulation flow, Monte Carlo testing, waveform plotting, and result statistics. It mainly covers the following files and directories:
 
@@ -12,7 +12,9 @@ root. See the [per-device runner](per_device_mc/README.md),
 [driver sizing guide](sizing/README.md), [circuit review](CIRCUIT_REVIEW.md),
 and [plans and release history](../docs/README.md) for detailed references.
 
-V2.0.7 adds [distributed RC wiring](../docs/design/DISTRIBUTED_RC_MODEL.md) and corrects local RC configuration.
+V2.0.7 adds [distributed RC wiring](../docs/design/DISTRIBUTED_RC_MODEL.md) and corrects local RC configuration;
+V2.0.8 audits it, adds the `INTERCONNECT_CONFIG` setting to `main_sram.py`, and records the
+[extended validation](../docs/design/DISTRIBUTED_RC_VALIDATION.md).
 V2.0.6 incorporated the default local mismatch runner, model specialization,
 and sampling into this compiler directory. This guide was previously the root
 `readme_compiler.md`.

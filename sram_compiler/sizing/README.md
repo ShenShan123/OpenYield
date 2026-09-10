@@ -1,6 +1,6 @@
-# V2.0.7 driver sizing
+# V2.0.8 driver sizing
 
-V2.0.7 retains the V2.0.5 sizing coefficients, which resolve precharge, split
+V2.0.8 retains the V2.0.5 sizing coefficients, which resolve precharge, split
 write-driver, wordline and decoder output scales
 with their TIME loads. The real and replica wordlines share a driver, and the
 replica includes the real bitline's disabled write-stack load. The full design

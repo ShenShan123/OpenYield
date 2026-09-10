@@ -50,6 +50,26 @@ class MainEntranceTests(unittest.TestCase):
         self.assertEqual(tb.variation_mode, 'nominal')
         self.assertEqual(yaml_digests(), before)
 
+    def test_interconnect_setting_selects_distributed_wires_in_memory(self):
+        # The entrance must reach every compiler feature without editing global.yaml;
+        # the default stays the star topology the sizing rules were characterised on.
+        self.assertIsNone(main_sram.INTERCONNECT_CONFIG)
+        before = yaml_digests()
+        with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
+            star = main_sram.configure(2, 2, False, 'TT', main_sram.CELL_6T)
+            star_deck = str(main_sram.build_testbench(star, temp, variation_mode='nominal')
+                            .create_testbench('read', 1, 1))
+            config = main_sram.configure(
+                2, 2, False, 'TT', main_sram.CELL_6T,
+                interconnect_config='sram_compiler/config_yaml/interconnect_example.yaml')
+            tb = main_sram.build_testbench(config, temp)
+            deck = str(tb.create_testbench('read', 1, 1))
+        self.assertNotIn('Rwire_WL', star_deck)
+        self.assertTrue(tb.interconnect.distributed)
+        self.assertIn('Rwire_WL', deck)
+        self.assertIn('MC_NMOS_', deck)  # per-device default is retained
+        self.assertEqual(yaml_digests(), before)
+
 
 if __name__ == '__main__':
     unittest.main()

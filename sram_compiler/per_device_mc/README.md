@@ -1,4 +1,4 @@
-# Per-device local mismatch — V2.0.7
+# Per-device local mismatch — V2.0.8
 
 This package is part of the SRAM compiler. Independent local mismatch is the
 default for both its runner and `Sram6TCoreMcTestbench`: the selected PDK corner
@@ -33,6 +33,9 @@ and `outputs/per_device_mc/`. It loads YAML in memory. Each configuration has a
 deterministic output subdirectory; `--output-dir` selects another output root.
 The supported operations are `read`, `write`, `read&write`, `hold_snm`, `read_snm`,
 and `write_snm`. `--run-xyce` needs Xyce on PATH or `--xyce /path/to/Xyce`.
+`--interconnect-config path.yaml` applies a wire mapping in memory (see the
+[distributed RC guide](../../docs/design/DISTRIBUTED_RC_MODEL.md)); the run
+directory name and `summary.json` include the resolved topology.
 After a successful simulation, waveform output is plotted as `waveform.png`.
 
 | Variation mode | Behavior |

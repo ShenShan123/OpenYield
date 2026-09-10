@@ -25,6 +25,7 @@ import numpy as np
 from PySpice.Unit import u_Ohm, u_pF
 
 from sram_compiler.config_yaml.config import SRAM_CONFIG
+from sram_compiler.interconnect import load_interconnect, resolve_interconnect
 from sram_compiler.per_device_mc.run import get_custom_vars, load_config, resolve_mc_runs
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 from utils import estimate_bitcell_area  # type: ignore
@@ -45,6 +46,10 @@ MC_SEED: Optional[int] = 20260711  # Xyce sampling seed; None draws a new seed e
 REAL_CELL_MODE = 0              # 0: full transistor array (complete local coverage);
                                 # 1-4: equivalent cells for the unused array (approximation)
 W_RC = True                     # Add the per-pin RC stubs (100 ohm / 1 fF)
+# Interconnect YAML mapping applied in memory (see docs/design/DISTRIBUTED_RC_MODEL.md),
+# e.g. "sram_compiler/config_yaml/interconnect_example.yaml"; None keeps global.yaml's
+# `interconnect` block (star topology by default).
+INTERCONNECT_CONFIG: Optional[str] = None
 TARGET: Optional[Sequence[int]] = None  # (row, col); None: last row, last column
 # ==================================================================
 
@@ -52,10 +57,13 @@ _TRANSIENT_OPERATIONS = ("read", "write", "read&write")
 
 
 def configure(rows: int, cols: int, choose_columnmux: bool, corner: str,
-              cell_6t: Optional[Sequence[Any]] = None) -> SRAM_CONFIG:
+              cell_6t: Optional[Sequence[Any]] = None,
+              interconnect_config: Optional[str] = INTERCONNECT_CONFIG) -> SRAM_CONFIG:
     """Load the tracked YAML files in memory and apply the script settings."""
     config = load_config(rows, cols, corner)
     config.global_config.choose_columnmux = bool(choose_columnmux)
+    if interconnect_config is not None:
+        config.global_config.interconnect = load_interconnect(interconnect_config)
     if cell_6t is not None and config.global_config.sram_cell_type == "SRAM_6T_CELL":
         if len(cell_6t) != 7:
             raise ValueError("CELL_6T needs [pd_width, pg_width, pu_width, length, "
@@ -143,6 +151,7 @@ def main() -> None:
               f"pd_model={CELL_6T[4]}, pg_model={CELL_6T[5]}, pu_model={CELL_6T[6]}")
     print(f"[INPUT] variation: mode={VARIATION_MODE}, mc_runs={mc_runs}, seed={MC_SEED}, "
           f"real_cell_mode={REAL_CELL_MODE}, w_rc={W_RC}, operation={OPERATION}")
+    print(f"[INPUT] interconnect: {resolve_interconnect(config.global_config.interconnect).to_dict()}")
 
     print(f"===== {suffix.upper()} SRAM Array Monte Carlo Simulation ({VARIATION_MODE}) =====")
     testbench = build_testbench(config, sim_path)

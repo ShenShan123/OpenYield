@@ -7,7 +7,9 @@ from unittest.mock import patch
 
 from PySpice.Spice.Netlist import Circuit
 
-from sram_compiler.interconnect import WireRC, resolve_interconnect, add_tapped_line
+from sram_compiler.interconnect import (
+    InterconnectConfig, WireRC, add_tapped_line, load_interconnect, resolve_interconnect,
+)
 from sram_compiler.per_device_mc.run import load_config
 from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.sizing.table import physical_context
@@ -65,6 +67,17 @@ class WireTests(unittest.TestCase):
                     self.assertIn('WL_far', str(circuit))
                     self.assertTrue(all(str(e).split()[2] == 'VSS' for e in capacitors))
 
+    def test_example_yaml_loads_from_the_project_root_and_round_trips(self):
+        mapping = load_interconnect('sram_compiler/config_yaml/interconnect_example.yaml')
+        config = resolve_interconnect(mapping)
+        self.assertTrue(config.distributed)
+        self.assertFalse(config.cell_pin_rc)
+        self.assertEqual(config, resolve_interconnect(config.to_dict()))
+        self.assertAlmostEqual(config.wl.resistance_per_pitch, 1.)
+        self.assertAlmostEqual(config.bl.capacitance_per_pitch / 1e-16, 1.)
+        with self.assertRaises(FileNotFoundError):
+            load_interconnect('sram_compiler/config_yaml/does_not_exist.yaml')
+
     def test_invalid_geometry_and_unknown_options_fail_before_generation(self):
         for field in ('pitch_m', 'width_m', 'sheet_resistance_ohm', 'capacitance_f_per_m'):
             for value in (0, -1, float('nan'), float('inf'), True):
@@ -88,6 +101,13 @@ class WireTests(unittest.TestCase):
         self.assertTrue(resolve_interconnect(None).cell_pin_rc)
         distributed = resolve_interconnect(wire_config())
         self.assertFalse(distributed.cell_pin_rc)
+        # The documented cell_pin_rc default must not depend on the construction
+        # path: a direct dataclass instance is what testbench callers pass in.
+        direct = InterconnectConfig(mode='distributed', wl=distributed.wl, bl=distributed.bl)
+        self.assertEqual(direct, distributed)
+        self.assertTrue(InterconnectConfig().cell_pin_rc)
+        self.assertTrue(InterconnectConfig(mode='distributed', cell_pin_rc=True,
+                                           wl=distributed.wl, bl=distributed.bl).cell_pin_rc)
         self.assertEqual(distributed, resolve_interconnect(distributed.to_dict()))
         self.assertNotEqual(physical_context(True), physical_context(True, interconnect=distributed))
         changed = wire_config()

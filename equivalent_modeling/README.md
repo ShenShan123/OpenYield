@@ -60,6 +60,12 @@ mc_testbench = Sram6TCoreMcTestbench(
 开启等效电路（`real_cell_mode=1`）时必须同时设置 `w_rc=True`，否则缺少线阻会低估大阵列延迟。
 等效模式下，默认的逐器件局部失配只作用于保留的真实晶体管；被替换的单元是近似模型。
 
+上述 `w_rc` / `pi_res` / `pi_cap` 说明针对默认的 star 拓扑（共享行/列网络加每单元 RC 支路）。
+V2.0.7 起可选的 `interconnect.mode: distributed`（见
+[分布式 RC 模型指南](../docs/design/DISTRIBUTED_RC_MODEL.md)）用几何参数生成 WL/BL/BLB π 型阶梯线，
+与 `w_rc` 无关；此时等效模式保留全部线段，把每个被省略单元的五电容网络挂在其本地抽头上，
+不再使用按并联/串联聚合的 `pi_res/N`、`pi_cap*N` 支路。
+
 ### 2.2 精度对比实验
 
 `equivalent_modeling/main_sram.py` 遍历 `real_cell_mode` 0~4 五种模式，对比各等效模式相对全真实电路（mode 0）的精度差异：

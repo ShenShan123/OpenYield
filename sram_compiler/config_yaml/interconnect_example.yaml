@@ -1,4 +1,4 @@
-# Illustrative V2.0.7 wire geometry for diagnostics, NOT foundry extraction.
+# Illustrative wire geometry for diagnostics (V2.0.7+), NOT foundry extraction.
 # Each pitch contributes 1 ohm and 0.1 fF. Supply extracted values for signoff.
 mode: distributed
 cell_pin_rc: false
