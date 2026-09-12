@@ -1097,9 +1097,8 @@ def evaluate_sram(params, timeout=120, driver_sizes=None, timing_config=None):
     choose_mux = bool(params.get('choose_columnmux', False))
     sram_config.global_config.num_rows = num_rows
     sram_config.global_config.num_cols = num_cols
-    sizing_mode = sram_config.global_config.sizing.get('mode', 'fixed')
-    w_rc = bool(params.get('w_rc', sizing_mode == 'fixed'))
-    if driver_sizes is None and sizing_mode != 'fixed':
+    w_rc = bool(params.get('w_rc', False))
+    if driver_sizes is None:
         driver_sizes = _baseline_sizes(num_rows, num_cols, choose_mux, w_rc, _configuration_stamp())
     # Apply candidate values only after the baseline has been frozen.
     apply_params_to_sram_config(sram_config, params)

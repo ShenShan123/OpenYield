@@ -1,4 +1,4 @@
-# OpenYield V2.0.8 development tools
+# OpenYield V2.0.9 development tools
 
 The circuit generator lives in `sram_compiler/`. Reusable compiler regression
 tests live in the tracked top-level `tests/` directory. Local experiments,
@@ -42,6 +42,7 @@ The following commands require the ignored `dev/` workspace:
 | `dev/sizing/wordline_model.py` | Compare star and distributed wordline models |
 | `dev/sizing/execution.py` | Support campaign MPI execution and timeout cleanup |
 | `dev/sizing/provenance.py` | Verify local scoring sources against the tracked manifest |
+| `dev/summarize_qualification.py` | Aggregate campaign checkpoints with on-disk reruns and `retry_dcop` results (V2.0.9 evidence summary) |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash
@@ -82,8 +83,10 @@ Path("sram_compiler/sizing/scoring_sources.json").write_text(
 
 A changed manifest invalidates earlier scoring identities. Re-run the affected
 qualification before publishing replacement records; do not update old result
-hashes or promote partial/failed runs. The rule identity and evidence format
-remain V2.0.5 in V2.0.8; changed physical/scoring hashes require new evidence.
+hashes or promote partial/failed runs. The `rules_only` rule identity and the
+evidence format remain V2.0.5 in V2.0.9; changed physical/scoring hashes require
+new evidence. V2.0.9 refreshed the manifest for the `sizing_mode`, `--samples`,
+`--seed`, `--cells`, `--mux` and `--no-rc` campaign options.
 
 ## Local qualification workflow
 
@@ -99,9 +102,35 @@ original attempt and recording the actual timestep. Failed electrical checks or
 nonfinite signals do not trigger this retry.
 RC calibration uses a longer initial clock because the historical fit excludes
 the explicit 100-ohm/1-fF networks; its final clock still comes from measurement.
+V2.0.9 adds a second automatic retry: when Xyce reports `DC Operating Point
+Failed` for one sampled circuit (KLU direct solver; GMIN and source stepping did
+not recover the reproduced 16x16 SF write-box sample), every later sample of the
+same native-sampling run starts from a corrupt state and the materialized MPI
+path aborts. Newton with line search (`.OPTIONS NONLIN SEARCHMETHOD=2`, a
+solver strategy that changes no circuit element) converged every sample of the
+reproduced 16x16 SF and 32x32 FF decks that plain Newton failed, whereas GMIN or
+source stepping did not and the default linear solver failed other samples of
+the same ensembles. On the materialized MPI path the failed sample alone walks
+the ladder of `operating_point_fallbacks()` with the same cards and seed: line
+search on the same ranks, the default solver on the same ranks, then line search
+and the default solver on one rank (the serial rungs are the expensive ones on
+large decks); the extra option goes into a
+`deck_fallback.sp` copy beside the untouched sample deck and
+`execution.operating_point_fallbacks` records the steps per sample. A
+materialized sample that stops with `Time step too small` is likewise rerun
+alone with a 5 ps maximum step (`deck_tighter_step.sp`,
+`execution.timestep_retries`), the per-sample form of the native-path retry. If the whole
+case still fails, or for native sampling, the runner reruns the seeded ensemble
+once in `retry_dcop/` with the line-search option (`xyce_options` in the result). Results record `linear_solver` (`KLU` or `Xyce default`) and `xyce_options`,
+and keep the original attempt with `dc_operating_point_failed`; a retry must
+pass every check on its own, and a complete ensemble with an electrical failure
+is never retried.
 
 ```bash
 python3 -m dev.sizing.campaign --dry-run
+# V2.0.9 fixed size classes (the compiler default); the tool itself still defaults to rules_only.
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m dev.sizing.campaign --sizing-mode lookup --sizes 8x4,16x16,32x32 --screen --samples 3 --seed 82026 --output-dir outputs/qualification/V2.0.9/screen-small --xyce /path/to/Xyce --workers 24
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m dev.sizing.campaign --sizing-mode lookup --sizes 64x64,16x256 --screen --samples 3 --seed 82026 --cells SRAM_6T_CELL --mux off --no-rc --output-dir outputs/qualification/V2.0.9/screen-large --xyce /path/to/Xyce --workers 8 --mpi-ranks 4
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m dev.sizing.campaign --sizes 8x4 --pilot --xyce /path/to/Xyce --workers 4
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m dev.sizing.campaign --screen --xyce /path/to/Xyce --workers 24
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 -m dev.sizing.campaign --xyce /path/to/Xyce --workers 24
@@ -127,8 +156,18 @@ The fingering check holds total MOS widths fixed, compares transient edges at
 NF=1/16/100, and verifies nearly unchanged DC current. Its reference metadata
 includes the model and simulator binary hashes.
 
-Use `--sizes 8x4 --pilot` on the campaign for a small check. Full-array Monte
-Carlo is expensive; the timeout defaults to six hours per sample (60 hours for
+Use `--sizes 8x4 --pilot` on the campaign for a small check. `--samples` below
+ten, `--pilot`, `--screen` and `--functional` runs are screens, never
+qualification; `--cells`, `--mux` and `--no-rc` restrict the scheduled
+architectures and `--seed` sets the ensemble seed. `--functional` schedules the
+read/write/hold function checks for large or unseen arrays: the three primary
+decks, the hot FF/FS 125 C and cold FF -40 C reads and writes with address-change
+hazards from 16 rows up (the neighbor cell must retain its data), and the SS
+read/write sequence up to 4,096 cells. Hazard rows flip the middle address bit
+of the last row as in V2.0.2, falling back to a set bit so non-power-of-two
+arrays stay inside the decoded range (`hazard_row()`). Local `Case` objects carry `sizing_mode` (`rules_only` keeps the
+V2.0.5 case names; `lookup` cases use fixed classes and reject a
+`parasitic_factor`). Full-array Monte Carlo is expensive; the timeout defaults to six hours per sample (60 hours for
 a ten-sample deck), and incomplete runs remain failures. Process counts change
 scheduling, not circuit tolerances.
 `--screen` includes PVT, sequences and RC, postponing the dedicated 100-sample

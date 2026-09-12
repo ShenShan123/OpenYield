@@ -31,7 +31,7 @@ class RcConfigurationTests(unittest.TestCase):
 
     def test_nondefault_values_reach_real_replica_and_peripheral_stubs(self):
         for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
-            for mode in ('fixed', 'rules_only'):
+            for mode in ('lookup', 'rules_only'):
                 with self.subTest(cell=cell, mode=mode), contextlib.redirect_stdout(io.StringIO()):
                     cfg = load_config(4, 4, 'TT')
                     cfg.global_config.sizing = {'mode': mode}

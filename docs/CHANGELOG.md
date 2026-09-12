@@ -7,6 +7,150 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.0.9 — 2026-09-10 — fixed driver size classes for layout generation
+
+Driver sizing is simplified to fixed values: every array configuration now takes
+its precharge, split write-driver, wordline NAND2/inverter and decoder output
+inverter scales from a lookup table of integer size classes, so a future layout
+library of fixed transistors can implement every array. The legacy `fixed`
+rule mode is removed at the user's request, and unseen array sizes are resolved
+by interpolation on the class ladder.
+
+- New default `sizing.mode: lookup` reading `sram_compiler/sizing/sizing_lookup.json`:
+  row classes ≤32/64/128/256/512 give precharge 1/2/4/8/16, write input 1/1/2/4/8
+  and write output 2/4/8/16/32; column classes ≤4/8/16/32/64/128/256/512 give
+  wordline inverter 1…128 (doubling), wordline NAND2 1/1/2/3/5/9/18/35 and decoder
+  output inverter 1/1/1/1/2/3/5/9. Each entry is the V2.0.5 `rules_only` rule at
+  the class upper bound rounded up to an integer, so no array gets a weaker
+  driver than the screened rule (the tracked test checks every class against the
+  rule). Classes are independent of cell type, mux, RC stubs and interconnect
+  mode; the replica stays `(1, 9)` and matched, with canonical read loading,
+  decoder scaling and effort buffers always on. TIME control buffers are still
+  sized from the resolved class loads and are not tabulated.
+- `interpolate_class()`: inside the table an unseen size rounds up to the next
+  anchor (48x20 uses the ≤64-row and ≤32-column classes); beyond the last anchor
+  the ladder continues geometrically with the ratio of the last two anchors,
+  rounded up to integers, and `DriverSizes.extrapolated` is set with the
+  synthetic bound in `size_class` (1024x4 gives precharge 32, write 16/64, flagged).
+  Extrapolated sizes carry no waveform evidence. `sizing.lookup` selects an
+  alternative table (for example a layout library with different classes).
+- Removed the legacy `fixed` mode (original `rows/16` and `sqrt` array rules,
+  with the 8-row write weakness of V2.0.3) and `fixed_scales`; the resolver's
+  mode-dependent replica/load/buffer defaults collapsed accordingly. `rules_only`
+  (the derivation basis) and `auto` (qualified records, otherwise rules) remain.
+  The optimizer adapter always freezes a baseline now and its `w_rc` default is
+  false, as it already was outside the removed mode.
+- Deck compatibility: 105 `rules_only`/legacy decks (8x4…16x256, 6T/10T, mux
+  on/off, RC on/off, shared MC) generated from V2.0.8 (`c6ce403`) and from this
+  tree are byte-for-byte identical, so the rule path the classes derive from is
+  unchanged. Lookup decks for 256x8 and 512x4 are identical to their `rules_only`
+  decks (classes coincide at ≤8 columns and ≥256 rows); 8x4, 16x16, 64x64 and
+  16x256 differ only in the tabulated driver widths and the resulting buffer loads.
+- Qualification tools: local `Case` objects carry `sizing_mode`, and
+  `dev/sizing/campaign.py` takes `--sizing-mode`, `--samples`, `--seed`, `--cells`,
+  `--mux` and `--no-rc` (`local_review.py` takes `--sizing-mode`); the scoring
+  manifest was refreshed. `rules_only` case names and cached results are unchanged.
+- Runner retry for a failed Xyce operating point (the Stage D open item): Xyce
+  7.4 with the runner's KLU direct solver fails `DC Operating Point` for
+  occasional mismatch samples, after which the later samples of the same
+  native-sampling run start from a corrupt state (dead wordline, negative node
+  voltages) and the materialized MPI path aborts. Reproduced on the 16x16 6T SF
+  write-box sample 1 of seed 82026 with a 200 ps transient: GMIN stepping and
+  source stepping still fail, `CONTINUATION=1/2/33` abort, skipping the operating
+  point (`NOOP`) runs but invalidates the measures, Xyce's default linear solver
+  converges those three samples but fails a different sample of the 32x32 FF
+  write ensemble, and Newton with line search (`.OPTIONS NONLIN SEARCHMETHOD=2`,
+  no circuit change) converges every sample of both reproduced decks, as does
+  `GMIN=1e-10`, while `GMIN=1e-9` fails the 32x32 sample and `MAXSTEP=1000`
+  alone fails the 16x16 sample. On the four-rank materialized path the operating point also
+  failed for 64-row and 16x256 write samples (the 64x16 TT sample 0 with KLU on
+  four and on one rank), so `execute_local_ensemble` reruns only the failed
+  sample through a ladder of line search on the same ranks, the default solver
+  on the same ranks, then line search and the default solver on one rank,
+  recorded per sample in `execution.operating_point_fallbacks`, and a
+  materialized sample that stops with `Time step too small` is rerun alone
+  with a 5 ps maximum step (`execution.timestep_retries`; the 1024x4 FS read
+  hazard deck passed this way after two of its samples stopped); `run_case`
+  additionally reruns a native sampling case once in `retry_dcop/` with the
+  line-search option (`xyce_options` in the result) and keeps the original
+  attempt; an ensemble with an electrical failure is never retried.
+- Validation: 69 tracked compiler tests pass under Python 3.11 and 3.9 (eight new
+  lookup tests), 6 optimizer and 21 local development tests pass, `git diff --check`
+  passes. Xyce 7.4 waveform screen of the fixed classes (per-device mismatch, three
+  samples per deck, seed 82026, full transistor arrays, clock derived from the
+  nominal SS read and SS/SF write phases):
+  - Coverage (ignored `outputs/qualification/V2.0.9/`): screens (primary decks,
+    all five corners for read and write, SF read, read-box and write-box cells,
+    eight-cycle read/write sequences) at 8x4, 16x16 and 32x32 for both cells and
+    both mux choices with explicit-RC 16x16 variants; at 64x16 for both cells
+    and mux choices; at 64x64 and 16x256 (6T); interpolated non-power-of-two
+    sizes 3x3, 5x3, 6x6, 12x4 and 20x10 for both cells and mux choices; the
+    functional schedule (primary decks, FF/FS 125 C and FF -40 C reads and
+    writes with address-change hazards, SS read/write sequence) at 48x20,
+    100x50 and 128x32 and at the extrapolated 1024x4, 2048x2 and 8x1024
+    classes; pilots with hazards at 256x8, 512x4 and 16x512 and at 128x128 and
+    256x64. Hold is checked inside every deck (data retained after wordline and
+    write-enable release, no read disturb, quiet unselected wordlines, every
+    bitline restored and equalized, the neighbor row's cell retained across the
+    address change), plus the 32x1 `unwritable` rejection of the frozen periphery.
+  - Result at the time of writing (2026-09-11, 21:45; the last 8x1024 FS write
+    deck of the functional campaign was still running, see
+    `dev/summarize_qualification.py`):
+    58 architectures, 174 of 174 calibration decks, 665 of 686 verification
+    decks and 1,989 of 2,025 waveform samples pass, including the 32x1
+    rejections behaving as intended, every deck of 48x20, 128x32 and 256x64,
+    the 128x128 SS read and SS write-box decks (sense differential 0.86 to
+    0.89 V, write phase 0.45 of the read phase), the first five 2048x2 decks
+    and thirteen decks recovered by the operating-point and time-step retries;
+    every calibration deck passes; every electrical check passes on every array without explicit RC,
+    including the extrapolated classes; measured clocks run from 2.3 ns (3x3)
+    to 7.4 ns (1024x4). Margins at the frozen clocks on the completed screens:
+    write phase at most 0.57 and restore at most 0.58 of the read phase (budget
+    0.8), wordline path at most 0.13 of the access phase without RC (budget
+    0.15), sense differential at least 0.62 V (512x4) and 0.88 V below 256 rows
+    (limit 0.3 V), written data retained at 0.9 V of 0.9 V and driven bitlines
+    below 1 mV, wl_en/PRE/w_en/s_en edges 28 to 35 ps at TT without RC.
+  - Remaining misses: (1) the explicit-RC 16x16 reads at SS miss only the 0.15
+    wordline-phase budget on some samples (186 to 209 ps against about 190 ps,
+    both cells, both mux choices; 40 ps better than the V2.0.5 rules but the
+    classes carry no RC term by design, and the generic 100 ohm / 1 fF stubs are
+    not extracted values), and one TT mismatch sample of the 16x16 mux RC read
+    has a 40.9 ps wl_en fall edge against the 40 ps target; all functional
+    checks of those decks pass. The extrapolated 8x1024 class (wordline inverter
+    256, NAND2 69) misses the same budget by 6 ps on one of three SS read
+    samples (138 ps against 131 ps; the 8-row read phase is short while the
+    1024-column wordline is long), again with every functional check passing:
+    a measured anchor at 1024 columns should replace the extrapolation.
+    (2) Xyce operating-point execution failures on
+    about 1% of the mismatch samples, concentrated on the 16x256 and 64x64
+    write decks on four ranks: sixteen decks hit it, the four native-sampling
+    ones (6T/10T 16x16 SF write-box, 32x32 FF write, 10T 32x32 mux FF read) were
+    recovered by the ensemble retry, eight materialized ones (6T/10T 64x16 TT,
+    64x64 SF/TT/FF, 16x256 SS and SF read, 48x20 FS hazard) by the per-sample
+    ladder, three 16x256 write samples (TT and FF sample 0, FS sample 1) fail
+    every rung, and the 16x512 SS write-box sample 0 failed plain and
+    line-search Newton on four ranks and then exhausted the six-hour limit on
+    the default-solver rung, as did the extrapolated 8x1024 SS/SF write-box
+    and FF 125 C write samples on the line-search or default-solver rungs;
+    those stay unscored execution failures (ten at the time of writing: the
+    16x256 TT/FF/FS writes, the 16x512 SS write-box, the 8x1024 SS/SF write-box
+    and FF 125 C/-40 C writes, the 100x50 FF -40 C write hazard and the 128x128
+    SF write-box, with the 8x1024 FS write still running), while the 16x256 SS/SF write-box and
+    SS/SF read decks, the 16x512 SS read and SF write-box decks, the 8x1024
+    reads and the other eight 100x50 decks pass. Write decks, above all the
+    wide ones (256 to 1024 columns of write drivers and hold latches), are
+    where the operating point is fragile; a deck-level fix such as initial
+    conditions on the column latches is the open item, not a driver size. The
+    recovered decks pass every electrical check, and a sample solved by
+    another solver reproduces the KLU measures to 0.1 ps where both converge.
+    (3) One runtime limit: the 2048x2 eight-cycle SS read/write sequence
+    (about 100 ns of transient on 4,096 cells at the 11.45 ns clock) exceeded
+    the six-hour sample limit on four ranks and is unscored; the other 2048x2
+    decks, including the hazard reads and writes, pass.
+  A screen is not tail or yield qualification: `sizing_table.json` stays empty,
+  half-select waveform qualification remains open, and the extrapolated classes
+  have three-sample screening evidence only.
+
 ## V2.0.8 — 2026-09-09 — audit of the distributed interconnect release
 
 - Reviewed the V2.0.7 code and the three `docs/design/DISTRIBUTED_RC_*.md`

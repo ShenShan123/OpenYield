@@ -114,7 +114,7 @@ class PathTests(unittest.TestCase):
             return next(line.split()[-1] for line in lines if line.split()[:1] == [name])
 
         for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
-            for mode in ('fixed', 'rules_only'):
+            for mode in ('lookup', 'rules_only'):
                 for mux in (False, True):
                     for w_rc in (True, False):
                         with self.subTest(cell=cell, mode=mode, mux=mux, w_rc=w_rc), \
@@ -146,9 +146,8 @@ class PathTests(unittest.TestCase):
                                              (replica_cell, ('RR_RBL_', 'RR_RBLB_', 'RR_WL_'))):
                             for name in names:
                                 self.assertEqual(count(found[block], name), stub, (block, name))
-                        if mode == 'rules_only':
-                            dummy = instance_subckt(top, 'XRWL_LOAD_0')
-                            self.assertEqual(count(found[dummy], 'RR_WL_'), stub)
+                        dummy = instance_subckt(top, 'XRWL_LOAD_0')
+                        self.assertEqual(count(found[dummy], 'RR_WL_'), stub)
                         # Bitline: replica precharge is the array precharge; the replica
                         # bitline reaches TIME through the sense-amplifier input segments.
                         self.assertEqual(instance_subckt(top, 'XPRECHARGE_RBL'), instance_subckt(top, 'XPRECHARGE_0'))

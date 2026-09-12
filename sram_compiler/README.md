@@ -1,4 +1,4 @@
-# SRAM Compiler and Test Platform User Guide — V2.0.8
+# SRAM Compiler and Test Platform User Guide — V2.0.9
 
 This document introduces the basic usage of the SRAM compiler, simulation flow, Monte Carlo testing, waveform plotting, and result statistics. It mainly covers the following files and directories:
 
@@ -15,6 +15,9 @@ and [plans and release history](../docs/README.md) for detailed references.
 V2.0.7 adds [distributed RC wiring](../docs/design/DISTRIBUTED_RC_MODEL.md) and corrects local RC configuration;
 V2.0.8 audits it, adds the `INTERCONNECT_CONFIG` setting to `main_sram.py`, and records the
 [extended validation](../docs/design/DISTRIBUTED_RC_VALIDATION.md).
+V2.0.9 sizes the precharge, write driver, wordline driver and decoder output from
+fixed integer size classes in a [lookup table](sizing/README.md) (`sizing.mode: lookup`);
+the legacy `fixed` mode is removed.
 V2.0.6 incorporated the default local mismatch runner, model specialization,
 and sampling into this compiler directory. This guide was previously the root
 `readme_compiler.md`.
@@ -73,7 +76,7 @@ OpenYield/
 │   │   ├── run.py                      # CLI and in-memory load_config() helper
 │   │   ├── netlist.py                  # Independent model specialization per retained MOS
 │   │   └── sampling.py                 # Materialized local draws for MPI execution
-│   ├── sizing/                         # Driver sizing, measured timing, and qualified-table lookup
+│   ├── sizing/                         # Fixed driver size classes, measured timing, and qualified-table lookup
 │   ├── config_yaml/                     # Global and module-level YAML parameter files
 │   │   ├── global.yaml
 │   │   ├── config.py                    # YAML loader that converts data into dot-accessible config objects

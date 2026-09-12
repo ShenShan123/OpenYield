@@ -1,22 +1,77 @@
-# V2.0.8 driver sizing
+# V2.0.9 driver sizing: fixed size classes
 
-V2.0.8 retains the V2.0.5 sizing coefficients, which resolve precharge, split
-write-driver, wordline and decoder output scales
-with their TIME loads. The real and replica wordlines share a driver, and the
-replica includes the real bitline's disabled write-stack load. The full design
-and current qualification status are in
-[`docs/DRIVER_SIZING_PROPOSAL.md`](../../docs/DRIVER_SIZING_PROPOSAL.md).
+V2.0.9 replaces the continuous driver sizing rules with a lookup table of fixed
+integer size classes, `sizing_lookup.json`. Every array configuration maps to
+one row class and one column class, so the precharge, write driver, wordline
+driver and decoder output inverter are always one of a small set of fixed
+device sizes. The motivation is layout generation: a layout library is drawn
+from fixed transistors, so the sizes must not vary continuously with the array.
+The legacy `fixed` mode (the original `rows/16`, `sqrt` array rules with the
+known 8-row write weakness) was removed in this release.
 
-The local mismatch package now lives in `sram_compiler/per_device_mc/`.
-The active rule identity remains `v2.0.5-local-1`; local qualification tools in
-ignored `dev/` retain their V2.0.5 artifact format and default output paths. The V2.0.6 package move
-does not establish new electrical qualification.
+## Size classes
+
+Scales multiply the base widths in the circuit YAMLs (precharge PMOS 0.27 um,
+write driver 0.18/0.36 um, wordline NAND2 0.18/0.27 um, wordline inverter and
+decoder output inverter 0.09/0.27 um). Row classes size the bitline drivers,
+column classes the wordline path; both are independent of cell type, column
+mux, RC stubs and interconnect mode.
+
+| rows ≤ | precharge `pre` | write input `wd_in` (M1-M4) | write output `wd_out` (M5-M12) |
+|---|---|---|---|
+| 32 | 1 | 1 | 2 |
+| 64 | 2 | 1 | 4 |
+| 128 | 4 | 2 | 8 |
+| 256 | 8 | 4 | 16 |
+| 512 | 16 | 8 | 32 |
+
+| cols ≤ | wordline inverter `wl_inv` | wordline NAND2 `wl_nand` | decoder output inverter `dec_inv` |
+|---|---|---|---|
+| 4 | 1 | 1 | 1 |
+| 8 | 2 | 1 | 1 |
+| 16 | 4 | 2 | 1 |
+| 32 | 8 | 3 | 1 |
+| 64 | 16 | 5 | 2 |
+| 128 | 32 | 9 | 3 |
+| 256 | 64 | 18 | 5 |
+| 512 | 128 | 35 | 9 |
+
+Each entry is the V2.0.5 rule (`wd_out = max(1.5, rows/16)`,
+`wd_in = max(0.5, wd_out/4)`, `pre = max(0.5, rows/32)`, `wl_inv = max(1, cols/4)`,
+`wl_nand = max(1, cols/15)`, `dec_inv = max(1, wl_nand/4)`) evaluated at the
+class upper bound and rounded up to an integer, so every array in a class has
+at least the driver strength of the screened rule. Tall arrays with at most
+eight columns (256x8, 512x4) generate exactly the V2.0.5 decks; small arrays get
+the extra margin of the rounding (8x4: precharge 1 instead of 0.5, write output 2
+instead of 1.5). The replica stays `(K, N) = (1, 9)`, matched to the real wordline
+driver, with the canonical read loading, decoder output scaling and effort-based
+control buffers of V2.0.5.
+
+## Interpolation for unseen arrays
+
+`interpolate_class()` resolves any array size on the class ladder:
+
+- Inside the table an array takes the next anchor at or above its row or column
+  count (round-up interpolation). A 48x20 array therefore uses the `rows ≤ 64` and
+  `cols ≤ 32` classes. The sizes stay on the tabulated ladder and never fall below
+  the rule.
+- Beyond the last anchor the ladder continues geometrically with the ratio of the
+  last two anchors (doubling per doubling of rows for every row class; 35/18 for
+  the NAND2 and 9/5 for the decoder inverter), rounded up to integers, and the
+  result is flagged `extrapolated=True` with the synthetic bound in `size_class`
+  (for example `rows<=1024 (extrapolated)/cols<=4`). Extrapolated sizes have
+  only the V2.0.9 three-sample screen at 1024x4, 2048x2 and 8x1024 behind them;
+  add measured anchors to the table instead of relying on them.
+
+The TIME control buffers (`PRE`, `w_en`, `s_en`, isolation, `wl_en`, address and
+clock) are still sized from the actual loads of the resolved classes; they are
+not part of the table. Their per-stage widths remain the effort-based tapers of
+V2.0.4 and are folded into fingers of at most 2 um.
 
 ## Use
 
-`global.yaml` defaults to `sizing.mode: fixed`. This retains the legacy numeric
-array rules, including their small-array write limitation. To opt into the
-proposal, set `mode: rules_only` in the YAML or configure it in memory:
+`global.yaml` defaults to `sizing.mode: lookup`. Resolve once per baseline and
+pass the same immutable result to every candidate cell and PVT sample:
 
 ```python
 from sram_compiler.per_device_mc.run import load_config
@@ -24,8 +79,8 @@ from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 
 config = load_config(8, 4, "SF")
-config.global_config.sizing = {"mode": "rules_only"}
 sizes = resolve_driver_sizes(config, mux=False)
+print(sizes.size_class, sizes.pre, sizes.wd_in, sizes.wd_out, sizes.wl_inv, sizes.wl_nand, sizes.dec_inv)
 
 # Resolve before changing the baseline into a candidate cell.
 config.sram_6t_cell.pmos_width.value *= 1.2
@@ -34,112 +89,71 @@ testbench = Sram6TCoreMcTestbench(
     driver_sizes=sizes, mc=False, sim_path="outputs/sizing_example",
 )
 deck = testbench.create_testbench("write", 7, 3)
-metadata = sizes.to_dict()  # JSON-serializable baseline scales, loads and hashes.
+metadata = sizes.to_dict()  # JSON-serializable classes, loads, hashes and the extrapolated flag.
 ```
 
-`DriverSizes` and its nested `DriverLoads` are frozen dataclasses. Testbenches
-resolve once at construction unless a result is supplied. Reuse allows changed
-cell values and run PVT, but rejects changed geometry, cell type, mux, peripheral
-parameters, or PDK contents. The fingerprint includes baseline cell values and
-bounds, all peripheral parameters, all five PDK model files, architecture,
-rule version, and sizing settings. A rule result is an unverified prediction.
-`auto` consults `sizing_table.json` for an exact qualified baseline and physical
-context (RC values and equivalent-cell mode); a miss remains `source='rule'`.
-A valid match returns `source='table'` and the testbench applies its measured
-clock. Table-qualified results reject reuse in a different physical context.
-Candidate cells still have to pass their own checks with that frozen periphery.
+`DriverSizes` and its nested `DriverLoads` are frozen dataclasses. Reuse allows
+changed cell values and run PVT, but rejects changed geometry, cell type, mux,
+peripheral parameters, PDK contents or physical RC context. The fingerprint
+includes the lookup file hash and the selected classes.
 
 ## Settings
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `mode` | `fixed` | Legacy rules; `rules_only` selects new rules; `auto` consults qualified records |
-| `parasitic_factor` | `1.0` | Multiplies proposed precharge/write load terms |
-| `wd_floor_margin` | `1.5` | Multiplies the measured write-output box-cell floor of 1.0 |
-| `k_w` | `0.0625` | Proposed write-output load coefficient per row |
-| `pre_min` | `0.5` | Proposed precharge scale floor |
-| `fixed_scales` | omitted | In fixed mode, optional overrides for `pre`, `wd_in`, `wd_out`, `wl_inv`, `wl_nand` |
-| `replica` | `K: 1, N: 9` | Active cell count and odd delay-stage count; `matched` defaults true outside fixed mode |
-| `scale_decoder` | true outside fixed mode | Scale only final decoder output inverters |
-| `effort_buffers` | true outside fixed mode | Select even buffer-chain length from load effort |
-| `canonical_read` | true outside fixed mode | Include disabled write-stack loading on real and replica bitlines |
-| `table` | package `sizing_table.json` | Optional qualification table path |
+| `mode` | `lookup` | `lookup` selects fixed classes; `rules_only` evaluates the V2.0.5 continuous rules the classes derive from; `auto` consults qualified records, otherwise `rules_only` |
+| `lookup` | package `sizing_lookup.json` | Alternative class table (project-relative or absolute path), e.g. a layout library with different classes |
+| `replica` | table `K: 1, N: 9`, `matched: true` | Active replica cell count, odd delay-stage count, matched replica driver |
+| `scale_decoder` | true | Scale the final decoder output inverters by `dec_inv` |
+| `effort_buffers` | true | Even buffer-chain length from load effort, fingered gates |
+| `canonical_read` | true | Disabled write-stack loading on real and replica bitlines in read decks |
+| `parasitic_factor`, `wd_floor_margin`, `k_w`, `pre_min` | rule defaults | `rules_only` coefficients; accepted but inactive in `lookup` mode |
+| `table` | package `sizing_table.json` | Qualification record table for `auto` |
 
-The four rule coefficients are inactive in fixed mode. Unknown options,
-nonpositive/nonfinite numbers, unsupported modes and invalid array geometry
-fail explicitly. Mux fan-in is currently two and requires an even column count.
-The 6T write floor is also used provisionally for 10T, as proposed.
+Unknown options, the removed `fixed` mode and `fixed_scales`, nonpositive or
+nonfinite numbers, invalid lookup tables (non-increasing bounds, missing or
+nonpositive scales, wrong schema) and invalid array geometry fail explicitly.
+Mux fan-in is two and requires an even column count.
 
-Widths are still based on the circuit YAMLs in metres. Write M1–M4 use `wd_in`;
-M5–M12 use `wd_out`. PRE and write-enable loads count these actual gate widths;
-WL loads use the configured NAND widths and the matched replica input.
-Fixed mode retains the old replica-load omission for comparisons. With `w_rc`,
-the replica wordline driver and the replica bitline's sense input carry the same
-RC segments as the real wordline drivers and sense-amplifier inputs in every mode.
-Precharge/write sweeps now retain the resolved scale in SPICE expressions, as
-wordline sweeps already did. Their previous unscaled sweep behavior is corrected
-even in fixed mode. TIME buffer sizing remains based on the baseline loads;
-peripheral sweeps are not qualified across their complete width ranges.
+Precharge, write-driver and wordline sweeps keep the resolved class in their
+SPICE expressions. TIME buffer sizing uses the baseline loads; peripheral sweeps
+are not qualified across their complete width ranges.
 
-## Qualification
+## Evidence and qualification
 
-The MC testbench now defaults to `variation_mode='per-device'`: select a fixed
-global PDK corner, then independently perturb `vth0`, `u0`, and `voff` on every
-instantiated MOS with 5% relative Gaussian sigma. This includes array cells and
-all read/write periphery. `NF` fingers share their MOS draw. There is no added
-shared random process term, area scaling, or parameter correlation calibration.
-`mc=False` / `variation_mode='nominal'` selects the corner alone;
-`variation_mode='shared'` explicitly requests the previous shared-card model.
-A single local sample is random; use nominal mode for deterministic extraction.
-Custom process tables remain an explicit separate mode.
+The classes inherit the V2.0.4 campaign and V2.0.5 Stage C screen evidence of
+the rules they round up from, and V2.0.9 adds a three-sample per-device screen
+of the fixed classes themselves (seed 82026): 8x4, 16x16 and 32x32 for both
+cells and mux choices with explicit-RC 16x16 variants; 64x16 (both cells, mux
+on and off); 64x64 and 16x256; the interpolated sizes 3x3, 5x3, 6x6, 12x4,
+20x10, 48x20, 100x50 and 128x32; the extrapolated classes at 1024x4, 2048x2 and
+8x1024; and pilots at 256x8, 512x4, 16x512, 128x128 and 256x64. Read, write and
+hold are checked in every deck (retention after release, no read disturb, quiet
+unselected wordlines, restored and equalized bitlines, neighbor-row retention
+across address-change hazards); the results are in the V2.0.9 changelog and
+under ignored `outputs/qualification/V2.0.9/`. A screen is not tail or yield
+qualification: `sizing_table.json` remains empty, half-select waveform
+qualification remains a separate open requirement, and the extrapolated
+classes have screening evidence only.
 
-Specialization occurs in `create_testbench()`, so direct circuit exporters and
-`run_mc_simulation()` use the same models. Add the analysis with `add_analysis()`
-to enable stochastic sampling. Content-addressed model files and a CSV audit
-retain each device's hierarchy and model identity across read/write exports.
-The per-device CLI also defaults to `real_cell_mode=0`; equivalent modes remain
-available explicitly and are labelled as partial device coverage. Geometric
-sweep expressions are preserved. Local mismatch with the legacy `.STEP` sweep
-flags raises an explicit error: a minimal Xyce 7.4 check executed only the first
-geometry when `.STEP` and `.SAMPLING` were combined. Generate a separate local
-deck for each geometry; deterministic sweeps remain available with `mc=False`.
-The default sizing mode is still the unqualified legacy `fixed` mode.
-
-Run the simulator-free regression suite from the repository root:
+The MC testbench defaults to `variation_mode='per-device'` (fixed PDK corner,
+independent `vth0`, `u0`, `voff` with 5% relative sigma on every instantiated
+MOS). A single local sample is random; use `variation_mode='nominal'` for a
+deterministic deck. Local qualification tools take `--sizing-mode lookup`; see
+the [development guide](../../docs/DEVELOPMENT.md). Run the simulator-free
+regression suite from the repository root:
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-The tests cover rule crossovers, configured gate loads, mode overrides, invalid
-inputs, immutable reuse and fingerprint changes, actual split MOS widths, sweep
-expressions, TIME integration, and full-array 6T/10T read/write generation with
-both mux choices. Equivalent-cell generation can invoke Xyce for extraction;
-the fast suite deliberately uses full transistor arrays.
+The tests cover class boundaries, the rule lower bound of every class,
+independence from cell/mux/RC/wires, interpolation and extrapolation, invalid
+tables, alternative table paths, generated MOS widths, TIME loads and full-array
+6T/10T read/write generation.
 
 Runtime qualification lookup uses `scoring_sources.json`, which pins the
-reviewed local scoring sources by content hash. It hashes that manifest together
-with the runtime acceptance inputs, and rejects stale or incomplete records.
-The compiler never opens files from ignored `dev/`; local qualification runners
-verify their source hashes before recording or promoting evidence. Changes to
-the scoring manifest invalidate earlier scoring identities.
-
-Development experiments, campaign runners, and their tests are local-only under
-ignored `dev/`. See the [development guide](../../docs/DEVELOPMENT.md) for their
-inventory, commands, and source-fingerprint maintenance.
-
-Half-select waveform qualification remains a separate open requirement and
-blocks table promotion, even if all currently scheduled cases pass.
-
-The default replica remains `(1, 9)`. Original YAML 200/100 ps access limits are
-reported separately; passing the phase-based specification does not waive them.
-`exp_utils.py` now reports these constraint violations, freezes baseline sizing,
-and uses actual resolved YAML widths for area. `sram_compiler/per_device_mc/run.py` and `main_sram.py` record the
-same baseline across variation samples. The obsolete rare-event entry point
-`main_estimation.py` (a removed API and package) was deleted on 2026-09-09;
-`demo_run_a_testbench.py` is the yield-estimation entrance and uses explicit
-custom tables.
-
-V2.0.7 binds every frozen baseline to its physical RC configuration and uses the
-actual configured peripheral capacitance in load accounting. Distributed wires
-require new qualification; see the [RC guide](../../docs/design/DISTRIBUTED_RC_MODEL.md).
+reviewed local scoring sources by content hash together with the runtime code.
+The compiler never opens files from ignored `dev/`. The original YAML 200/100 ps
+access limits are reported separately by the qualification scorer; the default
+replica `(1, 9)` does not claim compliance with the read limit.

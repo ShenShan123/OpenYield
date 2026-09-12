@@ -15,15 +15,16 @@ num_cols: 16                        # SRAM列数 / Number of SRAM columns
 monte_carlo_runs: 1               # 蒙特卡洛仿真次数 / Monte Carlo simulation runs/设计参数有几行就改成几
 timeout: 120                      # 仿真超时时间(秒) / Simulation timeout (seconds)
 choose_columnmux: false             # 是否选择列复用器 / Whether to choose column mux
-# Driver sizing: fixed retains the legacy array rules; rules_only opts into
-# V2.0.4 floors/split write widths. Neither mode claims electrical qualification.
-# auto uses an exact qualified-table match, otherwise returns unverified rules.
+# Driver sizing: lookup (default) selects fixed integer driver size classes from
+# sram_compiler/sizing/sizing_lookup.json by row and column class, the same
+# sizes for every cell candidate, PVT sample and RC configuration; unseen
+# sizes round up to the next class and sizes beyond the table extrapolate the
+# ladder (flagged, no evidence). Other modes: rules_only (the V2.0.5 continuous
+# rules the classes derive from; options parasitic_factor/wd_floor_margin/k_w/
+# pre_min) and auto (exact qualified-table match, otherwise rules_only). The
+# legacy fixed mode was removed in V2.0.9.
 sizing:
-  mode: fixed
-  parasitic_factor: 1.0
-  wd_floor_margin: 1.5
-  k_w: 0.0625                      # 1/16: write-output load coefficient
-  pre_min: 0.5
+  mode: lookup
 pdk_path_TT: "tran_models/models_TT.spice" # PDK路径 / PDK path
 pdk_path_FF: "tran_models/models_FF.spice"
 pdk_path_SS: "tran_models/models_SS.spice"

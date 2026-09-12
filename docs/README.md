@@ -1,4 +1,4 @@
-# OpenYield V2.0.8 documentation
+# OpenYield V2.0.9 documentation
 
 Project plans and release history live here. Usage guides live beside the code
 they describe. Commands and code paths in the documents are relative to the
@@ -26,7 +26,7 @@ The supplied evidence CSVs remain at the repository root:
 | [Shared utilities](../utils/README.md) | Measurement and waveform parsing, plots, SPICE models, and area estimates |
 | [Compiler regression tests](../tests/README.md) | Simulator-free checks that run without local development scripts |
 | [Per-device mismatch](../sram_compiler/per_device_mc/README.md) | Default local mismatch, CLI, and in-memory configuration |
-| [Driver sizing](../sram_compiler/sizing/README.md) | Frozen driver sizes, timing, and qualification workflows |
+| [Driver sizing](../sram_compiler/sizing/README.md) | Fixed driver size classes (V2.0.9 lookup table), timing, and qualification workflows |
 | [Circuit review](../sram_compiler/CIRCUIT_REVIEW.md) | Circuit findings and verification evidence |
 | [Equivalent modeling](../equivalent_modeling/README.md) | Equivalent circuit modes, usage, and accuracy boundaries |
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |

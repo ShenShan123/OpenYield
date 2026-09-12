@@ -1,5 +1,26 @@
 # Automatic driver sizing for all array sizes — proposal (V2.0.6)
 
+Status (2026-09-10): **V2.0.9** replaces the continuous sizing rules of this
+proposal, as the shipped strategy, with a lookup table of fixed integer size
+classes (`sram_compiler/sizing/sizing_lookup.json`, `sizing.mode: lookup`,
+see the [sizing guide](../sram_compiler/sizing/README.md)). The motivation is
+layout generation from fixed transistors: every array configuration now maps to
+one row class (≤32/64/128/256/512 rows for the precharge and the split write
+driver) and one column class (≤4…512 columns for the wordline NAND2/inverter and
+the decoder output inverter), independent of cell type, mux, RC and wires. Each
+class is the V2.0.5 rule of section 4.1 (pre-review column, `k_w` = 1/16,
+`rows/32`, `cols/4`, `cols/15`, `wl_nand/4`) evaluated at the class upper bound
+and rounded up to an integer, so no array receives a weaker driver than the
+screened rule; unseen sizes round up to the next anchor, and sizes beyond the
+table extrapolate the ladder geometrically and are flagged. The legacy `fixed`
+mode (the original `rows/16` and `sqrt` array rules of section 1.1, with the
+8-row write weakness) was removed; `rules_only` remains as the derivation basis
+and the qualification tools take `--sizing-mode lookup`. The function-first
+load terms (`rows/64`, section 4.1) and the `(2, 1)` replica remain proposals;
+Stages D-F below now apply to class candidates rather than coefficient
+candidates, and any changed class needs new waveform evidence before it enters
+the table. The V2.0.9 changelog records the three-sample fixed-class screen.
+
 Status (2026-09-08): **V2.0.6** integrates the default local mismatch flow into
 `sram_compiler/per_device_mc/` and relocates the working plans into `docs/`.
 The V2.0.5 full-local driver and timing re-evaluation remains in progress.

@@ -125,7 +125,7 @@ def make_run_name(
     interconnect=None,
 ) -> str:
     settings = {
-        "compiler_version": "V2.0.8",
+        "compiler_version": "V2.0.9",
         "interconnect": resolve_interconnect(interconnect).to_dict(),
         "cell_type": cell_type,
         "rows": args.rows,
@@ -308,7 +308,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
 
     deck_path.write_text(deck_text, encoding="utf-8")
     summary = {
-        "compiler_version": "V2.0.8",
+        "compiler_version": "V2.0.9",
         "interconnect": interconnect.to_dict(),
         "deck": str(deck_path),
         "run_dir": str(run_dir),

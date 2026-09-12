@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "version": "V2.0.9",
+  "lookup_version": "v2.0.9-lookup-1",
+  "derived_from": "v2.0.5-local-1 rules (wd_out max(1.5, rows/16), wd_in max(0.5, wd_out/4), pre max(0.5, rows/32), wl_inv max(1, cols/4), wl_nand max(1, cols/15), dec_inv max(1, wl_nand/4)) evaluated at each class upper bound and rounded up to integer scales, so every array in a class gets at least the rule's driver strength",
+  "scale_basis": "integer multiples of the YAML base devices: precharge PMOS 0.27 um (x3 per column), write driver input inverters 0.18/0.36 um (M1-M4), write driver output stacks 0.18/0.36 um (M5-M12), wordline NAND2 0.18/0.27 um, wordline inverter 0.09/0.27 um, decoder final output inverter 0.09/0.27 um; channel length from the circuit YAMLs",
+  "row_classes": [
+    {"max_rows": 32, "pre": 1, "wd_in": 1, "wd_out": 2},
+    {"max_rows": 64, "pre": 2, "wd_in": 1, "wd_out": 4},
+    {"max_rows": 128, "pre": 4, "wd_in": 2, "wd_out": 8},
+    {"max_rows": 256, "pre": 8, "wd_in": 4, "wd_out": 16},
+    {"max_rows": 512, "pre": 16, "wd_in": 8, "wd_out": 32}
+  ],
+  "column_classes": [
+    {"max_cols": 4, "wl_inv": 1, "wl_nand": 1, "dec_inv": 1},
+    {"max_cols": 8, "wl_inv": 2, "wl_nand": 1, "dec_inv": 1},
+    {"max_cols": 16, "wl_inv": 4, "wl_nand": 2, "dec_inv": 1},
+    {"max_cols": 32, "wl_inv": 8, "wl_nand": 3, "dec_inv": 1},
+    {"max_cols": 64, "wl_inv": 16, "wl_nand": 5, "dec_inv": 2},
+    {"max_cols": 128, "wl_inv": 32, "wl_nand": 9, "dec_inv": 3},
+    {"max_cols": 256, "wl_inv": 64, "wl_nand": 18, "dec_inv": 5},
+    {"max_cols": 512, "wl_inv": 128, "wl_nand": 35, "dec_inv": 9}
+  ],
+  "replica": {"K": 1, "N": 9},
+  "interpolation": "Inside the table an array takes the next anchor at or above its row/column count (round-up interpolation on the fixed ladder). Beyond the last anchor the ladder continues geometrically with the ratio of the last two anchors, rounded up to integers, and the result is marked extrapolated; extrapolated classes carry no waveform evidence, so add measured anchors here instead of relying on them.",
+  "notes": "Classes are independent of cell type, column mux, RC configuration and interconnect mode. The 6T write floor is shared with 10T as in V2.0.5."
+}

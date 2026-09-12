@@ -56,7 +56,7 @@ class GlobalConfig:
         self.simulator = AttrDict(config_data.get("simulator", {}))
         self.objectives = AttrDict(config_data.get("objectives", {}))
         # Keep sizing as a mapping: the resolver validates supported options.
-        self.sizing = config_data.get("sizing", {"mode": "fixed"})
+        self.sizing = config_data.get("sizing", {"mode": "lookup"})
         self.interconnect = config_data.get("interconnect", {"mode": "star"})
 
         # 特殊处理性能指标

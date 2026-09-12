@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.0.8
+# Compiler regression tests — V2.0.9
 
 These reusable tests are tracked outside the circuit generator. They cover
 driver sizing and frozen loads, MOS connectivity and widths, per-device
@@ -35,3 +35,7 @@ propagation, extraction context/cache identity, distributed pi-section R/C
 conservation, cell/equivalent taps, matched replica paths and local MC probes.
 V2.0.8 adds the `cell_pin_rc` default for directly constructed configurations,
 the project-root YAML loader, and the `main_sram.py` interconnect setting.
+V2.0.9 adds the `LookupTests` in `test_driver_sizing.py`: fixed size classes,
+their rule lower bound, independence from cell/mux/RC/wires, ladder
+interpolation and extrapolation, invalid or alternative tables, and the removed
+legacy mode; the RC and driver-path tests now exercise `lookup` and `rules_only`.

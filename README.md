@@ -1,4 +1,4 @@
-# OpenYield V2.0.8: SRAM yield analysis and optimization
+# OpenYield V2.0.9: SRAM yield analysis and optimization
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
 
@@ -15,10 +15,12 @@ main-entrance configuration path, and extends the waveform checks to 8x4, 4x8
 and 16x16 arrays; see the
 [validation record](docs/design/DISTRIBUTED_RC_VALIDATION.md).
 Fixed global corners plus independent per-device mismatch remain the default.
-The default `fixed` sizing mode retains legacy driver scales; `rules_only` and
-`auto` remain explicit opt-ins. V2.0.5 sizing coefficients and historical
-qualification artifacts retain their identities; extracted-array timing and
-yield qualification remain in progress. See the
+V2.0.9 sizes the critical drivers from a lookup table of fixed integer size
+classes (`sram_compiler/sizing/sizing_lookup.json`), selected by row and column
+class and interpolated on the class ladder for unseen arrays, so that a layout
+library of fixed transistors can implement every array; the legacy `fixed` rule
+mode is removed and `rules_only`/`auto` remain the rule basis and qualified-record
+lookup. Extracted-array timing and yield qualification remain in progress. See the
 [sizing guide](sram_compiler/sizing/README.md) and
 [qualification status](docs/DRIVER_SIZING_PROPOSAL.md).
 

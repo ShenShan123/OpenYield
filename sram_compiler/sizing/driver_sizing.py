@@ -1,8 +1,11 @@
-"""Driver rules and exact qualification lookup for the V2.0.5 proposal.
+"""Fixed driver size classes (V2.0.9), legacy rules and qualification lookup.
 
 Resolve once from the baseline, then pass the same result to each cell candidate.
-This module does not run Xyce. Rule predictions remain unverified; only an exact
-qualified-table match supplies evidence for the baseline physical configuration.
+This module does not run Xyce. The default ``lookup`` mode reads integer size
+classes from ``sizing_lookup.json`` and extrapolates the class ladder for arrays
+beyond the table; ``rules_only`` keeps the V2.0.5 continuous rules the classes
+were derived from, and ``auto`` consults the qualified table before falling back
+to those rules. The legacy ``fixed`` array rules were removed in V2.0.9.
 """
 
 from __future__ import annotations
@@ -16,10 +19,13 @@ from typing import Any
 
 _RULES = json.loads(Path(__file__).with_name('sizing_rules.json').read_text())
 RULE_VERSION = _RULES['rule_version']
+DEFAULT_LOOKUP = Path(__file__).with_name('sizing_lookup.json')
+_MODES = ("lookup", "rules_only", "auto")
 _PERIPHERALS = (
     "precharge", "write_driver", "wordline_driver", "decoder", "column_mux", "senseamp",
 )
-_SCALES = ("pre", "wd_in", "wd_out", "wl_inv", "wl_nand")
+_ROW_SCALES = ("pre", "wd_in", "wd_out")
+_COLUMN_SCALES = ("wl_inv", "wl_nand", "dec_inv")
 
 
 @dataclass(frozen=True)
@@ -70,6 +76,8 @@ class DriverSizes:
     area_senseamp_width: float = 0.0
     rule_version: str = RULE_VERSION
     physical_key: str = ""
+    size_class: str = ""
+    extrapolated: bool = False
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -138,12 +146,87 @@ def _mapping(value):
     raise ValueError("sizing options must be a mapping")
 
 
+def _class_scale(entry, name, where):
+    value = entry.get(name)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value) or value <= 0:
+        raise ValueError(f"{where} needs a finite positive {name}")
+    return float(value)
+
+
+def load_lookup(path=None):
+    """Read and validate the driver size-class table (project-relative paths allowed)."""
+    path = DEFAULT_LOOKUP if path is None else Path(path)
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parents[2] / path
+    table = json.loads(path.read_text())
+    if table.get("schema") != 1:
+        raise ValueError(f"Unsupported driver size lookup schema: {path}")
+    for group, bound, names in (("row_classes", "max_rows", _ROW_SCALES),
+                                ("column_classes", "max_cols", _COLUMN_SCALES)):
+        classes = table.get(group)
+        if not isinstance(classes, list) or not classes:
+            raise ValueError(f"Driver size lookup {path} needs a non-empty {group} list")
+        previous = 0
+        for entry in classes:
+            limit = entry.get(bound)
+            if isinstance(limit, bool) or not isinstance(limit, int) or limit <= previous:
+                raise ValueError(f"{group} of {path} must have strictly increasing positive {bound}")
+            previous = limit
+            for name in names:
+                _class_scale(entry, name, f"{group} {bound}={limit} of {path}")
+    replica = table.get("replica", {})
+    if replica.keys() - {"K", "N"}:
+        raise ValueError(f"Driver size lookup {path} replica accepts only K and N")
+    table["path"] = str(path)
+    table["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return table
+
+
+def interpolate_class(classes, bound, names, size):
+    """Fixed-size interpolation on the class ladder, in log space of the array size.
+
+    Inside the table the next anchor at or above ``size`` is used (round-up
+    interpolation keeps every array on one of the tabulated fixed sizes, never
+    below the rule the anchors were derived from). Beyond the last anchor the
+    ladder continues geometrically: bounds and sizes grow by the ratio of the
+    last two anchors (doubling for a single-anchor table), rounded up to
+    integers, and the result is marked ``extrapolated``. Extrapolated sizes
+    carry no waveform evidence; add measured anchors to the table instead of
+    relying on them.
+    """
+    for entry in classes:
+        if size <= entry[bound]:
+            return dict(entry, extrapolated=False)
+    last = classes[-1]
+    previous = classes[-2] if len(classes) > 1 else None
+    def ratio(name):
+        if previous is None or previous[name] <= 0:
+            return 2.0
+        return max(1.0, last[name] / previous[name])
+    steps = 1
+    while last[bound] * ratio(bound) ** steps < size:
+        steps += 1
+    entry = {bound: ceil(last[bound] * ratio(bound) ** steps - 1e-9), "extrapolated": True}
+    for name in names:
+        entry[name] = float(ceil(last[name] * ratio(name) ** steps - 1e-9))
+    return entry
+
+
+def lookup_classes(table, rows, cols):
+    """Row and column classes for an array; both may be extrapolated beyond the table."""
+    return (interpolate_class(table["row_classes"], "max_rows", _ROW_SCALES, rows),
+            interpolate_class(table["column_classes"], "max_cols", _COLUMN_SCALES, cols))
+
+
 def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, physical_context=None):
     """Return immutable scales/loads without mutating configuration or simulating.
 
-    ``fixed`` preserves legacy numeric array rules, optionally overridden through
-    ``fixed_scales``. ``rules_only`` opts into the proposed floors and load rules.
-    ``auto`` uses an exact qualified-table match or falls back to unverified rules.
+    ``lookup`` (default) takes integer size classes from ``sizing_lookup.json``,
+    selected by row and column class only, so every array configuration maps to
+    one of a small set of fixed driver sizes; arrays beyond the table continue
+    the class ladder and are marked extrapolated. ``rules_only`` evaluates the
+    V2.0.5 continuous rules the classes were derived from. ``auto`` uses an
+    exact qualified-table match or falls back to those unverified rules.
     The result's key describes the baseline, not any later candidate cell/PVT.
     """
     cfg = sram_config.global_config
@@ -168,17 +251,23 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         raise ValueError("Column mux requires an even number of columns (fan-in 2)")
     options = dict(_mapping(getattr(cfg, "sizing", {}) if sizing is None else sizing))
     unknown = options.keys() - {
-        "mode", "parasitic_factor", "wd_floor_margin", "k_w", "pre_min", "fixed_scales",
+        "mode", "parasitic_factor", "wd_floor_margin", "k_w", "pre_min",
         "replica", "scale_decoder", "effort_buffers", "canonical_read",
-        "table",
+        "table", "lookup",
     }
     if unknown:
         raise ValueError(f"Unsupported sizing options: {sorted(unknown)}")
-    mode = options.get("mode", "fixed")
-    if mode not in ("fixed", "rules_only", "auto"):
-        raise ValueError("sizing.mode must be fixed, rules_only or auto")
+    mode = options.get("mode", "lookup")
+    if mode not in _MODES:
+        raise ValueError("sizing.mode must be lookup, rules_only or auto")
     requested_mode = mode
     mode = 'rules_only' if mode == 'auto' else mode
+    lookup = row_class = col_class = None
+    if mode == "lookup":
+        lookup = load_lookup(options.get("lookup"))
+        row_class, col_class = lookup_classes(lookup, rows, cols)
+    elif "lookup" in options:
+        raise ValueError("sizing.lookup requires sizing.mode=lookup")
     p = _positive("parasitic_factor", options.get("parasitic_factor", 1.0))
     margin = _positive("wd_floor_margin", options.get("wd_floor_margin", _RULES['wd_floor_margin']))
     k_w = _positive("k_w", options.get("k_w", _RULES['k_w']))
@@ -186,16 +275,18 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     replica = dict(_mapping(options.get("replica", {})))
     if replica.keys() - {"K", "N", "matched"}:
         raise ValueError("replica accepts only K, N and matched")
-    replica_k, dc_stages = replica.get("K", 1), replica.get("N", 9)
+    replica_default = lookup.get("replica", {}) if lookup is not None else {}
+    replica_k = replica.get("K", replica_default.get("K", 1))
+    dc_stages = replica.get("N", replica_default.get("N", 9))
     for name, value in (("replica.K", replica_k), ("replica.N", dc_stages)):
         if isinstance(value, bool) or not isinstance(value, int) or value < 1:
             raise ValueError(f"{name} must be a positive integer")
     if replica_k > rows + 1 or dc_stages % 2 != 1:
         raise ValueError("replica K must not exceed rows + 1; N must be odd")
-    replica_matched = replica.get("matched", mode != "fixed" or distributed)
-    scale_decoder = options.get("scale_decoder", mode != "fixed")
-    effort_buffers = options.get("effort_buffers", mode != "fixed")
-    canonical_read = options.get("canonical_read", mode != "fixed" or distributed)
+    replica_matched = replica.get("matched", True)
+    scale_decoder = options.get("scale_decoder", True)
+    effort_buffers = options.get("effort_buffers", True)
+    canonical_read = options.get("canonical_read", True)
     if distributed and (not replica_matched or not canonical_read or replica_k > rows):
         raise ValueError('Distributed wiring requires a matched replica, canonical read and K <= rows')
     if any(not isinstance(value, bool) for value in
@@ -203,22 +294,15 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         raise ValueError("replica.matched and circuit feature switches must be boolean")
     if replica_matched and replica_k > cols:
         raise ValueError("Matched replica K must not exceed columns (wordline gate load)")
-    wl_inv = max(1.0, cols / 4.0)
-    if mode == "rules_only":
-        if "fixed_scales" in options:
-            raise ValueError("fixed_scales requires sizing.mode=fixed")
+    if mode == "lookup":
+        scales = {name: float(row_class[name]) for name in ("pre", "wd_out", "wd_in")}
+        scales.update({name: float(col_class[name]) for name in ("wl_inv", "wl_nand")})
+    else:
         wd_out = max(_RULES['wd_floor'][cell_type] * margin, k_w * p * rows)
         scales = {'pre': max(pre_min, p * rows / _RULES['pre_rows_divisor']), 'wd_out': wd_out,
                       'wd_in': max(_RULES['wd_input_floor'], wd_out / _RULES['wd_input_divisor']),
                       'wl_inv': max(1.0, cols / _RULES['wl_inv_cols_divisor']),
                       'wl_nand': max(1.0, cols / _RULES['wl_nand_cols_divisor'])}
-    else:
-        scales = {'pre': max(0.5, rows / 16.0), 'wd_out': max(8, rows) / 16.0,
-                      'wd_in': max(8, rows) / 16.0, 'wl_inv': wl_inv, 'wl_nand': wl_inv ** 0.5}
-        overrides = dict(_mapping(options.get("fixed_scales", {})))
-        if overrides.keys() - set(_SCALES):
-            raise ValueError(f"Unknown fixed scales: {sorted(overrides.keys() - set(_SCALES))}")
-        scales.update({name: _positive(name, value) for name, value in overrides.items()})
 
     pre = sram_config.precharge
     wd = sram_config.write_driver
@@ -232,7 +316,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     # The nominal 0.18 + 0.27 um gate must be exactly one unit, not 1 + epsilon.
     nand_units = round(nand_gate / 0.45e-6, 12)
     rc_input_units = (_positive('pi_cap', context.get('pi_cap', _RULES['peripheral_rc_cap_f'])) / _RULES['unit_inverter_cap_f']
-                      if (mode != 'fixed' or distributed) and context.get('w_rc', False) else 0.0)
+                      if context.get('w_rc', False) else 0.0)
     # Wordline-driver A and B each have two RC sections; other peripheral
     # enables have one. TIME itself has no optional RC wrapper in this compiler.
     rc_wl_units = 2 * rc_input_units / 1.25
@@ -245,17 +329,16 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         pre_load=(cols + 1) * 3 * pre_width / 0.36e-6 + (cols + 1) * rc_input_units,
         wen_load=cols * (2 * wn * scales["wd_out"] + (wn + wp) * scales["wd_in"])
         / 0.36e-6 + 4 * wenb_scale + cols * rc_input_units,
-        # Include the fixed replica AND2 in new rules. Legacy fixed mode keeps
-        # its historical load accounting for reproducible default decks.
+        # The matched replica driver is one more NAND2; the optional AND2 replica
+        # driver counts as one unit load.
         wl_load=rows * scales["wl_nand"] * nand_units
-        + (scales["wl_nand"] * nand_units if replica_matched else
-           (1.0 if mode == "rules_only" else 0.0))
+        + (scales["wl_nand"] * nand_units if replica_matched else 1.0)
         + (rows + int(replica_matched)) * rc_wl_units,
         num_sa=num_sa,
         wenb_scale=wenb_scale,
-        sen_load=num_sa * (sa_n_units + rc_input_units) + 3.5 if mode != 'fixed' else None,
-        iso_load=num_sa * (sa_iso_units + rc_input_units) if mode != 'fixed' else None,
-        sen_effort=3.0 if rc_input_units else (4.0 if mode != 'fixed' else 8.0),
+        sen_load=num_sa * (sa_n_units + rc_input_units) + 3.5,
+        iso_load=num_sa * (sa_iso_units + rc_input_units),
+        sen_effort=3.0 if rc_input_units else 4.0,
     )
     periphery = _peripheral_inputs(sram_config)
     pdk = _pdk_inputs(cfg)
@@ -263,9 +346,16 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     decoder_units = round((float(sram_config.decoder.nmos_width.value[1])
                            + float(sram_config.decoder.pmos_width.value[1])) / 0.36e-6, 12)
     decoder_units = _positive('decoder inverter gate units', decoder_units)
+    if not scale_decoder:
+        dec_inv = 1.0
+    elif mode == "lookup":
+        # A fixed class per column range; the RC stub load is covered by rounding up.
+        dec_inv = float(col_class['dec_inv'])
+    else:
+        dec_inv = max(1.0, scales["wl_nand"] * nand_units / (_RULES['decoder_divisor'] * decoder_units)
+                      + 2 * rc_input_units / (5 * decoder_units))
     path_options: dict[str, Any] = {
-        'dec_inv': max(1.0, scales["wl_nand"] * nand_units / (_RULES['decoder_divisor'] * decoder_units)
-                       + 2 * rc_input_units / (5 * decoder_units)) if scale_decoder else 1.0,
+        'dec_inv': dec_inv,
         'replica_matched': replica_matched, 'replica_k': replica_k, 'dc_stages': dc_stages,
         'effort_buffers': effort_buffers, 'canonical_read': canonical_read,
         'replica_precharge_guard': distributed or bool(rc_input_units and replica_matched),
@@ -285,9 +375,18 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         "rc_input_units": rc_input_units,
         "physical": context,
     }
+    size_class, extrapolated = "", False
+    if lookup is not None:
+        extrapolated = bool(row_class["extrapolated"] or col_class["extrapolated"])
+        size_class = "/".join(f"{name}<={entry[bound]}{' (extrapolated)' if entry['extrapolated'] else ''}"
+                              for name, bound, entry in (("rows", "max_rows", row_class),
+                                                         ("cols", "max_cols", col_class)))
+        baseline["lookup"] = {"lookup_version": lookup.get("lookup_version"), "sha256": lookup["sha256"],
+                              "row_class": row_class, "column_class": col_class}
     result = DriverSizes(
         rows=rows, cols=cols, cell_type=cell_type, mux=mux, **scales, loads=loads,
-        source="rule" if mode == "rules_only" else "fixed",
+        source="lookup" if mode == "lookup" else "rule",
+        size_class=size_class, extrapolated=extrapolated,
         key=_digest(baseline), peripheral_key=_digest(periphery), pdk_key=_digest(pdk),
         physical_key=_digest(context),
         area_precharge_width=pre_width,
