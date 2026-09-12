@@ -53,7 +53,11 @@ def parse_mc_measurements(netlist_prefix: str = "simulation",
                 return var_name, missing_value
 
             if value != 0 and abs(value) < value_threshold:
-                return None, None
+                # Below the numeric floor the value carries no information, but
+                # the sample still exists: report it missing rather than hiding
+                # the measurement for this run.
+                print(f"[WARNING] Measurement {var_name} below {value_threshold:g}: {raw_value}")
+                return var_name, missing_value
 
             return var_name, value
         except (ValueError, IndexError) as e:
@@ -99,6 +103,14 @@ def generate_mc_statistics(df: pd.DataFrame) -> pd.DataFrame:
     """
     if df.empty:
         raise ValueError("Input DataFrame is empty")
+    if df.columns.empty or df.isna().all().all():
+        # Every requested run is kept as a row now, so an all-missing frame is a
+        # simulation failure, not an empty one.  Describing it would publish a
+        # statistics file made entirely of NaN.
+        raise ValueError(
+            f"No measurement of the {len(df)} requested runs was parsed; the simulation "
+            f"produced no usable .mt/.ms output (check the Xyce log for a failed "
+            f"operating point or netlist error)")
 
     stats = df.describe(percentiles=[0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99])
 

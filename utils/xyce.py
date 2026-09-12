@@ -61,6 +61,14 @@ def execute_xyce(deck_path, command, *, log_path=None, cwd=None, timeout=None, e
     for path in files:
         if path.is_file():
             shutil.copy2(path, attempt / path.name)
+    # The first attempt stopped part-way, so it can leave per-sample measure
+    # files the retry never rewrites.  Parsers index those files by sample
+    # number, so a surviving one would report the failed attempt's value as a
+    # retry result.  The copies above keep the evidence.
+    for pattern in ('.mt*', '.ms*', '.prn', '.prn.*'):
+        for path in deck_path.parent.glob(deck_path.name + pattern):
+            if path.is_file():
+                path.unlink()
     deck_path.write_text(amended)
     result = run()
     log_path.write_text(f'Operating-point retry with Newton line search; original attempt: {attempt}\n'

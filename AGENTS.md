@@ -1,6 +1,6 @@
 # OpenYield project instructions
 
-Current release: **V2.0.10** (distributed precharge settling guard, corrected TIME loads/read measurements, and preserved/retried simulation failures; the V2.0.9 driver lookup classes are unchanged).
+Current release: **V2.0.11** (audit fixes to V2.0.10 failure handling, measurement windows and evidence retention; distributed RC on the control lines that span an array dimension; the first star-topology write/read waveform screen. Star decks are byte-identical to V2.0.10 and no driver size class changes).
 The `rules_only` rule identity and the qualification artifact format remain V2.0.5; preserve historical version labels when referring to measurements or archived proposals. `docs/CHANGELOG.md` is per release (V2.0.x). `AGENTS.md` holds the detailed working conventions;
 
 ## Purpose and architecture
@@ -13,7 +13,7 @@ The `rules_only` rule identity and the qualification artifact format remain V2.0
 * Sizing layer (`sram_compiler/sizing/`): `resolve_driver_sizes()` returns an immutable `DriverSizes`(precharge, split write-driver input/output, wordline inverter/NAND and decoder scales, TIME loads, replica K/N, baseline fingerprints) once per baseline; both testbenches consume it and reject a changed geometry, periphery or PDK. `sizing.mode: lookup` (default since V2.0.9) takes integer size classes from `sizing_lookup.json` by row class (≤32/64/128/256/512) and column class (≤4…512), independent of cell, mux, RC and wires; `interpolate_class()` rounds unseen sizes up to the next anchor and extrapolates the ladder geometrically beyond the table (`extrapolated=True`, no evidence). `rules_only` evaluates the V2.0.5 continuous rules the classes were derived from; `auto` needs an exact record in `sizing_table.json` (currently empty). The legacy `fixed` mode and `fixed_scales` were removed in V2.0.9. Runtime `table.py` checks the tracked`scoring_sources.json` manifest and runtime code hashes without reading ignored scripts. Local `dev/sizing/` contains the qualification, campaign, report, diagnostic, reference-experiment, and MPI execution tools; they verify their source hashes against that manifest before producing qualification evidence.
 * Variation: `Sram6TCoreMcTestbench` modes are `nominal`, `shared` (one AGAUSS card per base model), `custom` (parameter table from the cell YAML) and `per-device` (independent `vth0/u0/voff` per MOS, specialized in `create_testbench()` by `sram_compiler/per_device_mc/netlist.py`). `mc=True` now means per-device,
 * so `mc_runs=1` without `mc_seed` is one unseeded random sample, not nominal; deterministic callers must pass `variation_mode='nominal'`. Per-device cannot be combined with the legacy `.STEP` sweeps.
-* Parasitics: `w_rc` controls local storage-node and peripheral stubs (100 ohm / 1 fF by default); custom values propagate through all factories and nested cells. `interconnect.mode: star` remains the default shared-net topology. Opt-in `distributed` adds geometry-based pi ladders with centered cell taps on WL/BL/BLB, independent of `w_rc`; its `cell_pin_rc` defaults to false to avoid duplicating generic cell-pin wire loads. Replica wires match array lengths and loads, and TIME observes the far replica wordline before precharge. Equivalent modes 1-4 retain every wire segment and attach omitted-cell loads locally; extraction is numeric-only and uses the effective PVT and model-content cache identity. See `docs/design/DISTRIBUTED_RC_MODEL.md`. `main_sram.py` selects a wire YAML through `INTERCONNECT_CONFIG` and the CLI through `--interconnect-config` (`interconnect.load_interconnect()`); in distributed mode TIME observes the replica bitline at the replica sense amplifier's internal input node (`XREPLICA_SENSEAMP:IN_end`, a Xyce hierarchical reference used as a connection).
+* Parasitics: `w_rc` controls local storage-node and peripheral stubs (100 ohm / 1 fF by default); custom values propagate through all factories and nested cells. `interconnect.mode: star` remains the default shared-net topology. Opt-in `distributed` adds geometry-based pi ladders with centered cell taps on WL/BL/BLB and, since V2.0.11, on the control lines that span an array dimension: `PRE`, `w_en`, `w_en_bar`, `s_en` and `sa_iso` on the wordline pitch across the columns, `wl_en` on the bitline pitch down the rows, each consumer tapping its own column or row and the replica devices sitting past the last one (`<net>_line_tap<i>`, `<net>_line_far`; `Sram6TCoreTestbench.control_tap()`). Control-line wire RC is not added to the driver-sizing loads, exactly as WL/BL wire RC is not, so the lookup classes stay independent of the interconnect. This is independent of `w_rc`; its `cell_pin_rc` defaults to false to avoid duplicating generic cell-pin wire loads. Replica wires match array lengths and loads, and TIME observes the far replica wordline before precharge. Equivalent modes 1-4 retain every wire segment and attach omitted-cell loads locally; extraction is numeric-only and uses the effective PVT and model-content cache identity. See `docs/design/DISTRIBUTED_RC_MODEL.md`. `main_sram.py` selects a wire YAML through `INTERCONNECT_CONFIG` and the CLI through `--interconnect-config` (`interconnect.load_interconnect()`); in distributed mode TIME observes the replica bitline at the replica sense amplifier's internal input node (`XREPLICA_SENSEAMP:IN_end`, a Xyce hierarchical reference used as a connection).
 
 ## Working conventions
 
@@ -56,8 +56,14 @@ The `rules_only` rule identity and the qualification artifact format remain V2.0
   modes when looking up qualified records; never promote partial or failed runs.
 - Distributed transient results require `VWL_PRE_FAR_n`, `VWL_PRE_LOCAL_n` and `VWL_PRE_PEAK_n`
   to show wordline release before precharge; a correct data value alone is not
-  sufficient. Runtime DC retries preserve the first attempt in `dcop_attempt/`
-  and reuse the native sampling seed. See `docs/design/DISTRIBUTED_RC_V210_REVIEW.md`.
+  sufficient. These measures exist in distributed mode only, so a star array's
+  release margin has to be checked from the trace (`dev/validate_distributed_rc.py`
+  takes `interconnect: star`). Runtime DC retries preserve the first attempt in
+  `dcop_attempt/` and delete the outputs it left behind, so a retry never reports
+  a sample it did not write; they reuse the native sampling seed, and a rejected
+  release still writes its `summary.json` before failing.
+  See `docs/design/DISTRIBUTED_RC_V210_REVIEW.md` and
+  `docs/design/WRITE_VALIDATION_V211.md`.
   `docs/DEVELOPMENT.md` documents local tools and the tracked scoring-source
   manifest; compiler table lookup must work when `dev/` is absent.
 - Check `git diff --check` and review the final diff. Recent commits use

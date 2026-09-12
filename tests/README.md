@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.0.10
+# Compiler regression tests — V2.0.11
 
 These reusable tests are tracked outside the circuit generator. They cover
 driver sizing and frozen loads, MOS connectivity and widths, per-device
@@ -8,8 +8,12 @@ neither Xyce nor the ignored local development scripts.
 
 V2.0.10 also checks sense-control RC accounting, the distributed precharge
 guard, access-window measurements, write-feedback initialization, preserved
-sample indices, and the shared DC retry/seed/evidence contract. Actual waveform
-validation is recorded in the [release review](../docs/design/DISTRIBUTED_RC_V210_REVIEW.md).
+sample indices, and the shared DC retry/seed/evidence contract. V2.0.11 adds
+the retry's stale-output contract, the rejected sample's retained provenance,
+the precharge windows' clamp to the analysis stop, and the parser's
+missing-value and all-missing-frame behaviour. Actual waveform validation is
+recorded in the [V2.0.10 review](../docs/design/DISTRIBUTED_RC_V210_REVIEW.md)
+and the [V2.0.11 write screen](../docs/design/WRITE_VALIDATION_V211.md).
 
 Keep these tests in Git: they document expected behavior and let every checkout
 verify compiler and utility changes. `test_utils.py` also checks measurement

@@ -98,11 +98,12 @@ choices, configured capacitance, preserved MC sample indices, bounded read
 measurements, and rejection of unsafe or missing precharge measurements.
 Circuit comparisons use a detached worktree at `47bdd1e`: 128 read/write
 netlists spanning 16×16 and 8×512, 6T/10T, mux on/off, star/distributed,
-RC on/off and lookup/rules_only. The 32 star netlists without local RC are
-identical. The other 96 intentionally change TIME sense/isolation buffers,
-the distributed precharge guard, or both. All tabulated precharge, write,
-wordline and decoder classes match. Analysis and initialization cards
-intentionally change as described above.
+RC on/off and lookup/rules_only. The 32 star netlists without local RC have an
+identical circuit; their analysis and initialization cards change as described
+above (a plain `diff` of those decks shows the read access window and the write
+initialization, and nothing else). The other 96 also change the TIME
+sense/isolation buffers, the distributed precharge guard, or both. All
+tabulated precharge, write, wordline and decoder classes match.
 
 All eight final ordinary-wire cases below pass both the independent waveform
 checks and the final Xyce release/peak measurements. They use distributed

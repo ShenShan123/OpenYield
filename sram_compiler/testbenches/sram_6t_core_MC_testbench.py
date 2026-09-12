@@ -437,6 +437,16 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             self._add_precharge_safety_measures(simulator, operation)
             self._add_interconnect_print(simulator)
 
+    def _analysis_stop(self, operation):
+        """End of the transient analysis (see add_analysis).
+
+        `read&write` runs 8 cycles; the 8th access window ends at 1 ns +
+        8.2*t_period, so it stops at 8.5*t_period instead of 8*t_period (which
+        cut the last read off 1 ns after its wordline rose).
+        """
+        cycles = 8.5 if operation == 'read&write' else 2
+        return 1.0 @ u_ns + cycles * float(self.t_period)
+
     def _add_precharge_safety_measures(self, simulator, operation):
         """Check release at precharge onset, including every sequence access.
 
@@ -444,13 +454,25 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         wordline its low-voltage tail can outlast the PRE logic, even when
         data and delay measures pass. A cycle-local window prevents a missing
         precharge edge from borrowing the following cycle's event.
+
+        Every cycle of these operations accesses `target_row`: `next_row` is
+        rejected for `read&write` in create_testbench(), and the single-access
+        operations change address only at the end of the first access.
+        The window opens shortly before the clock edge that starts the
+        precharge.  PRE cannot fall before that edge, so the lead-in only
+        guards against edge placement, and measured decks show PRE flat to
+        within 0.3 mV of VDD there, even with 1024 columns of write drivers.
         """
         period = float(self.t_period)
+        analysis_stop = float(self._analysis_stop(operation))
         probes = {'FAR': f'{self.arr_inst_prefix}:WL{self.target_row}_far',
                   'LOCAL': self.cell_probe('WL')}
         for cycle in range(8 if operation == 'read&write' else 1):
             start = 1e-9 + (cycle + 1.16) * period
-            stop = 1e-9 + (cycle + 1.7) * period
+            # The last sequence cycle's precharge interval runs past the end of
+            # the analysis; a window that claims more than was simulated would
+            # report a rebound check it never performed.
+            stop = min(1e-9 + (cycle + 1.7) * period, analysis_stop)
             for location, node in probes.items():
                 simulator.measure('TRAN', f'VWL_PRE_{location}_{cycle}',
                                   f'FIND V({node}) WHEN V(PRE)={.9 * float(self.vdd):.12g} '
@@ -688,13 +710,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             circuit.raw_spice += \
                 f'.DC U -{u_tmp:.2f} {u_tmp:.2f} 0.001\n'
         else:
-            if operation == 'read&write':
-                # 8 cycles; the 8th access window ends at 1 ns + 8.2*t_period, so
-                # stop at 8.5*t_period instead of 8*t_period (which cut the last
-                # read off 1 ns after its wordline rose).
-                t_stop = 1.0 @ u_ns + 8.5*float(self.t_period)
-            else:
-                t_stop = 1.0 @ u_ns + 2*float(self.t_period)
+            t_stop = self._analysis_stop(operation)
             max_step = '' if self.t_max_step is None else f' 0 {float(self.t_max_step):.4e}'
             circuit.raw_spice += f'.TRAN {float(self.t_step):.4e} {t_stop:.4e}{max_step}\n'
             # Timing interval option is set only in .TRAN analysis.

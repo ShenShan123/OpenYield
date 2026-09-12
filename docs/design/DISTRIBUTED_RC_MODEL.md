@@ -1,9 +1,12 @@
-# Distributed wordline and bitline RC — V2.0.10
+# Distributed wordline and bitline RC — V2.0.11
 
 Introduced in V2.0.7 and audited in V2.0.8 (see the
 [validation record](DISTRIBUTED_RC_VALIDATION.md)).
 The [V2.0.10 corrections](DISTRIBUTED_RC_V210_REVIEW.md) add large-array diagnostics
-and corrects sense-control load accounting and transient result validation.
+and correct sense-control load accounting and transient result validation. The
+[V2.0.11 audit](WRITE_VALIDATION_V211.md) changes no wire or timing behaviour; it
+fixes the last sequence cycle's release window, the retry and rejection paths,
+and screens the star topology that the same load correction also resized.
 
 The default remains the star topology. Distributed wiring is opt-in and
 requires explicit metal geometry; the compiler supplies no extracted defaults.
@@ -93,6 +96,33 @@ wire R/C; the review includes a failing wire-stress case. A passing simulator
 exit or data value is insufficient. Read-swing measurements also exclude
 startup crossings. With local RC, TIME load accounting includes both EN/ISO
 sections of every real and replica sense amplifier.
+
+## Control lines (V2.0.11)
+
+A control net that spans an array dimension is a wire, not a node. In
+distributed mode the compiler builds a tapped pi ladder for each one and every
+consumer connects at its own column or row:
+
+| Net | Direction | Pitch | Taps | Consumers |
+|---|---|---|---|---|
+| `PRE` | across columns | `wl` | `num_cols` | one precharge cell per column; the replica precharge at `PRE_line_far` |
+| `w_en` | across columns | `wl` | `num_cols` | one write driver per column |
+| `w_en_bar` | across columns | `wl` | `num_cols` | one write-data hold latch per column (write decks only) |
+| `s_en` | across columns | `wl` | `num_cols` | one sense amplifier per mux group, tapped at its first column; the replica amplifier at `s_en_line_far` |
+| `sa_iso` | across columns | `wl` | `num_cols` | as `s_en` |
+| `wl_en` | down rows | `bl` | `num_rows` | one wordline driver per row; the replica wordline driver at `wl_en_line_far` |
+
+Node names follow the array wires: `<net>_line_tap<i>` and `<net>_line_far`,
+with the driver output keeping the original net name as the line's near end, so
+`.MEASURE` cards and `.PRINT` lines that reference `V(PRE)`, `V(s_en)` or
+`V(wl_en)` still observe the driver. `Sram6TCoreTestbench.control_tap(name,
+index)` resolves a consumer's node and returns the plain net in star topology,
+so star decks are byte-identical to V2.0.10.
+
+Control-line wire RC is deliberately **not** added to `DriverLoads`, exactly as
+WL and BL wire RC is not: the driver size classes stay independent of the
+interconnect mode. The wire therefore shows up as delay and skew in the
+waveform, not as a larger buffer.
 
 Distributed TIME adds a four-stage non-inverting settling delay after the
 replica observer and ANDs it with the immediate observer output before

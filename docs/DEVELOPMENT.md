@@ -1,4 +1,4 @@
-# OpenYield V2.0.10 development tools
+# OpenYield V2.0.11 development tools
 
 The circuit generator lives in `sram_compiler/`. Reusable compiler regression
 tests live in the tracked top-level `tests/` directory. Local experiments,
@@ -224,3 +224,11 @@ require their historical checkout. Its optional case fields include `cycles`
 (all selected-row cells plus near/middle/far unselected cells). Sampling the
 probes does not replace any array transistor. `dev/review_score_v209.py`
 independently checks retained traces and records their hashes in `audit.json`.
+
+V2.0.11 extends the same diagnostic to the default star topology with
+`"interconnect": "star"` in a case, so an array without distributed wires can
+be scored from its trace; the `VWL_PRE_*` measures the compiler emits exist in
+distributed mode only. Write cases additionally check that precharge stays off
+for the whole write-enable window and that the write driver, not the initial
+condition, pulls the bitline down. The [V2.0.11 screen](design/WRITE_VALIDATION_V211.md)
+retains its cases under `outputs/validation/V2.0.11-write/`.

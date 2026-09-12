@@ -7,6 +7,48 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.0.11 — 2026-09-12 — audit of V2.0.10, distributed control lines, star screen
+
+Audit of the V2.0.10 release commit `9773f29`. No driver size class changes and
+every star-topology deck is byte-identical to V2.0.10; distributed decks change
+because the control lines that span an array dimension are now modelled as
+wires. The [review record](design/WRITE_VALIDATION_V211.md) has the measured
+results, the exact coverage and the remaining limits.
+
+- Model distributed RC on every control line that spans an array dimension.
+  `PRE`, `w_en`, `w_en_bar`, `s_en` and `sa_iso` run the array width on the
+  wordline pitch; `wl_en` runs its height on the bitline pitch. Each is a
+  tapped pi ladder whose consumers connect at their own column or row
+  (`<net>_line_tap<i>`), with the replica precharge, sense amplifier and
+  wordline driver past the last one (`<net>_line_far`). Previously a
+  512-column `PRE` or `s_en` reached the first and last column at the same
+  instant. The driver output keeps the original net name, so existing measures
+  and prints still observe the driver; `control_tap()` returns the plain net in
+  star topology. Control-line wire RC is not added to `DriverLoads`, exactly as
+  WL/BL wire RC is not, so the lookup classes stay independent of the
+  interconnect.
+- Delete a failed operating point's per-sample outputs after copying them to
+  `dcop_attempt/`. `execute_xyce()` left them beside the deck, so a retry that
+  wrote fewer `.mt`/`.ms` files than the failed attempt reported the failed
+  attempt's value for the missing sample indices.
+- Keep the provenance of a rejected distributed release. `run.py` raised before
+  writing `summary.json`, discarding the deck, seed, model hashes and driver
+  sizes of the sample that has to be investigated. The summary (with
+  `precharge_release_checked: false` and the rejection text) and the waveform
+  are written first; the run still fails.
+- Clamp the per-cycle precharge windows to the analysis stop. Cycle 7 of a
+  `read&write` deck ran 0.2 `t_period` past the `.TRAN` end, so `VWL_PRE_PEAK_7`
+  claimed a rebound interval longer than was simulated. `add_analysis()` and
+  the safety measures now share `_analysis_stop()`.
+- Measurement parsing: a value below the numeric floor is a missing value for
+  that run instead of removing the measurement, and `generate_mc_statistics()`
+  rejects an all-missing frame instead of publishing NaN statistics.
+- Documentation: the V2.0.10 deck comparison said the 32 star netlists without
+  local RC "are identical"; their circuit is identical but their analysis and
+  initialization cards change. Reworded.
+
+Validation: 65 Xyce 7.4 waveform cases (58 pass, 23,815 independent checks) across 6T/10T, mux on/off, five corners, star and distributed wiring, 4x4 to 64x64 and the re-run 8x512, 64x64 and 512x4 V2.0.10 sequences. 85 tracked compiler tests pass under Python 3.9 and 3.11, 24 local development tests pass, and `git diff --check` is clean. Star decks were compared against V2.0.10 in a detached worktree: 24 of 24 identical.
+
 ## V2.0.10 — 2026-09-12 — distributed timing and simulation correctness
 
 - Count both sense-amplifier EN/ISO RC sections in TIME loads. Lookup classes

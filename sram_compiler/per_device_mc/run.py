@@ -414,6 +414,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     deck_path, summary = generate_deck(args)
+    rejection: Exception | None = None
     if args.run_xyce:
         run_xyce(deck_path, args.xyce, args.seed)
         summary["xyce_exit"] = 0
@@ -421,9 +422,18 @@ def main() -> int:
             from utils.measurements import parse_mc_measurements
             measurements = parse_mc_measurements(str(deck_path), num_runs=summary['mc_runs'])
             measurements.to_csv(Path(str(deck_path) + '.data.csv'))
-            Sram6TCoreMcTestbench.validate_distributed_precharge(
-                measurements, summary['operation'], summary['vdd'])
-            summary['precharge_release_checked'] = True
+            try:
+                Sram6TCoreMcTestbench.validate_distributed_precharge(
+                    measurements, summary['operation'], summary['vdd'])
+            except RuntimeError as exc:
+                # An unsafe release is evidence, not an aborted run: keep the
+                # deck, seed, model and driver-size provenance of the sample
+                # that has to be investigated before re-raising below.
+                summary['precharge_release_checked'] = False
+                summary['precharge_release_error'] = str(exc)
+                rejection = exc
+            else:
+                summary['precharge_release_checked'] = True
         if args.waveform:
             summary["waveform_png"] = str(plot_waveform(deck_path, summary))
     if args.audit:
@@ -432,6 +442,8 @@ def main() -> int:
             encoding="utf-8",
         )
     print(json.dumps(summary, indent=2, sort_keys=True))
+    if rejection is not None:
+        raise rejection
     return 0
 
 

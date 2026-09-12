@@ -1,10 +1,18 @@
-# OpenYield V2.0.10: SRAM yield analysis and optimization
+# OpenYield V2.0.11: SRAM yield analysis and optimization
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
 
 The circuit generator models parasitic capacitance/resistance, leakage coupling, and variation in peripheral circuits such as sense amplifiers and write drivers.
 
 The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
+
+V2.0.11 fixes V2.0.10's failure handling, measurement windows and evidence
+retention, extends distributed wiring to the control lines that span an array
+dimension (`PRE`, `w_en`, `w_en_bar`, `s_en`, `sa_iso`, `wl_en`), and adds the
+first star-topology write and read waveform screen. Star-topology decks and
+every driver size class are unchanged. See the
+[V2.0.11 audit and write screen](docs/design/WRITE_VALIDATION_V211.md) for the
+tested configurations and the remaining limits.
 
 V2.0.7 corrects RC parameter propagation and equivalent-extraction context,
 adds opt-in distributed wordline/bitline wiring, and matches the replica paths

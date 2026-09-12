@@ -38,6 +38,31 @@ class UtilityTests(unittest.TestCase):
             self.assertTrue(data.loc[3].isna().all())
             self.assertAlmostEqual(generate_mc_statistics(data).loc['TSA', 'mean'], 3e-10, delta=1e-22)
 
+    def test_no_parsed_measurement_is_a_failure_not_a_frame_of_nan_statistics(self):
+        """Every run is kept as a row, so "all missing" must not look like data."""
+        with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
+            prefix = Path(temp) / 'sample'
+            Path(f'{prefix}.mt0').write_text('TSA = FAILED\n')
+            data = parse_mc_measurements(str(prefix), num_runs=3)
+            self.assertEqual(list(data.index), [0, 1, 2])
+            with self.assertRaisesRegex(ValueError, 'no usable'):
+                generate_mc_statistics(data)
+            # A single surviving measurement still produces statistics.
+            Path(f'{prefix}.mt2').write_text('TSA = 4e-10\n')
+            revived = parse_mc_measurements(str(prefix), num_runs=3)
+            self.assertAlmostEqual(generate_mc_statistics(revived).loc['TSA', 'mean'], 4e-10,
+                                   delta=1e-22)
+
+    def test_sub_threshold_measurement_is_missing_for_that_run_only(self):
+        with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
+            prefix = Path(temp) / 'sample'
+            Path(f'{prefix}.mt0').write_text('TSA = 1e-40\n')
+            Path(f'{prefix}.mt1').write_text('TSA = 4e-10\n')
+            data = parse_mc_measurements(str(prefix), num_runs=2)
+            self.assertIn('TSA', data.columns)
+            self.assertTrue(np.isnan(data.loc[0, 'TSA']))
+            self.assertAlmostEqual(data.loc[1, 'TSA'], 4e-10)
+
     def test_measurements_keep_zero_and_reject_nonfinite_values(self):
         with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
             prefix = Path(temp) / 'sample'

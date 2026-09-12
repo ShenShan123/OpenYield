@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import unittest
 from unittest.mock import patch
 
@@ -224,6 +225,57 @@ class ArrayWireTests(unittest.TestCase):
             self.assertTrue(f'V({tb.cell_probe("WL")})' in deck)
             self.assertTrue(f'V({tb.cell_probe("BL")})' in deck)
 
+    def test_array_spanning_control_lines_are_tapped_not_lumped(self):
+        """A control line that spans the array must load its driver as a wire.
+
+        PRE, w_en, w_en_bar, s_en and sa_iso run the array width; wl_en runs its
+        height. A lumped star node would hide the control skew between the near
+        and far end, which is exactly what the distributed model exists to show.
+        """
+        import tempfile
+        rows, cols = 4, 8
+        for operation in ('read', 'write'):
+            for mux in (False, True):
+                with self.subTest(operation=operation, mux=mux), \
+                        tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
+                    tb = Sram6TCoreMcTestbench(load_config(rows, cols, 'TT'), w_rc=True,
+                                               choose_columnmux=mux, interconnect=wire_config(),
+                                               variation_mode='nominal', sim_path=temp)
+                    deck = str(tb.create_testbench(operation, rows - 1, cols - 1))
+                    expected = ['PRE', 'w_en', 's_en', 'sa_iso', 'wl_en']
+                    # w_en_bar only exists where the write-data hold latches do.
+                    self.assertEqual('w_en_bar' in deck, operation == 'write')
+                    if operation == 'write':
+                        expected.append('w_en_bar')
+                    for name in expected:
+                        count = rows if name == 'wl_en' else cols
+                        self.assertEqual(tb.control_tap(name, 0), f'{name}_line_tap0', name)
+                        self.assertEqual(tb.control_tap(name), f'{name}_line_far', name)
+                        # Every pitch of the line is present, with its wire R and C.
+                        self.assertIn(f'Rwire_{name}_line_0 {name} '.upper(), deck.upper(), name)
+                        self.assertIn(f'{name}_line_tap{count - 1}'.upper(), deck.upper(), name)
+                    # No consumer may hang off the lumped net any more.
+                    consumers = [line for line in deck.splitlines()
+                                 if line.upper().startswith(('XSENSEAMP', 'XPRECHARGE', 'XWL_DRV',
+                                                             'XWRITEDRIVER', 'XDIN_HOLD'))]
+                    self.assertTrue(consumers)
+                    for line in consumers:
+                        for name in expected:
+                            self.assertNotRegex(line.upper(), rf'\s{name.upper()}\s')
+
+    def test_star_topology_keeps_lumped_control_nets(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
+            tb = Sram6TCoreMcTestbench(load_config(4, 8, 'TT'), w_rc=True,
+                                       variation_mode='nominal', sim_path=temp)
+            deck = str(tb.create_testbench('write', 3, 7))
+            for name in ('PRE', 'w_en', 'w_en_bar', 's_en', 'sa_iso', 'wl_en'):
+                self.assertEqual(tb.control_tap(name, 0), name)
+                self.assertEqual(tb.control_tap(name), name)
+                self.assertNotIn(f'{name}_line'.upper(), deck.upper())
+            # The wordline drivers keep their historical net spelling.
+            self.assertIn('DEC_WL0 WL_EN WL0', deck.upper())
+
     def test_precharge_measurements_check_far_wire_and_local_pin_each_cycle(self):
         import tempfile
         for operation, cycles in (('read', 1), ('write', 1), ('read&write', 8)):
@@ -234,6 +286,7 @@ class ArrayWireTests(unittest.TestCase):
                 circuit = tb.create_testbench(operation, 3, 0)
                 simulator = circuit.simulator(simulator='xyce-serial', temperature=25)
                 tb.add_meas_and_print(simulator, tb.data_init(), operation)
+                tb.add_analysis(simulator.circuit, operation, 1)
                 lines = [line.upper() for line in str(simulator).splitlines() if line.upper().startswith('.MEAS') and 'VWL_PRE_' in line.upper()]
                 self.assertEqual(len(lines), 3 * cycles)
                 for cycle in range(cycles):
@@ -243,6 +296,15 @@ class ArrayWireTests(unittest.TestCase):
                                     for line in lines if 'PEAK' not in line))
                 self.assertTrue(all('MAX {IF(V(PRE)<0.9' in line and 'FROM=' in line and 'TO=' in line
                                     for line in lines if 'PEAK' in line))
+                # A window may not claim more precharge than was simulated: the
+                # last sequence cycle's interval runs past the .TRAN stop, and a
+                # rebound check over unsimulated time is not a check.
+                stop = float(tb._analysis_stop(operation))
+                tran = next(line for line in str(simulator).splitlines()
+                            if line.upper().startswith('.TRAN'))
+                self.assertAlmostEqual(float(tran.split()[2]), stop, delta=stop * 1e-6)
+                for line in lines:
+                    self.assertLessEqual(float(line.split('TO=')[1].split()[0]), stop * (1 + 1e-9))
 
     def test_unsafe_or_missing_precharge_samples_cannot_be_returned_as_success(self):
         import pandas as pd
@@ -288,17 +350,26 @@ class ArrayWireTests(unittest.TestCase):
         from sram_compiler.per_device_mc import run
         with tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
             deck = Path(temp) / 'deck.sp'
-            args = SimpleNamespace(run_xyce=True, xyce='Xyce', seed=1, waveform=False, audit=False)
+            args = SimpleNamespace(run_xyce=True, xyce='Xyce', seed=1, waveform=False, audit=True)
             summary = dict(interconnect=wire_config(), operation='write', vdd=1., mc_runs=1,
-                           variation_mode='nominal', run_dir=temp)
+                           variation_mode='nominal', run_dir=temp, seed=1, deck=str(deck))
             with patch.object(run, 'parse_args', return_value=args), \
-                    patch.object(run, 'generate_deck', return_value=(deck, summary)), \
+                    patch.object(run, 'generate_deck', return_value=(deck, dict(summary))), \
                     patch.object(run, 'run_xyce'):
                 Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .4\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .4\n')
                 with self.assertRaisesRegex(RuntimeError, 'precharge'):
                     run.main()
+                # The rejected sample is the one that has to be investigated:
+                # its deck, seed and measurements must survive the rejection.
+                audit = json.loads((Path(temp) / 'summary.json').read_text())
+                self.assertIs(audit['precharge_release_checked'], False)
+                self.assertIn('precharge', audit['precharge_release_error'])
+                self.assertEqual(audit['seed'], 1)
+                self.assertIn('VWL_PRE_FAR_0', Path(str(deck)+'.data.csv').read_text())
                 Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .01\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .02\n')
                 self.assertEqual(run.main(), 0)
+                self.assertIs(json.loads((Path(temp) / 'summary.json').read_text())
+                              ['precharge_release_checked'], True)
 
 
 if __name__ == '__main__':

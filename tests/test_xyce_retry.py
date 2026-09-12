@@ -40,6 +40,30 @@ class XyceRetryTests(unittest.TestCase):
             self.assertEqual((Path(temp) / 'dcop_attempt/deck.sp').read_text(), original)
             self.assertEqual((Path(temp) / 'dcop_attempt/deck.sp.prn').read_text(), 'partial sample')
 
+    def test_retry_cannot_inherit_the_failed_attempt_per_sample_measures(self):
+        """A partial first attempt must not supply samples the retry never wrote.
+
+        Parsers index .mt/.ms files by sample number, so a file left behind by
+        the failed attempt would be reported as a retry result for that sample.
+        """
+        with tempfile.TemporaryDirectory() as temp:
+            deck = Path(temp) / 'deck.sp'
+            deck.write_text('Circuit\n.SAMPLING useExpr=true\n.OPTIONS SAMPLES SEED=7\n.END\n')
+            stale = {'deck.sp.mt0': 'TWRITE_Q = 1e-10\n', 'deck.sp.mt1': 'TWRITE_Q = 2e-10\n',
+                     'deck.sp.ms0': 'hold_snm = 0.2\n', 'deck.sp.prn': 'partial'}
+            for name, text in stale.items():
+                (Path(temp) / name).write_text(text)
+            (Path(temp) / 'deck.sp.variation.json').write_text('{"seed": 7}')
+            failed = subprocess.CompletedProcess(['Xyce'], 0, 'DC Operating Point Failed', '')
+            passed = subprocess.CompletedProcess(['Xyce'], 0, 'complete', '')
+            with patch('utils.xyce.subprocess.run', side_effect=[failed, passed]):
+                execute_xyce(deck, ['Xyce', str(deck)])
+            for name, text in stale.items():
+                self.assertFalse((Path(temp) / name).exists(), name)
+                self.assertEqual((Path(temp) / 'dcop_attempt' / name).read_text(), text)
+            # Caller-owned provenance beside the deck is not a solver output.
+            self.assertTrue((Path(temp) / 'deck.sp.variation.json').exists())
+
     def test_unrecoverable_or_unseeded_failures_are_not_success_or_resampled(self):
         for options in ('.SAMPLING useExpr=true', '.OPTIONS NONLIN SEARCHMETHOD=2'):
             with self.subTest(options=options), tempfile.TemporaryDirectory() as temp:

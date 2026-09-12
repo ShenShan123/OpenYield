@@ -1,4 +1,4 @@
-# V2.0.10 driver sizing: fixed size classes
+# V2.0.11 driver sizing: fixed size classes
 
 V2.0.9 introduced a lookup table of fixed
 integer size classes, `sizing_lookup.json`. Every array configuration maps to
@@ -12,8 +12,16 @@ known 8-row write weakness) was removed in V2.0.9.
 V2.0.10 retains the table's `v2.0.9-lookup-1` identity and transistor classes.
 It counts both sense-amplifier EN/ISO RC sections and freezes a four-stage
 precharge settling guard for distributed arrays (`precharge_guard_stages=4`,
-zero for star). These TIME changes need waveform validation; see the
+zero for star); see the
 [review and limits](../../docs/design/DISTRIBUTED_RC_V210_REVIEW.md).
+
+Because `rc_sa_units` depends on `w_rc` and not on the interconnect mode, that
+sense/isolation load correction resized the TIME buffers of **every**
+`w_rc=True` array, star topology included, while V2.0.10's waveform cases were
+all distributed. V2.0.11 changes no size and screens the star topology
+directly: see the [write and read screen](../../docs/design/WRITE_VALIDATION_V211.md),
+which also records a pre-existing precharge-release margin miss on four-column
+RC arrays.
 
 ## Size classes
 

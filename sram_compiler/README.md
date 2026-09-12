@@ -1,4 +1,4 @@
-# SRAM Compiler and Test Platform User Guide — V2.0.10
+# SRAM Compiler and Test Platform User Guide — V2.0.11
 
 This document introduces the basic usage of the SRAM compiler, simulation flow, Monte Carlo testing, waveform plotting, and result statistics. It mainly covers the following files and directories:
 
@@ -18,6 +18,15 @@ V2.0.8 audits it, adds the `INTERCONNECT_CONFIG` setting to `main_sram.py`, and 
 V2.0.9 sizes the precharge, write driver, wordline driver and decoder output from
 fixed integer size classes in a [lookup table](sizing/README.md) (`sizing.mode: lookup`);
 the legacy `fixed` mode is removed.
+V2.0.11 models the control lines that span an array dimension (`PRE`, `w_en`,
+`w_en_bar`, `s_en`, `sa_iso` across the columns; `wl_en` down the rows) as
+tapped RC wires in distributed mode, so each precharge cell, write driver,
+sense amplifier and wordline driver connects at its own column or row. Star
+decks and every driver size class are unchanged. It also fixes the retry,
+rejection and measurement-window handling of V2.0.10 and screens the star
+topology on waveforms; see the
+[V2.0.11 audit and write screen](../docs/design/WRITE_VALIDATION_V211.md).
+
 V2.0.10 adds a distributed precharge settling guard, corrects TIME loads and
 read measurements, and preserves failed samples and numerical retry evidence.
 See the [waveform review](../docs/design/DISTRIBUTED_RC_V210_REVIEW.md).

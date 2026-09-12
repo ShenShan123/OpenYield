@@ -1,11 +1,12 @@
-# OpenYield V2.0.10 documentation
+# OpenYield V2.0.11 documentation
 
 Project plans and release history live here. Usage guides live beside the code
 they describe. Commands and code paths in the documents are relative to the
 repository root unless stated otherwise.
 
-V2.0.6 integrates the default per-device local mismatch package into the compiler
-and establishes this documentation layout. Earlier release entries, design
+V2.0.11 audits the V2.0.10 release and adds the first star-topology waveform
+screen; V2.0.6 integrates the default per-device local mismatch package into the
+compiler and establishes this documentation layout. Earlier release entries, design
 snapshots, and qualification evidence retain their original version labels.
 
 | Document | Purpose |
@@ -35,3 +36,8 @@ The supplied evidence CSVs remain at the repository root:
 - [Distributed RC plan](design/DISTRIBUTED_RC_PLAN.md),
   [model/configuration guide](design/DISTRIBUTED_RC_MODEL.md) and
   [validation record](design/DISTRIBUTED_RC_VALIDATION.md) (V2.0.7 implementation, V2.0.8 audit).
+- [V2.0.10 distributed-RC review](design/DISTRIBUTED_RC_V210_REVIEW.md): the
+  precharge settling guard, TIME load correction and the wire/timing limits.
+- [V2.0.11 audit and write screen](design/WRITE_VALIDATION_V211.md): failure
+  handling and measurement-window fixes, the star-topology write and read
+  waveform screen, and the open release-margin and yield-path items.
