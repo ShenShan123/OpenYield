@@ -1,4 +1,4 @@
-# OpenYield V2.0.9 development tools
+# OpenYield V2.0.10 development tools
 
 The circuit generator lives in `sram_compiler/`. Reusable compiler regression
 tests live in the tracked top-level `tests/` directory. Local experiments,
@@ -215,3 +215,12 @@ V2.0.8 case files additionally accept `w_rc`, `cell_pin_rc`, `replica_k`,
 `wire_scale` (multiplies the illustrative per-pitch R and C), `pi_res_ohm`,
 `pi_cap_pf` and a per-case Xyce `timeout`. These diagnostics do not promote
 a sizing-table record. See the [validation scope](design/DISTRIBUTED_RC_VALIDATION.md).
+
+The [V2.0.9 review](design/DISTRIBUTED_RC_V210_REVIEW.md) retains its local
+cases and waveforms under `outputs/validation/V2.0.9-review/`. The diagnostic
+now defaults to `lookup`, matching the compiler; historical `fixed` cases
+require their historical checkout. Its optional case fields include `cycles`
+(4 or 8), `max_step`, `mpi_ranks`, `xyce_options` and `probe_cells: sampled`
+(all selected-row cells plus near/middle/far unselected cells). Sampling the
+probes does not replace any array transistor. `dev/review_score_v209.py`
+independently checks retained traces and records their hashes in `audit.json`.

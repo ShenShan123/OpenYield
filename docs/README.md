@@ -1,4 +1,4 @@
-# OpenYield V2.0.9 documentation
+# OpenYield V2.0.10 documentation
 
 Project plans and release history live here. Usage guides live beside the code
 they describe. Commands and code paths in the documents are relative to the

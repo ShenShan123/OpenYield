@@ -114,6 +114,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             iso_load=loads.iso_load,
             replica_precharge_guard=self.driver_sizes.replica_precharge_guard,
             sen_effort=loads.sen_effort,
+            precharge_guard_stages=self.driver_sizes.precharge_guard_stages,
         ).create()
         circuit.subcircuit(time_circuit)   # Add to main circuit
         

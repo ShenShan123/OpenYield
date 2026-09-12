@@ -7,6 +7,31 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.0.10 — 2026-09-12 — distributed timing and simulation correctness
+
+- Count both sense-amplifier EN/ISO RC sections in TIME loads. Lookup classes
+  and continuous sizing coefficients are unchanged; RC-enabled sense and
+  isolation buffers intentionally change.
+- Restrict read `TWL`/`TBL` measurements to the access phase, preventing startup
+  crossings from producing negative `TSWING` on an electrically correct read.
+- Preserve requested MC sample indices when files or measurements are missing;
+  retain valid zeros and mark negative read-timing/nonfinite values as missing.
+- Add cycle-specific distributed wordline-at-precharge measurements. The Python
+  simulation API and CLI retain raw evidence and reject missing release events
+  or precharge overlap instead of returning ordinary SRAM metrics.
+- Add a four-stage replica settling delay with an immediate inhibit to the
+  distributed precharge guard, addressing the 512-column release-criterion
+  miss. The stage count is frozen with the baseline; star guards add no stages.
+- Initialize write-data hold nodes and register slave feedback consistently
+  with the existing zero-data startup state, addressing large-write DC failures.
+- Retry runtime DC failures once with Newton line search and the same native
+  sampling seed, preserving the first attempt. Exit-zero DC failures and
+  unsuccessful retries remain failures; electrical misses are never retried.
+
+The [review record](design/DISTRIBUTED_RC_V210_REVIEW.md) gives the waveform
+results, exact coverage and remaining wire/timing limits. Historical evidence
+remains unchanged; no sizing-table record is promoted.
+
 ## V2.0.9 — 2026-09-10 — fixed driver size classes for layout generation
 
 Driver sizing is simplified to fixed values: every array configuration now takes

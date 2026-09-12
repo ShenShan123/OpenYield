@@ -13,9 +13,35 @@ from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Cell
 from sram_compiler.subcircuits.standard_cell import Pinv
 from sram_compiler.subcircuits.time_generate import DelayChain, TaperedBuffer
 from sram_compiler.testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
+from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 
 
 class PathTests(unittest.TestCase):
+    def test_write_startup_initializes_hold_and_register_feedback_nodes(self):
+        import tempfile
+        from pathlib import Path
+        for operation in ('read', 'write', 'read&write'):
+            for sweep in (False, True):
+                with self.subTest(operation=operation, sweep=sweep), tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
+                    if sweep:
+                        (Path(temp) / 'param_sweep_models.data').write_text(
+                            'pmos_model_pu nmos_model_pd nmos_model_pg\n0 0 0\n')
+                    tb = Sram6TCoreMcTestbench(load_config(4, 4, 'TT'), variation_mode='nominal',
+                                              sweep_cell=sweep, sim_path=temp)
+                    tb.set_vdd(.9)
+                    circuit = tb.create_testbench(operation, 3, 3)
+                    simulator = circuit.simulator(simulator='xyce-serial', temperature=25)
+                    tb.add_meas_and_print(simulator, tb.data_init(), operation)
+                    initial = '\n'.join(line for line in str(simulator).splitlines() if line.lower().startswith('.ic')).upper()
+                    for col in range(4):
+                        if operation == 'read':
+                            self.assertNotIn(f'DIN_HOLD{col}', initial)
+                            self.assertNotIn('XDFF_BUF_DATA', initial)
+                        else:
+                            self.assertIn(f'V(DIN_HOLD{col})=0', initial)
+                            self.assertIn(f'V(DIN_HOLDB{col})=0.9', initial)
+                            self.assertIn(f'V(XTIME:XDFF_BUF_DATA:XDFF_{col}:Z5)=0.9', initial)
+
     def test_wide_buffer_fingers_preserve_total_transistor_width(self):
         with redirect_stdout(io.StringIO()):
             inv = Pinv('NMOS_VTG', 'PMOS_VTG', 20e-6, 30e-6, 50e-9, max_finger_width=2e-6)

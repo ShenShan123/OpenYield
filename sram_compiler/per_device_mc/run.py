@@ -7,7 +7,6 @@ import argparse
 import hashlib
 import json
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -125,7 +124,7 @@ def make_run_name(
     interconnect=None,
 ) -> str:
     settings = {
-        "compiler_version": "V2.0.9",
+        "compiler_version": "V2.0.10",
         "interconnect": resolve_interconnect(interconnect).to_dict(),
         "cell_type": cell_type,
         "rows": args.rows,
@@ -308,7 +307,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
 
     deck_path.write_text(deck_text, encoding="utf-8")
     summary = {
-        "compiler_version": "V2.0.9",
+        "compiler_version": "V2.0.10",
         "interconnect": interconnect.to_dict(),
         "deck": str(deck_path),
         "run_dir": str(run_dir),
@@ -321,6 +320,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         "variation_mode": args.variation_mode,
         "mc_runs": mc_runs,
         "corner": args.corner,
+        "vdd": float(testbench.vdd),
         "cell_type": cell_type,
         "full_device_coverage": args.real_cell_mode == 0 and args.variation_mode == "per-device",
         "seed": args.seed,
@@ -343,9 +343,12 @@ def find_xyce(command: str) -> str:
 
 
 def run_xyce(deck_path: Path, command: str, seed: int) -> None:
+    from utils.xyce import execute_xyce
+
     if seed <= 0:
         raise ValueError("seed must be positive")
-    result = subprocess.run(
+    result = execute_xyce(
+        deck_path,
         [
             find_xyce(command),
             "-randseed",
@@ -355,9 +358,6 @@ def run_xyce(deck_path: Path, command: str, seed: int) -> None:
             str(deck_path),
         ],
         cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
     )
     if result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip()
@@ -417,6 +417,13 @@ def main() -> int:
     if args.run_xyce:
         run_xyce(deck_path, args.xyce, args.seed)
         summary["xyce_exit"] = 0
+        if summary['interconnect']['mode'] == 'distributed' and summary['operation'] not in SNM_OPERATIONS:
+            from utils.measurements import parse_mc_measurements
+            measurements = parse_mc_measurements(str(deck_path), num_runs=summary['mc_runs'])
+            measurements.to_csv(Path(str(deck_path) + '.data.csv'))
+            Sram6TCoreMcTestbench.validate_distributed_precharge(
+                measurements, summary['operation'], summary['vdd'])
+            summary['precharge_release_checked'] = True
         if args.waveform:
             summary["waveform_png"] = str(plot_waveform(deck_path, summary))
     if args.audit:

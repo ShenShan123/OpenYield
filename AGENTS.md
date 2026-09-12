@@ -1,6 +1,6 @@
 # OpenYield project instructions
 
-Current release: **V2.0.9** (fixed driver size classes from a lookup table, with ladder interpolation for unseen arrays; the legacy `fixed` rule mode is removed).
+Current release: **V2.0.10** (distributed precharge settling guard, corrected TIME loads/read measurements, and preserved/retried simulation failures; the V2.0.9 driver lookup classes are unchanged).
 The `rules_only` rule identity and the qualification artifact format remain V2.0.5; preserve historical version labels when referring to measurements or archived proposals. `docs/CHANGELOG.md` is per release (V2.0.x). `AGENTS.md` holds the detailed working conventions;
 
 ## Purpose and architecture
@@ -54,6 +54,10 @@ The `rules_only` rule identity and the qualification artifact format remain V2.0
   `python3 -m unittest discover -s dev/tests -v`.
 - Keep solver/model/seed provenance with results. Match physical RC and equivalent
   modes when looking up qualified records; never promote partial or failed runs.
+- Distributed transient results require `VWL_PRE_FAR_n`, `VWL_PRE_LOCAL_n` and `VWL_PRE_PEAK_n`
+  to show wordline release before precharge; a correct data value alone is not
+  sufficient. Runtime DC retries preserve the first attempt in `dcop_attempt/`
+  and reuse the native sampling seed. See `docs/design/DISTRIBUTED_RC_V210_REVIEW.md`.
   `docs/DEVELOPMENT.md` documents local tools and the tracked scoring-source
   manifest; compiler table lookup must work when `dev/` is absent.
 - Check `git diff --check` and review the final diff. Recent commits use

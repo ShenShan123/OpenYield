@@ -1,7 +1,9 @@
-# Distributed wordline and bitline RC — V2.0.8
+# Distributed wordline and bitline RC — V2.0.10
 
 Introduced in V2.0.7 and audited in V2.0.8 (see the
 [validation record](DISTRIBUTED_RC_VALIDATION.md)).
+The [V2.0.10 corrections](DISTRIBUTED_RC_V210_REVIEW.md) add large-array diagnostics
+and corrects sense-control load accounting and transient result validation.
 
 The default remains the star topology. Distributed wiring is opt-in and
 requires explicit metal geometry; the compiler supplies no extracted defaults.
@@ -79,6 +81,25 @@ local terminal. Read swing uses the actual sense-amplifier input; restoration
 uses the far bitline endpoint. Additional waveform probes expose near/far
 line endpoints, sense inputs and storage nodes. `cell_probe()` and
 `sense_input_probe()` expose the same node names to external scorers.
+
+V2.0.10 adds `VWL_PRE_FAR_n` and `VWL_PRE_LOCAL_n`: the far wire and
+selected cell pin at the 90%-VDD falling crossing of PRE, with a separate
+window for each access. `VWL_PRE_PEAK_n` also checks the maximum magnitude
+while precharge is active, including bitline-restoration kickback. The Python
+simulation API and CLI reject a missing
+measurement or magnitude above 10% VDD and retain the raw measurements.
+The replica observer alone does not guarantee safe precharge for arbitrary
+wire R/C; the review includes a failing wire-stress case. A passing simulator
+exit or data value is insufficient. Read-swing measurements also exclude
+startup crossings. With local RC, TIME load accounting includes both EN/ISO
+sections of every real and replica sense amplifier.
+
+Distributed TIME adds a four-stage non-inverting settling delay after the
+replica observer and ANDs it with the immediate observer output before
+allowing precharge. `DriverSizes.precharge_guard_stages` freezes that count;
+star topology retains zero stages. The clock's high phase must cover this
+additional delay and restoration. The release measurements still apply:
+the added delay is not a guarantee for arbitrary extracted R/C or cell sizes.
 
 Equivalent modes 1–4 retain every wire segment and attach each omitted cell's
 five-capacitor network at its local taps. Optional local stubs remain separate;

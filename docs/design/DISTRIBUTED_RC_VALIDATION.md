@@ -2,6 +2,8 @@
 
 The V2.0.7 record below is retained unchanged as evidence; the
 [V2.0.8 audit](#v208-audit--2026-09-09) follows it.
+The separate [V2.0.9 review](DISTRIBUTED_RC_V210_REVIEW.md) extends the checks
+to larger arrays and records subsequent fixes and remaining timing limits.
 
 ## V2.0.7 RC validation — 2026-09-09
 

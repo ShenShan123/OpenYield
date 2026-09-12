@@ -181,6 +181,11 @@ class ArrayWireTests(unittest.TestCase):
                     circuit = tb.create_testbench('read', 3, 3)
                 self.assertTrue(tb.driver_sizes.replica_matched)
                 self.assertTrue(tb.driver_sizes.replica_precharge_guard)
+                self.assertEqual(tb.driver_sizes.precharge_guard_stages, 4)
+                time_block = next(s for s in circuit.subcircuits if s.name == 'TIME')
+                self.assertIn('rwl_pre_bar rwl_pre_delayed PRECHARGE_GUARD_DELAY', str(time_block))
+                self.assertIn('rwl_pre_bar rwl_pre_delayed pre_ready AND2_PRE_GUARD', str(time_block))
+                self.assertIn('clk_buf cs pre_ready PRE_UNBUF', str(time_block))
                 replica = next(s for s in circuit.subcircuits if 'replica_column' in s.name)
                 self.assertEqual(sum(e.name.startswith('XReplica_CELL') for e in replica.elements), 4)
                 rbl = [e for e in replica.elements if e.name.startswith('Rwire_RBL_')]
@@ -218,6 +223,82 @@ class ArrayWireTests(unittest.TestCase):
             deck = str(simulator)
             self.assertTrue(f'V({tb.cell_probe("WL")})' in deck)
             self.assertTrue(f'V({tb.cell_probe("BL")})' in deck)
+
+    def test_precharge_measurements_check_far_wire_and_local_pin_each_cycle(self):
+        import tempfile
+        for operation, cycles in (('read', 1), ('write', 1), ('read&write', 8)):
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
+                tb = Sram6TCoreMcTestbench(load_config(4, 4, 'TT'), w_rc=True,
+                                          interconnect=dict(wire_config(), cell_pin_rc=True),
+                                          variation_mode='nominal', sim_path=temp)
+                circuit = tb.create_testbench(operation, 3, 0)
+                simulator = circuit.simulator(simulator='xyce-serial', temperature=25)
+                tb.add_meas_and_print(simulator, tb.data_init(), operation)
+                lines = [line.upper() for line in str(simulator).splitlines() if line.upper().startswith('.MEAS') and 'VWL_PRE_' in line.upper()]
+                self.assertEqual(len(lines), 3 * cycles)
+                for cycle in range(cycles):
+                    self.assertTrue(any(f'VWL_PRE_FAR_{cycle} FIND V({tb.arr_inst_prefix}:WL3_FAR)'.upper() in line for line in lines))
+                    self.assertTrue(any(f'VWL_PRE_LOCAL_{cycle} FIND V({tb.cell_probe("WL")})'.upper() in line for line in lines))
+                self.assertTrue(all('WHEN V(PRE)=0.9' in line and 'TD=' in line and 'TO=' in line
+                                    for line in lines if 'PEAK' not in line))
+                self.assertTrue(all('MAX {IF(V(PRE)<0.9' in line and 'FROM=' in line and 'TO=' in line
+                                    for line in lines if 'PEAK' in line))
+
+    def test_unsafe_or_missing_precharge_samples_cannot_be_returned_as_success(self):
+        import pandas as pd
+        with contextlib.redirect_stdout(io.StringIO()):
+            tb = Sram6TCoreMcTestbench(load_config(4, 4, 'TT'), interconnect=wire_config(),
+                                      variation_mode='nominal')
+        good = pd.DataFrame({'VWL_PRE_FAR_0': [0., .05], 'VWL_PRE_LOCAL_0': [.01, .04],
+                             'VWL_PRE_PEAK_0': [.02, .06]})
+        tb._check_distributed_precharge(good, 'read')
+        bad = good.copy()
+        bad.loc[1, 'VWL_PRE_FAR_0'] = .4
+        with self.assertRaisesRegex(RuntimeError, 'precharge.*1'):
+            tb._check_distributed_precharge(bad, 'read')
+        bad.loc[1, 'VWL_PRE_FAR_0'] = float('nan')
+        with self.assertRaises(RuntimeError):
+            tb._check_distributed_precharge(bad, 'write')
+        with self.assertRaises(RuntimeError):
+            tb._check_distributed_precharge(good, 'read&write')
+        rebound = good.copy()
+        rebound.loc[0, 'VWL_PRE_PEAK_0'] = .2
+        with self.assertRaises(RuntimeError):
+            tb._check_distributed_precharge(rebound, 'read')
+
+    def test_read_swing_measurement_excludes_startup_crossings(self):
+        import tempfile
+        for interconnect in (None, wire_config()):
+            with self.subTest(distributed=interconnect is not None), tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
+                tb = Sram6TCoreMcTestbench(load_config(4, 4, 'TT'), w_rc=True, choose_columnmux=True,
+                                          interconnect=interconnect, variation_mode='nominal', sim_path=temp)
+                circuit = tb.create_testbench('read', 3, 3)
+                simulator = circuit.simulator(simulator='xyce-serial', temperature=25)
+                tb.add_meas_and_print(simulator, tb.data_init(), 'read')
+                lines = [line.upper() for line in str(simulator).splitlines() if line.upper().startswith('.MEAS')]
+                for measure in ('TWL', 'TBL'):
+                    line = next(line for line in lines if f' {measure} WHEN ' in line)
+                    self.assertIn('TD=', line)
+                    self.assertIn('TO=', line)
+
+    def test_cli_rejects_unsafe_precharge_after_successful_xyce_exit(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from sram_compiler.per_device_mc import run
+        with tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
+            deck = Path(temp) / 'deck.sp'
+            args = SimpleNamespace(run_xyce=True, xyce='Xyce', seed=1, waveform=False, audit=False)
+            summary = dict(interconnect=wire_config(), operation='write', vdd=1., mc_runs=1,
+                           variation_mode='nominal', run_dir=temp)
+            with patch.object(run, 'parse_args', return_value=args), \
+                    patch.object(run, 'generate_deck', return_value=(deck, summary)), \
+                    patch.object(run, 'run_xyce'):
+                Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .4\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .4\n')
+                with self.assertRaisesRegex(RuntimeError, 'precharge'):
+                    run.main()
+                Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .01\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .02\n')
+                self.assertEqual(run.main(), 0)
 
 
 if __name__ == '__main__':

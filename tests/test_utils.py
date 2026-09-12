@@ -21,7 +21,7 @@ from utils.plotting import plot_delay, plot_leak_delay, plot_power, plot_rc_dela
 
 
 class UtilityTests(unittest.TestCase):
-    def test_measurements_keep_failed_values_and_filter_negative_timing_samples(self):
+    def test_measurements_preserve_failed_and_missing_sample_positions(self):
         with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
             prefix = Path(temp) / 'sample'
             for index, values in enumerate([
@@ -30,10 +30,22 @@ class UtilityTests(unittest.TestCase):
                 'TSA = 4e-10\nPAVG = 2e-6\n',
             ]):
                 Path(f'{prefix}.mt{index}').write_text(values)
-            data = parse_mc_measurements(str(prefix), num_runs=3)
-            self.assertEqual(list(data.index), [0, 2])
+            data = parse_mc_measurements(str(prefix), num_runs=4)
+            self.assertEqual(list(data.index), [0, 1, 2, 3])
             self.assertTrue(np.isnan(data.loc[0, 'PAVG']))
+            self.assertTrue(np.isnan(data.loc[1, 'TSA']))
+            self.assertAlmostEqual(data.loc[1, 'PAVG'], 1e-6)
+            self.assertTrue(data.loc[3].isna().all())
             self.assertAlmostEqual(generate_mc_statistics(data).loc['TSA', 'mean'], 3e-10, delta=1e-22)
+
+    def test_measurements_keep_zero_and_reject_nonfinite_values(self):
+        with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
+            prefix = Path(temp) / 'sample'
+            Path(f'{prefix}.mt0').write_text('VWL_PRE_0 = 0\nPAVG = inf\nTSA = -1e-10\n')
+            data = parse_mc_measurements(str(prefix), num_runs=1)
+            self.assertEqual(data.loc[0, 'VWL_PRE_0'], 0)
+            self.assertTrue(np.isnan(data.loc[0, 'PAVG']))
+            self.assertTrue(np.isnan(data.loc[0, 'TSA']))
 
     def test_prn_samples_plot_through_the_legacy_package_api(self):
         with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()), plt.rc_context():

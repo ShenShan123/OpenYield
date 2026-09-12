@@ -234,14 +234,20 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
             # Add measurements for read delay (TREAD),读延迟
             # which is defined as the time from the WL rise to BL swing to VDD/2
+            # Mux/input RC can cross the differential threshold during initial
+            # condition release. Measure only the first clock-low access;
+            # otherwise TBL can be a few ps and TSWING several ns negative.
+            access_start = 1e-9 + .65 * float(self.t_period)
+            access_stop = 1e-9 + 1.2 * float(self.t_period)
+            access_window = f'TD={access_start:.12g} TO={access_stop:.12g}'
             simulator.measure(
                 'TRAN', 'TWL',
-                f'WHEN V({local_wl})={self.half_vdd} RISE=1 ')  # modified for Xyce
+                f'WHEN V({local_wl})={self.half_vdd} RISE=1 {access_window}')  # modified for Xyce
             # Define minimum Vswing = 250mV
             vswing = 0.25
             simulator.measure(
                 'TRAN', 'TBL',
-                f"WHEN V({sense_bl})='V({sense_blb})-{vswing}' FALL=1")
+                f"WHEN V({sense_bl})='V({sense_blb})-{vswing}' FALL=1 {access_window}")
             simulator.measure('TRAN', 'TSWING', f"PARAM='TBL-TWL'")
 
             # Sense-amp delay (TSA): sense-enable assertion -> data output valid.  OUT is
@@ -428,7 +434,51 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             raise ValueError(f"Invalid operation: {operation}")
 
         if self.interconnect.distributed and operation in ('read', 'write', 'read&write'):
+            self._add_precharge_safety_measures(simulator, operation)
             self._add_interconnect_print(simulator)
+
+    def _add_precharge_safety_measures(self, simulator, operation):
+        """Check release at precharge onset, including every sequence access.
+
+        The replica observer switches near mid-rail. On a slow distributed
+        wordline its low-voltage tail can outlast the PRE logic, even when
+        data and delay measures pass. A cycle-local window prevents a missing
+        precharge edge from borrowing the following cycle's event.
+        """
+        period = float(self.t_period)
+        probes = {'FAR': f'{self.arr_inst_prefix}:WL{self.target_row}_far',
+                  'LOCAL': self.cell_probe('WL')}
+        for cycle in range(8 if operation == 'read&write' else 1):
+            start = 1e-9 + (cycle + 1.16) * period
+            stop = 1e-9 + (cycle + 1.7) * period
+            for location, node in probes.items():
+                simulator.measure('TRAN', f'VWL_PRE_{location}_{cycle}',
+                                  f'FIND V({node}) WHEN V(PRE)={.9 * float(self.vdd):.12g} '
+                                  f'FALL=1 TD={start:.12g} TO={stop:.12g}')
+            # Bitline restoration can capacitively lift an already falling WL.
+            # Check the whole precharge interval as well as its starting edge.
+            simulator.measure('TRAN', f'VWL_PRE_PEAK_{cycle}',
+                              f'MAX {{IF(V(PRE)<{.9 * float(self.vdd):.12g},'
+                              f'MAX(ABS(V({probes["FAR"]})),ABS(V({probes["LOCAL"]}))),0)}} '
+                              f'FROM={start:.12g} TO={stop:.12g}')
+
+    def _check_distributed_precharge(self, measurements, operation):
+        self.validate_distributed_precharge(measurements, operation, float(self.vdd))
+
+    @staticmethod
+    def validate_distributed_precharge(measurements, operation, vdd):
+        """Refuse unsafe/incomplete samples while preserving their raw measures."""
+        names = [f'VWL_PRE_{location}_{cycle}'
+                 for cycle in range(8 if operation == 'read&write' else 1)
+                 for location in ('FAR', 'LOCAL', 'PEAK')]
+        values = measurements.reindex(columns=names).to_numpy(dtype=float)
+        valid = np.isfinite(values).all(axis=1) & (np.abs(values) <= .1 * vdd).all(axis=1)
+        if measurements.empty or not valid.all():
+            failed = list(measurements.index[~valid])
+            raise RuntimeError('Distributed precharge overlaps an active wordline or its '
+                               f'release measurement is missing in samples {failed}. '
+                               'Inspect VWL_PRE_* and the waveforms; this wire/timing '
+                               'configuration cannot supply valid SRAM metrics.')
 
     def _add_interconnect_print(self, simulator):
         """Export physical wire endpoints and sense inputs for waveform scoring."""
@@ -473,6 +523,16 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # fights the DFF output inverter (~300 uA) until the clamp releases, i.e. inside
         # the EREAD / EWRITE window.
         init_cond['XTIME:Xdff_buf:qint'] = self.vdd @ u_V
+        if self.operation in ('write', 'read&write'):
+            # DIN_dff is already parked at zero by the write setup. Initialize
+            # both hold-latch nodes and the register's complementary slave node
+            # consistently, rather than asking DC Newton to choose the states
+            # of hundreds of coupled feedback loops. This recovers the archived
+            # 16x256 TT local-mismatch sample that failed the operating point.
+            for col in range(self.num_cols):
+                init_cond[f'DIN_hold{col}'] = 0 @ u_V
+                init_cond[f'DIN_holdb{col}'] = self.vdd @ u_V
+                init_cond[f'XTIME:Xdff_buf_data:Xdff_{col}:z5'] = self.vdd @ u_V
         return init_cond
 
     def _print_min_period(self, stats_csv_path, operation):
@@ -1006,25 +1066,18 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # assert 0
         # Execute Xyce and parse results
         try:
-            import subprocess
             log_path = tb_path.replace('.sp', '.log')
 
             def _run_xyce():
                 # command: Xyce <netlist>
                 print("[DEBUG] Xyce running ...")
-                res = subprocess.run(
+                from utils.xyce import execute_xyce
+                res = execute_xyce(
+                    tb_path,
                     # ['hspice', '-i', tb_path, '-o', self.sim_path],
                     ['Xyce', tb_path, '-o', tb_path],
-                    capture_output=True,
-                    text=True, check=False
+                    log_path=log_path,
                 )
-                # Keep the Xyce console output next to the netlist: it carries the
-                # netlist warnings (floating nodes, failed measures, time-step
-                # problems) that are otherwise lost when the run succeeds.
-                with open(log_path, 'w') as f:
-                    f.write(res.stdout)
-                    if res.stderr:
-                        f.write('\n--- stderr ---\n' + res.stderr)
                 return res
 
             result = _run_xyce()
@@ -1123,6 +1176,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 )
                 print("[DEBUG] Printing mc_df")
                 print(mc_df)
+                if self.interconnect.distributed:
+                    # Keep evidence even when timing safety rejects the run.
+                    mc_df.to_csv(tb_path.replace('.sp', '.data.csv'))
+                    self._check_distributed_precharge(mc_df, operation)
                 # Generate statistics
                 stats = generate_mc_statistics(mc_df)
                 # Save results

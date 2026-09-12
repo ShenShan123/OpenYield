@@ -1,4 +1,4 @@
-# Per-device local mismatch — V2.0.9
+# Per-device local mismatch — V2.0.10
 
 This package is part of the SRAM compiler. Independent local mismatch is the
 default for both its runner and `Sram6TCoreMcTestbench`: the selected PDK corner
@@ -10,6 +10,13 @@ draw. This model does not apply area scaling or calibrated parameter correlation
 `main_sram.py` at the repository root is the script entrance with the same
 default: seeded per-device mismatch (`MC_SEED = 20260711`) over the full array,
 with the YAML files read in memory. This runner is the command-line form.
+
+V2.0.10 retains every requested measurement-sample index and rejects missing or
+unsafe distributed wordline-release measurements. A failed DC operating point
+gets one Newton line-search retry with the same sampling seed; the first deck,
+log and outputs remain in `dcop_attempt/`. If an unseeded run's actual seed
+cannot be recovered, it remains failed. A successful simulator exit is not a
+full timing or yield qualification.
 
 Run commands from the repository root:
 

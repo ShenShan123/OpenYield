@@ -523,6 +523,15 @@ class AND2_WEN(AND2):
     NAME = "AND2_WEN"
 
 
+class PrechargeGuardDelay(WenDelayChain):
+    """Non-inverting settling delay with a distinct subcircuit identity."""
+    NAME = "PRECHARGE_GUARD_DELAY"
+
+
+class PrechargeGuardAnd(AND2):
+    NAME = "AND2_PRE_GUARD"
+
+
 class TIME(BaseSubcircuit):
     """
     时序信号生成
@@ -542,6 +551,7 @@ class TIME(BaseSubcircuit):
                  sen_load=None, iso_load=None,
                  replica_precharge_guard=False,
                  sen_effort=None,
+                 precharge_guard_stages=0,
                  ):
         """
         num_sa:   number of sense amplifiers driven by s_en (num_cols / mux_in);
@@ -557,6 +567,11 @@ class TIME(BaseSubcircuit):
                   default assumes the 0.18/0.36 um base widths scaled with
                   max(8, rows)/16.
         """
+        if (isinstance(precharge_guard_stages, bool) or not isinstance(precharge_guard_stages, int)
+                or precharge_guard_stages < 0 or precharge_guard_stages % 2):
+            raise ValueError('Precharge guard stages must be a nonnegative even integer')
+        if precharge_guard_stages and not replica_precharge_guard:
+            raise ValueError('Precharge settling delay requires the replica guard')
         # 计算需要的地址位数
         n_bits = ceil(log2(num_rows)) if num_rows > 1 else 1
         num_sa = num_cols if num_sa is None else int(num_sa)
@@ -940,6 +955,20 @@ class TIME(BaseSubcircuit):
             self.subcircuit(observer)
             self.X('rwl_precharge_guard', observer.NAME, 'VDD', 'VSS', 'rwl', 'rwl_pre_bar')
             pre_wordline_bar = 'rwl_pre_bar'
+            if precharge_guard_stages:
+                # The observer switches near mid-rail. A distributed WL can
+                # still exceed 10% VDD when PRE's original logic delay expires
+                # (observed at 512 columns). Allow its falling tail to settle,
+                # while retaining the immediate replica inhibit for assertion.
+                guard_delay = PrechargeGuardDelay(stages=precharge_guard_stages)
+                guard_and = PrechargeGuardAnd(nmos_model, pmos_model, nmos_model, pmos_model)
+                self.subcircuit(guard_delay)
+                self.subcircuit(guard_and)
+                self.X('precharge_guard_delay', guard_delay.NAME, 'VDD', 'VSS',
+                       'rwl_pre_bar', 'rwl_pre_delayed')
+                self.X('precharge_guard_ready', guard_and.NAME, 'VDD', 'VSS',
+                       'rwl_pre_bar', 'rwl_pre_delayed', 'pre_ready')
+                pre_wordline_bar = 'pre_ready'
         pre_unbuf = PNAND3(nmos_model="NMOS_VTG",
                    pmos_model="PMOS_VTG",
                    nmos_width=0.27e-6,

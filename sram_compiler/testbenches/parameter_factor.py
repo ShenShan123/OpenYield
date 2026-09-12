@@ -1006,6 +1006,7 @@ class TIMEFactory:
                  sen_load=None, iso_load=None,
                  replica_precharge_guard=False,
                  sen_effort=None,
+                 precharge_guard_stages=0,
                  ):
 
         self.nmos_model = nmos_model
@@ -1028,6 +1029,7 @@ class TIMEFactory:
         self.iso_load = iso_load
         self.replica_precharge_guard = replica_precharge_guard
         self.sen_effort = sen_effort
+        self.precharge_guard_stages = precharge_guard_stages
     def create(self):
         return TIME(
             nmos_model=self.nmos_model,
@@ -1049,6 +1051,7 @@ class TIMEFactory:
             iso_load=self.iso_load,
             replica_precharge_guard=self.replica_precharge_guard,
             sen_effort=self.sen_effort,
+            precharge_guard_stages=self.precharge_guard_stages,
         )
     
 class Sram10TCellFactory:

@@ -78,6 +78,7 @@ class DriverSizes:
     physical_key: str = ""
     size_class: str = ""
     extrapolated: bool = False
+    precharge_guard_stages: int = 0
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -317,9 +318,10 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     nand_units = round(nand_gate / 0.45e-6, 12)
     rc_input_units = (_positive('pi_cap', context.get('pi_cap', _RULES['peripheral_rc_cap_f'])) / _RULES['unit_inverter_cap_f']
                       if context.get('w_rc', False) else 0.0)
-    # Wordline-driver A and B each have two RC sections; other peripheral
-    # enables have one. TIME itself has no optional RC wrapper in this compiler.
+    # Wordline-driver A/B and sense-amplifier EN/ISO each have two RC sections;
+    # precharge and write-driver enables have one. TIME has no RC wrapper.
     rc_wl_units = 2 * rc_input_units / 1.25
+    rc_sa_units = 2 * rc_input_units
     num_sa = cols // (2 if mux else 1) + int(distributed)
     sa = sram_config.senseamp
     sa_n_units = round(_positive('SA NMOS width', sa.nmos_width.value) / 0.36e-6, 12)
@@ -336,8 +338,8 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         + (rows + int(replica_matched)) * rc_wl_units,
         num_sa=num_sa,
         wenb_scale=wenb_scale,
-        sen_load=num_sa * (sa_n_units + rc_input_units) + 3.5,
-        iso_load=num_sa * (sa_iso_units + rc_input_units),
+        sen_load=num_sa * (sa_n_units + rc_sa_units) + 3.5,
+        iso_load=num_sa * (sa_iso_units + rc_sa_units),
         sen_effort=3.0 if rc_input_units else 4.0,
     )
     periphery = _peripheral_inputs(sram_config)
@@ -359,6 +361,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         'replica_matched': replica_matched, 'replica_k': replica_k, 'dc_stages': dc_stages,
         'effort_buffers': effort_buffers, 'canonical_read': canonical_read,
         'replica_precharge_guard': distributed or bool(rc_input_units and replica_matched),
+        'precharge_guard_stages': 4 if distributed else 0,
         'replica_nmos_models': tuple(cell.nmos_model.value),
         'replica_nmos_widths': tuple(cell.nmos_width.value),
         'replica_pmos_model': cell.pmos_model.value,

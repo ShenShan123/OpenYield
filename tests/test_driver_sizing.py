@@ -15,6 +15,8 @@ from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.sizing.driver_sizing import DEFAULT_LOOKUP, interpolate_class
 from sram_compiler.sizing.table import physical_context
 from sram_compiler.subcircuits.precharge_and_write_driver import WriteDriver
+from sram_compiler.subcircuits.mux_and_sa import SenseAmp
+from PySpice.Unit import u_pF
 from sram_compiler.testbenches.parameter_factor import (
     PrechargeFactory,
     WordlineDriverFactory,
@@ -91,10 +93,31 @@ class ResolverTests(unittest.TestCase):
         self.assertAlmostEqual(rc.loads.pre_load - base.loads.pre_load, 34)
         self.assertAlmostEqual(rc.loads.wen_load - base.loads.wen_load, 32)
         self.assertAlmostEqual(rc.loads.wl_load - base.loads.wl_load, 54.4)
-        self.assertAlmostEqual(rc.loads.sen_load, 47.5)
-        self.assertAlmostEqual(rc.loads.iso_load, 96)
+        self.assertAlmostEqual(rc.loads.sen_load, 79.5)
+        self.assertAlmostEqual(rc.loads.iso_load, 128)
         self.assertAlmostEqual(rc.dec_inv, 16 / 15)
         self.assertNotEqual(base.key, rc.key)
+
+    def test_sense_control_loads_include_every_generated_rc_section(self):
+        wires = load_interconnect('sram_compiler/config_yaml/interconnect_example.yaml')
+        for mode in ('lookup', 'rules_only'):
+            for mux in (False, True):
+                for interconnect in (None, wires):
+                    for cap in (1e-15, 7e-15):
+                        with self.subTest(mode=mode, mux=mux, wires=interconnect is not None, cap=cap), redirect_stdout(io.StringIO()):
+                            cfg = config(8, 64, mode)
+                            base = resolve_driver_sizes(cfg, mux=mux, physical_context=physical_context(False, interconnect=interconnect))
+                            rc = resolve_driver_sizes(cfg, mux=mux, physical_context=physical_context(True, pi_cap=cap, interconnect=interconnect))
+                            sa = cfg.senseamp
+                            circuit = SenseAmp(sa.nmos_model.value, sa.pmos_model.value,
+                                               sa.nmos_width.value, sa.pmos_width.value, sa.length.value,
+                                               w_rc=True, pi_cap=(cap / 1e-12) @ u_pF)
+                            for pin, load in (('EN', 'sen_load'), ('ISO', 'iso_load')):
+                                capacitance = sum(float(e.capacitance) for e in circuit.elements
+                                                  if e.name.startswith(f'CCg_{pin}_'))
+                                # The load model uses a 0.5-fF unit inverter.
+                                expected = rc.loads.num_sa * capacitance / .5e-15
+                                self.assertAlmostEqual(getattr(rc.loads, load) - getattr(base.loads, load), expected)
 
     def test_result_and_nested_loads_are_frozen_and_serializable(self):
         sizes = resolve_driver_sizes(config())

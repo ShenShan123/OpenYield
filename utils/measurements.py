@@ -21,7 +21,8 @@ def parse_mc_measurements(netlist_prefix: str = "simulation",
         value_threshold: Minimum absolute value to consider valid
 
     Returns:
-        DataFrame containing parsed results with runs as rows
+        DataFrame with one row per requested run. Missing files and failed or
+        invalid measurements remain missing values, never removed samples.
     """
     measurement_cache = {}
     raw_data = []
@@ -46,9 +47,12 @@ def parse_mc_measurements(netlist_prefix: str = "simulation",
                 return var_name, missing_value
 
             # Numeric conversion
-            value = float(raw_value) if '.' in raw_value or 'e' in raw_value.lower() else int(raw_value)
+            value = float(raw_value)
+            if not np.isfinite(value) or (var_name in ('TSA', 'TS_EN', 'TSWING') and value < 0):
+                print(f"[WARNING] Invalid measurement {var_name}: {raw_value}")
+                return var_name, missing_value
 
-            if abs(value) < value_threshold:
+            if value != 0 and abs(value) < value_threshold:
                 return None, None
 
             return var_name, value
@@ -60,6 +64,7 @@ def parse_mc_measurements(netlist_prefix: str = "simulation",
         file_path = Path(f"{netlist_prefix}.{file_suffix}{run_id}")
         if not file_path.exists():
             print(f"Warning: Missing file {file_path}")
+            raw_data.append({"Run": run_id})
             continue
 
         run_data = {"Run": run_id}
@@ -70,18 +75,7 @@ def parse_mc_measurements(netlist_prefix: str = "simulation",
                     run_data[var_name] = value
                     measurement_cache[var_name] = True
 
-        if num_runs>1:
-            # 只跑一次的话正常显示，跑多次蒙卡时要检查TSA、TS_EN、TSWING是否为负数，如果是则跳过此次结果，否则会影响结果
-            skip_run = False
-            for param in ['TSA', 'TS_EN', 'TSWING']:
-                if param in run_data and run_data[param] < 0:
-                    print(f"Skipping run {run_id} due to negative {param} value: {run_data[param]}")
-                    skip_run = True
-                    break
-            if not skip_run:
-                raw_data.append(run_data)
-        else:
-            raw_data.append(run_data)
+        raw_data.append(run_data)
 
     # Build complete dataframe
     all_vars = sorted(measurement_cache.keys())
@@ -91,7 +85,7 @@ def parse_mc_measurements(netlist_prefix: str = "simulation",
         full_entry["Run"] = entry["Run"]
         clean_data.append(full_entry)
 
-    return pd.DataFrame(clean_data).set_index('Run')
+    return pd.DataFrame(clean_data, columns=['Run', *all_vars]).set_index('Run')
 
 def generate_mc_statistics(df: pd.DataFrame) -> pd.DataFrame:
     """

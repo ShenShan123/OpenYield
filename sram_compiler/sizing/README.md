@@ -1,13 +1,19 @@
-# V2.0.9 driver sizing: fixed size classes
+# V2.0.10 driver sizing: fixed size classes
 
-V2.0.9 replaces the continuous driver sizing rules with a lookup table of fixed
+V2.0.9 introduced a lookup table of fixed
 integer size classes, `sizing_lookup.json`. Every array configuration maps to
 one row class and one column class, so the precharge, write driver, wordline
 driver and decoder output inverter are always one of a small set of fixed
 device sizes. The motivation is layout generation: a layout library is drawn
 from fixed transistors, so the sizes must not vary continuously with the array.
 The legacy `fixed` mode (the original `rows/16`, `sqrt` array rules with the
-known 8-row write weakness) was removed in this release.
+known 8-row write weakness) was removed in V2.0.9.
+
+V2.0.10 retains the table's `v2.0.9-lookup-1` identity and transistor classes.
+It counts both sense-amplifier EN/ISO RC sections and freezes a four-stage
+precharge settling guard for distributed arrays (`precharge_guard_stages=4`,
+zero for star). These TIME changes need waveform validation; see the
+[review and limits](../../docs/design/DISTRIBUTED_RC_V210_REVIEW.md).
 
 ## Size classes
 
