@@ -1,4 +1,4 @@
-# Automatic timing configuration — V2.1.1 guide and historical proposal
+# Automatic timing configuration — V2.1.2 guide and historical proposal
 
 V2.1.1 retains the timing table introduced in V2.1.0: **a fixed lookup table with
 row and column classes, like driver sizing**. `timing.mode: lookup` is now the

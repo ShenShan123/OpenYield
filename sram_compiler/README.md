@@ -1,4 +1,4 @@
-# SRAM Compiler and Test Platform User Guide — V2.1.1
+# SRAM Compiler and Test Platform User Guide — V2.1.2
 
 V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. The [timing guide](sizing/README.md#clock-classes-v210) covers settings, explicit overrides and evidence limits.
 

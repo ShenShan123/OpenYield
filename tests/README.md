@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.1.1
+# Compiler regression tests — V2.1.2
 
 V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
 
@@ -6,6 +6,10 @@ V2.1.1 adds distributed defaults and explicit star rejection, consumer-tap
 connectivity, peripheral/decoder/clock/select fan-out, complete retention and
 finite CLI metric rejection. Software checks do not establish waveform
 correctness; see the [current release report](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md).
+
+V2.1.2 adds bounded-step retry cases for explicit `.TRAN` fields, CLI
+VDD/temperature overrides in the deck and run identity, and the recorded Xyce
+installation on a failed run.
 
 The access-start regressions also cover far-PRE guard connectivity, physical
 RC settling frozen across candidates/PVT, stale-baseline rejection, and

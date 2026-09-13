@@ -1,4 +1,4 @@
-# OpenYield V2.1.1 development tools
+# OpenYield V2.1.2 development tools
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
 
@@ -11,6 +11,14 @@ and final sequence retention directly from waveforms.
 `dev/v210_followup_queue.py` runs the nominal full-array follow-up serially
 with preserved attempts, source identities and bounded lifetimes. See the
 [schedule and resume commands](../plans/V2_1_1_TIMING_FOLLOWUP.md).
+
+V2.1.2 extends the runtime `utils.xyce.execute_xyce` timestep retry to `.TRAN`
+lines with a start time or a step ceiling above 20 ps; a deck already bounded
+at 20 ps is not retried. Xyce also prints `Step size reached minimum step size
+bound` in runs that complete, so classify a run by its exit status,
+`Time step too small` / `DC Operating Point Failed` and missing outputs, never
+by that warning. Keep the recorded `xyce` installation: the `openyield`
+environment links MPICH, so Open MPI `ORTE` errors come from another stack.
 
 The circuit generator lives in `sram_compiler/`. Reusable compiler regression
 tests live in the tracked top-level `tests/` directory. Local experiments,

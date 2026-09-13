@@ -1,4 +1,4 @@
-# SRAM 等效电路使用说明 — V2.1.1
+# SRAM 等效电路使用说明 — V2.1.2
 
 本文档介绍等效电路（Equivalent Circuit）功能的参数配置和使用方法，代码实现在 `sram_compiler/subcircuits/sram_cell_add_equivalent.py`。
 

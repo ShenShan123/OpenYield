@@ -106,3 +106,26 @@ class XyceRetryTests(unittest.TestCase):
             with patch('utils.xyce.subprocess.run', return_value=electrical) as run:
                 self.assertEqual(execute_xyce(deck, ['Xyce', str(deck)]).returncode, 0)
                 self.assertEqual(run.call_count, 1)
+
+    def test_timestep_retry_bounds_explicit_transient_fields_but_not_bounded_decks(self):
+        """A start time or a coarse ceiling must not silently skip the bounded retry."""
+        cases = {'.TRAN 1e-11 9e-9 1e-9': '.TRAN 1e-11 9e-9 1e-9 2.0000e-11',
+                 '.TRAN 10p 9n 0 50p UIC': '.TRAN 10p 9n 0 2.0000e-11 UIC'}
+        failed = subprocess.CompletedProcess(['Xyce'], 0, 'Time step too small', '')
+        passed = subprocess.CompletedProcess(['Xyce'], 0, 'complete', '')
+        for line, bounded in cases.items():
+            with self.subTest(line=line), tempfile.TemporaryDirectory() as temp:
+                deck = Path(temp) / 'deck.sp'
+                deck.write_text(f'Circuit\n{line}\n.END\n')
+                with patch('utils.xyce.subprocess.run', side_effect=[failed, passed]) as run:
+                    self.assertEqual(execute_xyce(deck, ['Xyce', str(deck)]).returncode, 0)
+                self.assertEqual(run.call_count, 2)
+                self.assertIn(f'\n{bounded}\n', deck.read_text())
+                self.assertIn(f'\n{line}\n', (Path(temp) / 'timestep_attempt/deck.sp').read_text())
+        # Already at the retry ceiling: rerunning the same deck would only repeat the failure.
+        with tempfile.TemporaryDirectory() as temp:
+            deck = Path(temp) / 'deck.sp'
+            deck.write_text('Circuit\n.TRAN 1e-11 9e-9 0 20p\n.END\n')
+            with patch('utils.xyce.subprocess.run', return_value=failed) as run:
+                self.assertNotEqual(execute_xyce(deck, ['Xyce', str(deck)]).returncode, 0)
+            self.assertEqual(run.call_count, 1)

@@ -1,10 +1,15 @@
-# OpenYield V2.1.1 documentation
+# OpenYield V2.1.2 documentation
 
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
 [current release report](design/DISTRIBUTED_ONLY_V2_1_1.md) and
 [evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md). The unchanged timing
 table was introduced in the [V2.1.0 review](design/TIMING_LOOKUP_V2_1_0.md).
+
+V2.1.2 keeps that circuit and adds run traceability (CLI VDD/temperature,
+recorded Xyce installation, bounded-step retry for explicit `.TRAN` fields).
+Its audit of the supplied [first-500 write-failure inventory](issue_reports/write_failure_cases_first_500.md)
+is appended to that report; see the [changelog](CHANGELOG.md).
 
 Project plans and release history live here. Usage guides live beside the code
 they describe. Commands and code paths in the documents are relative to the

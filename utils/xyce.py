@@ -47,9 +47,8 @@ def execute_xyce(deck_path, command, *, log_path=None, cwd=None, timeout=None, e
             amended = deck
         elif 'Time step too small' in output:
             kind = 'timestep'
-            amended, count = re.subn(r'(?im)^(\.TRAN\s+\S+\s+\S+)[ \t]*$',
-                                    r'\1 0 2.0000e-11', deck, count=1)
-            if count != 1:
+            amended = _bound_transient_step(deck)
+            if amended is None:
                 return result
         else:
             return result
@@ -72,6 +71,47 @@ def execute_xyce(deck_path, command, *, log_path=None, cwd=None, timeout=None, e
         log_path.write_text(f'{kind} retry; original attempt: {attempt}\n'
                             + '\n'.join(options) + '\n' + log_path.read_text())
     return result
+
+
+RETRY_MAX_STEP = 2e-11
+_SPICE_SCALE = {'t': 1e12, 'g': 1e9, 'meg': 1e6, 'k': 1e3, 'm': 1e-3, 'mil': 25.4e-6,
+                'u': 1e-6, 'n': 1e-9, 'p': 1e-12, 'f': 1e-15}
+
+
+def _spice_number(text):
+    match = re.fullmatch(r'([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)(meg|mil|[tgkmunpf])?[a-z]*',
+                         text, re.IGNORECASE)
+    if match is None:
+        return None
+    return float(match[1]) * _SPICE_SCALE.get((match[2] or '').lower(), 1.0)
+
+
+def _bound_transient_step(deck):
+    """Cap the .TRAN step ceiling at 20 ps, or return None if nothing is tighter.
+
+    The ceiling is the fourth positional field, after the optional start time.
+    Decks with a start time or a coarser explicit ceiling need the retry as
+    much as two-field decks; a deck already bounded at 20 ps has no tighter one.
+    """
+    match = re.search(r'(?im)^(\.TRAN)[ \t]+([^\n]*?)[ \t]*$', deck)
+    if match is None:
+        return None
+    fields = match[2].split()
+    positional = 0
+    for field in fields[:4]:
+        if _spice_number(field) is None:
+            break
+        positional += 1
+    if positional < 2:
+        return None
+    ceiling = f'{RETRY_MAX_STEP:.4e}'
+    if positional == 4:
+        if _spice_number(fields[3]) <= RETRY_MAX_STEP * (1 + 1e-9):
+            return None
+        fields[3] = ceiling
+    else:
+        fields[positional:positional] = ['0', ceiling][positional - 2:]
+    return deck[:match.start()] + f'{match[1]} ' + ' '.join(fields) + deck[match.end():]
 
 
 def _preserve_attempt(deck_path, log_path, kind):

@@ -1,6 +1,6 @@
 # Automatic driver sizing for all array sizes — proposal (V2.0.6)
 
-Current release: **V2.1.1** uses distributed signal wiring only. The
+Current release: **V2.1.2** uses distributed signal wiring only. The
 V2.0.9 transistor classes, V2.0.5 `rules_only` identity and qualification
 format remain unchanged; V2.1.0 fixed clock budgets remain unqualified for
 unmeasured routing/PVT combinations. The

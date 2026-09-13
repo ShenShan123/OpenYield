@@ -200,7 +200,7 @@ class TimingLookupTests(unittest.TestCase):
             second, repeated = run.generate_deck(args)
             self.assertNotEqual(first.parent, second.parent)
             self.assertEqual(evidence.read_text(), 'FAILED original')
-            self.assertEqual(summary['compiler_version'], 'V2.1.1')
+            self.assertEqual(summary['compiler_version'], 'V2.1.2')
             self.assertAlmostEqual(summary['timing']['t_period'], 4e-9)
             self.assertEqual(summary['timing']['source'], 'fixed')
             args.run_xyce = True
@@ -212,6 +212,33 @@ class TimingLookupTests(unittest.TestCase):
             saved = json.loads((second.parent / 'summary.json').read_text())
             self.assertIn('solver failed', saved['simulation_error'])
             self.assertIn('timing', saved)
+            # A failed run without its solver installation cannot be matched to an MPI stack.
+            self.assertIn('xyce', saved)
+
+    def test_cli_pvt_overrides_reach_deck_metadata_and_run_identity(self):
+        from sram_compiler.per_device_mc import run
+        with tempfile.TemporaryDirectory() as temp:
+            base = ['run', '--rows', '2', '--cols', '2', '--variation-mode', 'nominal',
+                    '--output-dir', temp, '--no-waveform']
+            with patch('sys.argv', base):
+                default_args = run.parse_args()
+            with patch('sys.argv', base + ['--vdd', '0.8', '--temperature', '-40']):
+                pvt_args = run.parse_args()
+            default_deck, default = run.generate_deck(default_args)
+            deck, summary = run.generate_deck(pvt_args)
+            self.assertEqual((default['vdd'], default['temperature']), (1.0, 25))
+            self.assertEqual((summary['vdd'], summary['temperature']), (0.8, -40.0))
+            text = deck.read_text()
+            self.assertRegex(text, r'(?m)^VVDD VDD VSS 0\.8V$')
+            self.assertRegex(text, r'(?m)^\.options TEMP = -40\.0$')
+            # A PVT point must not be filed as a repeated attempt of the default point.
+            self.assertNotIn('_attempt', deck.parent.name)
+            self.assertNotEqual(default_deck.parent.name.rsplit('_', 1)[1],
+                                deck.parent.name.rsplit('_', 1)[1])
+            for invalid in (['--vdd', '0'], ['--vdd', 'inf'], ['--temperature', 'nan']):
+                with patch('sys.argv', base + invalid), patch('sys.stderr'), \
+                        self.assertRaises(SystemExit):
+                    run.parse_args()
 
     def test_cli_rejects_missing_metrics_even_when_voltage_checks_pass(self):
         from sram_compiler.per_device_mc import run

@@ -1,6 +1,7 @@
 import os
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from sram_compiler.per_device_mc.netlist import specialize_netlist
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
@@ -1142,7 +1143,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             f.write(str(simulator))
         with open(tb_path + '.variation.json', 'w') as f:
             json.dump({**self.variation_summary, 'seed': self.mc_seed, 'samples': mc_runs,
-                       'compiler_version': VERSION, 'corner': self.corner,
+                       'compiler_version': VERSION, 'xyce': shutil.which('Xyce'),
+                       'corner': self.corner,
                        'temperature': temperature, 'vdd': float(self.vdd),
                        'model_sha256': hashlib.sha256(Path(getattr(
                            self.sram_config.global_config, f'pdk_path_{self.corner}')).read_bytes()).hexdigest(),

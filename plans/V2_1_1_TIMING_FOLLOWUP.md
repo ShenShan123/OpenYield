@@ -180,6 +180,11 @@ The supplied [first-500-run write failure inventory](../docs/issue_reports/write
 is a historical triage input. Match each deck, source version, solver and seed
 before interpreting its numerical failures; do not relabel it as post-fix
 V2.1.1 evidence or count missing results as successful writes.
+The V2.1.2 audit appended to that report found its source CSV, logs and
+collection script absent, its step-size summary a non-fatal solver warning,
+and one Open MPI (`ORTE`) failure from a different solver stack. Seven of its
+configurations pass nominal V2.1.1 runs. Use the CLI `--vdd`/`--temperature`
+options and keep the recorded `xyce` installation for every pilot sample.
 
 Repair or disable the legacy materialized-MPI numerical-fallback path before
 using it: it still deletes failed outputs and can consume multiple full

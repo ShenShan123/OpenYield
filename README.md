@@ -1,4 +1,4 @@
-# OpenYield V2.1.1: SRAM yield analysis and optimization
+# OpenYield V2.1.2: SRAM yield analysis and optimization
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
 
@@ -12,6 +12,13 @@ candidates and PVT samples. It also fixes narrow-array RC precharge overlap,
 write-register initialization, the distributed output-latch enable, and yield
 callers' measurement handling. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210)
 and [release review](docs/design/TIMING_LOOKUP_V2_1_0.md) for settings and validation limits.
+
+V2.1.2 keeps the V2.1.1 circuit, timing and driver sizes. The per-device CLI accepts
+`--vdd`/`--temperature`, run metadata records the Xyce installation, and the
+timestep retry also bounds decks with a start time or coarse step ceiling. The
+supplied [first-500 write-failure inventory](docs/issue_reports/write_failure_cases_first_500.md)
+is audited: its entries are unverified numerical or solver-environment
+non-completions, not observed write failures.
 
 V2.1.1 makes distributed RC the only signal-wire topology and the default. Explicit
 star settings are rejected. Array, replica, bitline periphery, decoder fan-out,

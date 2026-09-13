@@ -1,4 +1,4 @@
-# Distributed signal-wire RC — V2.1.1
+# Distributed signal-wire RC — V2.1.2
 
 Introduced in V2.0.7 and audited in V2.0.8 (see the
 [validation record](DISTRIBUTED_RC_VALIDATION.md)).

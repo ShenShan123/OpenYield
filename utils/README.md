@@ -1,4 +1,4 @@
-# Shared utilities — V2.1.1
+# Shared utilities — V2.1.2
 
 Introduced in V2.0.6, this package consolidates the former root `utils.py`, reusable `plot_data.py`
 functions, and shared optimizer plotting helpers. It is tracked runtime code;
@@ -9,6 +9,8 @@ V2.1.1 retains complete access/retention/release rejection and preserved
 numerical retry evidence, including nonfinite primary metric rejection. See
 the [release report](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md) for validation
 and the original version labels attached to historical results.
+V2.1.2 applies the single bounded-step retry to `.TRAN` lines with a start
+time or a step ceiling coarser than 20 ps.
 
 Waveform parsing accepts repeated `.PRINT` names only when their complete
 finite sample vectors match exactly. It preserves the first identical column,

@@ -7,6 +7,49 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.2 — 2026-09-13 — run traceability and write-failure inventory audit
+
+V2.1.2 changes no generated circuit, timing budget or driver size class. It
+audits the V2.1.1 release record and the supplied
+[first-500 write-failure inventory](issue_reports/write_failure_cases_first_500.md),
+and repairs the traceability gaps the audit exposed.
+
+- Apply the single bounded-step Xyce retry to `.TRAN` lines with a start time
+  or a step ceiling coarser than 20 ps (SPICE suffixes accepted). Decks already
+  bounded at 20 ps are not rerun; two-field decks are retried as before.
+- Add `--vdd` and `--temperature` to the per-device CLI. They override
+  `global.yaml`, reach the deck and summary, and enter the run identity, so a
+  PVT point is never filed as another point's attempt. Run names change for
+  every configuration.
+- Record the resolved Xyce installation as `xyce` in CLI summaries, including
+  failed runs, and in `Sram6TCoreMcTestbench` `.variation.json` sidecars.
+- Remove the unreferenced `docs/DRIVER_SIZING_data.csv` and
+  `docs/TIMING_AUTOCONFIG_data.csv` copies added in V2.1.1. The supplied root
+  CSVs are unchanged and remain the linked, hash-pinned sources.
+- Append the audit to the inventory without changing its table. Its source CSV,
+  logs and collection script are absent; `Step size reached minimum step size
+  bound` is a non-fatal solver warning (all 49 local logs containing it
+  completed); its `ORTE` failure is Open MPI, while the `openyield` Xyce links
+  MPICH. The inventory records no electrical write failure.
+
+Audit of V2.1.1: its 124 compiler / 54 development / 6 optimizer test counts,
+33,096 waveform checks across eleven cases, 73 evidence source hashes and the
+precharge-off tau (584.5864 ps for 8x512, 0.1451 ps for 8x4) were reproduced.
+
+Validation: **126 compiler tests pass on Python 3.9 and 3.11**, alongside 54
+development and six optimizer tests; compileall and `git diff --check` pass.
+Four default CLI decks (8x4 write, 16x16 per-device read, 8x4 SF read&write,
+64x4 write without waveforms) match a detached `6001a48` worktree after
+run-directory normalization. The per-device model file name differs only
+because its digest includes the absolute PDK path; the model and audit files
+are byte-identical. Seven 16x16 write configurations from the inventory (six
+reported failures and one reported pass) pass nominal V2.1.1 runs with runtime
+release, access, hold, restore and metric checks, with no solver warning or
+retry. A V2.1.2 CLI run with `--vdd 0.8 --temperature 125` (SS) reproduces the
+wrapper-generated deck and its `.mt0` measurements byte-for-byte and records
+`xyce`. No independent waveform scoring, PVT/mismatch campaign or qualification
+record is added.
+
 ## V2.1.1 — 2026-09-13 — distributed-only signal wiring and access exclusion
 
 The [V2.1.1 change](design/DISTRIBUTED_ONLY_V2_1_1.md) removes the star

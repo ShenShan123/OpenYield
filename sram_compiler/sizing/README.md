@@ -1,4 +1,4 @@
-# V2.1.1 driver sizing and timing: fixed classes
+# V2.1.2 driver sizing and timing: fixed classes
 
 V2.1.1 adds a far-PRE access-start guard: WL, write and sense enable wait for
 physical precharge release. The immutable baseline records its observer and

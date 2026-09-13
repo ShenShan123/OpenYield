@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import shutil
 import sys
 from pathlib import Path
@@ -126,6 +127,8 @@ def make_run_name(
     mc_runs: int,
     interconnect=None,
     timing=None,
+    vdd=None,
+    temperature=None,
 ) -> str:
     settings = {
         "compiler_version": VERSION,
@@ -147,6 +150,9 @@ def make_run_name(
         "waveform": args.waveform,
         "seed": args.seed,
         "timing": timing,
+        # Another supply or temperature is another configuration, not a repeated attempt.
+        "vdd": vdd,
+        "temperature": temperature,
     }
     digest = hashlib.sha256(
         json.dumps(settings, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -235,6 +241,10 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         raise ValueError(f"target_col must be in [0, {args.cols - 1}]")
 
     config = load_config(args.rows, args.cols, args.corner)
+    if getattr(args, 'vdd', None) is not None:
+        config.global_config.vdd = args.vdd
+    if getattr(args, 'temperature', None) is not None:
+        config.global_config.temperature = args.temperature
     if getattr(args, 'period', None) is not None:
         config.global_config.timing = {'mode': 'fixed', 't_period': args.period}
     if getattr(args, 'timing_lookup', None) is not None:
@@ -260,6 +270,8 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         mc_runs=mc_runs,
         interconnect=interconnect,
         timing=timing.to_dict(),
+        vdd=float(config.global_config.vdd),
+        temperature=float(config.global_config.temperature),
     )
     run_root = args.output_dir.expanduser().resolve()
     run_root.mkdir(parents=True, exist_ok=True)
@@ -434,11 +446,18 @@ def parse_args() -> argparse.Namespace:
     timing = parser.add_mutually_exclusive_group()
     timing.add_argument("--period", type=float, help="fixed diagnostic clock period in seconds")
     timing.add_argument("--timing-lookup", type=Path, help="alternative timing class JSON table")
+    parser.add_argument("--vdd", type=float, help="supply voltage in volts (default: global.yaml)")
+    parser.add_argument("--temperature", type=float,
+                        help="temperature in Celsius (default: global.yaml)")
     args = parser.parse_args()
     if args.rows <= 0 or args.cols <= 0:
         parser.error("--rows and --cols must be positive")
     if args.vth_std < 0:
         parser.error("--vth-std must be non-negative")
+    if args.vdd is not None and not (math.isfinite(args.vdd) and args.vdd > 0):
+        parser.error("--vdd must be finite and positive")
+    if args.temperature is not None and not math.isfinite(args.temperature):
+        parser.error("--temperature must be finite")
     if args.operation in SNM_OPERATIONS and not args.waveform:
         parser.error("SNM operations require waveform output; omit --no-waveform")
     return args
@@ -448,6 +467,13 @@ def main() -> int:
     args = parse_args()
     deck_path, summary = generate_deck(args)
     rejection: Exception | None = None
+    if args.run_xyce:
+        # Solver/MPI stacks differ between environments; keep the installation
+        # even when the run fails before producing measurements.
+        try:
+            summary["xyce"] = find_xyce(args.xyce)
+        except FileNotFoundError:
+            summary["xyce"] = None
     try:
         if args.run_xyce:
             run_xyce(deck_path, args.xyce, args.seed)

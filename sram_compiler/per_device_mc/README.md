@@ -1,6 +1,6 @@
-# Per-device local mismatch — V2.1.1
+# Per-device local mismatch — V2.1.2
 
-V2.1.1 retains the fixed timing lookup introduced in V2.1.0. `--period 1e-8` selects a diagnostic clock in seconds; `--timing-lookup` selects another class table. Run metadata carries the applied timing and V2.1.1 release version; the
+V2.1.1 retains the fixed timing lookup introduced in V2.1.0. `--period 1e-8` selects a diagnostic clock in seconds; `--timing-lookup` selects another class table. V2.1.2 adds `--vdd` (volts) and `--temperature` (Celsius), which override `global.yaml` and enter the run identity. Run metadata carries the applied timing, the release version and, with `--run-xyce`, the resolved `xyce` installation; the
 unchanged timing table retains its V2.1.0 identity. Repeated runs use separate attempt directories, and failures retain `summary.json`. Distributed wiring is the only topology and the default; explicit star settings fail. Runs check wordline release, access data, full retention and finite primary metrics.
 
 WL/write/sense assertion waits for settled far-end PRE. The baseline records
