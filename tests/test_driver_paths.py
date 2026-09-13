@@ -84,11 +84,14 @@ class PathTests(unittest.TestCase):
         self.assertEqual(float(final.pmos_width), 0.27e-6 * 16)
 
     def test_dummy_rc_does_not_create_an_unused_qb_island(self):
-        with redirect_stdout(io.StringIO()):
-            dummy = Dummy_Cell('NMOS_VTG', 'PMOS_VTG', 'NMOS_VTG',
-                               .205e-6, .09e-6, .135e-6, 50e-9, w_rc=True)
-        self.assertNotIn('RR_QB', str(dummy))
-        self.assertIn('RR_WL', str(dummy))
+        for pin_rc in (False, True):
+            with self.subTest(cell_pin_rc=pin_rc), redirect_stdout(io.StringIO()):
+                dummy = Dummy_Cell('NMOS_VTG', 'PMOS_VTG', 'NMOS_VTG',
+                                   .205e-6, .09e-6, .135e-6, 50e-9,
+                                   w_rc=True, cell_pin_rc=pin_rc)
+            self.assertNotIn('RR_QB', str(dummy))
+            self.assertIn('RR_Q', str(dummy))
+            self.assertEqual('RR_WL' in str(dummy), pin_rc)
 
     def test_decoder_scales_only_final_output_inverters(self):
         with redirect_stdout(io.StringIO()):
@@ -109,13 +112,14 @@ class PathTests(unittest.TestCase):
             cfg.sram_6t_cell.nmos_width.value[1] *= 0.8
             tb = Sram6TCoreTestbench(cfg, choose_columnmux=False, driver_sizes=sizes)
             deck = str(tb.create_testbench('read', 7, 3))
-        self.assertIn('XRWL VDD VSS VDD wl_en RWL WORDLINEDRIVER', deck)
+        self.assertIn('XRWL VDD VSS VDD wl_en_line_far RWL WORDLINEDRIVER', deck)
         self.assertEqual(sum(line.startswith('XRWL_LOAD_') for line in deck.splitlines()), 2)
-        replica_instance = next(line for line in deck.splitlines() if line.startswith('Xsram_9x1_replica_column '))
-        self.assertEqual(replica_instance.split().count('RWL'), 2)
+        replica_instance = next(line for line in deck.splitlines() if line.startswith('Xsram_8x1_replica_column '))
+        self.assertEqual([node for node in replica_instance.split() if node.startswith('RWL_tap')],
+                         ['RWL_tap2', 'RWL_tap3'])
         self.assertEqual(sum(line.startswith('XWRITEDRIVER_') for line in deck.splitlines()), 4)
-        self.assertIn('VDD VSS w_en VSS BL3 BLB3 WRITEDRIVER', deck)
-        self.assertIn('XREPLICA_WDRV_LOAD VDD VSS VSS VSS RBL RBLB WRITEDRIVER', deck)
+        self.assertIn('VDD VSS w_en_line_tap3 VSS BL3_periph_tap1 BLB3_periph_tap1 WRITEDRIVER', deck)
+        self.assertIn('XREPLICA_WDRV_LOAD VDD VSS VSS VSS RBL_periph_tap1 RBLB_periph_tap1 WRITEDRIVER', deck)
         self.assertEqual(sizes.replica_nmos_widths[1], 0.135e-6)
 
     def test_replica_bitline_and_wordline_share_the_array_rc_configuration(self):
@@ -160,14 +164,15 @@ class PathTests(unittest.TestCase):
                         self.assertEqual(count(found[real_driver], 'RR_Z_'), segments)
                         self.assertEqual(count(found[replica_driver], 'RR_Z_'), segments)
                         self.assertEqual(count(found[replica_driver], 'RR_B_' if replica_driver == 'WORDLINEDRIVER' else 'RR_A_'), segments)
-                        # Every wordline pin of a real, replica or dummy cell has the same stub.
+                        # Physical wires carry the pin loads; optional series pin
+                        # stubs are off by default for real, replica and dummy cells.
                         array = instance_subckt(top, next(
                             line.split()[0] for line in top if line.startswith('XSRAM_') and '_CORE_' in line))
                         cell_block = instance_subckt(found[array], f'X{cell}_3_3')
                         replica_column = instance_subckt(top, next(
                             line.split()[0] for line in top if 'replica_column' in line))
                         replica_cell = instance_subckt(found[replica_column], 'XReplica_CELL_0')
-                        stub = 1 if w_rc else 0
+                        stub = 0
                         for block, names in ((cell_block, ('RR_BL_', 'RR_BLB_', 'RR_WL_')),
                                              (replica_cell, ('RR_RBL_', 'RR_RBLB_', 'RR_WL_'))):
                             for name in names:
@@ -179,11 +184,16 @@ class PathTests(unittest.TestCase):
                         self.assertEqual(instance_subckt(top, 'XPRECHARGE_RBL'), instance_subckt(top, 'XPRECHARGE_0'))
                         sense = instance_subckt(top, 'XSENSEAMP_0')
                         self.assertEqual(count(found[sense], 'RR_IN_'), segments)
-                        self.assertEqual(count(top, 'RR_RBL_SENSE_'), segments)
-                        self.assertEqual(count(top, 'CCg_RBL_SENSE_'), segments)
+                        replica_sense = instance_subckt(top, 'XREPLICA_SENSEAMP')
+                        self.assertEqual(count(found[replica_sense], 'RR_IN_'), segments)
+                        self.assertEqual(count(top, 'RR_RBL_SENSE_'), 0)
+                        self.assertEqual(count(top, 'CCg_RBL_SENSE_'), 0)
                         time_line = next(line for line in top if line.startswith('XTIME '))
-                        self.assertEqual(' RBL_sense ' in time_line, w_rc)
-                        self.assertEqual(' rbl ' in time_line, not w_rc)
+                        sense_node = ('XREPLICA_SENSEAMP:IN_end' if w_rc else
+                                      ('RBL_MUX' if mux else 'RBL_periph_tap2'))
+                        self.assertIn(f' {sense_node} ', time_line)
+                        pre_node = 'XPRECHARGE_RBL:ENB_end' if w_rc else 'PRE_line_far'
+                        self.assertIn(f' RWL_far {pre_node} TIME', time_line)
 
     def test_rc_precharge_waits_for_the_matched_physical_wordline(self):
         with redirect_stdout(io.StringIO()):
@@ -193,9 +203,14 @@ class PathTests(unittest.TestCase):
             circuit = tb.create_testbench('read', 7, 3)
         time = next(block for block in circuit.subcircuits if block.name == 'TIME')
         self.assertTrue(tb.driver_sizes.replica_precharge_guard)
-        self.assertEqual(time.NODES[-1], 'rwl')
-        self.assertIn('clk_buf cs rwl_pre_bar PRE_UNBUF', str(time))
-        self.assertIn('RWL TIME', str(circuit['XTIME']))
+        self.assertEqual(time.NODES[-2:], ['rwl', 'pre_far'])
+        self.assertIn('clk_buf cs pre_ready PRE_UNBUF', str(time))
+        self.assertEqual(tb.driver_sizes.precharge_guard_stages, 4)
+        self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end TIME', str(circuit['XTIME']))
+        # An unmatched replica cannot represent the physical wordline load.
+        cfg.global_config.sizing['replica'] = {'matched': False}
+        with redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, 'matched replica'):
+            Sram6TCoreTestbench(cfg, choose_columnmux=False, w_rc=True)
 
 
 if __name__ == '__main__':

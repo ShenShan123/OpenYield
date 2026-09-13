@@ -1,6 +1,8 @@
-# SRAM 等效电路使用说明
+# SRAM 等效电路使用说明 — V2.1.1
 
 本文档介绍等效电路（Equivalent Circuit）功能的参数配置和使用方法，代码实现在 `sram_compiler/subcircuits/sram_cell_add_equivalent.py`。
+
+V2.1.1 仅支持并默认使用分布式信号连线；显式 star 配置会报错。等效模式保留全部物理线段，并在被省略单元的本地抽头连接等效负载。`w_rc` 只控制局部存储/外围串联 RC，与物理连线独立。参见 [V2.1.1 实现与验证](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md)。
 
 V2.0.6 将原根目录的等效电路说明迁移到本目录的 `README.md`，历史测量结果保持原版本标记。
 
@@ -12,9 +14,9 @@ V2.0.6 将原根目录的等效电路说明迁移到本目录的 `README.md`，�
 
 ## 1. 功能说明
 
-SRAM 每次读写只涉及目标行目标列的一个单元，但整个阵列的所有晶体管都要参与 SPICE 求解，仿真时间随阵列规模平方增长。在大规模 Monte Carlo 优化场景中，每次仿真都要重复这个开销，代价很高。
+读操作观察目标输出；当前写操作驱动所选行的全部列，没有独立写掩码。全真实模式中整个阵列的所有晶体管都参与 SPICE 求解，大规模 Monte Carlo 优化会重复这一开销。
 
-等效电路用集总 RC 负载替代非激活单元（WL 低、access 晶体管关断的所有单元），仅保留目标行和目标列的真实晶体管，其余替换为等效模型，形成"十字形"真实区域：
+等效电路用本地等效负载替代非激活单元（WL 低、access 晶体管关断的所有单元），仅保留目标行和目标列的真实晶体管，其余替换为等效模型，形成"十字形"真实区域：
 
 ```
          目标列
@@ -29,11 +31,11 @@ SRAM 每次读写只涉及目标行目标列的一个单元，但整个阵列的
 
 - **BL/BLB 端**：非目标行的 access 晶体管关断，外部电流完全正比于 dV/dt，建模为等效电容。
 - **WL 端**：字线翻转以电容分量为主，采用简化单电容模型。
-- **静态漏电**：用等效电阻 `R_static = VDD / I_static` 建模，`I_static` 通过单元级直流仿真自动提取，保证大阵列下功耗估算准确。
-- **PI-RC 金属线**：在 `w_rc=True` 时附加 PI 型线阻/线电容，等效 cell 越多线阻越小（并联）、线电容越大（串联），正确反映金属线分布特性。
+- **静态漏电**：用等效电阻 `R_static = VDD / I_static` 建模，`I_static` 通过单元级直流仿真自动提取；阵列级近似精度需与全真实模型比较。
+- **PI-RC 物理连线**：几何参数定义的 WL/BL/BLB 阶梯线始终保留，等效负载逐单元接到本地抽头；不按省略单元数聚合或缩放线阻/线电容。`w_rc` 独立控制局部串联 RC。
 - **WL-BL 交叉耦合电容**：对每一对等效 (row, col) 添加 WL 到 BL/BLB 的耦合电容，由 `SRAMCellParasiticTester` 自动提取，无需手动标定。
 
-开启后仿真规模与阵列大小解耦，大阵列下仿真速度可提升数十倍，延迟误差通常在 0.3% 以内，功耗误差通常在 2% 以内。3×3 是最小可用配置，更大邻域不会进一步提高精度。
+等效模式减少真实晶体管数量，但物理线段和本地负载仍随阵列规模增长。此前文档的数十倍加速、0.3% 延迟误差和 2% 功耗误差属于旧拓扑下的说明，不是 V2.1.1 精度保证。当前配置需要与相同 PVT、连线、局部 RC 和固定时钟的全真实阵列比较。
 
 **适用场景**：大阵列（≥ 64×64）单次仿真、优化算法批量评估、Monte Carlo 仿真加速。小阵列（≤ 16×16）仿真时间本身很短，是否开启影响不大。
 
@@ -49,22 +51,19 @@ SRAM 每次读写只涉及目标行目标列的一个单元，但整个阵列的
 ```python
 mc_testbench = Sram6TCoreMcTestbench(
     sram_config,
-    w_rc=True,              # 开启 PI-RC 线网络（等效电路必须为 True）
-    pi_res=100 @ u_Ohm,    # 每 cell 线等效电阻（FreePDK45 推荐值）
-    pi_cap=0.001 @ u_pF,   # 每 cell 线等效电容（FreePDK45 推荐值）
+    w_rc=True,              # 开启局部串联 RC；物理分布式连线始终存在
+    pi_res=100 @ u_Ohm,     # 局部串联 RC 的示例电阻，非提取金属参数
+    pi_cap=0.001 @ u_pF,    # 局部串联 RC 的示例电容，非提取金属参数
     real_cell_mode=1,       # 1=等效十字模型；0=全真实晶体管（参考基准）
     ...
 )
 ```
 
-开启等效电路（`real_cell_mode=1`）时必须同时设置 `w_rc=True`，否则缺少线阻会低估大阵列延迟。
+等效模式支持 `w_rc=True` 或 `False`，两者都保留物理分布式连线；比较全真实与等效模型时必须使用相同设置。
 等效模式下，默认的逐器件局部失配只作用于保留的真实晶体管；被替换的单元是近似模型。
 
-上述 `w_rc` / `pi_res` / `pi_cap` 说明针对默认的 star 拓扑（共享行/列网络加每单元 RC 支路）。
-V2.0.7 起可选的 `interconnect.mode: distributed`（见
-[分布式 RC 模型指南](../docs/design/DISTRIBUTED_RC_MODEL.md)）用几何参数生成 WL/BL/BLB π 型阶梯线，
-与 `w_rc` 无关；此时等效模式保留全部线段，把每个被省略单元的五电容网络挂在其本地抽头上，
-不再使用按并联/串联聚合的 `pi_res/N`、`pi_cap*N` 支路。
+V2.1.1 的 `interconnect.mode: distributed` 是唯一支持的拓扑（见
+[分布式 RC 模型指南](../docs/design/DISTRIBUTED_RC_MODEL.md)）。默认几何使用每节距 1 Ω / 0.1 fF 的示例值，不是工艺提取结果。等效模式把每个被省略单元的五电容网络挂在其本地抽头上；旧的 `pi_res/N`、`pi_cap*N` 聚合支路已移除。
 
 ### 2.2 精度对比实验
 
@@ -100,28 +99,28 @@ CSV 主要列含义：
 |------|-------|------|
 | `real_cell_mode` | `0` | `0` = 全真实晶体管（参考基准）；`1` = 等效十字；`2` = 仅目标行真实；`3` = 仅目标列真实；`4` = 仅目标 cell 真实 |
 | `write_power_model` | `False` | `True` = 用 WL 受控行为电流源（按 WL 电压分段拟合静态电流）；`False` = 直流静态电阻。经 testbench 时由 `operation=="write"` 自动置位，无需手动设置 |
-| `w_rc` | `False` | `True` = 附加 PI-RC 网络（等效电路建议设为 True） |
-| `pi_res` | 100 Ω | 每 cell 金属线等效电阻（FreePDK45 推荐值） |
-| `pi_cap` | 1 fF | 每 cell 金属线等效电容（FreePDK45 推荐值） |
+| `w_rc` | `False` | `True` = 开启局部存储/外围串联 RC；物理连线不受此开关影响 |
+| `pi_res` | 100 Ω | 局部串联 RC 电阻；示例默认值，非提取金属参数 |
+| `pi_cap` | 1 fF | 局部串联 RC 电容；示例默认值，非提取金属参数 |
 | `target_row` | `0` | 目标单元行（默认首行） |
 | `target_col` | `0` | 目标单元列（默认首列） |
 
 注意事项：
 
-- 开启等效电路（`real_cell_mode≠0`）时必须同时设置 `w_rc=True`，否则缺少线阻会低估大阵列延迟。
+- 等效模式 1–4 始终保留全部物理连线；局部 RC 和 `cell_pin_rc` 必须与比较的全真实模型一致。
 - `target_row` / `target_col` 默认取首行首列（`0, 0`）。它们指定测试激活的目标单元，等效模式下只有目标行/列实例化真实晶体管。如需测试其他位置（如末行末列的最差负载情况），修改这两个参数即可。
 - 模式 3/4 支持写仿真，目标 cell 的 Q/QB 翻转仍为晶体管级；被替换 cell 只有 RC 与 WL 受控静态功耗模型，因此其内部写状态和整行动态写功耗应按近似结果使用。
-- `pi_res` / `pi_cap` 的推荐值适用于 FreePDK45，其他工艺节点下可能需要重新标定。
+- `pi_res` / `pi_cap` 是局部 RC 参数，不可替代 `interconnect` 中的物理线几何和提取参数。
 
-### 标定 `pi_res` / `pi_cap`
+### 在相同物理参数下比较精度
 
-对同一设计点分别跑完整电路和等效电路（建议使用 2~3 种不同阵列规模，如 32×16、128×64、256×256），比较延迟差异，调整 `pi_res` 和 `pi_cap` 使误差最小：
+对同一设计点分别跑完整电路和等效电路，保持 PVT、物理连线、`w_rc`、`pi_res`、`pi_cap`、驱动尺寸和时钟一致。比较写入波形、保持、读出与功耗，记录近似误差；不要通过改变某一侧的物理参数来掩盖误差：
 
 ```python
 # 完整电路（全真实，参考基准）
 mc_testbench = Sram6TCoreMcTestbench(..., real_cell_mode=0, w_rc=True, pi_res=100@u_Ohm, pi_cap=0.001@u_pF)
 
-# 等效电路（调整 pi_res / pi_cap 使延迟接近完整电路）
+# 等效电路（保持相同物理参数，测量近似误差）
 mc_testbench = Sram6TCoreMcTestbench(..., real_cell_mode=1, w_rc=True, pi_res=100@u_Ohm, pi_cap=0.001@u_pF)
 ```
 
@@ -162,8 +161,8 @@ Sram6TCoreMcTestbench(real_cell_mode=1)   # 1=等效十字
                       ├─ SRAMCellParasiticTester.extract_parasitic_caps()
                       ├─ 静态功耗：write_power_model=False → get_static_power_r() 直流静态电阻
                       │           write_power_model=True  → 每行 WL 受控行为电流源 BIWL_POWER_{row}
-                      ├─ 添加各非目标行的 WL RC（PI 型）
-                      ├─ 添加各非目标列的 BL/BLB RC（PI 型）
+                      ├─ 保留完整 WL/BL/BLB 物理阶梯线
+                      ├─ 在每个省略单元的本地抽头添加等效负载
                       └─ 添加每对等效 (row,col) 的 WL-BL/WLB 交叉耦合电容
 ```
 

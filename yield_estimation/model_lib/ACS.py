@@ -51,7 +51,7 @@ class ACS():
         with open(file_path, 'a') as f:
             np.savetxt(f, y, fmt='%e')
     def indicator(self, y):
-        return (y > self.threshold) | (y < 0)
+        return ~np.isfinite(y) | (y > self.threshold) | (y < 0)
 
     # Select failed samples from given input x and output y
     def _identify_fail(self, x, y):
@@ -157,7 +157,7 @@ class ACS():
         while captured_fail_data_num < initial_fail_num: 
             new_x = np.random.uniform(low=self.low_bounds, high=self.up_bounds, size=[sample_num_each_sphere, feat_num])
             num_mc = new_x.shape[0]
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
             new_y = y.reshape(num_mc,1)
             self.save_y_to_txt(new_y,'/home/lixy/yield_models/model/output.txt')
             folder_path = '/home/lixy/sim2'
@@ -209,7 +209,7 @@ class ACS():
         IS_bound_num, IS_bound_on = self.IS_bound_num, self.IS_bound_on
         self.x_fail, origin_sample_num = self._initial_sampling(initial_fail_num, initial_sample_each)
         num_mc = self.x_fail.shape[0]
-        y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_fail)
+        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_fail)
         self.y_fail = y.reshape(num_mc,1)
         self.save_y_to_txt(self.y_fail,'/home/lixy/yield_models/model/output1.txt')
         folder_path = '/home/lixy/sim2'
@@ -238,7 +238,7 @@ class ACS():
             if IS_bound_on:
                  x_IS= self._IS_bound(x_IS, IS_bound_num)
             num_mc = x_IS.shape[0]
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
             y_IS = y.reshape(num_mc,1)
             self.save_y_to_txt(y_IS,'/home/lixy/yield_models/model/output1.txt')
             folder_path = '/home/lixy/sim2'

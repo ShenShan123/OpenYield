@@ -39,7 +39,7 @@ class Sram10TCell(BaseSubcircuit):
         self.fd_width = fd_width  # Width for pass gate transistors
         self.length = length
         
-        self.cell_pin_rc = w_rc if cell_pin_rc is None else w_rc and cell_pin_rc
+        self.cell_pin_rc = w_rc and bool(cell_pin_rc)
         self.w_rc = w_rc
         self.disconnect = disconnect
         self.suffix = suffix

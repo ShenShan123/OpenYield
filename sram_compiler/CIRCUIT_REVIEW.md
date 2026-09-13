@@ -4,6 +4,10 @@ V2.0.6 documentation location: `sram_compiler/CIRCUIT_REVIEW.md`. This document
 preserves the historical reviews below; current qualification status is in the
 [working proposal](../docs/DRIVER_SIZING_PROPOSAL.md).
 
+The current distributed-only routing, far-PRE access guard and release
+validation are documented in the [V2.1.1 report](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md).
+The dates, measurements and reviewed commits below remain historical.
+
 Historical `utils.py` line references below refer to the reviewed revision.
 The current helpers live in the [utilities package](../utils/README.md).
 

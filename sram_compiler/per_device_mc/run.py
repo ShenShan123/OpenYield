@@ -20,6 +20,9 @@ from PySpice.Unit import u_Ohm, u_pF  # type: ignore  # noqa: E402
 
 from sram_compiler.config_yaml.config import SRAM_CONFIG  # type: ignore  # noqa: E402
 from sram_compiler.interconnect import load_interconnect, resolve_interconnect
+from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
+from sram_compiler.sizing.table import physical_context
+from sram_compiler.version import VERSION
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import (  # type: ignore  # noqa: E402
     Sram6TCoreMcTestbench,
 )
@@ -122,9 +125,10 @@ def make_run_name(
     target_col: int,
     mc_runs: int,
     interconnect=None,
+    timing=None,
 ) -> str:
     settings = {
-        "compiler_version": "V2.0.10",
+        "compiler_version": VERSION,
         "interconnect": resolve_interconnect(interconnect).to_dict(),
         "cell_type": cell_type,
         "rows": args.rows,
@@ -142,6 +146,7 @@ def make_run_name(
         "q_init_val": args.q_init_val,
         "waveform": args.waveform,
         "seed": args.seed,
+        "timing": timing,
     }
     digest = hashlib.sha256(
         json.dumps(settings, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -230,6 +235,10 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         raise ValueError(f"target_col must be in [0, {args.cols - 1}]")
 
     config = load_config(args.rows, args.cols, args.corner)
+    if getattr(args, 'period', None) is not None:
+        config.global_config.timing = {'mode': 'fixed', 't_period': args.period}
+    if getattr(args, 'timing_lookup', None) is not None:
+        config.global_config.timing = {'mode': 'lookup', 'lookup': str(args.timing_lookup)}
     wire_file = getattr(args, 'interconnect_config', None)
     if wire_file is not None:
         config.global_config.interconnect = load_interconnect(wire_file)
@@ -239,6 +248,10 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         get_custom_vars(config, cell_type) if args.variation_mode == "custom" else None
     )
     mc_runs = resolve_mc_runs(args.mc_runs, args.variation_mode, custom_vars)
+    context = physical_context(True, args.pi_res_ohm, args.pi_cap_pf * 1e-12,
+                               args.real_cell_mode, interconnect)
+    sizes = resolve_driver_sizes(config, physical_context=context)
+    timing = resolve_timing(config, sizes, context)
     run_name = make_run_name(
         args,
         cell_type=cell_type,
@@ -246,9 +259,20 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         target_col=target_col,
         mc_runs=mc_runs,
         interconnect=interconnect,
+        timing=timing.to_dict(),
     )
-    run_dir = args.output_dir.expanduser().resolve() / run_name
-    clean_generated_outputs(run_dir)
+    run_root = args.output_dir.expanduser().resolve()
+    run_root.mkdir(parents=True, exist_ok=True)
+    run_dir = run_root / run_name
+    # Repeating a diagnostic must not erase the failed evidence it investigates.
+    attempt = 1
+    while True:
+        try:
+            run_dir.mkdir()
+            break
+        except FileExistsError:
+            run_dir = run_root / f'{run_name}_attempt{attempt}'
+            attempt += 1
     is_shared = args.variation_mode == "shared"
     is_custom = args.variation_mode == "custom"
     sample_count = 1 if args.variation_mode == "nominal" else mc_runs
@@ -278,6 +302,8 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         sim_path=str(run_dir),
         enable_waveform=args.waveform,
         interconnect=interconnect,
+        driver_sizes=sizes,
+        timing_config=timing,
     )
     circuit = testbench.create_testbench(args.operation, target_row, target_col)
     temperature = config.global_config.temperature
@@ -307,7 +333,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
 
     deck_path.write_text(deck_text, encoding="utf-8")
     summary = {
-        "compiler_version": "V2.0.10",
+        "compiler_version": VERSION,
         "interconnect": interconnect.to_dict(),
         "deck": str(deck_path),
         "run_dir": str(run_dir),
@@ -321,10 +347,14 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         "mc_runs": mc_runs,
         "corner": args.corner,
         "vdd": float(testbench.vdd),
+        "temperature": temperature,
+        "model_sha256": hashlib.sha256(Path(getattr(
+            config.global_config, f'pdk_path_{args.corner}')).read_bytes()).hexdigest(),
         "cell_type": cell_type,
         "full_device_coverage": args.real_cell_mode == 0 and args.variation_mode == "per-device",
         "seed": args.seed,
         "driver_sizes": testbench.driver_sizes.to_dict(),
+        "timing": testbench.timing_config.to_dict(),
         **variation_summary,
     }
     return deck_path, summary
@@ -401,6 +431,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-xyce", action="store_true")
     parser.add_argument("--xyce", default="Xyce")
     parser.add_argument("--seed", type=int, default=20260711)
+    timing = parser.add_mutually_exclusive_group()
+    timing.add_argument("--period", type=float, help="fixed diagnostic clock period in seconds")
+    timing.add_argument("--timing-lookup", type=Path, help="alternative timing class JSON table")
     args = parser.parse_args()
     if args.rows <= 0 or args.cols <= 0:
         parser.error("--rows and --cols must be positive")
@@ -415,28 +448,44 @@ def main() -> int:
     args = parse_args()
     deck_path, summary = generate_deck(args)
     rejection: Exception | None = None
-    if args.run_xyce:
-        run_xyce(deck_path, args.xyce, args.seed)
-        summary["xyce_exit"] = 0
-        if summary['interconnect']['mode'] == 'distributed' and summary['operation'] not in SNM_OPERATIONS:
-            from utils.measurements import parse_mc_measurements
-            measurements = parse_mc_measurements(str(deck_path), num_runs=summary['mc_runs'])
-            measurements.to_csv(Path(str(deck_path) + '.data.csv'))
-            try:
-                Sram6TCoreMcTestbench.validate_distributed_precharge(
+    try:
+        if args.run_xyce:
+            run_xyce(deck_path, args.xyce, args.seed)
+            summary["xyce_exit"] = 0
+            if summary['operation'] not in SNM_OPERATIONS:
+                from utils.measurements import parse_mc_measurements
+                measurements = parse_mc_measurements(str(deck_path), num_runs=summary['mc_runs'])
+                measurements.to_csv(Path(str(deck_path) + '.data.csv'))
+                try:
+                    Sram6TCoreMcTestbench.validate_distributed_precharge(
+                        measurements, summary['operation'], summary['vdd'])
+                except RuntimeError as exc:
+                    # An unsafe release is evidence, not an aborted run: keep the
+                    # deck, seed, model and driver-size provenance of the sample
+                    # that has to be investigated before re-raising below.
+                    summary['precharge_release_checked'] = False
+                    summary['precharge_release_error'] = str(exc)
+                    rejection = exc
+                else:
+                    summary['precharge_release_checked'] = True
+            if summary['operation'] not in SNM_OPERATIONS:
+                valid = Sram6TCoreMcTestbench.access_validity(
                     measurements, summary['operation'], summary['vdd'])
-            except RuntimeError as exc:
-                # An unsafe release is evidence, not an aborted run: keep the
-                # deck, seed, model and driver-size provenance of the sample
-                # that has to be investigated before re-raising below.
-                summary['precharge_release_checked'] = False
-                summary['precharge_release_error'] = str(exc)
-                rejection = exc
-            else:
-                summary['precharge_release_checked'] = True
-        if args.waveform:
-            summary["waveform_png"] = str(plot_waveform(deck_path, summary))
-    if args.audit:
+                summary['access_checked'] = bool(len(valid) and valid.all())
+                if not summary['access_checked'] and rejection is None:
+                    rejection = RuntimeError('SRAM access/precharge, frozen data deadline, retention or restore check failed')
+                delay_name = {'read': 'TREAD_TOTAL', 'write': 'TWRITE_TOTAL',
+                              'read&write': 'TVOUT_PERIOD'}[summary['operation']]
+                metrics = measurements.reindex(columns=[delay_name, 'PAVG', 'PSTC', 'PDYN'])
+                summary['metrics_checked'] = bool(len(metrics) and metrics.notna().to_numpy().all())
+                if not summary['metrics_checked'] and rejection is None:
+                    rejection = RuntimeError('SRAM metrics are missing or FAILED in the requested ensemble')
+            if args.waveform:
+                summary["waveform_png"] = str(plot_waveform(deck_path, summary))
+    except Exception as exc:
+        summary['simulation_error'] = f'{type(exc).__name__}: {exc}'
+        rejection = rejection or exc
+    if args.audit or rejection is not None:
         (Path(summary["run_dir"]) / "summary.json").write_text(
             json.dumps(summary, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",

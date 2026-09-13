@@ -61,7 +61,7 @@ class AIS(nn.Module):
         with open(file_path, 'a') as f:
             np.savetxt(f, y, fmt='%e')
     def indicator(self, y):
-        return (y > self.threshold) | (y < 0)
+        return ~np.isfinite(y) | (y > self.threshold) | (y < 0)
     # Save the simulation result to CSV
     def save_result(self, P_fail, FOM, num, used_time, seed):
             data_info_list = [[P_fail], [FOM], [num], [used_time]]
@@ -75,7 +75,7 @@ class AIS(nn.Module):
         """
             I(X): if the corresponding  y of sample x is failed, return True, otherwise False.
         """
-        return (y > self.threshold) | (y < 0)
+        return ~np.isfinite(y) | (y > self.threshold) | (y < 0)
 
     def _IS_bound(self, x, IS_bound_num):
         """
@@ -109,7 +109,7 @@ class AIS(nn.Module):
             # new_x = sample_sphere(num=sample_num_each_sphere,dim=feat_num,radius=radius)
             new_x = np.random.uniform(low=origin_sam_bound_num * self.low_bounds, high=origin_sam_bound_num * self.up_bounds, size=[sample_num_each_sphere,feat_num])
             num_mc = new_x.shape[0]
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
             new_y = y.reshape(num_mc,1)
             folder_path = '/home/lixy/sim1'
             delete_folder_content(folder_path)
@@ -242,7 +242,7 @@ class AIS(nn.Module):
         self.x_samples, initial_sample_total_num = self.pre_sampling(initial_failed_data_num, sample_num_each_sphere, origin_sam_bound_num=origin_sam_bound_num)
 
         num_mc = self.x_samples.shape[0]
-        y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_samples)
+        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_samples)
         self.y_samples= y.reshape(num_mc,1)
         folder_path = '/home/lixy/sim1'
         delete_folder_content(folder_path)
@@ -273,7 +273,7 @@ class AIS(nn.Module):
             if IS_bound_on:
                  IS_x_samples= self._IS_bound(IS_x_samples, IS_bound_num)
             num_mc = IS_x_samples.shape[0]
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=IS_x_samples)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=IS_x_samples)
             IS_y_samples = y.reshape(num_mc,1)
             folder_path = '/home/lixy/sim1'
             delete_folder_content(folder_path)

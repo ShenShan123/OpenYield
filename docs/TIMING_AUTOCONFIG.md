@@ -1,3 +1,44 @@
+# Automatic timing configuration — V2.1.1 guide and historical proposal
+
+V2.1.1 retains the timing table introduced in V2.1.0: **a fixed lookup table with
+row and column classes, like driver sizing**. `timing.mode: lookup` is now the
+default. `sram_compiler/sizing/timing_lookup.json` contains integer half-cycle
+budgets in ps. Select the next row and column anchors, take the larger budget,
+apply the configured margin (25% by default), double it and round up to 50 ps.
+No model fit, automatic calibration or simulation runs inside the resolver.
+
+The row classes are ≤32/64/128/256/512 with budgets 1600/1800/2000/2400/3600 ps.
+Column classes are ≤4/8/16/32/64/128/256/512 with budgets
+1600/1600/1600/1800/2000/2400/2800/3200 ps. Thus 8x4 and 16x16 use 4 ns,
+48x20 uses 4.5 ns, and 512x4 uses 9 ns and 8x512 uses 8 ns. Beyond the final anchor the
+geometric ladder continues, with `extrapolated: true` and no qualification claim.
+
+These are design budgets informed by the historical envelope below, with
+allowance for the current guard; they are **not measured phases or full PVT /
+local-mismatch qualification**. The original waveform screen is
+recorded in [the V2.1.0 review](design/TIMING_LOOKUP_V2_1_0.md). The
+[V2.1.1 report](design/DISTRIBUTED_ONLY_V2_1_1.md) records validation of the
+new distributed-only signal routes. Physical RC and changed peripherals
+require fresh waveform validation.
+
+`resolve_timing(config, driver_sizes)` returns an immutable baseline-bound
+`ArrayTiming`. Both testbenches apply it; the optimizer caches it before cell
+candidate changes, and reused yield testbenches keep it throughout sampling.
+Changed driver baselines or timing options are rejected on injection. The
+50% duty cycle, 1% edges, 1 ns startup offset and replica K/N remain unchanged.
+`timing: {mode: fixed, t_period: 1.0e-8}` selects an explicit diagnostic clock;
+the CLI also accepts `--period` or `--timing-lookup`. The existing measured-phase
+`TimingConfig` and qualified driver-record path retain their historical format.
+
+Access checks sample data at the clock deadline. Additional data and retention
+checks prevent a late crossing or a cell that flips back from passing. V2.1.1
+checks the whole post-deadline retention interval, and every supported
+distributed array checks local and far precharge release. The static-power window
+is now at the end of the first post-access restore phase. See the
+[sizing/timing guide](../sram_compiler/sizing/README.md#clock-classes-v210).
+
+---
+
 # Automatic timing configuration for all array sizes — proposal (V2.0.3)
 
 Status in V2.0.6: original V2.0.3 proposal with measured basis, relocated into

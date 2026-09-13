@@ -37,7 +37,7 @@ class MNIS():
         with open(file_path, 'a') as f:
             np.savetxt(f, y, fmt='%e')
     def indicator(self, y):
-        return (y > self.threshold) | (y < 0)
+        return ~np.isfinite(y) | (y > self.threshold) | (y < 0)
      # Save Monte Carlo simulation results to a CSV file
 
     def _calculate_val(self, x, y, f_x, g_x):
@@ -88,7 +88,7 @@ class MNIS():
                                       size=[sample_num_each_sphere, feat_num])
             num_mc = new_x.shape[0]
             #print(num_mc)
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
             new_y = y.reshape(num_mc,1)
             folder_path = '/home/lixy/sim0'
             delete_folder_content(folder_path)
@@ -140,7 +140,7 @@ class MNIS():
         time1 = time.time()
         self.x_fail, origin_sample_num = self._initial_sampling(initial_fail_num, initial_sample_each)
         num_mc = self.x_fail.shape[0]
-        y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_fail)
+        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_fail)
         self.y_fail = y.reshape(num_mc,1)
         folder_path = '/home/lixy/sim0'
         delete_folder_content(folder_path)
@@ -179,7 +179,7 @@ class MNIS():
                 x_IS = self._IS_bound(x_IS, IS_bound_num)
             num_mc = x_IS.shape[0]
             #print(num_mc)
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
             y_IS = y.reshape(num_mc,1) 
             folder_path = '/home/lixy/sim0'
             delete_folder_content(folder_path)

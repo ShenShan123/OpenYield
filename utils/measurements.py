@@ -5,6 +5,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+_TIMING_MEASURES = frozenset({
+    'TSA', 'TS_EN', 'TSWING', 'TREAD_TOTAL', 'TWRITE_TOTAL', 'TVOUT_PERIOD',
+    'TPRCH', 'TDECODER', 'TWLDRV', 'TWDRV', 'TWRITE_Q', 'TWRITE_QB',
+    'TCLK_WLEN', 'TCLK_DEC', 'TRESTORE', 'TWL', 'TBL',
+})
+
 def parse_mc_measurements(netlist_prefix: str = "simulation",
                          file_suffix: str = 'mt',
                          num_runs: int = 100,
@@ -48,7 +54,7 @@ def parse_mc_measurements(netlist_prefix: str = "simulation",
 
             # Numeric conversion
             value = float(raw_value)
-            if not np.isfinite(value) or (var_name in ('TSA', 'TS_EN', 'TSWING') and value < 0):
+            if not np.isfinite(value) or (var_name.upper() in _TIMING_MEASURES and value < 0):
                 print(f"[WARNING] Invalid measurement {var_name}: {raw_value}")
                 return var_name, missing_value
 

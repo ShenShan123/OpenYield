@@ -13,6 +13,7 @@ from utils import (  # type: ignore
 from sram_compiler.testbenches.snm import process_xyce_montecarlo_prn
 from sram_compiler.testbenches.sram_6t_core_testbench import Sram6TCoreTestbench  # type: ignore
 from sram_compiler.config_yaml.sweep_config import SWEEP_CONFIGS
+from sram_compiler.version import VERSION
 import numpy as np
 from PySpice.Spice.Netlist import Circuit, SubCircuitFactory
 from math import ceil, log2
@@ -180,7 +181,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         local_wl = f'WL{self.target_row}'
         local_bl, local_blb = f'BL{self.target_col}', f'BLB{self.target_col}'
         sense_bl, sense_blb = local_bl, local_blb
-        if self.interconnect.distributed and operation in ('read', 'write', 'read&write'):
+        if operation in ('read', 'write', 'read&write'):
             local_wl = self.cell_probe('WL')
             local_bl, local_blb = self.cell_probe('BL'), self.cell_probe('BLB')
             sense_bl, sense_blb = self.sense_input_probe('IN'), self.sense_input_probe('INB')
@@ -433,19 +434,73 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         else:
             raise ValueError(f"Invalid operation: {operation}")
 
-        if self.interconnect.distributed and operation in ('read', 'write', 'read&write'):
+        if operation in ('read', 'write', 'read&write'):
             self._add_precharge_safety_measures(simulator, operation)
+            self._add_access_checks(simulator, operation, target_node_q, target_node_qb)
+        if operation in ('read', 'write', 'read&write'):
             self._add_interconnect_print(simulator)
 
     def _analysis_stop(self, operation):
         """End of the transient analysis (see add_analysis).
 
-        `read&write` runs 8 cycles; the 8th access window ends at 1 ns +
-        8.2*t_period, so it stops at 8.5*t_period instead of 8*t_period (which
-        cut the last read off 1 ns after its wordline rose).
+        Include the complete final restore phase of the eight-cycle sequence.
         """
-        cycles = 8.5 if operation == 'read&write' else 2
+        cycles = 8.7 if operation == 'read&write' else 2
         return 1.0 @ u_ns + cycles * float(self.t_period)
+
+    def _add_access_checks(self, simulator, operation, q, qb):
+        """Check data at the frozen deadline and retention before the next access.
+
+        Xyce TRIG/TARG delays can report a crossing after the clock deadline;
+        a TO option does not bound that target in Xyce 7.4. Check the actual
+        data at an explicit time and invalidate late crossings in the caller.
+        These targeted checks complement independent waveform screening.
+        """
+        vdd, period = float(self.vdd), float(self.t_period)
+        wl = self.cell_probe('WL')
+        pre = (f'{self.prch_inst_prefix}_{self.target_col}:ENB_end' if self.w_rc
+               else self.control_tap('PRE', self.target_col))
+        enable = (f'{self.wdrv_inst_prefix}_{self.target_col}:EN_end' if self.w_rc
+                  else self.control_tap('w_en', self.target_col))
+        for cycle in range(8 if operation == 'read&write' else 1):
+            expected = int((cycle // 2) % 2 == 0) if operation == 'read&write' else int(operation == 'write')
+            error = f'MAX(ABS(V({q})-{expected * vdd:.12g}),ABS(V({qb})-{(1-expected) * vdd:.12g}))'
+            read = operation == 'read' or operation == 'read&write' and cycle % 2 == 1
+            if read:
+                error = f'MAX({error},ABS(V(OUT)-{expected * vdd:.12g}))'
+            simulator.measure('TRAN', f'VACCESS_ERROR_{cycle}',
+                              f'FIND {{{error}}} AT={1e-9 + (cycle + 1.2) * period:.12g}')
+            simulator.measure('TRAN', f'VHOLD_ERROR_{cycle}',
+                              f'MAX {{{error}}} FROM={1e-9 + (cycle + 1.2) * period:.12g} '
+                              f'TO={1e-9 + (cycle + 1.7) * period:.12g}')
+            # PRE is active low. A correct final datum does not excuse opening
+            # the cell or write driver before local precharge has released.
+            pre_error = f'ABS(V({pre})-{vdd:.12g})'
+            simulator.measure('TRAN', f'VPRE_ACCESS_ERROR_{cycle}',
+                              f'MAX {{MAX(IF(V({wl})>{.1*vdd:.12g},{pre_error},0),'
+                              f'IF(V({enable})>{.5*vdd:.12g},{pre_error},0))}} '
+                              f'FROM={1e-9 + (cycle + .65) * period:.12g} '
+                              f'TO={1e-9 + (cycle + 1.7) * period:.12g}')
+            restored = [f'BL{self.target_col}', f'BLB{self.target_col}']
+            restored = [f'{self.arr_inst_prefix}:{node}_far' for node in restored]
+            restored.append(f'{self.replica_inst_prefix}:RBL_far')
+            restore_error = f'ABS(V({restored[0]})-{vdd:.12g})'
+            for node in restored[1:]:
+                restore_error = f'MAX({restore_error},ABS(V({node})-{vdd:.12g}))'
+            simulator.measure('TRAN', f'VRESTORE_ERROR_{cycle}',
+                              f'FIND {{{restore_error}}} AT={1e-9 + (cycle + 1.6) * period:.12g}')
+
+    @staticmethod
+    def access_validity(measurements, operation, vdd):
+        names = [f'V{phase}_ERROR_{cycle}'
+                 for cycle in range(8 if operation == 'read&write' else 1)
+                 for phase in ('ACCESS', 'HOLD', 'PRE_ACCESS')]
+        limits = [.1 * vdd] * len(names)
+        cycles = 8 if operation == 'read&write' else 1
+        names += [f'VRESTORE_ERROR_{cycle}' for cycle in range(cycles)]
+        limits += [.02 * vdd] * cycles
+        values = measurements.reindex(columns=names).to_numpy(dtype=float)
+        return np.isfinite(values).all(axis=1) & (np.abs(values) <= limits).all(axis=1)
 
     def _add_precharge_safety_measures(self, simulator, operation):
         """Check release at precharge onset, including every sequence access.
@@ -469,9 +524,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                   'LOCAL': self.cell_probe('WL')}
         for cycle in range(8 if operation == 'read&write' else 1):
             start = 1e-9 + (cycle + 1.16) * period
-            # The last sequence cycle's precharge interval runs past the end of
-            # the analysis; a window that claims more than was simulated would
-            # report a rebound check it never performed.
+            # Never claim a rebound interval beyond the simulated transient.
             stop = min(1e-9 + (cycle + 1.7) * period, analysis_stop)
             for location, node in probes.items():
                 simulator.measure('TRAN', f'VWL_PRE_{location}_{cycle}',
@@ -497,7 +550,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         valid = np.isfinite(values).all(axis=1) & (np.abs(values) <= .1 * vdd).all(axis=1)
         if measurements.empty or not valid.all():
             failed = list(measurements.index[~valid])
-            raise RuntimeError('Distributed precharge overlaps an active wordline or its '
+            raise RuntimeError('SRAM precharge overlaps an active wordline or its '
                                f'release measurement is missing in samples {failed}. '
                                'Inspect VWL_PRE_* and the waveforms; this wire/timing '
                                'configuration cannot supply valid SRAM metrics.')
@@ -505,7 +558,21 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def _add_interconnect_print(self, simulator):
         """Export physical wire endpoints and sense inputs for waveform scoring."""
         probes = ['RWL', 'RWL_far', self.sense_input_probe('IN'), self.sense_input_probe('INB')]
+        probes += ['XTIME:access_clk_bar', 'XTIME:Xaccess_guard:pre_off_ready']
         probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
+        for name, taps in self._control_taps.items():
+            probes += [name, taps[0], taps[-1], self.control_tap(name)]
+        for bit in range(max(1, ceil(log2(self.num_rows)))):
+            probes += [f'A_dff{bit}', f'XDECODER:A{bit}_line_far']
+        if self.operation in ('write', 'read&write'):
+            probes += ['CLK_BUF', 'XTIME:Xdff_buf_data:CLK_line_far']
+            for col in sorted({0, self.target_col, self.num_cols - 1}):
+                probes += [f'XTIME:Xdff_buf_data:CLK_line_tap{col}',
+                           f'DIN{col}', f'DIN_dff{col}', f'DIN_hold{col}', f'DIN_holdb{col}']
+        for col in [0, self.target_col, self.num_cols - 1, None]:
+            for pin in ('BL', 'BLB'):
+                probes += [self.periphery_tap(pin, col, role)
+                           for role in ('precharge', 'write', 'sense')]
         for row in range(self.num_rows):
             probes += [f'WL{row}', f'{self.arr_inst_prefix}:WL{row}_far']
         for col in range(self.num_cols):
@@ -522,7 +589,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         if self.next_row is None or self.next_row == self.target_row:
             return
         row, col = self.next_row, self.target_col
-        wl = f'{self.arr_inst_prefix}:WL{row}_far' if self.interconnect.distributed else f'WL{row}'
+        wl = f'{self.arr_inst_prefix}:WL{row}_far'
         signals = f'V({wl}) V(DEC_WL{row})'
         core = getattr(self, 'sbckt_array', None)
         if core is None or core._should_instantiate_real_cell(row, col):
@@ -554,7 +621,14 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             for col in range(self.num_cols):
                 init_cond[f'DIN_hold{col}'] = 0 @ u_V
                 init_cond[f'DIN_holdb{col}'] = self.vdd @ u_V
-                init_cond[f'XTIME:Xdff_buf_data:Xdff_{col}:z5'] = self.vdd @ u_V
+                # At clk=0 the master is transparent with DIN=0; the slave
+                # holds zero. Initialize every feedback node consistently.
+                prefix = f'XTIME:Xdff_buf_data:Xdff_{col}'
+                for node in ('D_b', 'z1', 'z3', 'z4', 'z5', 'QB'):
+                    init_cond[f'{prefix}:{node}'] = self.vdd @ u_V
+                init_cond[f'{prefix}:z2'] = 0 @ u_V
+                for node, value in (('DB', self.vdd), ('INT1', self.vdd), ('INT2', 0)):
+                    init_cond[f'XDIN_HOLD_{col}:{node}'] = value @ u_V
         return init_cond
 
     def _print_min_period(self, stats_csv_path, operation):
@@ -608,8 +682,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         TRESTORE  : rising clock edge that ends the access -> `restored_bitline`
                     back at 0.9 VDD (control path + self-timed precharge).
         """
-        if self.interconnect.distributed:
-            restored_bitline = f'{self.arr_inst_prefix}:{restored_bitline}_far'
+        restored_bitline = f'{self.arr_inst_prefix}:{restored_bitline}_far'
         vdd = float(self.vdd)
         t_end = float(1.0 @ u_ns) + 1.2 * float(self.t_period)   # edge ending access 1
         simulator.measure(
@@ -644,25 +717,18 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def _add_static_power_measures(self, simulator):
         """PSTC over a quiescent window and PDYN = PAVG - PSTC.
 
-        The window 1 ns + [0.4, 0.65]*t_period lies after the start-up transient and the
-        first precharge, and before the first access (the clock falls at 1 ns + 0.7*T).
-        The previous 0.1-0.9 ns window measured the operating-point release and the CS
-        start-up clamp instead (about 100x the quiescent current), so PDYN came out
-        negative.
+        The window 1 ns + [1.6, 1.65]*t_period is at the end of the first
+        post-access restore, before the next access at 1 ns + 1.7*T. Startup
+        precharge is outside this window even for the short lookup clocks.
         """
         t_period = float(self.t_period)
         t0 = float(1.0 @ u_ns)
-        if t_period < 5e-9:
-            # The start-up precharge (all bitlines charged from 0 V after the first
-            # capture edge at 1 ns + 0.2 T) takes ~1 ns; with 0.2 T < 1 ns it is
-            # still running inside the PSTC window.
-            print(f"[WARNING] t_period={t_period:.2e} s < 5 ns: the PSTC window "
-                  f"(1 ns + [0.4, 0.65] T) overlaps the start-up transient, so PSTC / PDYN "
-                  f"are not a quiescent / dynamic split at this period")
+        # Use the end of the restore phase after the first access. This is
+        # inside the same full cycle as PAVG and excludes startup charging.
         simulator.measure(
             'TRAN', 'PSTC',
-            f'AVG {{-V(VDD)*I(VVDD)}} FROM={t0 + 0.4 * t_period} ' +
-            f'TO={t0 + 0.65 * t_period}'
+            f'AVG {{-V(VDD)*I(VVDD)}} FROM={t0 + 1.6 * t_period} ' +
+            f'TO={t0 + 1.65 * t_period}'
         )
         simulator.measure(
             'TRAN', 'PDYN',
@@ -1076,7 +1142,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             f.write(str(simulator))
         with open(tb_path + '.variation.json', 'w') as f:
             json.dump({**self.variation_summary, 'seed': self.mc_seed, 'samples': mc_runs,
+                       'compiler_version': VERSION, 'corner': self.corner,
+                       'temperature': temperature, 'vdd': float(self.vdd),
+                       'model_sha256': hashlib.sha256(Path(getattr(
+                           self.sram_config.global_config, f'pdk_path_{self.corner}')).read_bytes()).hexdigest(),
                        'driver_sizes': self.driver_sizes.to_dict(),
+                       'timing': self.timing_config.to_dict(),
                        'full_device_coverage': self.variation_mode == 'per-device'
                                                and self.real_cell_mode == 0}, f, indent=2)
         # assert 0
@@ -1097,29 +1168,6 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 return res
 
             result = _run_xyce()
-
-            if (result.returncode != 0 and 'Time step too small' in result.stdout
-                    and self.t_max_step is None and 'snm' not in operation):
-                # Xyce's Newton loop can stall on very large arrays (seen on a few
-                # 512-row decks: 21 iterations, residual ~1e-12 A, at every step
-                # size).  Limiting the maximum time step to 20 ps steers the
-                # integrator around the point; on decks that converge anyway it
-                # changes delays by < 0.5 % and energy by < 0.4 %, at ~1.8x the time
-                # steps, so it is only applied as a retry.
-                retry_step = 2.0e-11
-                print(f"[WARNING] Xyce stopped with 'Time step too small'; retrying "
-                      f"once with a maximum time step of {retry_step:.1e} s "
-                      f"(t_max_step). Pass t_max_step explicitly to make this the default.")
-                with open(tb_path) as f:
-                    deck = f.read()
-                import re as _re
-                deck, n_sub = _re.subn(r'^(\.TRAN\s+\S+\s+\S+)\s*$',
-                                       lambda m: f'{m.group(1)} 0 {retry_step:.4e}',
-                                       deck, count=1, flags=_re.MULTILINE)
-                if n_sub == 1:
-                    with open(tb_path, 'w') as f:
-                        f.write(deck)
-                    result = _run_xyce()
 
             if result.returncode != 0:
                 raise RuntimeError(
@@ -1192,10 +1240,16 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 )
                 print("[DEBUG] Printing mc_df")
                 print(mc_df)
-                if self.interconnect.distributed:
-                    # Keep evidence even when timing safety rejects the run.
-                    mc_df.to_csv(tb_path.replace('.sp', '.data.csv'))
-                    self._check_distributed_precharge(mc_df, operation)
+                # Keep evidence even when timing safety rejects the run.
+                mc_df.to_csv(tb_path + '.raw.data.csv')
+                mc_df.to_csv(tb_path.replace('.sp', '.data.csv'))
+                self._check_distributed_precharge(mc_df, operation)
+                valid = self.access_validity(mc_df, operation, float(self.vdd))
+                # Preserve the raw CSV above. Failed samples remain in the
+                # returned ensemble, as NaN, so optimizers/yield count them.
+                delay_name = {'read': 'TREAD_TOTAL', 'write': 'TWRITE_TOTAL',
+                              'read&write': 'TVOUT_PERIOD'}[operation]
+                mc_df.loc[~valid, delay_name] = np.nan
                 # Generate statistics
                 stats = generate_mc_statistics(mc_df)
                 # Save results

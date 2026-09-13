@@ -26,6 +26,7 @@ _PERIPHERALS = (
 )
 _ROW_SCALES = ("pre", "wd_in", "wd_out")
 _COLUMN_SCALES = ("wl_inv", "wl_nand", "dec_inv")
+PRECHARGE_OFF_GUARD_STAGES = 4
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ class DriverLoads:
     sen_load: float | None = None
     iso_load: float | None = None
     sen_effort: float = 8.0
+    access_load: float | None = None
 
 
 @dataclass(frozen=True)
@@ -59,12 +61,12 @@ class DriverSizes:
     peripheral_key: str
     pdk_key: str
     dec_inv: float = 1.0
-    replica_matched: bool = False
+    replica_matched: bool = True
     replica_k: int = 1
     dc_stages: int = 9
     effort_buffers: bool = False
-    canonical_read: bool = False
-    replica_precharge_guard: bool = False
+    canonical_read: bool = True
+    replica_precharge_guard: bool = True
     replica_nmos_models: tuple = ()
     replica_nmos_widths: tuple = ()
     replica_pmos_model: str = ""
@@ -78,7 +80,10 @@ class DriverSizes:
     physical_key: str = ""
     size_class: str = ""
     extrapolated: bool = False
-    precharge_guard_stages: int = 0
+    precharge_guard_stages: int = 4
+    precharge_off_guard: bool = True
+    precharge_off_guard_stages: int = PRECHARGE_OFF_GUARD_STAGES
+    precharge_off_tau: float = 0.0
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -95,8 +100,28 @@ class DriverSizes:
             raise ValueError("Frozen driver sizes require the baseline peripheral configuration")
         if _digest(_pdk_inputs(cfg)) != self.pdk_key:
             raise ValueError("Frozen driver sizes require the baseline PDK model contents")
+        # Archived snapshots can still be read, but the current topology must
+        # not silently add an observer or common gate to an older load budget.
+        expected_access = max(1, ceil(self.loads.wl_load / (24.0 if self.effort_buffers else 32.0))) + 2.5
+        if (self.precharge_off_guard is not True
+                or type(self.precharge_off_guard_stages) is not int
+                or self.precharge_off_guard_stages != PRECHARGE_OFF_GUARD_STAGES
+                or not isfinite(self.precharge_off_tau) or self.precharge_off_tau <= 0
+                or self.loads.access_load != expected_access):
+            raise ValueError('Frozen driver sizes require the current precharge-off guard and access load')
         if context is not None and _digest(context) != self.physical_key:
             raise ValueError('Frozen driver sizes belong to a different physical context')
+        if context is not None:
+            rc_units = (float(context.get('pi_cap', _RULES['peripheral_rc_cap_f']))
+                        / _RULES['unit_inverter_cap_f'] if context.get('w_rc', False) else 0.0)
+            expected_pre = ((self.cols + 1) * (3 * float(sram_config.precharge.pmos_width.value)
+                            * self.pre / .36e-6 + rc_units) + .5)
+            if (not isfinite(self.loads.pre_load)
+                    or abs(self.loads.pre_load - expected_pre) > 1e-10 * max(1.0, expected_pre)):
+                raise ValueError('Frozen precharge load must include the far-PRE observer')
+            expected_tau = _precharge_off_tau(self.cols, self.loads.pre_load, context)
+            if abs(self.precharge_off_tau - expected_tau) > 1e-10 * expected_tau:
+                raise ValueError('Frozen precharge-off guard requires the baseline wire settling time')
         if self.source == 'table' and context is not None:
             from .table import record_key
             if self.qualified_context_key != record_key(self.key, context):
@@ -106,6 +131,22 @@ class DriverSizes:
 def _digest(value):
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _precharge_off_tau(cols, pre_load, context):
+    """Conservative wire/load settling scale, fixed before any PVT/cell sample.
+
+    Use the same inverter-capacitance estimate as the driver-load rules. This
+    is a geometry-based design delay, not extracted metal or a qualification.
+    """
+    from sram_compiler.interconnect import resolve_interconnect
+    wire = resolve_interconnect(context.get('interconnect')).wl
+    resistance = cols * wire.resistance_per_pitch
+    capacitance = pre_load * _RULES['unit_inverter_cap_f'] + cols * wire.capacitance_per_pitch
+    local_tau = (float(context.get('pi_res', 100.0))
+                 * float(context.get('pi_cap', _RULES['peripheral_rc_cap_f']))
+                 if context.get('w_rc', False) else 0.0)
+    return resistance * capacitance + local_tau
 
 
 def _circuit_inputs(config):
@@ -237,7 +278,6 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
                if physical_context is None else dict(_mapping(physical_context)))
     wire = resolve_interconnect(context.get('interconnect', getattr(cfg, 'interconnect', None)))
     context['interconnect'] = wire.to_dict()
-    distributed = wire.distributed
     rows, cols = cfg.num_rows, cfg.num_cols
     for name, value in (("num_rows", rows), ("num_cols", cols)):
         if isinstance(value, bool) or not isinstance(value, int) or value < 1:
@@ -254,7 +294,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     unknown = options.keys() - {
         "mode", "parasitic_factor", "wd_floor_margin", "k_w", "pre_min",
         "replica", "scale_decoder", "effort_buffers", "canonical_read",
-        "table", "lookup",
+        "table", "lookup", "precharge_guard_stages",
     }
     if unknown:
         raise ValueError(f"Unsupported sizing options: {sorted(unknown)}")
@@ -282,18 +322,18 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     for name, value in (("replica.K", replica_k), ("replica.N", dc_stages)):
         if isinstance(value, bool) or not isinstance(value, int) or value < 1:
             raise ValueError(f"{name} must be a positive integer")
-    if replica_k > rows + 1 or dc_stages % 2 != 1:
-        raise ValueError("replica K must not exceed rows + 1; N must be odd")
+    if replica_k > rows or dc_stages % 2 != 1:
+        raise ValueError("replica K must not exceed rows; N must be odd")
     replica_matched = replica.get("matched", True)
     scale_decoder = options.get("scale_decoder", True)
     effort_buffers = options.get("effort_buffers", True)
     canonical_read = options.get("canonical_read", True)
-    if distributed and (not replica_matched or not canonical_read or replica_k > rows):
-        raise ValueError('Distributed wiring requires a matched replica, canonical read and K <= rows')
     if any(not isinstance(value, bool) for value in
            (replica_matched, scale_decoder, effort_buffers, canonical_read)):
         raise ValueError("replica.matched and circuit feature switches must be boolean")
-    if replica_matched and replica_k > cols:
+    if not replica_matched or not canonical_read:
+        raise ValueError('Distributed wiring requires a matched replica and canonical read')
+    if replica_k > cols:
         raise ValueError("Matched replica K must not exceed columns (wordline gate load)")
     if mode == "lookup":
         scales = {name: float(row_class[name]) for name in ("pre", "wd_out", "wd_in")}
@@ -318,29 +358,35 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     nand_units = round(nand_gate / 0.45e-6, 12)
     rc_input_units = (_positive('pi_cap', context.get('pi_cap', _RULES['peripheral_rc_cap_f'])) / _RULES['unit_inverter_cap_f']
                       if context.get('w_rc', False) else 0.0)
+    guard_stages = options.get('precharge_guard_stages', 4)
+    if type(guard_stages) is not int or guard_stages < 0 or guard_stages % 2:
+        raise ValueError('precharge_guard_stages must be a nonnegative even integer')
     # Wordline-driver A/B and sense-amplifier EN/ISO each have two RC sections;
     # precharge and write-driver enables have one. TIME has no RC wrapper.
     rc_wl_units = 2 * rc_input_units / 1.25
     rc_sa_units = 2 * rc_input_units
-    num_sa = cols // (2 if mux else 1) + int(distributed)
+    num_sa = cols // (2 if mux else 1) + 1
     sa = sram_config.senseamp
     sa_n_units = round(_positive('SA NMOS width', sa.nmos_width.value) / 0.36e-6, 12)
     sa_iso_units = round(2 * (4 / 3) * _positive('SA PMOS width', sa.pmos_width.value) / 0.36e-6, 12)
     wenb_scale = max(1, ceil(2 * 0.45 * cols / 0.36 / 8.0))
+    wl_load = (rows * scales["wl_nand"] * nand_units
+               + scales["wl_nand"] * nand_units + (rows + 1) * rc_wl_units)
+    wl_en_scale = max(1, ceil(wl_load / (24.0 if effort_buffers else 32.0)))
     loads = DriverLoads(
-        pre_load=(cols + 1) * 3 * pre_width / 0.36e-6 + (cols + 1) * rc_input_units,
+        # The access guard observes far PRE with a half-unit inverter.
+        pre_load=(cols + 1) * 3 * pre_width / 0.36e-6 + (cols + 1) * rc_input_units + .5,
         wen_load=cols * (2 * wn * scales["wd_out"] + (wn + wp) * scales["wd_in"])
         / 0.36e-6 + 4 * wenb_scale + cols * rc_input_units,
-        # The matched replica driver is one more NAND2; the optional AND2 replica
-        # driver counts as one unit load.
-        wl_load=rows * scales["wl_nand"] * nand_units
-        + (scales["wl_nand"] * nand_units if replica_matched else 1.0)
-        + (rows + int(replica_matched)) * rc_wl_units,
+        # The matched replica driver adds one NAND2 with the same local RC.
+        wl_load=wl_load,
         num_sa=num_sa,
         wenb_scale=wenb_scale,
         sen_load=num_sa * (sa_n_units + rc_sa_units) + 3.5,
         iso_load=num_sa * (sa_iso_units + rc_sa_units),
         sen_effort=3.0 if rc_input_units else 4.0,
+        # WL buffer input plus write NAND2 and sense NAND3 request inputs.
+        access_load=wl_en_scale + 2.5,
     )
     periphery = _peripheral_inputs(sram_config)
     pdk = _pdk_inputs(cfg)
@@ -360,8 +406,10 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         'dec_inv': dec_inv,
         'replica_matched': replica_matched, 'replica_k': replica_k, 'dc_stages': dc_stages,
         'effort_buffers': effort_buffers, 'canonical_read': canonical_read,
-        'replica_precharge_guard': distributed or bool(rc_input_units and replica_matched),
-        'precharge_guard_stages': 4 if distributed else 0,
+        'replica_precharge_guard': True,
+        'precharge_guard_stages': guard_stages,
+        'precharge_off_guard': True, 'precharge_off_guard_stages': PRECHARGE_OFF_GUARD_STAGES,
+        'precharge_off_tau': _precharge_off_tau(cols, loads.pre_load, context),
         'replica_nmos_models': tuple(cell.nmos_model.value),
         'replica_nmos_widths': tuple(cell.nmos_width.value),
         'replica_pmos_model': cell.pmos_model.value,

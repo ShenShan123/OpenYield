@@ -25,6 +25,26 @@ choose_columnmux: false             # 是否选择列复用器 / Whether to choo
 # legacy fixed mode was removed in V2.0.9.
 sizing:
   mode: lookup
+# Frozen array-class clock; SI seconds for a manual diagnostic override:
+# timing: {mode: fixed, t_period: 1.0e-8}
+timing:
+  mode: lookup
+  margin: 0.25
+# Illustrative physical wires: 1 ohm / 0.1 fF per pitch, not foundry extraction.
+# Replace this geometry with extracted values before timing qualification.
+interconnect:
+  mode: distributed
+  cell_pin_rc: false
+  wl: &reference_wire
+    layer: M2-reference
+    pitch_m: 6.0e-7
+    width_m: 1.0e-7
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  bl:
+    <<: *reference_wire
+    layer: M3-reference
 pdk_path_TT: "tran_models/models_TT.spice" # PDK路径 / PDK path
 pdk_path_FF: "tran_models/models_FF.spice"
 pdk_path_SS: "tran_models/models_SS.spice"

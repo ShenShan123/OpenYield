@@ -1,4 +1,16 @@
-# OpenYield V2.0.11 development tools
+# OpenYield V2.1.1 development tools
+
+V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
+
+V2.1.1 carries forward the full retention and finite CLI metric checks first
+recorded in the [V2.1.0 follow-up](design/TIMING_LOOKUP_V2_1_0_FOLLOWUP.md),
+and adds distributed-only defaults, periphery/decoder/clock/select routing and
+local write-capture checks. See the
+[release report](design/DISTRIBUTED_ONLY_V2_1_1.md) for current validation status. Local `dev/v210_waveform_checks.py` checks every probed write column
+and final sequence retention directly from waveforms.
+`dev/v210_followup_queue.py` runs the nominal full-array follow-up serially
+with preserved attempts, source identities and bounded lifetimes. See the
+[schedule and resume commands](../plans/V2_1_1_TIMING_FOLLOWUP.md).
 
 The circuit generator lives in `sram_compiler/`. Reusable compiler regression
 tests live in the tracked top-level `tests/` directory. Local experiments,
@@ -39,7 +51,7 @@ The following commands require the ignored `dev/` workspace:
 | `dev/sizing/offset.py` | Characterize sense-amplifier offset ensembles |
 | `dev/sizing/gate_cap.py` | Measure gate-charge reference loads |
 | `dev/sizing/gate_fingers.py` | Check wide-gate fingering with DC/transient experiments |
-| `dev/sizing/wordline_model.py` | Compare star and distributed wordline models |
+| `dev/sizing/wordline_model.py` | Compare distributed wire geometry and refinement |
 | `dev/sizing/execution.py` | Support campaign MPI execution and timeout cleanup |
 | `dev/sizing/provenance.py` | Verify local scoring sources against the tracked manifest |
 | `dev/summarize_qualification.py` | Aggregate campaign checkpoints with on-disk reruns and `retry_dcop` results (V2.0.9 evidence summary) |
@@ -146,11 +158,10 @@ python3 -m dev.sizing.gate_fingers --xyce /path/to/Xyce
 python3 -m dev.sizing.wordline_model --xyce /path/to/Xyce
 ```
 
-The wordline check drives real RC cells with the array's wordline driver and
-compares the compiler's per-pin stub model (an ideal row net, a star) with a
-distributed line per column pitch; it records first- and last-cell arrival and
-slew. The star model is kept for the wordline sizing rule by decision; the
-proposal's Stage C outcome records the distributed-line numbers as reference.
+The wordline check drives real cells at the compiler's centered pi-ladder taps.
+It compares reference pitch, refinement at the same total R/C, and explicit
+wire stress, recording first/last-cell arrival and slew. The old star-comparison
+results retain their historical labels and require their archived sources.
 
 The fingering check holds total MOS widths fixed, compares transient edges at
 NF=1/16/100, and verifies nearly unchanged DC current. Its reference metadata
@@ -225,10 +236,19 @@ require their historical checkout. Its optional case fields include `cycles`
 probes does not replace any array transistor. `dev/review_score_v209.py`
 independently checks retained traces and records their hashes in `audit.json`.
 
-V2.0.11 extends the same diagnostic to the default star topology with
-`"interconnect": "star"` in a case, so an array without distributed wires can
-be scored from its trace; the `VWL_PRE_*` measures the compiler emits exist in
-distributed mode only. Write cases additionally check that precharge stays off
+Historically, V2.0.11 extended the diagnostic to the then-default star topology
+with `"interconnect": "star"` in a case. At that revision, the compiler emitted
+`VWL_PRE_*` measures only for distributed arrays. Those historical sources
+and traces retain their original scope; the current compiler requires release
+checks on every transient array. Write cases additionally check that precharge stays off
 for the whole write-enable window and that the write driver, not the initial
 condition, pulls the bitline down. The [V2.0.11 screen](design/WRITE_VALIDATION_V211.md)
 retains its cases under `outputs/validation/V2.0.11-write/`.
+
+The current validator rejects star cases. Five historical star-generation
+scripts were retired from active `dev/`; their exact contents remain in
+`outputs/validation/distributed-only-V2.1.0/incoming-source.tar.gz` and are
+listed in `retired-tools.json`. Use the new
+[distributed-only evaluation plan](../plans/V2_1_1_TIMING_FOLLOWUP.md) for
+current runs. The reviewed `dev/sizing/` source manifest was refreshed;
+old evidence is incompatible with the new scoring identity.

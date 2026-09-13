@@ -1,9 +1,20 @@
-# Shared utilities — V2.0.6
+# Shared utilities — V2.1.1
 
-This package consolidates the former root `utils.py`, reusable `plot_data.py`
+Introduced in V2.0.6, this package consolidates the former root `utils.py`, reusable `plot_data.py`
 functions, and shared optimizer plotting helpers. It is tracked runtime code;
 the hardcoded plotting experiment is preserved locally in ignored
 `dev/plot_data_demo.py`.
+
+V2.1.1 retains complete access/retention/release rejection and preserved
+numerical retry evidence, including nonfinite primary metric rejection. See
+the [release report](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md) for validation
+and the original version labels attached to historical results.
+
+Waveform parsing accepts repeated `.PRINT` names only when their complete
+finite sample vectors match exactly. It preserves the first identical column,
+keeps distinct physical names separate, and rejects conflicting or nonfinite
+duplicates. This lets the CLI plot overlapping probe lists without changing
+the original waveform or dropping Monte Carlo samples.
 
 | Module | Public helpers |
 |---|---|

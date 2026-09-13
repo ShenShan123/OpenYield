@@ -1,4 +1,4 @@
-"""Preserve failed Xyce operating points and retry the same sampled circuit."""
+"""Preserve numerical Xyce failures and retry the same sampled circuit."""
 
 from pathlib import Path
 import re
@@ -7,7 +7,7 @@ import subprocess
 
 
 def execute_xyce(deck_path, command, *, log_path=None, cwd=None, timeout=None, env=None):
-    """One Newton line-search retry for a failed DC operating point.
+    """One DC line-search retry and one bounded-step retry for numerical failure.
 
     Xyce sampling can report exit zero after a failed operating point. Treat
     that as failure too, since subsequent samples may have corrupted states.
@@ -28,33 +28,57 @@ def execute_xyce(deck_path, command, *, log_path=None, cwd=None, timeout=None, e
                                 + decoded(exc.stdout) + '\n' + decoded(exc.stderr))
             raise
         log_path.write_text(result.stdout + '\n' + result.stderr)
-        if 'DC Operating Point Failed' in result.stdout + result.stderr:
+        if any(message in result.stdout + result.stderr for message in
+               ('DC Operating Point Failed', 'Time step too small')):
             result.returncode = result.returncode or 1
         return result
 
     result = run()
-    output = result.stdout + result.stderr
-    if 'DC Operating Point Failed' not in output:
-        return result
-    deck = deck_path.read_text()
-    if re.search(r'(?im)^\s*\.OPTIONS\s+NONLIN\b[^\n]*\bSEARCHMETHOD\s*=\s*2\b', deck):
-        return result
-    options = ['.OPTIONS NONLIN SEARCHMETHOD=2']
-    if re.search(r'(?im)^\s*\.SAMPLING\b', deck):
-        if not re.search(r'(?im)^\s*\.OPTIONS\s+SAMPLES\b[^\n]*\bSEED\s*=\s*\d+', deck):
-            seed = re.search(r'Seeding random number generator with\s+(\d+)', output)
-            if seed is None or int(seed[1]) <= 0:
-                # An unseeded retry would silently replace the failed sample.
+    retried = set()
+    while result.returncode:
+        output = result.stdout + result.stderr
+        deck = deck_path.read_text()
+        options = []
+        if 'DC Operating Point Failed' in output:
+            kind = 'dcop'
+            if re.search(r'(?im)^\s*\.OPTIONS\s+NONLIN\b[^\n]*\bSEARCHMETHOD\s*=\s*2\b', deck):
                 return result
-            options.append(f'.OPTIONS SAMPLES SEED={seed[1]}')
-    amended, count = re.subn(r'(?im)^\s*\.END\s*$', '\n'.join(options) + '\n.END', deck, count=1)
-    if count != 1:
-        return result
+            options.append('.OPTIONS NONLIN SEARCHMETHOD=2')
+            amended = deck
+        elif 'Time step too small' in output:
+            kind = 'timestep'
+            amended, count = re.subn(r'(?im)^(\.TRAN\s+\S+\s+\S+)[ \t]*$',
+                                    r'\1 0 2.0000e-11', deck, count=1)
+            if count != 1:
+                return result
+        else:
+            return result
+        if kind in retried:
+            return result
+        if re.search(r'(?im)^\s*\.SAMPLING\b', deck):
+            if not re.search(r'(?im)^\s*\.OPTIONS\s+SAMPLES\b[^\n]*\bSEED\s*=\s*[1-9]\d*', deck):
+                seed = re.search(r'Seeding random number generator with\s+(\d+)', output)
+                if seed is None or int(seed[1]) <= 0:
+                    # An unseeded retry would silently replace the failed sample.
+                    return result
+                options.append(f'.OPTIONS SAMPLES SEED={seed[1]}')
+        amended, count = re.subn(r'(?im)^\s*\.END\s*$', '\n'.join(options) + '\n.END', amended, count=1)
+        if count != 1:
+            return result
+        attempt = _preserve_attempt(deck_path, log_path, kind)
+        deck_path.write_text(amended)
+        retried.add(kind)
+        result = run()
+        log_path.write_text(f'{kind} retry; original attempt: {attempt}\n'
+                            + '\n'.join(options) + '\n' + log_path.read_text())
+    return result
 
-    attempt = deck_path.parent / 'dcop_attempt'
+
+def _preserve_attempt(deck_path, log_path, kind):
+    attempt = deck_path.parent / f'{kind}_attempt'
     suffix = 1
     while attempt.exists():
-        attempt = deck_path.parent / f'dcop_attempt_{suffix}'
+        attempt = deck_path.parent / f'{kind}_attempt_{suffix}'
         suffix += 1
     attempt.mkdir()
     files = {deck_path, log_path, *deck_path.parent.glob(deck_path.name + '.*')}
@@ -69,8 +93,4 @@ def execute_xyce(deck_path, command, *, log_path=None, cwd=None, timeout=None, e
         for path in deck_path.parent.glob(deck_path.name + pattern):
             if path.is_file():
                 path.unlink()
-    deck_path.write_text(amended)
-    result = run()
-    log_path.write_text(f'Operating-point retry with Newton line search; original attempt: {attempt}\n'
-                        + '\n'.join(options) + '\n' + log_path.read_text())
-    return result
+    return attempt

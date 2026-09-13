@@ -1,10 +1,26 @@
-# OpenYield V2.0.11: SRAM yield analysis and optimization
+# OpenYield V2.1.1: SRAM yield analysis and optimization
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
 
 The circuit generator models parasitic capacitance/resistance, leakage coupling, and variation in peripheral circuits such as sense amplifiers and write drivers.
 
 The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
+
+V2.1.0 selects the clock from a fixed row/column lookup table, using the same
+round-up class strategy as driver sizing. The period stays fixed across cell
+candidates and PVT samples. It also fixes narrow-array RC precharge overlap,
+write-register initialization, the distributed output-latch enable, and yield
+callers' measurement handling. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210)
+and [release review](docs/design/TIMING_LOOKUP_V2_1_0.md) for settings and validation limits.
+
+V2.1.1 makes distributed RC the only signal-wire topology and the default. Explicit
+star settings are rejected. Array, replica, bitline periphery, decoder fan-out,
+write-data clock and mux-select paths use physical wire taps. The default
+1-ohm / 0.1-fF pitch is illustrative, not extracted metal. See the
+[V2.1.1 change and validation status](docs/design/DISTRIBUTED_ONLY_V2_1_1.md)
+and [evaluation schedule](plans/V2_1_1_TIMING_FOLLOWUP.md). Full retention checks
+and CLI metric rejection are included; the V2.1.0 timing table and V2.0.9
+transistor classes keep their historical identities.
 
 V2.0.11 fixes V2.0.10's failure handling, measurement windows and evidence
 retention, extends distributed wiring to the control lines that span an array

@@ -1,4 +1,17 @@
-# Compiler regression tests — V2.0.11
+# Compiler regression tests — V2.1.1
+
+V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
+
+V2.1.1 adds distributed defaults and explicit star rejection, consumer-tap
+connectivity, peripheral/decoder/clock/select fan-out, complete retention and
+finite CLI metric rejection. Software checks do not establish waveform
+correctness; see the [current release report](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md).
+
+The access-start regressions also cover far-PRE guard connectivity, physical
+RC settling frozen across candidates/PVT, stale-baseline rejection, and
+`VPRE_ACCESS_ERROR` rejection despite correct retained data. Waveform-parser
+tests preserve duplicate-probe values/sample boundaries and reject conflicting
+duplicates.
 
 These reusable tests are tracked outside the circuit generator. They cover
 driver sizing and frozen loads, MOS connectivity and widths, per-device

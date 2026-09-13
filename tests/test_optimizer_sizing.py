@@ -21,9 +21,9 @@ class OptimizerSizingTests(unittest.TestCase):
         class Testbench:
             def __init__(self, cfg, **kwargs):
                 seen.append((kwargs['driver_sizes'], cfg.sram_6t_cell.pmos_width.value,
-                             cfg.global_config.num_rows, kwargs['choose_columnmux']))
-                self.timing_config = None
-                self.t_period = 10e-9
+                             cfg.global_config.num_rows, kwargs['choose_columnmux'], kwargs['timing_config']))
+                self.timing_config = kwargs['timing_config']
+                self.t_period = self.timing_config.t_period
             def run_mc_simulation(self, operation, **kwargs):
                 if 'snm' in operation:
                     return .1
@@ -38,7 +38,9 @@ class OptimizerSizingTests(unittest.TestCase):
             second = exp_utils.evaluate_sram(dict(params, pu_width=108e-9))
         self.assertIs(seen[0][0], seen[1][0])
         self.assertEqual([row[1] for row in seen], [90e-9, 108e-9])
-        self.assertEqual(seen[1][2:], (32, False))
+        self.assertEqual(seen[1][2:4], (32, False))
+        self.assertIs(seen[0][4], seen[1][4])
+        self.assertEqual(second[2]['timing']['source'], 'lookup')
         self.assertTrue(first[3] and second[3])
         self.assertFalse(second[2]['read_delay_feasible'])
         self.assertTrue(second[2]['write_delay_feasible'])

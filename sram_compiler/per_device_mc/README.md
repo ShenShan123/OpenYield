@@ -1,4 +1,12 @@
-# Per-device local mismatch — V2.0.11
+# Per-device local mismatch — V2.1.1
+
+V2.1.1 retains the fixed timing lookup introduced in V2.1.0. `--period 1e-8` selects a diagnostic clock in seconds; `--timing-lookup` selects another class table. Run metadata carries the applied timing and V2.1.1 release version; the
+unchanged timing table retains its V2.1.0 identity. Repeated runs use separate attempt directories, and failures retain `summary.json`. Distributed wiring is the only topology and the default; explicit star settings fail. Runs check wordline release, access data, full retention and finite primary metrics.
+
+WL/write/sense assertion waits for settled far-end PRE. The baseline records
+the guard's loads and physical RC delay; sampled devices cannot refit it.
+`VPRE_ACCESS_ERROR_n` rejects PRE overlap while the target wordline or write
+driver is active, in addition to the independent all-column waveform screen.
 
 This package is part of the SRAM compiler. Independent local mismatch is the
 default for both its runner and `Sram6TCoreMcTestbench`: the selected PDK corner

@@ -2,6 +2,15 @@ SRAM Yield Estimation Algorithm
 =====
 This directory implements various rare-event estimation algorithms using importance sampling techniques to evaluate SRAM failure probabilities under process variations, enabling accurate and efficient yield analysis.
 
+V2.1.0 fixes all 15 compiler calls to consume `(delay, pavg, pstc, pdyn)` and treats NaN/infinite delays as failed samples. The supplied testbench keeps its lookup clock fixed across sampling. These adapter checks do not validate the legacy importance-sampling algorithms end to end; their machine-local paths and external ML dependencies remain separate work.
+
+V2.1.1 uses distributed wiring throughout and rejects star configurations.
+The fixed timing table and transistor classes remain unchanged. New physical
+routes require fresh functional evidence before PVT/mismatch expansion; see
+the [evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md). Historical
+measurements and qualification records retain their original version and
+physical context.
+
 Preparation File: spiced.py 
 -------
 The spice.py file defines threshold settings for yield estimation and establishes sampling boundary constraints across different circuit dimensions to guide the importance sampling process.and includes functions for defining yield criteria to guide the importance sampling process.

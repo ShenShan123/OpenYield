@@ -41,11 +41,14 @@ class BaseTestbench:#基础测试平台类
         self.half_vdd = float(self.vdd) / 2
     #允许动态修改所有关键时序参数
     def set_timing_parameters(self, t_rise, t_fall, t_pulse, t_period, t_delay):
+        from sram_compiler.sizing.timing import TimingConfig
+        timing = TimingConfig(float(t_period), 0, 0, 0, margin=0, source='manual')
         self.t_rise = t_rise
         self.t_fall = t_fall
         self.t_pulse = t_pulse
         self.t_period = t_period
         self.t_delay = t_delay
+        self.timing_config = timing
 
     def create_read_periphery(self, circuit):#需要子类实现
         """Create read periphery circuitry创建读外围电路"""

@@ -48,13 +48,13 @@ class HSCS(nn.Module):
         with open(file_path, 'a') as f:
             np.savetxt(f, y, fmt='%e')
     def indicator(self, y):
-        return (y > self.threshold) | (y < 0)
+        return ~np.isfinite(y) | (y > self.threshold) | (y < 0)
 
     def indicator_func(self,y):
         """
         I(X): if the corresponding  y of sample x is failed, return True, otherwise False.
         """
-        return (y > self.threshold) | (y < 0)
+        return ~np.isfinite(y) | (y > self.threshold) | (y < 0)
 
     
     def _IS_bound(self, x, IS_bound_num):
@@ -114,7 +114,7 @@ class HSCS(nn.Module):
             radius = ((iter_count+1)*radius_interval) - (((iter_count+1)*radius_interval)//max_radius)*max_radius
             new_x = np.random.uniform(low=bound_num * self.low_bounds, high=bound_num * self.up_bounds, size=[sample_num_each_sphere,feat_num])
             num_mc = new_x.shape[0]
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
             new_y = y.reshape(num_mc,1)
             y_labels = self.indicator_func(new_y).reshape([-1])
             folder_path = '/home/lixy/sim3'
@@ -232,7 +232,7 @@ class HSCS(nn.Module):
                 R = (R_max + R_min) / 2
                 samples = self.sample_on_sphere(num=find_MN_sam_num, dim=dim, radius=R,means=means,direction=direction,IS_bound_num=1,IS_bound_on =True)
                 num_mc = samples.shape[0]
-                y, w_pavg = self.mc_testbench.run_mc_simulation(operation='write', target_row=self.num_rows-1, target_col=self.num_cols-1, mc_runs=num_mc, vars=samples)
+                y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='write', target_row=self.num_rows-1, target_col=self.num_cols-1, mc_runs=num_mc, vars=samples)
                 samples_y = y.reshape(num_mc,1)  
                 folder_path = '/home/lixy/sim3'
                 delete_folder_content(folder_path)
@@ -349,7 +349,7 @@ class HSCS(nn.Module):
         # get initial failed samples
         self.x_samples, pre_sampling_num_list = self.pre_sampling(initial_failed_data_num, sample_num_each_sphere, bound_num)
         num_mc = self.x_samples.shape[0]
-        y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_samples)
+        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_samples)
         self.y_samples = y.reshape(num_mc,1)
         folder_path = '/home/lixy/sim3'
         delete_folder_content(folder_path)
@@ -385,7 +385,7 @@ class HSCS(nn.Module):
                 x_IS = self._IS_bound(x_IS, IS_bound_num)
 
             num_mc = x_IS.shape[0]
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
             y_IS = y.reshape(num_mc,1) 
             folder_path = '/home/lixy/sim3'
             delete_folder_content(folder_path)

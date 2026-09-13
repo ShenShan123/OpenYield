@@ -45,10 +45,10 @@ MC_RUNS: Optional[int] = None   # None: monte_carlo_runs from global.yaml
 MC_SEED: Optional[int] = 20260711  # Xyce sampling seed; None draws a new seed every run
 REAL_CELL_MODE = 0              # 0: full transistor array (complete local coverage);
                                 # 1-4: equivalent cells for the unused array (approximation)
-W_RC = True                     # Add the per-pin RC stubs (100 ohm / 1 fF)
+W_RC = True                     # Local storage/peripheral series RC (100 ohm / 1 fF)
 # Interconnect YAML mapping applied in memory (see docs/design/DISTRIBUTED_RC_MODEL.md),
 # e.g. "sram_compiler/config_yaml/interconnect_example.yaml"; None keeps global.yaml's
-# `interconnect` block (star topology by default).
+# `interconnect` block (distributed wiring with illustrative geometry by default).
 INTERCONNECT_CONFIG: Optional[str] = None
 TARGET: Optional[Sequence[int]] = None  # (row, col); None: last row, last column
 # ==================================================================

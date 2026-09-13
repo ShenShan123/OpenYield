@@ -51,7 +51,7 @@ class Replica_Cell(BaseSubcircuit):
         self.length = length
 
         self.sram_cell_type = sram_cell_type
-        self.cell_pin_rc = w_rc if cell_pin_rc is None else w_rc and cell_pin_rc
+        self.cell_pin_rc = w_rc and bool(cell_pin_rc)
         self.w_rc = w_rc
         self.disconnect = disconnect
 
@@ -147,16 +147,16 @@ class Replica_Column(SubCircuitFactory):
                  interconnect=None
                  ):
         self.interconnect = resolve_interconnect(interconnect)
-        self.cell_count = num_rows if self.interconnect.distributed else num_rows + 1
+        self.cell_count = num_rows
         self.NAME = f"sram_{self.cell_count}x1_replica_column"
         
-        # Define nodes - shared bitlines and individual wordlines
+        # Bitline endpoints and individual wordlines.
         self.NODES = (
             'VDD',  # Power supply
             'VSS',  # Ground
             'RBL',   # Bitline
             'RBLB',  # Bitline bar
-            *[f'WL{i}' for i in range(self.cell_count)],  # Wordlines (0 to num_rows)多生成一行
+            *[f'WL{i}' for i in range(self.cell_count)],
         )
         
         super().__init__()
@@ -177,9 +177,8 @@ class Replica_Column(SubCircuitFactory):
         self.pi_res = pi_res
         self.pi_cap = pi_cap
         self.sram_cell_type = sram_cell_type
-        if self.interconnect.distributed:
-            add_tapped_line(self, 'RBL', 'RBL', num_rows, self.interconnect.bl)
-            add_tapped_line(self, 'RBLB', 'RBLB', num_rows, self.interconnect.bl)
+        add_tapped_line(self, 'RBL', 'RBL', num_rows, self.interconnect.bl)
+        add_tapped_line(self, 'RBLB', 'RBLB', num_rows, self.interconnect.bl)
         # Build the array
         self.build_array(self.num_rows,self.num_cols)        #构建阵列
         # set instance prefix and the name of replica cell
@@ -200,14 +199,14 @@ class Replica_Column(SubCircuitFactory):
         # define the cell subcircuit
         self.subcircuit(replica_cell)
 
-        # Instantiate replica cells - sharing the same bitlines but connecting to different wordlines
+        # Each replica cell connects to its own physical bitline taps.
         for row in range(self.cell_count):
             self.X(
                 replica_cell.name + f"_{row}",  # Instance name
                 replica_cell.name,              # Subcircuit type
                 self.NODES[0],                  # Power net (VDD)
                 self.NODES[1],                  # Ground net (VSS)
-                f'RBL_tap{row}' if self.interconnect.distributed else self.NODES[2],
-                f'RBLB_tap{row}' if self.interconnect.distributed else self.NODES[3],
+                f'RBL_tap{row}',
+                f'RBLB_tap{row}',
                 f'WL{row}',                     # Individual wordline connection
             )

@@ -1,8 +1,8 @@
 from PySpice.Spice.Netlist import Circuit 
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
-from sram_compiler.subcircuits.standard_cell import AND2,D_latch,Pinv  # type: ignore
-from sram_compiler.testbenches.parameter_factor import (TIMEFactory,ReplicaColumnFactory,DummyColumnFactory,
-                                                        DummyRowFactory,DecoderCascadeFactory,WordlineDriverFactory,
+from sram_compiler.subcircuits.standard_cell import D_latch,Pinv  # type: ignore
+from sram_compiler.testbenches.parameter_factor import (TIMEFactory,ReplicaColumnFactory,
+                                                        DecoderCascadeFactory,WordlineDriverFactory,
                                                         PrechargeFactory,ColumnMuxFactory,SenseAmpFactory,WriteDriverFactory,
                                                         Sram6TCellFactory,Sram6TCoreFactory,Sram10TCellFactory,Sram10TCoreFactory)
 
@@ -11,8 +11,8 @@ from sram_compiler.testbenches.base_testbench import BaseTestbench  # type: igno
 from math import ceil, log2
 from copy import copy
 from sram_compiler.interconnect import resolve_interconnect, add_tapped_line, cell_wire_nodes
-from sram_compiler.sizing import resolve_driver_sizes
-from sram_compiler.sizing.table import physical_context, qualified_timing
+from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
+from sram_compiler.sizing.table import physical_context
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Cell
 
 class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自BaseTestbench
@@ -80,17 +80,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # default mux inputs
         self.mux_in = 1
         self.timing_config = timing_config
-        if timing_config is None and self.driver_sizes.source == 'table':
-            options = global_cfg.sizing
-            table_path = options.get('table') if isinstance(options, dict) else getattr(options, 'table', None)
-            self.timing_config = qualified_timing(
-                self.driver_sizes, table_path,
-                physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode, self.interconnect),
-            )
-            if self.timing_config is None:
-                raise ValueError('Qualified timing record is stale or unavailable for this physical context')
-        if self.timing_config is not None:
-            self.timing_config.apply(self)
+        if self.timing_config is None:
+            self.timing_config = resolve_timing(sram_config, self.driver_sizes,
+                physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode, self.interconnect))
+        if hasattr(self.timing_config, 'validate_for'):
+            self.timing_config.validate_for(sram_config, self.driver_sizes)
+        self.timing_config.apply(self)
         #self.set_vdd(5)
 
     def create_time_circuit(self, circuit: Circuit,operation: str):
@@ -115,6 +110,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             replica_precharge_guard=self.driver_sizes.replica_precharge_guard,
             sen_effort=loads.sen_effort,
             precharge_guard_stages=self.driver_sizes.precharge_guard_stages,
+            interconnect=self.interconnect,
+            precharge_off_guard=self.driver_sizes.precharge_off_guard,
+            precharge_off_guard_stages=self.driver_sizes.precharge_off_guard_stages,
+            access_load=loads.access_load,
+            precharge_off_tau=self.driver_sizes.precharge_off_tau,
         ).create()
         circuit.subcircuit(time_circuit)   # Add to main circuit
         
@@ -148,21 +148,17 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # block through the same two segments a real bitline sees at its
         # sense-amplifier input (SenseAmp 'IN'), so RBL and BL carry the same
         # wire configuration end to end.
-        rbl_node = 'rbl'
-        if self.interconnect.distributed:
-            # Use the same mux and sense-input devices as a real column. The
-            # read periphery instantiates them later in this deck.
-            rbl_node = ('XREPLICA_SENSEAMP:IN_end' if self.w_rc else
-                        ('RBL_MUX' if self.choose_columnmux else 'RBL'))
-        elif self.w_rc:
-            rbl_node = 'RBL_sense'
-            circuit.R('R_RBL_SENSE_0', 'RBL', 'RBL_sense_seg0', self.pi_res)
-            circuit.C('Cg_RBL_SENSE_0', 'RBL_sense_seg0', self.gnd_node, self.pi_cap)
-            circuit.R('R_RBL_SENSE_1', 'RBL_sense_seg0', rbl_node, self.pi_res)
-            circuit.C('Cg_RBL_SENSE_1', rbl_node, self.gnd_node, self.pi_cap)
+        # The replica sees the same peripheral ladder, mux and sense-input
+        # devices as a real column, including when local series RC is disabled.
+        rbl_node = ('XREPLICA_SENSEAMP:IN_end' if self.w_rc else
+                    ('RBL_MUX' if self.choose_columnmux else self.periphery_tap('BL', None, 'sense')))
         time_connections.extend([rbl_node, 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE', 'sa_iso'])
         if self.driver_sizes.replica_precharge_guard:
-            time_connections.append('RWL_far' if self.interconnect.distributed else 'RWL')
+            time_connections.append('RWL_far')
+        if self.driver_sizes.precharge_off_guard:
+            # The replica precharge sits past the final real column. Observe
+            # its transistor gate, including the optional local series stub.
+            time_connections.append('XPRECHARGE_RBL:ENB_end' if self.w_rc else 'PRE_line_far')
         
         # Instantiate TIME circuit
         circuit.X(
@@ -277,17 +273,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # All Replica Column connections.  Only the RWL cell is an active replica; the
         # other num_rows cells are pure bitline loads with their wordlines tied off, so a
         # real-row access never discharges RBL in parallel with the replica cell.
-        replica_connections = [
-            'VDD', 'VSS', 'RBL', 'RBLB',
-            *['RWL' if row < self.driver_sizes.replica_k else self.gnd_node
-              for row in range(self.num_rows + 1)]
-        ]
-        if self.interconnect.distributed:
-            k = self.driver_sizes.replica_k
-            replica_connections = ['VDD', 'VSS', 'RBL', 'RBLB', *[
-                f'RWL_tap{self.num_cols - k + row - (self.num_rows - k)}'
-                if row >= self.num_rows - k else self.gnd_node
-                for row in range(self.num_rows)]]
+        k = self.driver_sizes.replica_k
+        replica_connections = ['VDD', 'VSS', 'RBL', 'RBLB', *[
+            f'RWL_tap{self.num_cols - k + row - (self.num_rows - k)}'
+            if row >= self.num_rows - k else self.gnd_node
+            for row in range(self.num_rows)]]
 
         # Instantiate Replica Column circuit
         circuit.X(
@@ -296,155 +286,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         )
         return circuit
     
-    def create_dummy_column(self, circuit: Circuit):
-        """Create dummy column circuitry"""
-        # Create Dummy Column circuit
-        dummy_column = DummyColumnFactory(
-            num_rows=self.num_rows,
-            pd_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
-            pu_pmos_model=self.sram_config.sram_6t_cell.pmos_model.value,
-            pg_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
-            pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
-            pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
-            pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
-            length=self.sram_config.sram_6t_cell.length.value,
-        ).create()
-        circuit.subcircuit(dummy_column)   # Add to main circuit
-        
-        # All Dummy Column connections for left and right columns
-        dummy_connections_left = [
-            'VDD', 'VSS', 'dummy_left_bl', 'dummy_left_blb', 'VSS', 'RWL',
-            *[f'WL{i}' for i in range(self.num_rows)],'VSS'  # WL数量仍是行数，多的三行分别是VSS，RWL，VSS
-        ]
-        
-        dummy_connections_right = [
-            'VDD', 'VSS', 'dummy_right_bl', 'dummy_right_blb', 'VSS', 'RWL',
-            *[f'WL{i}' for i in range(self.num_rows)],'VSS' 
-        ]
-        
-        # Instantiate Dummy Column circuits
-        circuit.X(
-            'Dummy_column_left', dummy_column.NAME,
-            *dummy_connections_left
-        )
-        
-        circuit.X(
-            'Dummy_column_right', dummy_column.NAME,
-            *dummy_connections_right
-        )
-        return circuit
-    
-    def create_dummy_row(self, circuit: Circuit):
-        """Create dummy rows on top and bottom of the SRAM array"""
-        # Create dummy row instances
-        dummy_row = DummyRowFactory(
-            num_cols=self.num_cols,
-            pd_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
-            pu_pmos_model=self.sram_config.sram_6t_cell.pmos_model.value,
-            pg_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
-            pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
-            pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
-            pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
-            length=self.sram_config.sram_6t_cell.length.value,
-            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
-        ).create()
-        # Add subcircuit definition to this testbench.
-        circuit.subcircuit(dummy_row)
-
-        # Connections for top dummy row (includes RBL/RBLB)
-        dummy_connections_top = [
-            self.power_node, self.gnd_node,  # VDD, VSS
-            'RBL',  # RBL as extra BL
-            *[f'BL{i}' for i in range(self.num_cols)],  # BL0 to BL(num_cols-1)
-            'RBLB',  # RBLB as extra BLB
-            *[f'BLB{i}' for i in range(self.num_cols)],  # BLB0 to BLB(num_cols-1)
-            self.gnd_node  # VSS接WL
-        ]
-
-        # Connections for bottom dummy row (includes RBL/RBLB)
-        dummy_connections_bottom = [
-            self.power_node, self.gnd_node,  # VDD, VSS
-            'RBL',  # RBL as extra BL
-            *[f'BL{i}' for i in range(self.num_cols)],  # BL0 to BL(num_cols-1)
-            'RBLB',  # RBLB as extra BLB
-            *[f'BLB{i}' for i in range(self.num_cols)],  # BLB0 to BLB(num_cols-1)
-            self.gnd_node  # VSS
-        ]
-
-        # Instantiate dummy rows
-        circuit.X(
-            'Dummy_row_top', dummy_row.NAME,
-            *dummy_connections_top
-        )
-        circuit.X(
-            'Dummy_row_bot', dummy_row.NAME,
-            *dummy_connections_bottom
-        )
-        return circuit
-    
-    def create_dummy_row_2(self, circuit: Circuit):
-        """Create dummy rows on RWL"""
-        # Create dummy row instances
-        dummy_row_2 = DummyRowFactory(
-            num_cols=self.num_cols-1,
-            pd_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[0],
-            pu_pmos_model=self.sram_config.sram_6t_cell.pmos_model.value,
-            pg_nmos_model=self.sram_config.sram_6t_cell.nmos_model.value[1],
-            pd_width=self.sram_config.sram_6t_cell.nmos_width.value[0],
-            pu_width=self.sram_config.sram_6t_cell.pmos_width.value,
-            pg_width=self.sram_config.sram_6t_cell.nmos_width.value[1],
-            length=self.sram_config.sram_6t_cell.length.value,
-            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
-        ).create()
-        # Add subcircuit definition to this testbench.
-        circuit.subcircuit(dummy_row_2)
-
-        # Connections for middle dummy row (connected to RWL)
-        dummy_connections = [
-            self.power_node, self.gnd_node,  # VDD, VSS
-            *[f'BL{i}' for i in range(self.num_cols)],  # BL0 to BL(num_cols-1)
-            *[f'BLB{i}' for i in range(self.num_cols)],  # BLB0 to BLB(num_cols-1)
-            'RWL'  # RWL as shared WL
-        ]
-
-        circuit.X(
-            'Dummy_row', dummy_row_2.NAME,
-            *dummy_connections
-        )
-        return circuit
-    
-    def create_and2_for_rwl(self, circuit: Circuit):
-        """Create AND2_FOR_RWL subcircuit and instance for RWL control"""
-        if self.driver_sizes.replica_matched:
-            return self.create_replica_wordline(circuit)
-        # Create AND2_FOR_RWL instance
-        # Same RC configuration as the real wordline drivers: two segments on
-        # the inputs and on the RWL output when the array carries RC.
-        and2_for_rwl = AND2(
-            nmos_model_nand="NMOS_VTG",
-            pmos_model_nand="PMOS_VTG",
-            nmos_model_inv="NMOS_VTG",
-            pmos_model_inv="PMOS_VTG",
-            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
-            )
-        
-        # Add subcircuit definition to this testbench
-        circuit.subcircuit(and2_for_rwl)
-        
-        # Connect XRWL instance to circuit
-        circuit.X(
-            'RWL', and2_for_rwl.NAME,
-            'VDD', 'VSS', self.control_tap('wl_en'), 'VDD', 'RWL'
-        )      
-        return circuit
-
     def create_replica_wordline(self, circuit: Circuit):
         """Use the real row driver and match its baseline pass-gate count."""
         driver = self._wordline_driver()
         circuit.subcircuit(driver)
         circuit.X('RWL', driver.NAME, 'VDD', 'VSS', 'VDD', self.control_tap('wl_en'), 'RWL')
-        if self.interconnect.distributed:
-            add_tapped_line(circuit, 'RWL', 'RWL', self.num_cols, self.interconnect.wl)
+        add_tapped_line(circuit, 'RWL', 'RWL', self.num_cols, self.interconnect.wl)
         sizes = self.driver_sizes
         if self.num_cols > sizes.replica_k:
             dummy = Dummy_Cell(
@@ -458,7 +305,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             # The K active replica cells already contribute K access-gate pairs.
             # Dummy_Cell keeps its bitline drains disconnected internally.
             for col in range(self.num_cols - sizes.replica_k):
-                node = f'RWL_tap{col}' if self.interconnect.distributed else 'RWL'
+                node = f'RWL_tap{col}'
                 circuit.X(f'RWL_LOAD_{col}', dummy.NAME, 'VDD', 'VSS', 'VDD', 'VDD', node)
         return circuit
 
@@ -475,7 +322,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             inv_pmos_width=decoder_config.pmos_width.value[1],
             inv_nmos_width =decoder_config.nmos_width.value[1],
             length=decoder_config.length.value,
-            w_rc=False,  # default `w_rc` is False,暂时不支持
+            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
+            interconnect=self.interconnect,
             sweep_decoder=self.sweep_decoder,
             output_scale=self.driver_sizes.dec_inv,
             pmos_choices = self.sram_config.senseamp.pmos_model.choices,
@@ -519,19 +367,15 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     
     # Control lines that span the array.  Each runs the length of one array
     # dimension in its periphery and drives one load per row or column, so with
-    # distributed wiring it is a tapped pi ladder like any other wire rather
-    # than a lumped star node.  PRE, w_en, w_en_bar, s_en and sa_iso run the
+    # each is a tapped pi ladder. PRE, w_en, w_en_bar, s_en and sa_iso run the
     # array width along the column periphery on the wordline pitch; wl_en runs
     # the array height along the wordline-driver column on the bitline pitch.
-    # Star topology keeps the single net, so its decks do not change.
     _COLUMN_CONTROLS = ('PRE', 'w_en', 'w_en_bar', 's_en', 'sa_iso')
     _ROW_CONTROLS = ('wl_en',)
 
     def _add_control_wires(self, circuit: Circuit, operation: str):
-        """Tapped control lines for distributed wiring; star keeps lumped nets."""
+        """Each array-spanning control consumer attaches to its own wire tap."""
         self._control_taps = {}
-        if not self.interconnect.distributed:
-            return
         skip = () if operation in ('write', 'read&write') else ('w_en_bar',)
         for name in self._COLUMN_CONTROLS:
             if name not in skip:
@@ -541,16 +385,29 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             self._control_taps[name] = add_tapped_line(
                 circuit, f'{name}_line', name, self.num_rows, self.interconnect.bl)
 
-    def control_tap(self, name, index=None, star=None):
-        """Control node at column/row `index`; the far end when `index` is None.
-
-        In star topology this is the plain net, spelled exactly as the caller
-        used to spell it (`star`), so star decks stay byte-identical.
-        """
-        taps = getattr(self, '_control_taps', {}).get(name)
-        if taps is None:
-            return name if star is None else star
+    def control_tap(self, name, index=None):
+        """Control node at column/row `index`; the far end for the replica."""
+        taps = self._control_taps[name]
         return f'{name}_line_far' if index is None else taps[index]
+
+    def _add_periphery_wires(self, circuit):
+        """Three peripheral pitches from each array port, mirrored on the replica.
+
+        Placement order from the array is precharge, write driver, then
+        mux/sense amplifier. Pitch uses the configured bitline wire geometry.
+        """
+        for col in [*range(self.num_cols), None]:
+            for pin in ('BL', 'BLB'):
+                net = f'{pin}{col}' if col is not None else f'R{pin}'
+                add_tapped_line(circuit, f'{net}_periph', net, 3, self.interconnect.bl)
+
+    def periphery_tap(self, pin, col, role):
+        """BL/BLB connection at a peripheral block; col=None denotes replica."""
+        if pin not in ('BL', 'BLB'):
+            raise ValueError('Peripheral pin must be BL or BLB')
+        index = {'precharge': 0, 'write': 1, 'sense': 2}[role]
+        net = f'{pin}{col}' if col is not None else f'R{pin}'
+        return f'{net}_periph_tap{index}'
 
     def _wordline_driver(self):
         """Build the common real/replica wordline driver definition."""
@@ -588,7 +445,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 f'WL_DRV_{row}', wldrv.name,
                 self.power_node, self.gnd_node, 
                 decoder_enable,    # 来自译码器的使能信号
-                self.control_tap('wl_en', row, star='WL_EN'),   # 内部使能（始终有效）
+                self.control_tap('wl_en', row),   # 内部使能（始终有效）
                 f'WL{row}',        # 输出到SRAM阵列
             )
             # else:
@@ -610,7 +467,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # per mux group, so the latch input is SA_Q{target_col // mux_in}.
         circuit.X(
             'D_LATCH', d_latch.NAME,
-            'VDD', 'VSS', f'SA_Q{target_col // self.mux_in}', 'S_EN', 'OUT', 'OUT_B'
+            'VDD', 'VSS', f'SA_Q{target_col // self.mux_in}',
+            self.control_tap('s_en', (target_col // self.mux_in) * self.mux_in),
+            'OUT', 'OUT_B'
         )
         return circuit
 
@@ -636,13 +495,15 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             circuit.X(
                 f'{prch.name}_{col}',
                 prch.name,
-                self.power_node, self.control_tap('PRE', col), f'BL{col}', f'BLB{col}'
+                self.power_node, self.control_tap('PRE', col),
+                self.periphery_tap('BL', col, 'precharge'), self.periphery_tap('BLB', col, 'precharge')
             )
         # 新增一列，连接至 RBL 和 RBLB
         circuit.X(
             f'{prch.name}_RBL',
             prch.name,
-            self.power_node, self.control_tap('PRE'), 'RBL', 'RBLB'
+            self.power_node, self.control_tap('PRE'),
+            self.periphery_tap('BL', None, 'precharge'), self.periphery_tap('BLB', None, 'precharge')
         )
 
         if self.choose_columnmux:
@@ -672,12 +533,19 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 param_model_file =self.sim_path + '/param_sweep_models.data',
             ).create()
             circuit.subcircuit(cmux)    #添加列多路选择器实例到主电路
-            if self.interconnect.distributed:
-                circuit.X('REPLICA_MUX', cmux.name, self.power_node, self.gnd_node,
-                          'RBL_MUX', 'RBLB_MUX', 'VDD', 'VSS',
-                          *(['VSS', 'VDD'] if use_external_selb else []),
-                          'RBL', 'VDD', 'RBLB', 'VDD')
+            circuit.X('REPLICA_MUX', cmux.name, self.power_node, self.gnd_node,
+                      'RBL_MUX', 'RBLB_MUX', 'VDD', 'VSS',
+                      *(['VSS', 'VDD'] if use_external_selb else []),
+                      self.periphery_tap('BL', None, 'sense'), 'VDD',
+                      self.periphery_tap('BLB', None, 'sense'), 'VDD')
             self.cmux_inst_prefix = f"X{cmux.name}"
+            selects = {f'SEL{i}': add_tapped_line(circuit, f'SEL{i}_line', f'SEL{i}',
+                                                 self.num_cols, self.interconnect.wl)
+                       for i in range(self.mux_in)}
+            if use_external_selb:
+                selects.update({f'SELB{i}': add_tapped_line(circuit, f'SELB{i}_line', f'SELB{i}',
+                                                           self.num_cols, self.interconnect.wl)
+                                for i in range(self.mux_in)})
 
             # Add Column Mux for all columns    为每组列添加多路复用器实例
             for col in range(self.num_cols // self.mux_in): #//表示整除，即需要几组多路选择器
@@ -688,12 +556,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     f'SA_IN{col}',  # SA inputs are Mux's outputs
                     f'SA_INB{col}',  # SA inputs are Mux's outputs
                     # SELect signal, high valid, #SEL = self.mux_in
-                    *[f'SEL{i}' for i in range(self.mux_in)],
-                    *([f'SELB{i}' for i in range(self.mux_in)] if use_external_selb else []),
+                    *[selects[f'SEL{i}'][col*self.mux_in] for i in range(self.mux_in)],
+                    *([selects[f'SELB{i}'][col*self.mux_in] for i in range(self.mux_in)] if use_external_selb else []),
                     # Inputs are BLs, #BLs  = self.mux_in
-                    *[f'BL{i}' for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
+                    *[self.periphery_tap('BL', i, 'sense') for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
                     # Inputs are BLBs, #BLBs = self.mux_in
-                    *[f'BLB{i}' for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
+                    *[self.periphery_tap('BLB', i, 'sense') for i in range(col * self.mux_in, (col + 1) * self.mux_in)],
                 )
 
             # Set SEL signals.  The column address is static for the whole cycle (the
@@ -728,13 +596,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             column = None if group is None else group * self.mux_in
             return self.control_tap('s_en', column), self.control_tap('sa_iso', column)
 
-        if self.interconnect.distributed:
-            # The replica amplifier sits past the last real column.
-            circuit.X('REPLICA_SENSEAMP', sa.name, self.power_node, self.gnd_node,
-                      *sa_control(),
-                      'RBL_MUX' if self.choose_columnmux else 'RBL',
-                      'RBLB_MUX' if self.choose_columnmux else 'RBLB',
-                      'REPLICA_SA_Q', 'REPLICA_SA_QB')
+        # The replica amplifier sits past the last real column.
+        circuit.X('REPLICA_SENSEAMP', sa.name, self.power_node, self.gnd_node,
+                  *sa_control(),
+                  'RBL_MUX' if self.choose_columnmux else self.periphery_tap('BL', None, 'sense'),
+                  'RBLB_MUX' if self.choose_columnmux else self.periphery_tap('BLB', None, 'sense'),
+                  'REPLICA_SA_Q', 'REPLICA_SA_QB')
 
         if self.choose_columnmux:
             # Add SA circuitry for all columns  #为每组多路选择器下接灵敏放大器
@@ -756,7 +623,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     sa.name,
                     self.power_node, self.gnd_node,
                     *sa_control(col),  # SA enable and input-isolation control
-                    f'BL{col}', f'BLB{col}',  # Inputs
+                    self.periphery_tap('BL', col, 'sense'), self.periphery_tap('BLB', col, 'sense'),  # Inputs
                     f'SA_Q{col}', f'SA_QB{col}',  # Outputs
                 )
         return circuit
@@ -793,14 +660,15 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             # load as a real bitline, including on large row-scaled drivers.
             circuit.X('REPLICA_WDRV_LOAD', write_drv.name,
                       self.power_node, self.gnd_node, self.gnd_node, self.gnd_node,
-                      'RBL', 'RBLB')
+                      self.periphery_tap('BL', None, 'write'), self.periphery_tap('BLB', None, 'write'))
 
         if operation == 'read':
             # Keep disabled output stacks on both bitlines during read accesses.
             for col in range(self.num_cols):
                 circuit.X(f'{write_drv.name}_{col}', write_drv.name,
                           self.power_node, self.gnd_node, self.control_tap('w_en', col),
-                          self.gnd_node, f'BL{col}', f'BLB{col}')
+                          self.gnd_node, self.periphery_tap('BL', col, 'write'),
+                          self.periphery_tap('BLB', col, 'write'))
             return circuit
 
         # Write-data hold latch.  w_en spans the whole clock-low phase and is
@@ -841,8 +709,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 self.gnd_node,  # Ground net
                 self.control_tap('w_en', col),  # Write Enable signal
                 f'DIN_hold{col}',  # Data In, held while w_en is high
-                f'BL{col}',  # Connect to column bitline
-                f'BLB{col}',  # Connect to column bitline bar
+                self.periphery_tap('BL', col, 'write'),
+                self.periphery_tap('BLB', col, 'write'),
             )
 
         if operation == 'write':
@@ -1058,13 +926,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         return init_dict
 
     def cell_probe(self, pin, row=None, col=None):
-        """Actual access-device terminal; legacy star probes keep their names."""
+        """Actual access-device terminal at the cell's physical wire tap."""
         row = self.target_row if row is None else row
         col = self.target_col if col is None else col
         if pin not in ('BL', 'BLB', 'WL'):
             raise ValueError('Cell probe must be BL, BLB or WL')
-        if not self.interconnect.distributed:
-            return f'WL{row}' if pin == 'WL' else f'{pin}{col}'
         if self.w_rc and self.interconnect.cell_pin_rc:
             return f'{self.cell_inst_prefix}_{row}_{col}:{pin}_end'
         node = cell_wire_nodes(self.sbckt_array, row, col)[('BL', 'BLB', 'WL').index(pin)]
@@ -1078,7 +944,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             return f'{self.sa_inst_prefix}_{col // self.mux_in}:{pin}_end'
         if self.choose_columnmux:
             return f'SA_IN{"B" if pin == "INB" else ""}{col // self.mux_in}'
-        return f'BL{"B" if pin == "INB" else ""}{col}'
+        return self.periphery_tap('BLB' if pin == 'INB' else 'BL', col, 'sense')
 
     def create_testbench(self, operation, target_row, target_col):
         """
@@ -1237,16 +1103,10 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # Control wires first: the replica, TIME, decoder and periphery blocks
         # below all tap them.
         self._add_control_wires(circuit, operation)
+        self._add_periphery_wires(circuit)
         # Create Replica Column 
         self.create_replica_column(circuit)
-        # Create AND2_FOR_RWL for RWL control
-        self.create_and2_for_rwl(circuit)
-        # # Create Dummy Columns
-        # self.create_dummy_column(circuit)
-        # # Create Dummy Rows
-        # self.create_dummy_row(circuit)
-        # # Create Dummy Rows_2
-        # self.create_dummy_row_2(circuit)
+        self.create_replica_wordline(circuit)
         # Create TIME circuit for timing control
         self.create_time_circuit(circuit, operation)
         self.add_cs_startup_clamp(circuit)

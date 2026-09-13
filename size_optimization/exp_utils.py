@@ -33,7 +33,7 @@ from config import SRAM_CONFIG
 # 导入SRAM仿真模块
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
-from sram_compiler.sizing import resolve_driver_sizes
+from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
 from sram_compiler.sizing.table import physical_context
 from utils import estimate_bitcell_area, estimate_total_area, estimate_array_area, estimate_scaled_array_area
 from utils.plotting import plot_merit_history, plot_pareto_frontier
@@ -1071,6 +1071,14 @@ def _baseline_sizes(rows, cols, mux, w_rc, configuration_stamp):
         w_rc, interconnect=getattr(cfg.global_config, 'interconnect', None)))
 
 
+@lru_cache(maxsize=64)
+def _baseline_timing(sizes, w_rc, configuration_stamp):
+    cfg = _load_sram_config_from_yaml()
+    cfg.global_config.num_rows, cfg.global_config.num_cols = sizes.rows, sizes.cols
+    return resolve_timing(cfg, sizes, physical_context(
+        w_rc, interconnect=getattr(cfg.global_config, 'interconnect', None)))
+
+
 def _configuration_stamp():
     root = Path(__file__).resolve().parents[1]
     digest = hashlib.sha256()
@@ -1078,6 +1086,19 @@ def _configuration_stamp():
         digest.update(path.read_bytes())
     for path in sorted((root / 'tran_models').glob('*.spice')):
         digest.update(path.read_bytes())
+    for path in sorted((root / 'sram_compiler/sizing').glob('*.json')):
+        digest.update(path.read_bytes())
+    global_config = yaml.safe_load((root / 'sram_compiler/config_yaml/global.yaml').read_text())
+    for group in ('sizing', 'timing'):
+        options = global_config.get(group, {})
+        if isinstance(options, dict):
+            for name in ('lookup', 'table'):
+                if options.get(name):
+                    path = Path(options[name])
+                    if not path.is_absolute():
+                        path = root / path
+                    if path.exists():
+                        digest.update(path.read_bytes())
     return digest.hexdigest()
 
 
@@ -1100,6 +1121,8 @@ def evaluate_sram(params, timeout=120, driver_sizes=None, timing_config=None):
     w_rc = bool(params.get('w_rc', False))
     if driver_sizes is None:
         driver_sizes = _baseline_sizes(num_rows, num_cols, choose_mux, w_rc, _configuration_stamp())
+    if timing_config is None:
+        timing_config = _baseline_timing(driver_sizes, w_rc, _configuration_stamp())
     # Apply candidate values only after the baseline has been frozen.
     apply_params_to_sram_config(sram_config, params)
 

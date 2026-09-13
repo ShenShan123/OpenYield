@@ -1,4 +1,10 @@
-# OpenYield V2.0.11 documentation
+# OpenYield V2.1.1 documentation
+
+V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
+extends write-capture, retention and CLI validation. See the
+[current release report](design/DISTRIBUTED_ONLY_V2_1_1.md) and
+[evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md). The unchanged timing
+table was introduced in the [V2.1.0 review](design/TIMING_LOOKUP_V2_1_0.md).
 
 Project plans and release history live here. Usage guides live beside the code
 they describe. Commands and code paths in the documents are relative to the
@@ -41,3 +47,7 @@ The supplied evidence CSVs remain at the repository root:
 - [V2.0.11 audit and write screen](design/WRITE_VALIDATION_V211.md): failure
   handling and measurement-window fixes, the star-topology write and read
   waveform screen, and the open release-margin and yield-path items.
+- [V2.1.0 star-shape RC screen](design/STAR_RC_SCREEN_V2_1_0.md): the preserved
+  pre-removal topology audit that motivated the distributed-only change.
+- [V2.1.1 distributed-only wiring](design/DISTRIBUTED_ONLY_V2_1_1.md): removal
+  of star paths, peripheral/decoder/clock/select ladders, and fresh evaluation.

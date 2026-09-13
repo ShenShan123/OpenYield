@@ -682,9 +682,11 @@ class DecoderCascadeFactory:
                  pmos_choices=None,         # PMOS 模型列表
                  nmos_choices=None,         # NMOS 模型列表
                  param_model_file=None, output_scale=1.0,
-                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 interconnect=None,
                  ):
         
+        self.interconnect = interconnect
         self.num_rows = num_rows
         self.output_scale = output_scale
         self.nmos_model_inv = nmos_model_inv
@@ -769,6 +771,7 @@ class DecoderCascadeFactory:
             'pi_res': self.pi_res,
             'pi_cap': self.pi_cap,
             'output_scale': self.output_scale,
+            'interconnect': self.interconnect,
         }
 
     def create(self):
@@ -784,9 +787,11 @@ class DummyColumnFactory:
                  pd_nmos_model, pu_pmos_model, pg_nmos_model,
                  pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, length=50e-9,
                  w_rc=False, disconnect=False,
-                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 interconnect=None,
                  ):
         
+        self.interconnect = interconnect
         self.num_rows = num_rows
         self.pd_nmos_model = pd_nmos_model
         self.pu_pmos_model = pu_pmos_model
@@ -826,6 +831,7 @@ class DummyColumnFactory:
             'pi_res': self.pi_res,
             'pi_cap': self.pi_cap,
             'disconnect': self.disconnect,
+            'interconnect': self.interconnect,
         }
         
     def create(self):
@@ -840,9 +846,11 @@ class DummyRowFactory:
                  pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, length=50e-9,
                  w_rc=False, disconnect=False,
 
-                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 interconnect=None,
                  ):
         
+        self.interconnect = interconnect
         self.num_cols = num_cols
         self.pd_nmos_model = pd_nmos_model
         self.pu_pmos_model = pu_pmos_model
@@ -882,6 +890,7 @@ class DummyRowFactory:
             'pi_res': self.pi_res,
             'pi_cap': self.pi_cap,
             'disconnect': self.disconnect,
+            'interconnect': self.interconnect,
         }
         
     def create(self):
@@ -1007,8 +1016,13 @@ class TIMEFactory:
                  replica_precharge_guard=False,
                  sen_effort=None,
                  precharge_guard_stages=0,
+                 interconnect=None,
+                 precharge_off_guard=False, precharge_off_guard_stages=4,
+                 access_load=None,
+                 precharge_off_tau=0.0,
                  ):
 
+        self.interconnect = interconnect
         self.nmos_model = nmos_model
         self.pmos_model = pmos_model
         self.pmos_width = pmos_width
@@ -1030,6 +1044,10 @@ class TIMEFactory:
         self.replica_precharge_guard = replica_precharge_guard
         self.sen_effort = sen_effort
         self.precharge_guard_stages = precharge_guard_stages
+        self.precharge_off_guard = precharge_off_guard
+        self.precharge_off_guard_stages = precharge_off_guard_stages
+        self.access_load = access_load
+        self.precharge_off_tau = precharge_off_tau
     def create(self):
         return TIME(
             nmos_model=self.nmos_model,
@@ -1052,6 +1070,11 @@ class TIMEFactory:
             replica_precharge_guard=self.replica_precharge_guard,
             sen_effort=self.sen_effort,
             precharge_guard_stages=self.precharge_guard_stages,
+            interconnect=self.interconnect,
+            precharge_off_guard=self.precharge_off_guard,
+            precharge_off_guard_stages=self.precharge_off_guard_stages,
+            access_load=self.access_load,
+            precharge_off_tau=self.precharge_off_tau,
         )
     
 class Sram10TCellFactory:

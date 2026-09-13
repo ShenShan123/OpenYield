@@ -10,6 +10,25 @@ from utils.xyce import execute_xyce
 
 
 class XyceRetryTests(unittest.TestCase):
+    def test_timestep_retry_preserves_seed_outputs_and_exit_zero_failure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            deck = Path(temp) / 'deck.sp'
+            original = 'Circuit\n.TRAN 1e-11 1e-8\n.SAMPLING useExpr=true\n.END\n'
+            deck.write_text(original)
+            Path(str(deck) + '.mt1').write_text('TREAD_TOTAL = 9e-9\n')
+            failed = subprocess.CompletedProcess(['Xyce'], 0, 'Seeding random number generator with 42',
+                                                  'Time step too small')
+            passed = subprocess.CompletedProcess(['Xyce'], 0, 'complete', '')
+            with patch('utils.xyce.subprocess.run', side_effect=[failed, passed]) as run:
+                result = execute_xyce(deck, ['Xyce', str(deck)])
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(run.call_count, 2)
+            self.assertIn('.TRAN 1e-11 1e-8 0 2.0000e-11', deck.read_text())
+            self.assertIn('SAMPLES SEED=42', deck.read_text())
+            self.assertEqual((Path(temp) / 'timestep_attempt/deck.sp').read_text(), original)
+            self.assertTrue((Path(temp) / 'timestep_attempt/deck.sp.mt1').is_file())
+            self.assertFalse(Path(str(deck) + '.mt1').exists())
+
     def test_timeout_keeps_partial_solver_output_and_is_not_a_pass(self):
         with tempfile.TemporaryDirectory() as temp:
             deck = Path(temp) / 'deck.sp'

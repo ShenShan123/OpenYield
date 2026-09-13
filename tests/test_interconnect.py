@@ -86,7 +86,7 @@ class WireTests(unittest.TestCase):
                 options['wl'][field] = value
                 with self.subTest(field=field, value=value), self.assertRaises(ValueError):
                     resolve_interconnect(options)
-        for options in ({'mode': 'typo'}, {'mode': 'distributed'},
+        for options in ({'mode': 'typo'}, {'mode': 'star'},
                         dict(wire_config(), unknown=1),
                         dict(wire_config(), cell_pin_rc='false')):
             with self.assertRaises(ValueError):
@@ -97,20 +97,20 @@ class WireTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 resolve_interconnect(options)
 
-    def test_star_default_and_physical_identity(self):
-        self.assertFalse(resolve_interconnect(None).distributed)
-        self.assertTrue(resolve_interconnect(None).cell_pin_rc)
-        distributed = resolve_interconnect(wire_config())
+    def test_distributed_default_and_physical_identity(self):
+        self.assertTrue(resolve_interconnect(None).distributed)
+        self.assertFalse(resolve_interconnect(None).cell_pin_rc)
+        distributed = resolve_interconnect()
         self.assertFalse(distributed.cell_pin_rc)
         # The documented cell_pin_rc default must not depend on the construction
         # path: a direct dataclass instance is what testbench callers pass in.
         direct = InterconnectConfig(mode='distributed', wl=distributed.wl, bl=distributed.bl)
         self.assertEqual(direct, distributed)
-        self.assertTrue(InterconnectConfig().cell_pin_rc)
+        self.assertFalse(InterconnectConfig().cell_pin_rc)
         self.assertTrue(InterconnectConfig(mode='distributed', cell_pin_rc=True,
                                            wl=distributed.wl, bl=distributed.bl).cell_pin_rc)
         self.assertEqual(distributed, resolve_interconnect(distributed.to_dict()))
-        self.assertNotEqual(physical_context(True), physical_context(True, interconnect=distributed))
+        self.assertEqual(physical_context(True), physical_context(True, interconnect=distributed))
         changed = wire_config()
         changed['wl']['width_m'] *= 2
         self.assertNotEqual(physical_context(True, interconnect=distributed),
@@ -193,7 +193,7 @@ class ArrayWireTests(unittest.TestCase):
                 self.assertAlmostEqual(sum(float(e.resistance) for e in rbl), 4.)
                 rwl = [e for e in circuit.elements if e.name.startswith('Rwire_RWL_')]
                 self.assertAlmostEqual(sum(float(e.resistance) for e in rwl), 4.)
-                self.assertIn('RWL_far TIME', str(circuit['XTIME']))
+                self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end TIME', str(circuit['XTIME']))
                 self.assertIn('RWL_tap3', str(circuit[f'X{replica.name}']))
                 self.assertTrue(tb.cell_probe('WL').endswith(':WL3_tap3'))
 
@@ -257,24 +257,23 @@ class ArrayWireTests(unittest.TestCase):
                     # No consumer may hang off the lumped net any more.
                     consumers = [line for line in deck.splitlines()
                                  if line.upper().startswith(('XSENSEAMP', 'XPRECHARGE', 'XWL_DRV',
-                                                             'XWRITEDRIVER', 'XDIN_HOLD'))]
+                                                             'XWRITEDRIVER', 'XDIN_HOLD', 'XD_LATCH'))]
                     self.assertTrue(consumers)
                     for line in consumers:
                         for name in expected:
                             self.assertNotRegex(line.upper(), rf'\s{name.upper()}\s')
 
-    def test_star_topology_keeps_lumped_control_nets(self):
+    def test_default_topology_distributes_every_control_net(self):
         import tempfile
         with tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
             tb = Sram6TCoreMcTestbench(load_config(4, 8, 'TT'), w_rc=True,
                                        variation_mode='nominal', sim_path=temp)
             deck = str(tb.create_testbench('write', 3, 7))
             for name in ('PRE', 'w_en', 'w_en_bar', 's_en', 'sa_iso', 'wl_en'):
-                self.assertEqual(tb.control_tap(name, 0), name)
-                self.assertEqual(tb.control_tap(name), name)
-                self.assertNotIn(f'{name}_line'.upper(), deck.upper())
-            # The wordline drivers keep their historical net spelling.
-            self.assertIn('DEC_WL0 WL_EN WL0', deck.upper())
+                self.assertEqual(tb.control_tap(name, 0), f'{name}_line_tap0')
+                self.assertEqual(tb.control_tap(name), f'{name}_line_far')
+                self.assertIn(f'{name}_line'.upper(), deck.upper())
+            self.assertIn('DEC_WL0 WL_EN_LINE_TAP0 WL0', deck.upper())
 
     def test_precharge_measurements_check_far_wire_and_local_pin_each_cycle(self):
         import tempfile
@@ -366,7 +365,7 @@ class ArrayWireTests(unittest.TestCase):
                 self.assertIn('precharge', audit['precharge_release_error'])
                 self.assertEqual(audit['seed'], 1)
                 self.assertIn('VWL_PRE_FAR_0', Path(str(deck)+'.data.csv').read_text())
-                Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .01\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .02\n')
+                Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .01\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .02\nVACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\nTWRITE_TOTAL = 2e-10\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
                 self.assertEqual(run.main(), 0)
                 self.assertIs(json.loads((Path(temp) / 'summary.json').read_text())
                               ['precharge_release_checked'], True)

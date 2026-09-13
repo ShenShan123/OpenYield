@@ -46,13 +46,13 @@ class ResolverTests(unittest.TestCase):
                 sizes = resolve_driver_sizes(config(rows, cols), mux=True)
                 self.assertEqual((sizes.pre, sizes.wd_in, sizes.wd_out, sizes.wl_inv,
                                   sizes.wl_nand), (pre, wd_in, wd_out, inv, nand))
-                self.assertEqual(sizes.loads.num_sa, cols // 2)
+                self.assertEqual(sizes.loads.num_sa, cols // 2 + 1)
                 self.assertEqual(sizes.source, "rule")
 
     def test_loads_count_split_gates_replica_and_configured_widths(self):
         cfg = config()
         sizes = resolve_driver_sizes(cfg)
-        self.assertAlmostEqual(sizes.loads.pre_load, 5.625)
+        self.assertAlmostEqual(sizes.loads.pre_load, 6.125)
         self.assertAlmostEqual(sizes.loads.wen_load, 17.0)  # 9 units + 8 hold-buffer units
         self.assertAlmostEqual(sizes.loads.wl_load, 9.0)  # 8 rows + fixed replica NAND
         cfg.precharge.pmos_width.value *= 2
@@ -60,7 +60,7 @@ class ResolverTests(unittest.TestCase):
         cfg.wordline_driver.nmos_width.value[0] *= 2
         cfg.wordline_driver.pmos_width.value[0] *= 2
         changed = resolve_driver_sizes(cfg)
-        self.assertAlmostEqual(changed.loads.pre_load, 11.25)
+        self.assertAlmostEqual(changed.loads.pre_load, 11.75)
         self.assertAlmostEqual(changed.loads.wen_load, 24.0)
         self.assertAlmostEqual(changed.loads.wl_load, 18.0)
         self.assertAlmostEqual(changed.area_precharge_width, .27e-6, places=15)
@@ -75,9 +75,9 @@ class ResolverTests(unittest.TestCase):
         sizes = resolve_driver_sizes(config(16, 16, "lookup"))
         self.assertTrue(sizes.replica_matched and sizes.canonical_read
                         and sizes.effort_buffers and sizes.dec_inv >= 1)
-        unmatched = resolve_driver_sizes(config(16, 16, "lookup"),
-                                         sizing={"mode": "lookup", "replica": {"matched": False}})
-        self.assertEqual(unmatched.loads.wl_load, sizes.loads.wl_load - 2 + 1)  # AND2 = one unit
+        with self.assertRaisesRegex(ValueError, 'matched replica'):
+            resolve_driver_sizes(config(16, 16, "lookup"),
+                                 sizing={"mode": "lookup", "replica": {"matched": False}})
         self.assertEqual(sizes.loads.wl_load, 34.0)  # TIME ceil must not see 34 + epsilon.
 
     def test_parasitic_factor_changes_load_terms_not_small_array_floor(self):
@@ -93,10 +93,21 @@ class ResolverTests(unittest.TestCase):
         self.assertAlmostEqual(rc.loads.pre_load - base.loads.pre_load, 34)
         self.assertAlmostEqual(rc.loads.wen_load - base.loads.wen_load, 32)
         self.assertAlmostEqual(rc.loads.wl_load - base.loads.wl_load, 54.4)
-        self.assertAlmostEqual(rc.loads.sen_load, 79.5)
-        self.assertAlmostEqual(rc.loads.iso_load, 128)
+        self.assertAlmostEqual(rc.loads.sen_load, 84.25)
+        self.assertAlmostEqual(rc.loads.iso_load, 136)
         self.assertAlmostEqual(rc.dec_inv, 16 / 15)
         self.assertNotEqual(base.key, rc.key)
+
+    def test_default_wires_preserve_explicit_distributed_driver_vector(self):
+        wires = load_interconnect('sram_compiler/config_yaml/interconnect_example.yaml')
+        for mode in ('lookup', 'rules_only'):
+            with self.subTest(mode=mode):
+                cfg = config(8, 64, mode)
+                default = resolve_driver_sizes(cfg, physical_context=physical_context(True))
+                explicit = resolve_driver_sizes(cfg, physical_context=physical_context(True, interconnect=wires))
+                self.assertEqual(default, explicit)
+                self.assertTrue(default.replica_precharge_guard)
+                self.assertEqual(default.precharge_guard_stages, 4)
 
     def test_sense_control_loads_include_every_generated_rc_section(self):
         wires = load_interconnect('sram_compiler/config_yaml/interconnect_example.yaml')
@@ -383,7 +394,7 @@ class GeneratorTests(unittest.TestCase):
                             deck = str(tb.create_testbench(operation, 7, 3))
                         self.assertIn(".subckt PRECHARGE", deck)
                         self.assertIn(".subckt WORDLINEDRIVER", deck)
-                        self.assertEqual(tb.driver_sizes.loads.num_sa, 2 if mux else 4)
+                        self.assertEqual(tb.driver_sizes.loads.num_sa, 3 if mux else 5)
 
 
 if __name__ == "__main__":

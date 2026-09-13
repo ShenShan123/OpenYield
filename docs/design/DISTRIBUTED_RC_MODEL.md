@@ -1,18 +1,21 @@
-# Distributed wordline and bitline RC — V2.0.11
+# Distributed signal-wire RC — V2.1.1
 
 Introduced in V2.0.7 and audited in V2.0.8 (see the
 [validation record](DISTRIBUTED_RC_VALIDATION.md)).
 The [V2.0.10 corrections](DISTRIBUTED_RC_V210_REVIEW.md) add large-array diagnostics
 and correct sense-control load accounting and transient result validation. The
-[V2.0.11 audit](WRITE_VALIDATION_V211.md) changes no wire or timing behaviour; it
-fixes the last sequence cycle's release window, the retry and rejection paths,
-and screens the star topology that the same load correction also resized.
+[V2.0.11 audit](WRITE_VALIDATION_V211.md) extends distributed control wiring,
+fixes the last sequence cycle's release window and retry/rejection paths,
+and records the historical star-topology screen.
 
-The default remains the star topology. Distributed wiring is opt-in and
-requires explicit metal geometry; the compiler supplies no extracted defaults.
-The [implementation plan](DISTRIBUTED_RC_PLAN.md) records the work sequence.
+V2.1.1 makes distributed wiring the only supported topology and the default.
+Explicit `mode: star` is rejected. Omitting geometry selects the illustrative
+1-ohm / 0.1-fF pitch reference; the compiler supplies no extracted defaults.
+The [distributed-only change](DISTRIBUTED_ONLY_V2_1_1.md) describes current
+routing and fresh validation. Earlier records below retain their original
+versions; the [original implementation plan](DISTRIBUTED_RC_PLAN.md) is historical.
 
-Enable it through `global.yaml`'s `interconnect` mapping, the appended
+Customize it through `global.yaml`'s `interconnect` mapping, the appended
 `interconnect=` testbench argument, the `INTERCONNECT_CONFIG` setting of
 `main_sram.py` (a YAML path applied in memory), or the CLI:
 
@@ -33,8 +36,8 @@ the default.
 
 | Field | Meaning |
 |---|---|
-| `mode` | `star` or `distributed` |
-| `cell_pin_rc` | Keep local cell WL/BL/BLB stubs; defaults to true for star and false for distributed, whether resolved from a mapping or constructed as `InterconnectConfig` directly (V2.0.8 fix) |
+| `mode` | Only `distributed`; default when omitted |
+| `cell_pin_rc` | Optional local series WL/BL/BLB stubs, false by default through every construction path |
 | `wl`, `bl` | Separate geometry mappings; BL and BLB use the same geometry |
 | `layer` | Technology/layer identifier, included in the physical fingerprint |
 | `pitch_m`, `width_m` | Cell pitch along the wire and metal width, in metres |
@@ -47,9 +50,11 @@ For each pitch, `R = sheet_resistance_ohm * pitch_m / width_m` and
 and positive. Unknown fields are rejected. Wire coupling between adjacent
 lines is not included in this first implementation.
 
-WL drivers connect at column zero; bitline precharge, write, mux and sense
-circuits connect at row zero. These periphery positions are fixed in this
-implementation, not configurable. Cells sit at half-pitch centers. Each row has
+WL drivers connect at column zero. Each bitline extends from its row-zero
+array port through a separate three-pitch peripheral ladder: precharge at
+tap 0, write driver at tap 1, mux/sense amplifier at tap 2. Replica bitlines
+have the same extension. These positions are illustrative routing assumptions.
+Cells sit at half-pitch centers. Each array row has
 `num_cols * wl.pitch_m` wire length and each bitline has
 `num_rows * bl.pitch_m`. There is a half pitch before the first cell and after
 the last cell. Every resistor segment has half its capacitance at each end;
@@ -75,9 +80,18 @@ wire length as array bitlines, and the replica also carries the corresponding
 mux (when enabled), sense-input circuit, precharge and write-driver load.
 The TIME precharge guard observes `RWL_far`. With `w_rc`, TIME's replica
 bitline input is the replica sense amplifier's internal node after its input
-RC (`XREPLICA_SENSEAMP:IN_end`); without `w_rc` it is the mux output or `RBL`.
+RC (`XREPLICA_SENSEAMP:IN_end`); without `w_rc` it is the mux output or
+`RBL_periph_tap2`.
 That connection is a Xyce hierarchical node reference and is not portable to
 simulators that only allow such names in probes.
+
+V2.1.1 also observes the actual far replica precharge terminal before allowing
+WL, write or sense assertion. The guard combines immediate PRE inhibition,
+four settling stages and a physical wire/load RC scale frozen in DriverSizes.
+Raw request deassertion bypasses that delay. Runtime `VPRE_ACCESS_ERROR_n`
+checks the target local PRE during WL/write activity; independent waveforms
+check every column. This access-start guard is separate from the existing
+RWL-based precharge-on guard. See the [repair and validation](DISTRIBUTED_ONLY_V2_1_1.md#access-start-repair).
 
 Transient wordline and write-bitline measurements use the selected cell's
 local terminal. Read swing uses the actual sense-amplifier input; restoration
@@ -116,18 +130,17 @@ Node names follow the array wires: `<net>_line_tap<i>` and `<net>_line_far`,
 with the driver output keeping the original net name as the line's near end, so
 `.MEASURE` cards and `.PRINT` lines that reference `V(PRE)`, `V(s_en)` or
 `V(wl_en)` still observe the driver. `Sram6TCoreTestbench.control_tap(name,
-index)` resolves a consumer's node and returns the plain net in star topology,
-so star decks are byte-identical to V2.0.10.
+index)` resolves that consumer's tap, or the far endpoint for the replica.
 
 Control-line wire RC is deliberately **not** added to `DriverLoads`, exactly as
 WL and BL wire RC is not: the driver size classes stay independent of the
-interconnect mode. The wire therefore shows up as delay and skew in the
+wire geometry. The wire therefore shows up as delay and skew in the
 waveform, not as a larger buffer.
 
 Distributed TIME adds a four-stage non-inverting settling delay after the
 replica observer and ANDs it with the immediate observer output before
-allowing precharge. `DriverSizes.precharge_guard_stages` freezes that count;
-star topology retains zero stages. The clock's high phase must cover this
+allowing precharge. `DriverSizes.precharge_guard_stages` freezes that count.
+The clock's high phase must cover this
 additional delay and restoration. The release measurements still apply:
 the added delay is not a guarantee for arbitrary extracted R/C or cell sizes.
 

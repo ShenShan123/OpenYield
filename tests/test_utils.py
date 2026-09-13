@@ -66,11 +66,13 @@ class UtilityTests(unittest.TestCase):
     def test_measurements_keep_zero_and_reject_nonfinite_values(self):
         with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
             prefix = Path(temp) / 'sample'
-            Path(f'{prefix}.mt0').write_text('VWL_PRE_0 = 0\nPAVG = inf\nTSA = -1e-10\n')
+            Path(f'{prefix}.mt0').write_text('VWL_PRE_0 = 0\nPAVG = inf\nTSA = -1e-10\nTREAD_TOTAL = -1e-10\nTEMP = -40\n')
             data = parse_mc_measurements(str(prefix), num_runs=1)
             self.assertEqual(data.loc[0, 'VWL_PRE_0'], 0)
             self.assertTrue(np.isnan(data.loc[0, 'PAVG']))
             self.assertTrue(np.isnan(data.loc[0, 'TSA']))
+            self.assertTrue(np.isnan(data.loc[0, 'TREAD_TOTAL']))
+            self.assertEqual(data.loc[0, 'TEMP'], -40)
 
     def test_prn_samples_plot_through_the_legacy_package_api(self):
         with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()), plt.rc_context():

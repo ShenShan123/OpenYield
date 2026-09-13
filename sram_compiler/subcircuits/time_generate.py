@@ -1,7 +1,8 @@
 from PySpice.Unit import u_Ohm, u_pF
 from .base_subcircuit import BaseSubcircuit
-from math import ceil, log2
+from math import ceil, isfinite, log2
 from .standard_cell import Pinv,AND2,PNAND2,PNOR2,AND3,PNAND3,D_latch
+from sram_compiler.interconnect import add_tapped_line, resolve_interconnect
 
 
 class TaperedBuffer(BaseSubcircuit):
@@ -441,7 +442,7 @@ class WenDelayChain(BaseSubcircuit):
             prev = out
 
 class ADDR_DFF(BaseSubcircuit):
-    """D Flip-Flop for address"""
+    """Address registers clustered in TIME, before the row-spanning decoder wires."""
     NAME = "ADDR_DFF"
     #NODES = ('VDD', 'VSS', 'D', 'Q', 'QB', 'CLK')
     
@@ -487,8 +488,10 @@ class DATA_DFF(BaseSubcircuit):
                  pmos_width=5e-07, nmos_width=2.5e-07,
                  length=0.05e-6, num_cols=8,  # 默认16x8结构，8列数据
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 interconnect=None,
                  ):
         self.num_cols = num_cols
+        self.interconnect = resolve_interconnect(interconnect)
         
         # 动态生成节点：包括所有数据输入、输出和电源/时钟
         nodes = ['VDD', 'VSS', 'CLK']
@@ -512,10 +515,13 @@ class DATA_DFF(BaseSubcircuit):
         self.add_data_dff_array(num_cols)
     
     def add_data_dff_array(self, num_cols):
+        # Register bits align with their write columns; the clock crosses the
+        # array width on the same illustrative geometry as the wordline.
+        clocks = add_tapped_line(self, 'CLK_line', 'CLK', num_cols, self.interconnect.wl)
         # 为每个数据位创建DFF
         for i in range(num_cols):
             self.X(f'dff_{i}', self.dff_data.NAME, 
-                   'VDD', 'VSS', f'DIN{i}', f'DIN_dff{i}', 'CLK')
+                   'VDD', 'VSS', f'DIN{i}', f'DIN_dff{i}', clocks[i])
 
 
 class AND2_WEN(AND2):
@@ -530,6 +536,62 @@ class PrechargeGuardDelay(WenDelayChain):
 
 class PrechargeGuardAnd(AND2):
     NAME = "AND2_PRE_GUARD"
+
+
+class PrechargeOffDelay(WenDelayChain):
+    NAME = "PRECHARGE_OFF_DELAY"
+
+
+class PrechargeAccessAnd(AND2):
+    NAME = "AND2_PRE_ACCESS"
+
+
+class PrechargeOffGuard(BaseSubcircuit):
+    """Qualify access assertion after the physical PRE-off edge has settled.
+
+    PRE is active low. Its small inverter observer switches near mid-rail;
+    a baseline wire/load RC delay and fixed even chain let the tail settle.
+    The raw request directly inhibits the final gate, so this settling delay
+    cannot extend an access after the clock-low request ends.
+    """
+    NAME = "PRECHARGE_OFF_GUARD"
+    NODES = ('VDD', 'VSS', 'request', 'pre_far', 'access')
+
+    def __init__(self, nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
+                 stages=4, access_load=3.5, settling_tau=0.0):
+        if type(stages) is not int or stages < 2 or stages % 2:
+            raise ValueError('Precharge-off guard stages must be a positive even integer')
+        if not isfinite(access_load) or access_load <= 0:
+            raise ValueError('Access-control load must be finite and positive')
+        if not isfinite(settling_tau) or settling_tau < 0:
+            raise ValueError('Precharge-off settling time must be finite and nonnegative')
+        super().__init__(nmos_model, pmos_model, .09e-6, .27e-6, .05e-6, w_rc=False)
+        self.stages = stages
+        self.access_load = access_load
+        self.settling_tau = settling_tau
+        observer = Pinv(nmos_model, pmos_model, .045e-6, .135e-6,
+                        .05e-6, num='_pre_off_observer')
+        delay = PrechargeOffDelay(nmos_model, pmos_model, stages=stages)
+        ready = PNOR2(nmos_model, pmos_model, .09e-6, .54e-6, .05e-6)
+        drive_scale = max(6, ceil(access_load / 6.0))
+        gate = PrechargeAccessAnd(nmos_model, pmos_model, nmos_model, pmos_model,
+                                 inv_nmos_width=.09e-6 * drive_scale,
+                                 inv_pmos_width=.27e-6 * drive_scale)
+        for sub in (observer, delay, ready, gate):
+            self.subcircuit(sub)
+        self.X('observe_pre', observer.NAME, 'VDD', 'VSS', 'pre_far', 'pre_on')
+        settle_input = 'pre_on'
+        if settling_tau:
+            # Fast devices cannot make a long metal line settle faster. Add
+            # the baseline wire/load time constant only to the delayed branch.
+            # A small fixed capacitor avoids loading the half-unit observer;
+            # the first inverter's input capacitance adds conservative delay.
+            settle_input = 'pre_on_filtered'
+            self.R('settle', 'pre_on', settle_input, max(1.0, settling_tau / 1e-15))
+            self.C('settle', settle_input, 'VSS', 1e-15)
+        self.X('settle_pre', delay.NAME, 'VDD', 'VSS', settle_input, 'pre_on_delayed')
+        self.X('ready', ready.NAME, 'VDD', 'VSS', 'pre_on', 'pre_on_delayed', 'pre_off_ready')
+        self.X('request_gate', gate.NAME, 'VDD', 'VSS', 'request', 'pre_off_ready', 'access')
 
 
 class TIME(BaseSubcircuit):
@@ -552,6 +614,10 @@ class TIME(BaseSubcircuit):
                  replica_precharge_guard=False,
                  sen_effort=None,
                  precharge_guard_stages=0,
+                 interconnect=None,
+                 precharge_off_guard=False, precharge_off_guard_stages=4,
+                 access_load=None,
+                 precharge_off_tau=0.0,
                  ):
         """
         num_sa:   number of sense amplifiers driven by s_en (num_cols / mux_in);
@@ -566,18 +632,28 @@ class TIME(BaseSubcircuit):
                   pmos_w, row-scaled) plus the testbench's w_en_bar inverter;
                   default assumes the 0.18/0.36 um base widths scaled with
                   max(8, rows)/16.
+        precharge_off_tau: frozen PRE wire/load settling scale in seconds;
+                  enabling precharge_off_guard appends the physical pre_far input.
         """
         if (isinstance(precharge_guard_stages, bool) or not isinstance(precharge_guard_stages, int)
                 or precharge_guard_stages < 0 or precharge_guard_stages % 2):
             raise ValueError('Precharge guard stages must be a nonnegative even integer')
         if precharge_guard_stages and not replica_precharge_guard:
             raise ValueError('Precharge settling delay requires the replica guard')
+        if type(precharge_off_guard) is not bool:
+            raise ValueError('Precharge-off guard must be boolean')
+        if (type(precharge_off_guard_stages) is not int or precharge_off_guard_stages < 2
+                or precharge_off_guard_stages % 2):
+            raise ValueError('Precharge-off guard stages must be a positive even integer')
+        self.interconnect = resolve_interconnect(interconnect)
         # 计算需要的地址位数
         n_bits = ceil(log2(num_rows)) if num_rows > 1 else 1
         num_sa = num_cols if num_sa is None else int(num_sa)
         wl_load = float(num_rows) if wl_load is None else float(wl_load)
         if pre_load is None:
             pre_load = (num_cols + 1) * 3 * 0.27e-6 * max(0.5, num_rows / 16.0) / 0.36e-6
+            if precharge_off_guard:
+                pre_load += .5  # The physical far-PRE inverter observer.
         pre_load = float(pre_load)
         if wen_load is None:
             wen_load = num_cols * (3 * 0.18e-6 + 0.36e-6) * max(8, num_rows) / 16.0 / 0.36e-6
@@ -597,6 +673,8 @@ class TIME(BaseSubcircuit):
         nodes += ['rbl','rbl_delay','rbl_delay_bar','s_en','w_en','PRE','sa_iso']
         if replica_precharge_guard:
             nodes.append('rwl')
+        if precharge_off_guard:
+            nodes.append('pre_far')
         self.NODES = nodes
 
         super().__init__(
@@ -611,6 +689,8 @@ class TIME(BaseSubcircuit):
         self.wl_load = wl_load
         self.pre_load = pre_load
         self.wen_load = wen_load
+        self.precharge_off_guard_stages = precharge_off_guard_stages
+        self.precharge_off_tau = precharge_off_tau
         #触发器在时钟上升沿触发地址信号
         dff_buf_addr=ADDR_DFF(nmos_model="NMOS_VTG",
             pmos_model="PMOS_VTG",num_rows=self.num_rows)
@@ -665,7 +745,8 @@ class TIME(BaseSubcircuit):
         if operation == 'write' or operation == 'read&write':
             #触发器在时钟上升沿触发数据信号
             dff_buf_data=DATA_DFF(nmos_model="NMOS_VTG",
-                pmos_model="PMOS_VTG",num_cols=self.num_cols)  # 对于16x8结构，有8位数据
+                pmos_model="PMOS_VTG",num_cols=self.num_cols,
+                interconnect=self.interconnect)  # 对于16x8结构，有8位数据
             self.subcircuit(dff_buf_data)
             
             # 构建数据DFF连接列表
@@ -771,11 +852,24 @@ class TIME(BaseSubcircuit):
         # 512x4.  Without it the wl_en edge was 280 ps (rise) / 600 ps (fall)
         # at 512 rows, which is also what opened the address-change hazard.
         wl_en_scale = max(1, ceil(self.wl_load / (24.0 if effort_buffers else 32.0)))
+        # One first-stage WL-buffer inverter and one request input each of
+        # the write NAND2 and sense NAND3 (0.45 / 0.36 inverter units).
+        self.access_load = wl_en_scale + 2.5 if access_load is None else float(access_load)
+        access_request = 'gated_clk_bar'
+        if precharge_off_guard:
+            guard = PrechargeOffGuard(nmos_model, pmos_model,
+                                      stages=precharge_off_guard_stages,
+                                      access_load=self.access_load,
+                                      settling_tau=precharge_off_tau)
+            self.subcircuit(guard)
+            access_request = 'access_clk_bar'
+            self.X('access_guard', guard.NAME, 'VDD', 'VSS',
+                   'gated_clk_bar', 'pre_far', access_request)
         wl_en=wl_pdrive(drive_scale=wl_en_scale, fold_gates=effort_buffers)
         self.subcircuit(wl_en)
         self.X('wl_en',
                wl_en.NAME,
-               'VDD', 'VSS', 'gated_clk_bar', 'wl_en')
+               'VDD', 'VSS', access_request, 'wl_en')
         # wl_en_bar enables the address hold latches (2 NAND2 inputs per bit)
         # and the precharge NAND3; size it for that fan-out.
         wlb_scale = max(1, ceil((2 * self.n_bits + 1) / 5.0))
@@ -811,8 +905,8 @@ class TIME(BaseSubcircuit):
                inv_rbl_delay_bar.NAME,
                'VDD', 'VSS', 'rbl_delay', 'rbl_delay_bar')
         
-        #产生写使能: w_en = gated_clk_bar & we, i.e. the write drivers stay on
-        # for the whole clock-low (wordline) phase, exactly like the wordline.
+        # Write enable shares the precharge-qualified wordline request and
+        # remains active until the raw clock-low request ends.
         #
         # Previously w_en was also gated by rbl_delay_bar, so the write pulse
         # ended as soon as the *replica cell* had discharged the replica
@@ -847,12 +941,12 @@ class TIME(BaseSubcircuit):
             wen_src = 'w_en'
             self.X('w_en',
                    w_en.NAME,
-                   'VDD','VSS' , 'gated_clk_bar' ,'we', 'w_en' )
+                   'VDD','VSS' , access_request ,'we', 'w_en' )
         else:
             wen_src = 'w_en_unbuf'
             self.X('w_en',
                    w_en.NAME,
-                   'VDD','VSS' , 'gated_clk_bar' ,'we', 'w_en_unbuf' )
+                   'VDD','VSS' , access_request ,'we', 'w_en_unbuf' )
             wen_buf = TaperedBuffer('WEN_BUF', effort_based=effort_buffers, drive_scale=ceil(self.wen_load / wen_effort), load_units=self.wen_load)
             self.subcircuit(wen_buf)
             self.X('w_en_buf', wen_buf.NAME, 'VDD', 'VSS', 'w_en_unbuf', 'w_en')
@@ -883,12 +977,12 @@ class TIME(BaseSubcircuit):
             sen_src = 's_en'
             self.X('s_en',
                    s_en.NAME,
-                   'VDD','VSS' ,'rbl_delay', 'gated_clk_bar' ,'we_bar' ,'s_en' )
+                   'VDD','VSS' ,'rbl_delay', access_request ,'we_bar' ,'s_en' )
         else:
             sen_src = 's_en_unbuf'
             self.X('s_en',
                    s_en.NAME,
-                   'VDD','VSS' ,'rbl_delay', 'gated_clk_bar' ,'we_bar' ,'s_en_unbuf' )
+                   'VDD','VSS' ,'rbl_delay', access_request ,'we_bar' ,'s_en_unbuf' )
             sen_buf = TaperedBuffer('SEN_BUF', effort_based=effort_buffers, drive_scale=ceil(sen_load / sen_effort), load_units=sen_load)
             self.subcircuit(sen_buf)
             self.X('s_en_buf', sen_buf.NAME, 'VDD', 'VSS', 's_en_unbuf', 's_en')
@@ -927,9 +1021,9 @@ class TIME(BaseSubcircuit):
         #产生预充电使能
         # PRE (active low) = NAND3(clk_buf, cs, wl_en_bar): the bitlines are
         # precharged for the whole clock-high phase of a selected cycle and
-        # released as soon as the clock falls, ~4 gate delays before the
-        # wordline rises (the wl_en_bar term keeps the precharge off while any
-        # wordline is on).
+        # released when the clock falls. The far-PRE guard then qualifies
+        # access assertion; the physical replica-WL guard inhibits restoration
+        # until the preceding wordline has settled low.
         #
         # Previously PRE = NAND3(gated_clk_buf, rbl_delay, wl_en_bar) was a
         # self-timed pulse of ~300 ps that ended when the replica bitline had

@@ -1,6 +1,7 @@
 from PySpice.Spice.Netlist import SubCircuitFactory, Circuit
 from PySpice.Unit import u_Ohm, u_pF
 from .base_subcircuit import BaseSubcircuit
+from sram_compiler.interconnect import resolve_interconnect, add_tapped_line
 import os
 # from utils import model_dict2str
 from typing import Dict, Any, Union
@@ -43,7 +44,7 @@ class Dummy_Cell(BaseSubcircuit):
         self.pu_width = pu_width
         self.pg_width = pg_width
         self.length = length
-        self.cell_pin_rc = w_rc if cell_pin_rc is None else w_rc and cell_pin_rc
+        self.cell_pin_rc = w_rc and bool(cell_pin_rc)
         self.w_rc = w_rc
         self.disconnect = disconnect
 
@@ -89,7 +90,7 @@ class Dummy_Cell(BaseSubcircuit):
 # ==============================================================================
             
 class Dummy_Column(SubCircuitFactory):
-    """Represents a column of dummy cells sharing bitlines"""
+    """Represents a column of dummy cells on tapped physical bitlines."""
     
     
     def __init__(self, num_rows: int,
@@ -97,7 +98,8 @@ class Dummy_Column(SubCircuitFactory):
                  pd_width: float, pu_width: float, pg_width: float, length: float,
                  w_rc=False,
                  disconnect=False,
-                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 interconnect=None
                  ):
         # Set the nodes dynamically
         self.NAME = f"sram_{num_rows+3}x1_Dummy_column"
@@ -123,6 +125,9 @@ class Dummy_Column(SubCircuitFactory):
         self.pi_res = pi_res
         self.pi_cap = pi_cap
         self.disconnect = disconnect
+        self.interconnect = resolve_interconnect(interconnect)
+        for line in ('BL', 'BLB'):
+            add_tapped_line(self, line, line, num_rows + 3, self.interconnect.bl)
    
         
         # Build the array
@@ -131,13 +136,14 @@ class Dummy_Column(SubCircuitFactory):
         self.inst_prefix = "XDummy_Column"  # 设置实例的前缀
 
     def build_array(self, num_rows: int):
-        """Build the dummy cell array with shared bitlines and individual wordlines"""
+        """Build the dummy cells at individual bitline taps and wordlines."""
         dummy_cell = Dummy_Cell(
             self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model,
             self.pd_width, self.pu_width,
             self.pg_width, self.length,
             w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             disconnect=self.disconnect,
+            cell_pin_rc=self.interconnect.cell_pin_rc,
         )
         # define the cell subcircuit
         self.subcircuit(dummy_cell)
@@ -149,8 +155,8 @@ class Dummy_Column(SubCircuitFactory):
                 dummy_cell.name, 
                 self.NODES[0], 
                 self.NODES[1],
-                self.NODES[2],                  # Shared bitline (BL)
-                self.NODES[3],                  # Shared bitline bar (BLB)
+                f'BL_tap{row}',
+                f'BLB_tap{row}',
                 f'WL{row}', 
             )
 
@@ -159,14 +165,15 @@ class Dummy_Column(SubCircuitFactory):
 # 3. Dummy Row (行阵列 - 纯电路拓扑)
 # ==============================================================================
 class Dummy_Row(SubCircuitFactory):
-    """Represents a row of dummy cells sharing wordline """
+    """Represents a row of dummy cells on a tapped physical wordline."""
     
     def __init__(self, num_cols: int,
                  pd_nmos_model: str, pu_pmos_model: str, pg_nmos_model: str,
                  pd_width: float, pu_width: float, pg_width: float, length: float,
                  w_rc=False,
                  disconnect=False,
-                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF
+                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
+                 interconnect=None
                  ):
         # Set the name and nodes
         self.NAME = f"sram_1x{num_cols+1}_Dummy_row"
@@ -195,6 +202,8 @@ class Dummy_Row(SubCircuitFactory):
         self.pi_res = pi_res
         self.pi_cap = pi_cap
         self.disconnect = disconnect
+        self.interconnect = resolve_interconnect(interconnect)
+        add_tapped_line(self, 'WL', 'WL', num_cols + 1, self.interconnect.wl)
 
         # Build the array
         self.build_array(self.num_cols)
@@ -202,7 +211,7 @@ class Dummy_Row(SubCircuitFactory):
         self.inst_prefix = "XDummy_Row"  # 设置实例的前缀
 
     def build_array(self, num_cols: int):
-        """Build the dummy cell array with shared wordline and individual bitlines"""
+        """Build the dummy cells at individual wordline taps and bitlines."""
         # Create dummy cell instance
         dummy_cell = Dummy_Cell(
             self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model,
@@ -210,6 +219,7 @@ class Dummy_Row(SubCircuitFactory):
             self.pg_width, self.length,
             w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
             disconnect=self.disconnect, 
+            cell_pin_rc=self.interconnect.cell_pin_rc,
         )
 
         # define the cell subcircuit
@@ -224,5 +234,5 @@ class Dummy_Row(SubCircuitFactory):
                 self.NODES[1],
                 f'BL{col}', 
                 f'BLB{col}', 
-                'WL',
+                f'WL_tap{col}',
             )

@@ -7,6 +7,70 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.1 — 2026-09-13 — distributed-only signal wiring and access exclusion
+
+The [V2.1.1 change](design/DISTRIBUTED_ONLY_V2_1_1.md) removes the star
+implementation and uses distributed reference geometry by default. Explicit
+star settings fail. Local storage/peripheral series stubs remain selectable;
+physical wire ladders remain present when local stubs are disabled.
+
+- Separate array/replica precharge, write-driver and mux/sense connections with
+  peripheral wire ladders. Distribute decoder fan-out, DATA_DFF clocks and mux
+  selects, and retain local omitted-cell loads on every equivalent-mode wire.
+- Extend retention checks through the complete interval after the frozen
+  access deadline; reject missing or nonfinite primary CLI measurements.
+- Gate WL/write/sense assertion from settled far-end PRE, using a baseline
+  wire/load RC delay and four stages. Retain prompt request deassertion and
+  the existing replica-WL precharge-on guard. Reject precharge overlap during
+  target access at runtime and every column's access in the waveform scorer.
+- Check local write-data capture, held data, write enable, driven bitlines,
+  selected-row Q/QB, neighbors, precharge exclusion and final retention directly
+  on waveforms. Preserve rejected attempts and their source/scorer identities.
+- Parse repeated waveform probe names by position and retain them only after
+  exact finite-vector equality checks, preserving all sample boundaries and
+  rejecting conflicting duplicates.
+- Retain V2.0.9 transistor classes and the V2.1.0 timing table. The illustrative
+  1-ohm / 0.1-fF wire pitch is not extracted metal; no qualification record is
+  promoted and the V2.0.5 rule/artifact identities remain unchanged.
+
+Validation: **eleven final-source waveform cases pass 33,096 checks**, including
+the repaired 8x512 SS write at 8 ns and 64x64 TT eight-cycle sequence at 5 ns.
+All 124 compiler tests pass on Python 3.11 and 3.9, alongside 54 local development
+tests, six optimizer tests and a two-sample per-device CLI write with plotting.
+Compilation, isolated generation without `dev/`, and `git diff --check` pass.
+The initial wide-write overlap failure and earlier V2.1.0 measurements retain
+their original labels and source identities. Remaining class/PVT/mismatch and
+extracted-metal work is recorded in the [evaluation plan](../plans/V2_1_1_TIMING_FOLLOWUP.md).
+
+## V2.1.0 — 2026-09-12 — fixed timing classes and V2.0.11 review
+
+The clock now follows a lookup table like driver sizing. Fixed row/column
+budgets select 4–9 ns within the supplied anchors at the default 25% margin;
+unseen dimensions round up, larger arrays extrapolate with an explicit flag.
+The period is bound to the baseline and frozen across cell candidates and PVT.
+`timing.mode: fixed` and CLI `--period` provide an explicit diagnostic override.
+No simulation or fitted historical model runs inside the resolver.
+
+- Extend precharge settling to local-RC star arrays; check physical wordline
+  release in both topologies. Add an explicit even-stage override for validated
+  wire settings, and connect the distributed output latch at its sense-amp tap.
+- Complete data-register and hold-latch startup initialization, addressing the
+  reported 8x32 distributed write operating-point failure.
+- Enforce access deadlines, retention and restore checks. Move static-power
+  measurement after the first restore and include the full last sequence phase.
+- Preserve decks, logs, sample identities and stale-output cleanup for both DC
+  and timestep retries. Keep CLI attempts and failure summaries, and record the
+  actual version, PVT, model and timing configuration.
+- Repair all 15 yield call sites for the four-value compiler result and count
+  nonfinite delays as failures. Driver transistor classes and the historical
+  qualification format remain unchanged.
+
+The initial 3 ns timing budget failed the SS 16x16 read sequence and was
+increased after waveform inspection. The [release review](design/TIMING_LOOKUP_V2_1_0.md)
+records measured results, test coverage, deck comparisons and remaining limits.
+Lookup budgets are design settings, not full PVT/local-mismatch qualification;
+no qualification record is promoted.
+
 ## V2.0.11 — 2026-09-12 — audit of V2.0.10, distributed control lines, star screen
 
 Audit of the V2.0.10 release commit `9773f29`. No driver size class changes and

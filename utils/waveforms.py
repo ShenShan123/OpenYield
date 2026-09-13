@@ -38,11 +38,28 @@ def read_prn_with_preprocess(prn_file_path):
             io.StringIO(''.join(lines[1:])),
             sep=r'\s+',
             header=None,
-            names=headers,
+            names=range(len(headers)),
             engine='python',
             dtype=np.float64,
             on_bad_lines='warn'
         )
+
+        # Separate .PRINT statements can repeat the same probe. Pandas rejects
+        # duplicate names, so parse by position and retain the first occurrence
+        # only when every repeated column contains exactly the same finite data.
+        # Distinct probe names are never merged, even when their values match.
+        first_columns, keep = {}, []
+        for position, name in enumerate(headers):
+            if name not in first_columns:
+                first_columns[name] = position
+                keep.append(position)
+                continue
+            first = df.iloc[:, first_columns[name]].to_numpy()
+            repeated = df.iloc[:, position].to_numpy()
+            if not np.isfinite(first).all() or not np.array_equal(first, repeated):
+                raise ValueError(f"Conflicting or nonfinite duplicate waveform column: {name}")
+        df = df.iloc[:, keep]
+        df.columns = [headers[position] for position in keep]
 
         # Xyce prints a leading Index column unless every .PRINT says FORMAT=NOINDEX;
         # accept both layouts and drop the index when it is there.

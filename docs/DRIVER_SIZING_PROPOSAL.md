@@ -1,5 +1,13 @@
 # Automatic driver sizing for all array sizes — proposal (V2.0.6)
 
+Current release: **V2.1.1** uses distributed signal wiring only. The
+V2.0.9 transistor classes, V2.0.5 `rules_only` identity and qualification
+format remain unchanged; V2.1.0 fixed clock budgets remain unqualified for
+unmeasured routing/PVT combinations. The
+[current evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md) supersedes
+the campaign schedule below. Earlier star-model derivations, measured tables
+and proposal stages remain historical records, not current topology guidance.
+
 Status (2026-09-10): **V2.0.9** replaces the continuous sizing rules of this
 proposal, as the shipped strategy, with a lookup table of fixed integer size
 classes (`sram_compiler/sizing/sizing_lookup.json`, `sizing.mode: lookup`,

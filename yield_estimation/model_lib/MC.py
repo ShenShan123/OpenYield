@@ -41,7 +41,7 @@ class MC():
         with open(file_path, 'a') as f:
             np.savetxt(f, y, fmt='%e')
     def indicator(self, y):
-        return (y > self.threshold) | (y < 0)
+        return ~np.isfinite(y) | (y > self.threshold) | (y < 0)
      # Save Monte Carlo simulation results to a CSV file
     def save_result(self, P_fail, FOM, num, used_time):
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
@@ -112,7 +112,7 @@ class MC():
         if IS_bound_on:
                 x = self._IS_bound(x, IS_bound_num)
         num_mc = x.shape[0]
-        y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x)
+        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x)
         new_y = y.reshape(num_mc,1)
         folder_path = '/home/lixy/OpenYield-main/sim2'
         delete_folder_content(folder_path)
@@ -130,7 +130,7 @@ class MC():
                 x = self._IS_bound(x, IS_bound_num)
             num_mc = x.shape[0]
             print(x.shape())
-            y, w_pavg = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x)
             new_y = y.reshape(num_mc,1)
             folder_path = '/home/lixy/OpenYield-main/sim2'
             delete_folder_content(folder_path)

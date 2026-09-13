@@ -1,4 +1,12 @@
-# SRAM Compiler and Test Platform User Guide — V2.0.11
+# SRAM Compiler and Test Platform User Guide — V2.1.1
+
+V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. The [timing guide](sizing/README.md#clock-classes-v210) covers settings, explicit overrides and evidence limits.
+
+V2.1.1 signal interconnect is distributed-only, including the bitline periphery,
+decoder, write-data clock and mux selects. Omitting `interconnect` uses the
+illustrative reference geometry; `mode: star` is rejected. `w_rc` controls local
+series stubs independently of the always-present physical wires. See the
+[current topology and evaluation](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md).
 
 This document introduces the basic usage of the SRAM compiler, simulation flow, Monte Carlo testing, waveform plotting, and result statistics. It mainly covers the following files and directories:
 
@@ -380,7 +388,7 @@ Read delay summary formula:
 
 ```text
 Delay = TREAD_TOTAL      # wl_en rise -> output latch OUT valid (VDD/2)
-Power = PSTC + PDYN      # PSTC: quiescent window 1 ns + [0.4, 0.65]*t_period
+Power = PSTC + PDYN      # PSTC: restored window 1 ns + [1.6, 1.65]*t_period
 ```
 
 Write delay summary formula:
@@ -393,20 +401,21 @@ Power = PSTC + PDYN
 `PAVG = EREAD / t_period` (or `EWRITE / t_period`), where the energy is integrated
 over exactly one clock period starting at the first access
 (`1 ns + 0.7 * t_period`, the falling clock edge): wordline access, sensing or
-writing, and the precharge that restores the bitlines. The precharge is active
-for the whole clock-high phase of a selected cycle (`PRE = NAND(clk_buf, cs,
-wl_en_bar)`), so the bitlines sit at VDD when the next access starts
-regardless of the clock period or the corner (before V2.0.2 it was a ~300 ps
-self-timed pulse and the floating bitlines drooped, e.g. to 0.74 V at FF /
-125 C with the default 10 ns period). The sense amplifiers are isolated from
+writing, and the precharge that restores the bitlines. Precharge is requested
+during the clock-high phase and waits for the physical replica wordline to
+settle low. V2.1.1 also waits for far-end PRE release before asserting access.
+Restoration and access/precharge exclusion are checked at the frozen clock;
+their margins depend on geometry and PVT. Before V2.0.2, a roughly 300 ps
+self-timed precharge pulse let the floating bitlines droop, for example to
+0.74 V at FF / 125 C with the then-default 10 ns period. The sense amplifiers are isolated from
 the bitlines (`ISO` pin, driven by `s_en | w_en`) while they are fired and
 while the write drivers are on. Every transient testbench carries the full column
 periphery (precharge on all columns and on the replica column, column mux,
 sense amplifiers); the write testbenches add the write drivers, each fed
 through a data-hold latch that is transparent while `w_en` is low, so a write
 cycle is `precharge -> write -> precharge` with the real bitline load and the
-write data cannot change while the drivers are enabled. `w_en` is asserted for
-the whole clock-low (wordline) phase.
+write data cannot change while the drivers are enabled. `w_en` asserts after
+the shared precharge-off guard is ready and deasserts with the clock-low request.
 
 The segment measures (`TDECODER`, `TPRCH`, `TWLDRV`, `TSWING`, `TSA`, `TS_EN`,
 `TWDRV`, `TWRITE_Q`, ...) are still written to `.mt0` / `.data.csv` for inspection,

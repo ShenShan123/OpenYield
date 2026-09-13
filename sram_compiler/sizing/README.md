@@ -1,4 +1,13 @@
-# V2.0.11 driver sizing: fixed size classes
+# V2.1.1 driver sizing and timing: fixed classes
+
+V2.1.1 adds a far-PRE access-start guard: WL, write and sense enable wait for
+physical precharge release. The immutable baseline records its observer and
+common-gate loads, four settling stages and `precharge_off_tau`, derived from
+wire R/C and the baseline load estimate. Candidate cells and PVT do not refit
+it. Old snapshots missing these fields/loads cannot be injected. The existing
+V2.0.9 transistor class table and V2.1.0 clock table remain unchanged; TIME
+hardware and complete sizing fingerprints change. See the
+[access-start repair](../../docs/design/DISTRIBUTED_ONLY_V2_1_1.md#access-start-repair).
 
 V2.0.9 introduced a lookup table of fixed
 integer size classes, `sizing_lookup.json`. Every array configuration maps to
@@ -55,7 +64,7 @@ Each entry is the V2.0.5 rule (`wd_out = max(1.5, rows/16)`,
 `wl_nand = max(1, cols/15)`, `dec_inv = max(1, wl_nand/4)`) evaluated at the
 class upper bound and rounded up to an integer, so every array in a class has
 at least the driver strength of the screened rule. Tall arrays with at most
-eight columns (256x8, 512x4) generate exactly the V2.0.5 decks; small arrays get
+eight columns (256x8, 512x4) use the same driver scales as the V2.0.5 rules; small arrays get
 the extra margin of the rounding (8x4: precharge 1 instead of 0.5, write output 2
 instead of 1.5). The replica stays `(K, N) = (1, 9)`, matched to the real wordline
 driver, with the canonical read loading, decoder output scaling and effort-based
@@ -171,3 +180,70 @@ reviewed local scoring sources by content hash together with the runtime code.
 The compiler never opens files from ignored `dev/`. The original YAML 200/100 ps
 access limits are reported separately by the qualification scorer; the default
 replica `(1, 9)` does not claim compliance with the read limit.
+
+
+## Clock classes (V2.1.0)
+
+`timing_lookup.json` uses the same row and column anchors as driver sizing.
+Each entry contains an integer `half_period_ps` budget; choose the next anchor
+at or above each dimension, then compute:
+
+```text
+T = ceil_to_50ps(2 * max(row_budget, column_budget) * (1 + margin))
+```
+
+| Row bound | Half-cycle budget (ps) | Period with 25% margin (ns) |
+|---|---|---|
+| 32 | 1600 | 4.0 |
+| 64 | 1800 | 4.5 |
+| 128 | 2000 | 5.0 |
+| 256 | 2400 | 6.0 |
+| 512 | 3600 | 9.0 |
+
+Column bounds ≤4/8/16/32/64/128/256/512 contribute budgets
+1600/1600/1600/1800/2000/2400/2800/3200 ps. For example 16x32 uses 4.5 ns
+and 48x20 uses 4.5 ns. Classes are shared across cell type, mux, RC and PVT.
+Extrapolation uses the final geometric ratio and is flagged; it is unqualified.
+The stored phase fields are budgets, not measurements. These settings are not
+full PVT or mismatch qualification; see the
+[release review](../../docs/design/TIMING_LOOKUP_V2_1_0.md).
+
+```yaml
+timing:
+  mode: lookup
+  margin: 0.25
+  # lookup: path/from/project/root/timing_lookup.json
+```
+
+For a diagnostic override use `timing: {mode: fixed, t_period: 1.0e-8}` (seconds).
+`timing.fixed` is independent of the removed legacy driver `sizing.fixed` mode.
+No automatic simulation or historical fitted model runs during lookup.
+
+```python
+from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
+
+sizes = resolve_driver_sizes(config, mux=False)
+timing = resolve_timing(config, sizes)
+# Freeze both before changing the cell or run PVT.
+testbench = Sram6TCoreMcTestbench(
+    config, choose_columnmux=False, driver_sizes=sizes, timing_config=timing,
+    variation_mode="nominal", sim_path="outputs/timing_example",
+)
+```
+
+`ArrayTiming` binds to the driver baseline and timing options. Both testbenches
+apply it automatically when no timing override is supplied. The optimizer caches
+it before applying candidates. Metadata includes source, class, margin, table
+hash/version and extrapolation. Explicit `TimingConfig.apply()` or legacy
+`set_timing_parameters()` overrides are recorded as such. Exact qualified-driver
+records retain measured timing and their original artifact format.
+
+V2.1.1 supports only distributed wiring and applies the four-stage
+precharge guard even when local series stubs are disabled. `sizing.precharge_guard_stages` can select a nonnegative even
+stage count for an explicitly validated wire configuration. It is part of the
+frozen driver baseline. A longer clock alone cannot repair wordline/precharge
+overlap; release checks reject unsafe or missing events. Driver transistor
+classes and replica sense timing K=1/N=9 are unchanged. The
+[V2.1.1 report](../../docs/design/DISTRIBUTED_ONLY_V2_1_1.md) and
+[evaluation schedule](../../plans/V2_1_1_TIMING_FOLLOWUP.md) record current
+distributed-only coverage; V2.1.0 waveform passes remain historical evidence.

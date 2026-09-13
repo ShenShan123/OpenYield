@@ -1,7 +1,9 @@
 from PySpice.Unit import u_Ohm, u_pF
+from dataclasses import replace
 from .base_subcircuit import BaseSubcircuit
 from math import ceil, log2
 from .standard_cell import Pinv,AND3,AND2 # type: ignore
+from sram_compiler.interconnect import add_tapped_line, resolve_interconnect
 
 
 class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
@@ -16,11 +18,18 @@ class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
                  inv_pmos_width=0.27e-6, inv_nmos_width=0.09e-6,
                  length=0.05e-6,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 output_scale=1.0
+                 output_scale=1.0,
+                 interconnect=None, row_span=8,
                  ):
 
+        self.interconnect = resolve_interconnect(interconnect)
+        self.row_span = row_span
         if output_scale != 1.0:
             self.NAME = "DECODER3_8_OUTPUT_SCALED"
+        # Different cascade levels have different physical spans, so they must
+        # not overwrite one another's subcircuit definitions in PySpice.
+        if row_span != 8:
+            self.NAME += f'_ROWS{float(row_span).hex().replace(".", "_").replace("+", "p").replace("-", "m")}'
         super().__init__(
             nmos_model_inv, pmos_model_inv,
             nand_nmos_width, nand_pmos_width, length,
@@ -98,6 +107,13 @@ class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
         self.add_decoder_components()
 
     def add_decoder_components(self):
+        # Place all eight logic outputs across this block's share of the row
+        # height, including unused outputs in small/partial decoders. These
+        # are geometric routing assumptions, not extracted decoder metal.
+        wire = replace(self.interconnect.bl,
+                       pitch_m=self.interconnect.bl.pitch_m * self.row_span / 8)
+        taps = {net: add_tapped_line(self, f'{net}_line', net, 8, wire)
+                for net in ('A0', 'A1', 'A2', 'A0b', 'A1b', 'A2b', 'EN')}
         # 添加三个非门实例化
         self.X('INV_A1', self.inv_A0.name, 'VDD', 'VSS', 'A0', 'A0b')
         self.X('INV_A2', self.inv_A1.name, 'VDD', 'VSS', 'A1', 'A1b')
@@ -120,15 +136,15 @@ class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
             inputs = input_combinations[i]
             self.X(f"AND{i}", self.and_gates[i].name,
                    'VDD', 'VSS',
-                   inputs[0],  # 输入A
-                   inputs[1],  # 输入B
-                   inputs[2],  # 输入C
+                   taps[inputs[0]][i],  # 输入A
+                   taps[inputs[1]][i],  # 输入B
+                   taps[inputs[2]][i],  # 输入C
                    f'WL{i}_pre'  # 输出
                    )
             self.X(f"AND_EN{i}", self.and_for_en[i].name,
                    'VDD', 'VSS',
                    f'WL{i}_pre',  # 输入A
-                   'EN',  # 输入B
+                   taps['EN'][i],  # 输入B
                    f'WL{i}'  # 输出
                    )
 
@@ -143,10 +159,12 @@ class DECODER_CASCADE(BaseSubcircuit):
                  length=0.05e-6,
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  output_scale=1.0,
+                 interconnect=None,
                  ):
         # 计算地址位数和级数
         self.w_rc=w_rc
         self.num_rows = num_rows
+        self.interconnect = resolve_interconnect(interconnect)
         self.n_bits = ceil(log2(num_rows)) if num_rows > 1 else 1
         self.n_levels = ceil(self.n_bits / 3.0)
         #NODES = ['VDD', 'VSS','EN'] + [f'A{i}'for i in range(self.n_bits)] + [f'WL{i}' for i in range(num_rows)]
@@ -173,6 +191,17 @@ class DECODER_CASCADE(BaseSubcircuit):
         self.decoders_by_level = []
         self.level_output_nodes = [[] for _ in range(self.n_levels)]
 
+        # Each level occupies the row height, split uniformly among its
+        # decoder blocks. Address trunks place one centered tap per block;
+        # local true/complement/enable lines distribute to its eight gates.
+        address_taps = {}
+        for bit in range(self.n_bits):
+            level = self.n_levels - 1 - bit // 3
+            groups = self.level_groups[level]
+            wire = replace(self.interconnect.bl,
+                           pitch_m=self.interconnect.bl.pitch_m * num_rows / groups)
+            address_taps[bit] = add_tapped_line(self, f'A{bit}_line', f'A{bit}', groups, wire)
+
         # 创建所有译码器
         for level in range(self.n_levels):
             level_decoders = []
@@ -184,7 +213,7 @@ class DECODER_CASCADE(BaseSubcircuit):
                 for bit in range(3):
                     bit_idx = start_bit + bit
                     if bit_idx >= 0 and bit_idx < self.n_bits:
-                        address_nodes.append(f'A{bit_idx}')
+                        address_nodes.append(address_taps[bit_idx][decoder_idx])
                     else:
                         address_nodes.append('VSS')  # 地址不足时接地
                 # 创建译码器实例
@@ -200,6 +229,8 @@ class DECODER_CASCADE(BaseSubcircuit):
                     length=length,
                     w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
                     output_scale=output_scale if level == self.n_levels - 1 else 1.0,
+                    interconnect=self.interconnect,
+                    row_span=num_rows / self.level_groups[level],
                 )
                 self.subcircuit(decoder)
                 level_decoders.append(decoder)

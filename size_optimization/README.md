@@ -5,6 +5,12 @@ This directory contains the original circuit-backed optimization scripts and the
 In OpenYield V2.0.6, the detailed algorithm guide lives in this directory. The
 offline package's name, OpenYield V2, identifies its optimizer workflow.
 
+V2.1.1 circuit evaluations use distributed wiring by default and reject star
+configurations. Driver sizes and the lookup clock remain frozen across cell
+candidates; changing routing does not qualify the existing timing budgets.
+See the [release report](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md) for current
+functional evidence and limits.
+
 See [电路算法说明文档.md](电路算法说明文档.md) for the detailed parameter-space,
 objective-function, and two-stage optimization guide.
 

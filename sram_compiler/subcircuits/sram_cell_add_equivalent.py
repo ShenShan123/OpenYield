@@ -735,13 +735,11 @@ def _build_tester_from_core(core, cell_type):
 def _add_wl_controlled_static_power(core, tester, rows_with_unused,
                                     wl_c, bl_c, blb_c, wl_bl_c, wl_blb_c,
                                     fit_info=None):
-    """Add per-row WL-voltage-dependent static-power current sources.
+    """Add local WL-voltage-dependent static-power current sources.
 
-    For each row containing unused cells, build a behavioral current source
-    BIWL_POWER_{row} VDD VSS I={count * f(V(WL{row})/vdd)} where f() is a
-    piecewise-linear lookup of static current vs WL ratio, fitted by sweeping
-    WL.  This makes the unused-cell static power respond to WL activity during
-    a write, instead of using a single fixed resistor.
+    Each omitted cell gets a source controlled by its local wordline voltage,
+    using a piecewise-linear lookup of static current vs WL ratio fitted by
+    sweeping WL. This preserves the effect of wire delay during a write.
 
     Any failure propagates: silently omitting the source would leave the
     unused cells with no static power at all.
@@ -794,22 +792,13 @@ def _add_wl_controlled_static_power(core, tester, rows_with_unused,
         return expr
 
     for row in rows_with_unused:
-        count_unused = core._count_unused_cells_in_row(row)
-        if count_unused == 0:
-            continue
-        if core.interconnect.distributed:
-            for col in range(core.num_cols):
-                if not core._is_unused_cell(row, col):
-                    continue
-                wl = (f'EQ_{row}_{col}_WL' if core.w_rc and core.interconnect.cell_pin_rc
-                      else cell_wire_nodes(core, row, col)[2])
-                table_expr = _build_table_expr(wl)
-                core.raw_spice += f'BIWL_POWER_{row}_{col} VDD VSS I={{{table_expr}}}\n'
-            continue
-        table_expr = _build_table_expr(f'WL{row}')
-        core.raw_spice += (
-            f"BIWL_POWER_{row} VDD VSS I={{{count_unused:.12e}*({table_expr})}}\n"
-        )
+        for col in range(core.num_cols):
+            if not core._is_unused_cell(row, col):
+                continue
+            wl = (f'EQ_{row}_{col}_WL' if core.w_rc and core.interconnect.cell_pin_rc
+                  else cell_wire_nodes(core, row, col)[2])
+            table_expr = _build_table_expr(wl)
+            core.raw_spice += f'BIWL_POWER_{row}_{col} VDD VSS I={{{table_expr}}}\n'
 
 
 # ─── extraction cache ────────────────────────────────────────────────────────
@@ -891,8 +880,7 @@ def _add_equivalent_circuit_impl(core, cell_type):
 
     # ── static power ──────────────────────────────────────────────────────────
     if write_power_model:
-        # WL-controlled behavioral current source per row (matches OpenYield2.5):
-        # static current of unused cells in a row varies with that row's WL voltage.
+        # Each omitted cell follows its local wordline voltage.
         fit_info = _cached_extraction(
             tester, "wl_fit",
             lambda: tester.fit_static_power_vs_wl(
@@ -917,62 +905,25 @@ def _add_equivalent_circuit_impl(core, cell_type):
             print("[DEBUG] No unused cells; skipping static power resistor.")
 
     # ── parasitic load of the omitted cells ───────────────────────────────────
-    # The extracted cell capacitances are always added -- they are the load the
-    # omitted cells put on the lines.  `w_rc` only decides whether the wire RC
-    # (pi_res / pi_cap) is inserted in front of them; without it the caps sit
-    # directly on the line node.
-    def _line_node(line, unused):
-        if not core.w_rc or not core.interconnect.cell_pin_rc:
-            return line
-        mid = f"{line}_rc_mid"
-        core.C(f"cap_{line}", mid,  core.NODES[1], pi_cap * unused)
-        core.R(f"res_{line}", line, mid,           pi_res / unused)
-        return mid
-
-    if core.interconnect.distributed:
-        # Each omitted cell remains a local multiport load. Wire segments were
-        # already built independently of the real/equivalent occupancy mask.
-        for row in rows_with_unused:
-            for col in cols_with_unused:
-                if not core._is_unused_cell(row, col):
-                    continue
-                bl, blb, wl = cell_wire_nodes(core, row, col)
-                if core.w_rc and core.interconnect.cell_pin_rc:
-                    nodes = []
-                    for pin, line in (('BL', bl), ('BLB', blb), ('WL', wl)):
-                        mid = f'EQ_{row}_{col}_{pin}'
-                        core.R(f'eq_{row}_{col}_{pin}', line, mid, pi_res)
-                        core.C(f'eq_wire_{row}_{col}_{pin}', mid, core.NODES[1], pi_cap)
-                        nodes.append(mid)
-                    bl, blb, wl = nodes
-                for pin, node, cap in (('WL', wl, wl_c), ('BL', bl, bl_c), ('BLB', blb, blb_c)):
-                    core.C(f'eq_{pin}_{row}_{col}', node, core.NODES[1], cap)
-                core.C(f'eq_WLBL_{row}_{col}', wl, bl, wl_bl_c)
-                core.C(f'eq_WLBLB_{row}_{col}', wl, blb, wl_blb_c)
-        return
-
-    # ── WL lines of rows containing unused cells ──────────────────────────────
-    wl_nodes = {}
-    for row in rows_with_unused:
-        row_unused = core._count_unused_cells_in_row(row)
-        wl_nodes[row] = _line_node(f"WL{row}", row_unused)
-        core.C(f"cap_WL{row}_cell", wl_nodes[row], core.NODES[1], wl_c * row_unused)
-
-    # ── BL/BLB lines of cols containing unused cells ──────────────────────────
-    bl_nodes, blb_nodes = {}, {}
-    for col in cols_with_unused:
-        col_unused = core._count_unused_cells_in_col(col)
-        bl_nodes[col]  = _line_node(f"BL{col}",  col_unused)
-        blb_nodes[col] = _line_node(f"BLB{col}", col_unused)
-        core.C(f"cap_BL{col}_cell",  bl_nodes[col],  core.NODES[1], bl_c  * col_unused)
-        core.C(f"cap_BLB{col}_cell", blb_nodes[col], core.NODES[1], blb_c * col_unused)
-
-    # ── Cross-coupling WL↔BL and WL↔BLB (only for actually-unused cells) ──────
+    # Wire segments were built independently of the real/equivalent occupancy
+    # mask. Optional pin stubs remain local to each omitted cell.
     for row in rows_with_unused:
         for col in cols_with_unused:
-            if core._is_unused_cell(row, col):
-                core.C(f"cap_WL{row}_BL{col}",  wl_nodes[row], bl_nodes[col],  wl_bl_c)
-                core.C(f"cap_WL{row}_BLB{col}", wl_nodes[row], blb_nodes[col], wl_blb_c)
+            if not core._is_unused_cell(row, col):
+                continue
+            bl, blb, wl = cell_wire_nodes(core, row, col)
+            if core.w_rc and core.interconnect.cell_pin_rc:
+                nodes = []
+                for pin, line in (('BL', bl), ('BLB', blb), ('WL', wl)):
+                    mid = f'EQ_{row}_{col}_{pin}'
+                    core.R(f'eq_{row}_{col}_{pin}', line, mid, pi_res)
+                    core.C(f'eq_wire_{row}_{col}_{pin}', mid, core.NODES[1], pi_cap)
+                    nodes.append(mid)
+                bl, blb, wl = nodes
+            for pin, node, cap in (('WL', wl, wl_c), ('BL', bl, bl_c), ('BLB', blb, blb_c)):
+                core.C(f'eq_{pin}_{row}_{col}', node, core.NODES[1], cap)
+            core.C(f'eq_WLBL_{row}_{col}', wl, bl, wl_bl_c)
+            core.C(f'eq_WLBLB_{row}_{col}', wl, blb, wl_blb_c)
 
 
 # ─── public API ───────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 """Physical array interconnect, independent of transistor sizing policy.
 
-WL drivers sit at the left edge (column zero); all bitline periphery sits at
-the row-zero edge. Cell taps sit at half-pitch centers. Distributed geometry
-must be supplied explicitly: the compiler has no extracted metal defaults.
+WL drivers sit at the left edge (column zero); bitline periphery sits at the
+row-zero edge. Cell taps sit at half-pitch centers. The default geometry is
+illustrative (1 ohm / 0.1 fF per pitch), not extracted metal data.
 """
 
 from __future__ import annotations
@@ -70,28 +70,31 @@ class WireRC:
 
 @dataclass(frozen=True)
 class InterconnectConfig:
-    mode: str = 'star'
-    # None resolves to the documented default: local cell WL/BL/BLB stubs stay
-    # with the star topology and are omitted once distributed wires carry them.
+    mode: str = 'distributed'
+    # Local series pin stubs are optional, independent of the physical wires.
     cell_pin_rc: bool | None = None
     wl: WireRC | None = None
     bl: WireRC | None = None
 
     def __post_init__(self):
-        if self.mode not in ('star', 'distributed'):
-            raise ValueError('Interconnect mode must be star or distributed')
+        if self.mode != 'distributed':
+            raise ValueError('Interconnect mode must be distributed')
         if self.cell_pin_rc is None:
-            object.__setattr__(self, 'cell_pin_rc', not self.distributed)
+            object.__setattr__(self, 'cell_pin_rc', False)
         if not isinstance(self.cell_pin_rc, bool):
             raise ValueError('cell_pin_rc must be boolean')
-        if self.distributed and not all(isinstance(wire, WireRC) for wire in (self.wl, self.bl)):
-            raise ValueError('Distributed interconnect requires wl and bl wire geometry')
-        if not self.distributed and (self.wl is not None or self.bl is not None):
-            raise ValueError('Wire geometry requires distributed mode')
+        for name, layer in (('wl', 'M2-reference'), ('bl', 'M3-reference')):
+            if getattr(self, name) is None:
+                object.__setattr__(self, name, WireRC(
+                    layer=layer, pitch_m=6e-7, width_m=1e-7,
+                    sheet_resistance_ohm=1 / 6,
+                    capacitance_f_per_m=1.6666666666666666e-10))
+            if not isinstance(getattr(self, name), WireRC):
+                raise ValueError('Distributed interconnect requires wl and bl wire geometry')
 
     @property
     def distributed(self):
-        return self.mode == 'distributed'
+        return True
 
     def to_dict(self):
         return asdict(self)
@@ -164,15 +167,11 @@ def add_tapped_line(circuit, prefix, start, count, wire, ground='VSS'):
 
 
 def cell_wire_nodes(core, row, col):
-    if core.interconnect.distributed:
-        return f'BL{col}_tap{row}', f'BLB{col}_tap{row}', f'WL{row}_tap{col}'
-    return f'BL{col}', f'BLB{col}', f'WL{row}'
+    return f'BL{col}_tap{row}', f'BLB{col}_tap{row}', f'WL{row}_tap{col}'
 
 
 def add_array_wires(core):
     config = core.interconnect
-    if not config.distributed:
-        return
     for row in range(core.num_rows):
         add_tapped_line(core, f'WL{row}', f'WL{row}', core.num_cols, config.wl)
     for col in range(core.num_cols):

@@ -57,7 +57,8 @@ class GlobalConfig:
         self.objectives = AttrDict(config_data.get("objectives", {}))
         # Keep sizing as a mapping: the resolver validates supported options.
         self.sizing = config_data.get("sizing", {"mode": "lookup"})
-        self.interconnect = config_data.get("interconnect", {"mode": "star"})
+        self.timing = config_data.get("timing", {"mode": "lookup"})
+        self.interconnect = config_data.get("interconnect", {"mode": "distributed"})
 
         # 特殊处理性能指标
         self.metrics = self._process_performance_metrics(config_data.get("performance_metrics", {}))
