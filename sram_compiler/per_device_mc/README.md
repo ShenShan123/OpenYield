@@ -59,6 +59,11 @@ and `write_snm`. `--run-xyce` needs Xyce on PATH or `--xyce /path/to/Xyce`.
 [distributed RC guide](../../docs/design/DISTRIBUTED_RC_MODEL.md)); the run
 directory name and `summary.json` include the resolved topology.
 After a successful simulation, waveform output is plotted as `waveform.png`.
+If the plot cannot be drawn, the `.prn` and the passing measures stand: the
+summary records `waveform_error` with `waveform_png: null`, is written to
+`summary.json`, and the run still exits 0. An interrupted solver run also
+writes `summary.json`, with its `xyce` installation and seed, before the
+interrupt propagates.
 
 | Variation mode | Behavior |
 |---|---|

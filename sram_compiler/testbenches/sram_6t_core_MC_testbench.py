@@ -424,7 +424,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # Average power over one complete write-1 / read / write-0 / read
             # pattern (DIN has a period of 4*t_period), starting at the first
             # access so the start-up transient is excluded; ends well before
-            # the .TRAN end (1 ns + 8.5*t_period, see add_analysis).
+            # the .TRAN end (1 ns + 8.7*t_period, see _analysis_stop).
             t_from = float(1.0 @ u_ns) + 0.7 * float(self.t_period)
             simulator.measure(
                 'TRAN', 'PAVG',
@@ -842,9 +842,6 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 print("[DEBUG] mc_runs=1: no .SAMPLING, model parameters at their nominal values")
 
         print(f"[DEBUG] Custom_MC={self.custom_mc}, numsamples={num_mc}")
-
-    def get_table_head(self):
-        return self.table_head
 
     def gen_process_params(self, circuit: SubCircuitFactory,
                         operation: str, num_mc: int,

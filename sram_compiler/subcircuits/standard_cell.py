@@ -159,50 +159,6 @@ class PNAND3(BaseSubcircuit):
         self.M('pnand3_nmos3', 'net2', 'C', 'VSS', 'VSS', 
                model=self.nmos_model, w=self.nmos_width, l=self.length)
 
-class Pbuff(BaseSubcircuit):  # 两个反相器级联构成的缓冲器
-    """
-    CMOS Buffer (2-stage inverter chain) based on PINV.
-    """
-    NAME = "PBUFF"
-    NODES = ('VDD', 'VSS', 'A', 'Z')
-
-    def __init__(self, nmos_model, pmos_model,
-                 nmos_width, pmos_width, length,
-                 w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF):
-        super().__init__(
-            nmos_model, pmos_model,
-            nmos_width, pmos_width, length,
-            w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
-        )
-        
-        self.nmos_model = nmos_model
-        self.pmos_model = pmos_model
-        self.pmos_width = pmos_width
-        self.nmos_width = nmos_width
-        self.length = length
-
-        self.add_buffer_transistors()
-
-    def add_buffer_transistors(self):
-        # The internal node is named Z_int (first-level output / second-level input)
-        # First-level inverter: Input A, Output Z_int
-        self.M('buff_pmos_1', 'Z_int', 'A', 'VDD', 'VDD',
-               model=self.pmos_model,
-               w=self.pmos_width, l=self.length)
-
-        self.M('buff_nmos_1', 'Z_int', 'A', 'VSS', 'VSS',
-               model=self.nmos_model,
-               w=self.nmos_width, l=self.length)
-
-        # Second-level inverter: Input Z_int, Output Z
-        self.M('buff_pmos_2', 'Z', 'Z_int', 'VDD', 'VDD',
-               model=self.pmos_model,
-               w=self.pmos_width, l=self.length)
-
-        self.M('buff_nmos_2', 'Z', 'Z_int', 'VSS', 'VSS',
-               model=self.nmos_model,
-               w=self.nmos_width, l=self.length)
-
 class AND2(BaseSubcircuit):
     """
     AND2 gate  generation based on SPICE netlist.

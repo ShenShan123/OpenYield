@@ -13,7 +13,8 @@ Explicit `mode: star` is rejected. Omitting geometry selects the illustrative
 1-ohm / 0.1-fF pitch reference; the compiler supplies no extracted defaults.
 The [distributed-only change](DISTRIBUTED_ONLY_V2_1_1.md) describes current
 routing and fresh validation. Earlier records below retain their original
-versions; the [original implementation plan](DISTRIBUTED_RC_PLAN.md) is historical.
+versions; the original V2.0.7 implementation plan is historical
+(`git show 61d01a7:docs/design/DISTRIBUTED_RC_PLAN.md`).
 
 Customize it through `global.yaml`'s `interconnect` mapping, the appended
 `interconnect=` testbench argument, the `INTERCONNECT_CONFIG` setting of

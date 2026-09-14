@@ -18,14 +18,17 @@ V2.1.2 keeps the V2.1.1 circuit, timing and driver sizes. The per-device CLI acc
 timestep retry also bounds decks with a start time or coarse step ceiling. The
 supplied [first-500 write-failure inventory](docs/issue_reports/write_failure_cases_first_500.md)
 is audited: its entries are unverified numerical or solver-environment
-non-completions, not observed write failures.
+non-completions, not observed write failures. The Phase 4/5
+[timing follow-up](docs/design/TIMING_FOLLOWUP_V2_1_2.md) passes 30 of 35
+screening cases; the shared 4 ns class fails for 10T with a column mux at
+SS 0.9 V / 125 °C (it passes at 4.5 ns), and the table stays frozen.
 
 V2.1.1 makes distributed RC the only signal-wire topology and the default. Explicit
 star settings are rejected. Array, replica, bitline periphery, decoder fan-out,
 write-data clock and mux-select paths use physical wire taps. The default
 1-ohm / 0.1-fF pitch is illustrative, not extracted metal. See the
 [V2.1.1 change and validation status](docs/design/DISTRIBUTED_ONLY_V2_1_1.md)
-and [evaluation schedule](plans/V2_1_1_TIMING_FOLLOWUP.md). Full retention checks
+and [evaluation schedule](docs/plans/V2_1_1_TIMING_FOLLOWUP.md). Full retention checks
 and CLI metric rejection are included; the V2.1.0 timing table and V2.0.9
 transistor classes keep their historical identities.
 

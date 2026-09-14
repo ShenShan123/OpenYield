@@ -215,6 +215,27 @@ class TimingLookupTests(unittest.TestCase):
             # A failed run without its solver installation cannot be matched to an MPI stack.
             self.assertIn('xyce', saved)
 
+    def test_cli_interrupted_run_keeps_its_summary_and_solver_identity(self):
+        """An interrupted solver run is an incomplete outcome that must stay traceable."""
+        from sram_compiler.per_device_mc import run
+        with tempfile.TemporaryDirectory() as temp:
+            argv = ['run', '--rows', '2', '--cols', '2', '--variation-mode', 'nominal',
+                    '--output-dir', temp, '--no-waveform']
+            with patch('sys.argv', argv):
+                args = run.parse_args()
+            deck, summary = run.generate_deck(args)
+            args.run_xyce = True
+            with patch.object(run, 'parse_args', return_value=args), \
+                    patch.object(run, 'generate_deck', return_value=(deck, summary)), \
+                    patch.object(run, 'find_xyce', return_value='/opt/xyce/bin/Xyce'), \
+                    patch.object(run, 'run_xyce', side_effect=KeyboardInterrupt):
+                with self.assertRaises(KeyboardInterrupt):
+                    run.main()
+            saved = json.loads((deck.parent / 'summary.json').read_text())
+            self.assertTrue(saved['simulation_error'].startswith('KeyboardInterrupt'))
+            self.assertEqual(saved['xyce'], '/opt/xyce/bin/Xyce')
+            self.assertNotIn('xyce_exit', saved)
+
     def test_cli_pvt_overrides_reach_deck_metadata_and_run_identity(self):
         from sram_compiler.per_device_mc import run
         with tempfile.TemporaryDirectory() as temp:
@@ -260,6 +281,32 @@ class TimingLookupTests(unittest.TestCase):
             saved = json.loads((deck.parent / 'summary.json').read_text())
             self.assertTrue(saved['access_checked'])
             self.assertFalse(saved['metrics_checked'])
+
+    def test_cli_plot_failure_keeps_passing_measures_and_records_the_error(self):
+        """A lost plot is not lost evidence: the .prn and passing measures stand."""
+        from sram_compiler.per_device_mc import run
+
+        with tempfile.TemporaryDirectory() as temp:
+            argv = ['run', '--rows', '2', '--cols', '2', '--variation-mode', 'nominal',
+                    '--output-dir', temp, '--run-xyce']
+            with patch('sys.argv', argv):
+                args = run.parse_args()
+            deck, summary = run.generate_deck(args)
+            Path(str(deck) + '.mt0').write_text(
+                'VWL_PRE_FAR_0 = 0\nVWL_PRE_LOCAL_0 = 0\nVWL_PRE_PEAK_0 = 0\n'
+                'VACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\n'
+                'TREAD_TOTAL = 1.5e-10\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
+            with patch.object(run, 'parse_args', return_value=args), \
+                    patch.object(run, 'generate_deck', return_value=(deck, summary)), \
+                    patch.object(run, 'run_xyce'), \
+                    patch.object(run, 'plot_waveform', side_effect=ValueError('Conflicting duplicate')):
+                self.assertEqual(run.main(), 0)
+            saved = json.loads((deck.parent / 'summary.json').read_text())
+            self.assertTrue(saved['access_checked'])
+            self.assertTrue(saved['metrics_checked'])
+            self.assertIsNone(saved['waveform_png'])
+            self.assertEqual(saved['waveform_error'], 'ValueError: Conflicting duplicate')
+            self.assertNotIn('simulation_error', saved)
 
 
 if __name__ == '__main__':

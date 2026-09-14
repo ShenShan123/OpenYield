@@ -1,6 +1,6 @@
 # OpenYield project instructions
 
-Current release: **V2.1.2** (V2.1.1 circuit, timing and sizing unchanged; bounded-step Xyce retry for explicit `.TRAN` fields, CLI `--vdd`/`--temperature`, recorded Xyce installation and an audited first-500 write-failure inventory. V2.1.1 added distributed-only signal wiring, fixed array-class timing lookup, complete write-register initialization, frozen access/retention checks and preserved numerical retry evidence; driver transistor classes remain V2.0.9).
+Current release: **V2.1.2** (V2.1.1 circuit, timing and sizing unchanged; bounded-step Xyce retry for explicit `.TRAN` fields, CLI `--vdd`/`--temperature`, recorded Xyce installation and an audited first-500 write-failure inventory. V2.1.1 added distributed-only signal wiring, fixed array-class timing lookup, complete write-register initialization, frozen access/retention checks and preserved numerical retry evidence; driver transistor classes remain V2.0.9). Known limit from the V2.1.2 Phase 4/5 follow-up (`docs/design/TIMING_FOLLOWUP_V2_1_2.md`): the shared 4 ns class fails for 10T cells with a column mux at SS 0.9 V/125 °C (16x16 nominal, 8x4 under mismatch) and passes at 4.5 ns; the table stays frozen until a separate budget is evidenced.
 The `rules_only` rule identity and the qualification artifact format remain V2.0.5; preserve historical version labels when referring to measurements or archived proposals. `docs/CHANGELOG.md` is per release (V2.x.x). `AGENTS.md` holds the detailed working conventions;
 
 ## Purpose and architecture

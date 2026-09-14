@@ -7,7 +7,8 @@ to larger arrays and records subsequent fixes and remaining timing limits.
 
 ## V2.0.7 RC validation — 2026-09-09
 
-This validates the implementation against the [plan](DISTRIBUTED_RC_PLAN.md).
+This validates the implementation against the V2.0.7 plan
+(`git show 61d01a7:docs/design/DISTRIBUTED_RC_PLAN.md`).
 The [model guide](DISTRIBUTED_RC_MODEL.md) defines the supported topology and
 configuration. Metal values are illustrative (1 ohm / 0.1 fF per 0.6 um pitch),
 not foundry extraction. No qualification record or sizing coefficient is promoted.
@@ -105,7 +106,7 @@ yield claims. Historical V2.0.5 evidence remains unchanged.
   a functional check; a margin needs weak cells or a larger K.
 - Plan item 3 formerly asked for periphery at "specified" locations; the
   implementation fixes WL drivers at column zero and bitline periphery at row
-  zero, and the [plan](DISTRIBUTED_RC_PLAN.md) and
+  zero, and the plan and
   [model guide](DISTRIBUTED_RC_MODEL.md) now state that. Plan item 5 lists
   half-select disturbance; no sequence deck exercises a half-selected column
   because every column carries a write driver and the same data, so that item

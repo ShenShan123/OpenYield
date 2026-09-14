@@ -20,26 +20,11 @@ from scipy.optimize import curve_fit
 from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import u_V, u_Ohm, u_F, u_pF
 from sram_compiler.interconnect import cell_wire_nodes
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 
 # ─── project root for config fall-back ──────────────────────────────────────
 _PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")
 )
-
-image_base_path = "equivalent_modeling/images/"
-
-
-# ─── colour helpers ──────────────────────────────────────────────────────────
-def _build_blue_orange_cmap():
-    default_colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-    default_blue   = default_colors[0]
-    return mcolors.LinearSegmentedColormap.from_list(
-        "blue_orange",
-        ["#021729", "#083457", default_blue, "#32A0FF"],
-        N=256,
-    )
 
 
 def last_proportion_mean(arr, p=1 / 6):
@@ -293,104 +278,6 @@ class SRAMCellParasiticTester:
             },
         }
 
-    # ── equivalent circuit ────────────────────────────────────────────────────
-    def get_equivalent_circuit(self, params):
-        circuit = Circuit("SRAM_Equivalent")
-        circuit.C("CBLGND",  "BL",  circuit.gnd, params.get("c_bl",     1e-16))
-        circuit.C("CBLBGND", "BLB", circuit.gnd, params.get("c_blb",    1e-16))
-        circuit.C("CWLGND",  "WL",  circuit.gnd, params.get("c_wl",     1e-16))
-        circuit.C("CWLBL",   "WL",  "BL",        params.get("c_wl_bl",  1e-16))
-        circuit.C("CWLBLB",  "WL",  "BLB",       params.get("c_wl_blb", 1e-16))
-        return circuit
-
-    def run_equivalent_test(self, test_case, voltage_val, params, measure_sources=None):
-        circuit = self.get_equivalent_circuit(params)
-        pwl = self._get_pwl_waveform(voltage_val)
-
-        if test_case == "bl_drive":
-            circuit.V("BL",  "BL",  circuit.gnd, pwl);  circuit.V("BLB", "BLB", circuit.gnd, 0 @ u_V);  circuit.V("WL", "WL", circuit.gnd, 0 @ u_V)
-        elif test_case == "blb_drive":
-            circuit.V("BLB", "BLB", circuit.gnd, pwl);  circuit.V("BL",  "BL",  circuit.gnd, 0 @ u_V);  circuit.V("WL", "WL", circuit.gnd, 0 @ u_V)
-        elif test_case == "all_drive":
-            circuit.V("BL",  "BL",  circuit.gnd, pwl);  circuit.V("BLB", "BLB", circuit.gnd, pwl);  circuit.V("WL", "WL", circuit.gnd, pwl)
-        else:
-            raise ValueError(f"Unknown test case: {test_case}")
-
-        simulator = circuit.simulator(
-            temperature=self.config.temperature,
-            nominal_temperature=27,
-            simulator="xyce-parallel",
-        )
-        analysis = simulator.transient(step_time=self.step_time, end_time=self.end_time)
-        time     = analysis.time.as_ndarray()
-        voltages = {p: analysis[p].as_ndarray() for p in ["BL", "BLB", "WL"]}
-        if measure_sources is None:
-            measure_sources = ["VBL", "VBLB", "VWL"]
-        currents = {s: self.get_current(s, analysis) for s in measure_sources}
-        return {"time": time, "voltages": voltages, "currents": currents}
-
-    def run_equivalent_suite(self, voltage_ratio, params):
-        voltage_val = self.config.vdd * voltage_ratio @ u_V
-        return {
-            "bl_drive":  self.run_equivalent_test("bl_drive",  voltage_val, params, ["VBL", "VWL"]),
-            "blb_drive": self.run_equivalent_test("blb_drive", voltage_val, params, ["VBLB", "VWL"]),
-            "all_drive": self.run_equivalent_test("all_drive", voltage_val, params, ["VWL"]),
-        }
-
-    def compare_and_plot(self, ratios, params):
-        results = {}
-        for ratio in ratios:
-            actual = self.extract_parasitic_caps(ratio)
-            equiv  = self.run_equivalent_suite(ratio, params)
-            results[ratio] = {"actual": actual, "equiv": equiv}
-
-        plots = [
-            ("bl_drive",  "VBL",  "BL",  "BL"),
-            ("bl_drive",  "VWL",  "BL",  "WL (BL drive)"),
-            ("blb_drive", "VBLB", "BLB", "BLB"),
-            ("blb_drive", "VWL",  "BLB", "WL (BLB drive)"),
-            ("all_drive", "VWL",  "WL",  "WL (all drive)"),
-        ]
-        for case, source, voltage_port, title_suffix in plots:
-            self._plot_current_figure(case, source, voltage_port, ratios, results, title_suffix)
-
-    def _plot_current_figure(self, case, source, voltage_port, ratios, results, title_suffix):
-        fig, axes = plt.subplots(len(ratios), 1, figsize=(10, 3.5 * len(ratios)))
-        if len(ratios) == 1:
-            axes = [axes]
-
-        for idx, ratio in enumerate(ratios):
-            ax1 = axes[idx]
-            actual_case = results[ratio]["actual"]["actual"][case]
-            equiv_case  = results[ratio]["equiv"][case]
-
-            ax2 = ax1.twinx()
-            ax2.set_zorder(0);  ax1.set_zorder(1);  ax1.patch.set_alpha(0.0)
-
-            ax1.set_ylabel("电流 (µA)", color="tab:blue")
-            ax1.plot(actual_case["time"]*1e9, actual_case["currents"][source]*1e6,
-                     label=f"实际 {source[1:]} 电流", color="tab:blue")
-            ax1.plot(equiv_case["time"]*1e9,  equiv_case["currents"][source]*1e6,
-                     linestyle="--", label=f"模型 {source[1:]} 电流", color="tab:cyan")
-            ax1.tick_params(axis="y", labelcolor="tab:blue");  ax1.grid(True, alpha=0.3)
-
-            ax2.set_ylabel("电压 (V)", color="tab:orange")
-            ax2.plot(actual_case["time"]*1e9, actual_case["voltages"][voltage_port],
-                     color="tab:orange", label="驱动电压")
-            ax2.tick_params(axis="y", labelcolor="tab:orange")
-
-            ax1.set_title(f"驱动电压: {ratio:.1f}V")
-            l1, la1 = ax1.get_legend_handles_labels();  l2, la2 = ax2.get_legend_handles_labels()
-            ax1.legend(l1 + l2, la1 + la2, loc="best")
-
-        axes[-1].set_xlabel("时间 (ns)")
-        plt.tight_layout()
-        Path(image_base_path).mkdir(parents=True, exist_ok=True)
-        file_name = f"simplified_model_{case}_{source.lower()}_comparison.svg"
-        fig_path  = image_base_path + file_name
-        print(f"[DEBUG] Saving plot to {fig_path}")
-        plt.savefig(fig_path);  plt.close()
-
     # ── static power helpers ──────────────────────────────────────────────────
     def _voltage_value(self, voltage):
         if hasattr(voltage, "value"):
@@ -602,76 +489,6 @@ class SRAMCellParasiticTester:
             "fit_func":     fit_func,
             "fit_label":    fit_label,
         }
-
-    # ── plotting ──────────────────────────────────────────────────────────────
-    def plot_static_power_vs_wl(self, results, filename="static_power_vs_wl.svg",
-                                 fit_func=None, fit_label=None):
-        Path(image_base_path).mkdir(parents=True, exist_ok=True)
-        ratios      = np.array([r["wl_voltage"] / self.config.vdd for r in results])
-        max_current = np.array([r.get("max_current", r["avg_current"]) for r in results]) * 1e6
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.plot(ratios, max_current, marker="s", color="tab:blue", label="Max Current")
-        if fit_func is not None:
-            fit_x = np.linspace(ratios.min(), ratios.max(), 200)
-            ax.plot(fit_x, fit_func(fit_x), color="tab:orange", linestyle="--", label="Fitted")
-        ax.set_xlabel("WL / VDD");  ax.set_ylabel("最大电流 (µA)")
-        ax.tick_params(axis="y");  ax.grid(True, alpha=0.3)
-        if fit_func is not None:
-            ax.legend(loc="upper left", title=fit_label)
-        fig.tight_layout()
-        save_path = Path(image_base_path) / filename
-        fig.savefig(save_path);  plt.close(fig)
-        return str(save_path)
-
-    def plot_static_waveform_suite(self, results, filename="static_waveforms.svg",
-                                    cmap_name="viridis", x_limits=None, y_limits=None):
-        Path(image_base_path).mkdir(parents=True, exist_ok=True)
-        ratios = np.array([r["wl_voltage"] / self.config.vdd for r in results])
-        norm   = plt.Normalize(vmin=ratios.min(), vmax=ratios.max())
-        cmap   = _build_blue_orange_cmap()
-
-        fig, axes = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
-        labels = ["VDD 电流 (µA)", "Q 电压 (V)", "QB 电压 (V)"]
-
-        for result, ratio in zip(results, ratios):
-            color   = cmap(norm(ratio))
-            time_ns = result["time"] * 1e9
-            axes[0].plot(time_ns, result["current"] * 1e6, color=color, linewidth=1)
-            q_voltage  = result["voltages"].get("Q") or result["voltages"].get("XSRAM1:Q")
-            qb_voltage = result["voltages"].get("QB") or result["voltages"].get("XSRAM1:QB")
-            if q_voltage  is not None: axes[1].plot(time_ns, q_voltage,  color=color, linewidth=1)
-            if qb_voltage is not None: axes[2].plot(time_ns, qb_voltage, color=color, linewidth=1)
-
-        for ax, label in zip(axes, labels):
-            ax.set_ylabel(label);  ax.grid(True, alpha=0.3)
-        if x_limits is not None:
-            for ax in axes: ax.set_xlim(x_limits)
-        if y_limits is not None:
-            if "all"     in y_limits: [ax.set_ylim(y_limits["all"]) for ax in axes]
-            if "current" in y_limits: axes[0].set_ylim(y_limits["current"])
-            if "q"       in y_limits: axes[1].set_ylim(y_limits["q"])
-            if "qb"      in y_limits: axes[2].set_ylim(y_limits["qb"])
-
-        axes[2].set_xlabel("Time (ns)")
-        fig.tight_layout(rect=[0, 0, 0.88, 1])
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm);  sm.set_array([])
-        cbar = fig.colorbar(sm, ax=axes, orientation="vertical", fraction=0.025, pad=0.03)
-        cbar.set_label("WL / VDD")
-        save_path = Path(image_base_path) / filename
-        fig.savefig(save_path, bbox_inches="tight");  plt.close(fig)
-        return str(save_path)
-
-    def compute_fit_mse_range(self, fit_info, min_ratio=0.0, max_ratio=0.1):
-        if "fit_func" not in fit_info:
-            raise ValueError("fit_info must contain a fit_func")
-        actual_ratios   = np.array([r["wl_voltage"] / self.config.vdd for r in fit_info["results"]])
-        actual_currents = np.array([r.get("max_current", r["avg_current"]) for r in fit_info["results"]])
-        mask = (actual_ratios >= min_ratio) & (actual_ratios <= max_ratio)
-        if not np.any(mask):
-            raise ValueError(f"No fit data within ratio range [{min_ratio}, {max_ratio}]")
-        predictions = fit_info["fit_func"](actual_ratios[mask])
-        return float(np.mean((actual_currents[mask] - predictions) ** 2))
 
 
 # ─── config fall-back helper ─────────────────────────────────────────────────

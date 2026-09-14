@@ -7,7 +7,7 @@ V2.1.0 fixes all 15 compiler calls to consume `(delay, pavg, pstc, pdyn)` and tr
 V2.1.1 uses distributed wiring throughout and rejects star configurations.
 The fixed timing table and transistor classes remain unchanged. New physical
 routes require fresh functional evidence before PVT/mismatch expansion; see
-the [evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md). Historical
+the [evaluation schedule](../docs/plans/V2_1_1_TIMING_FOLLOWUP.md). Historical
 measurements and qualification records retain their original version and
 physical context.
 

@@ -1,13 +1,14 @@
 # V2.1.1 distributed-only implementation and evaluation plan
 
-Updated September 13, 2026 for the user's explicit
-instruction: remove every star-RC implementation, keep only distributed RC as
+Updated September 14, 2026 with the Phase 4 and 5 outcome. Written September 13,
+2026 for the user's explicit instruction: remove every star-RC implementation, keep only distributed RC as
 the default, alter the evaluation, and release the change as **V2.1.1**.
 Write correctness remains the first functional priority. Maximum compute: eight ranks total, one large case at a
 time, one BLAS thread per rank.
 
-Read `AGENTS.md`, `docs/design/STAR_RC_SCREEN_V2_1_0.md` (the preserved input
-screen) and `docs/design/DISTRIBUTED_ONLY_V2_1_1.md` before resuming.
+Read `AGENTS.md` and `docs/design/DISTRIBUTED_ONLY_V2_1_1.md` before resuming.
+The input star-RC screen is in git history
+(`git show 61d01a7:docs/design/STAR_RC_SCREEN_V2_1_0.md`).
 
 ## Current checkpoint
 
@@ -48,6 +49,12 @@ screen) and `docs/design/DISTRIBUTED_ONLY_V2_1_1.md` before resuming.
 - The previous queue (PID 692597) was gracefully interrupted, including its
   MPI ranks. Its 8x512 write remains partial evidence under the old baseline.
   It must not resume against the changed sources.
+- Phases 4 and 5 ran on September 14 on the V2.1.2 sources: 30 of 35 attempts
+  and 70,450 of 82,224 checks pass. All five failures are the 10T column-mux
+  SS sequence at the 4 ns class (nominal 16x16 and three per-device 8x4 seeds)
+  plus the three-times wire-stress read; both pass at the next class. The
+  clock table and driver classes are unchanged. Phase 6 is scoped in the
+  [qualification scope](V2_1_2_QUALIFICATION_SCOPE.md).
 
 ## Preserve historical baselines and evidence labels
 
@@ -77,9 +84,9 @@ cannot bypass these gates because peripheral and control routes changed too.
 | 1. Remove star paths and close A–E | Complete | User instruction | Implementation, software/connectivity tests and reviewed source manifest complete |
 | 2. Revalidate small writes and control capture | Complete | 1 | Nine final-source cases pass independent waveforms and runtime measures |
 | 3. Resolve large-array write race | Complete | 2 | Both large cases pass at 8 ns / 5 ns; diagnosed failure preserved |
-| 4. Clock-class/control-path coverage | After deterministic large gate passes | 3 | Final-clock width/height boundaries, address hazards and wire refinements scored |
-| 5. PVT and per-device pilot | After deterministic functional gate | 4 | Every scheduled seed accounted for, no invalid sample counted as success |
-| 6. Qualification and architecture backlog | Later | 5 reviewed | Explicit physical/statistical qualification scope; separate half-select/yield briefs |
+| 4. Clock-class/control-path coverage | Complete (September 14) | 3 | Scored: 17 of 19 pass; 10T-mux class and wire-stress limits recorded |
+| 5. PVT and per-device pilot | Complete (September 14) | 4 | All 12 seeds accounted for: 9 pass, 3 electrical 10T-mux failures, no numerical event |
+| 6. Qualification and architecture backlog | Scope written (September 14); execution later | 5 reviewed | [Scope and briefs](V2_1_2_QUALIFICATION_SCOPE.md) written; extracted metal, half-select and yield work remain |
 
 ### Phase 1 — topology and compatibility (implemented)
 
@@ -153,7 +160,7 @@ After the repair, Phase 2 and both large cases passed in fresh directories.
 The repaired wide write has minimum PRE90-to-WL50 margin 1,038.988 ps and
 minimum PRE90-to-write50 margin 1,264.433 ps across all columns. The final
 64x64 sequence has minimum PRE90-to-WL50 margin 268.154 ps. Both original
-clocks and all thresholds remain unchanged. See the [final evidence record](../docs/design/DISTRIBUTED_ONLY_V2_1_1.json).
+clocks and all thresholds remain unchanged. See the [final evidence record](../design/DISTRIBUTED_ONLY_V2_1_1.json).
 
 Independent large cases may both execute even if one fails, but no failed or
 partial result permits the subsequent statistical campaign. Record exact
@@ -174,9 +181,21 @@ height sensitivity checks. The three-pitch periphery and clock routes require
 width sensitivity and local capture/skew inspection. Preserve thresholds and
 clocks across physical variants; report failures rather than fitting them away.
 
+Result (September 14, 2026): 17 of 19 lookup-clock cases pass under
+`outputs/validation/V2.1.2-followup/` (queues A and B at four ranks each,
+the 512x4 SS read and SF write at eight ranks and 9 ns). Widths to 128
+columns, heights to 512 rows, the unseen 48x20 geometry, both fast-corner
+address hazards, 6T mux, local stubs off, cell-pin RC and the same-R/C
+refinement pass. Two failures, both a late sense enable at the frozen
+class and both passing at the next class in fixed-clock diagnostics: the
+16x16 10T column-mux SS sequence at 4 ns (passes at 4.5 and 5 ns and at TT)
+and the 64x4 SS read with three times the wire R and C at 4.5 ns (passes at
+5 ns). The table is unchanged; a 10T-with-mux budget one class up is a
+recorded proposal. See the [follow-up record](../design/TIMING_FOLLOWUP_V2_1_2.md).
+
 ### Phase 5 — PVT/local mismatch
 
-The supplied [first-500-run write failure inventory](../docs/issue_reports/write_failure_cases_first_500.md)
+The supplied [first-500-run write failure inventory](../issue_reports/write_failure_cases_first_500.md)
 is a historical triage input. Match each deck, source version, solver and seed
 before interpreting its numerical failures; do not relabel it as post-fix
 V2.1.1 evidence or count missing results as successful writes.
@@ -188,15 +207,29 @@ options and keep the recorded `xyce` installation for every pilot sample.
 
 Repair or disable the legacy materialized-MPI numerical-fallback path before
 using it: it still deletes failed outputs and can consume multiple full
-timeouts. The new queue intentionally accepts nominal cases only. First use
+timeouts. The queue accepts nominal cases and, since September 14, per-device
+cases on one rank with an explicit seed, which use the plain runtime retry
+and never that fallback path. First use
 three explicit per-device seeds for passing distributed SS read, SF write and
 muxed 10T sequences; expand to ten only after review. Freeze timing/driver
 baseline through all seeds and PVT samples. Keep electrical, numerical and
 incomplete outcomes separate; no NaN is success. These are pilots, not yield
 estimates or qualification records.
 
+Result (September 14, 2026): twelve single-rank per-device samples, seeds
+20261001 to 20261003, 5 % relative sigma: 16x16 SS read 3 of 3, 16x16 SF write
+3 of 3, 8x4 FF cold sequence 3 of 3, 8x4 10T mux SS sequence 0 of 3 (the
+Phase 4 class finding; sense enable at 1.167 to 1.182 cycles). No sample
+needed a retry or printed a solver warning. The FF cold sequences show a
+write-enable spike of 0.50 to 0.63 V (0.41 V nominal) at the read-to-write
+boundary while the wordline is still high; no check fails and it is an open
+TIME item. Expansion to ten seeds waits for review of the 10T-mux budget.
+
 ### Phase 6 — remaining scope
 
+The [qualification scope](V2_1_2_QUALIFICATION_SCOPE.md) (September 14, 2026)
+defines the extracted-metal inputs, the PVT/sample matrix and the two separate
+briefs below; execution follows the reviewed Phase 5.
 Define extracted-metal inputs and supported PVT/sample matrix before a full
 qualification. The legacy campaign recalibrates timing; adapt it to frozen
 lookup clocks before using it for this policy. Never promote partial/failed
@@ -208,6 +241,10 @@ dependency and numerical validity work beyond their repaired return contract.
 These remain separate briefs after current SRAM write/read/hold correctness.
 
 ## Status, resume and stop
+
+The Phase 4/5 queues under `outputs/validation/V2.1.2-followup/` are complete
+(`chain.log` ends with `ALL_DONE`); do not resume them. Their fixed-clock
+diagnostics ran through the direct validator into `phase4-D/`.
 
 Read-only status for the completed final-source Phase 3 queue:
 

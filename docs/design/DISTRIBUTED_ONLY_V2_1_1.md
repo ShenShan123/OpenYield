@@ -10,10 +10,11 @@ access assertion, and the retention/CLI repairs from the V2.1.0 follow-up. The V
 timing lookup, V2.0.9 driver classes and V2.0.5 qualification format retain
 their original identities. Historical results are not relabeled.
 
-The [star-RC screen](STAR_RC_SCREEN_V2_1_0.md) identified both the selectable
+The V2.1.0 star-RC screen (`git show 61d01a7:docs/design/STAR_RC_SCREEN_V2_1_0.md`)
+identified both the selectable
 star topology and shared junctions remaining in distributed mode. The user's
 subsequent instruction removes that topology and makes distributed wiring the
-only implementation. The screen itself is preserved as a pre-change record.
+only implementation. The screen itself remains in git history as a pre-change record.
 
 ## Configuration and removal
 
@@ -101,7 +102,8 @@ empty; this change makes no qualification or yield claim.
 
 ## Historical screen and diagnosed failure
 
-The [initial distributed-only record](DISTRIBUTED_ONLY_V2_1_0.json) preserves
+The initial distributed-only record
+(`git show 61d01a7:docs/design/DISTRIBUTED_ONLY_V2_1_0.json`) preserves
 seven pre-guard small cases and 6,463 checks, including their original source,
 model, deck and solver identities. Its V2.1.0 labels are retained because it
 predated the release designation. Those passes do not establish guard coverage.
@@ -299,7 +301,7 @@ preserve existing artifacts; fresh runs use new case directories and rejected
 invocations receive separate failure sidecars.
 
 The final-source small and large-array functional release gates are complete.
-The [evaluation schedule](../../plans/V2_1_1_TIMING_FOLLOWUP.md) governs the
+The [evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md) governs the
 next clock-class, physical-sensitivity and PVT/mismatch work. These diagnostic
 passes do not establish extracted-metal qualification, broad PVT/mismatch
 coverage or yield. Current writes drive every column of the selected row;

@@ -9,7 +9,10 @@ correctness; see the [current release report](../docs/design/DISTRIBUTED_ONLY_V2
 
 V2.1.2 adds bounded-step retry cases for explicit `.TRAN` fields, CLI
 VDD/temperature overrides in the deck and run identity, and the recorded Xyce
-installation on a failed run.
+installation on a failed run. The post-release cleanup adds the interrupted
+CLI run, whose summary and solver identity must survive a `KeyboardInterrupt`,
+and the failed waveform plot, which records `waveform_error` without
+rejecting passing measures.
 
 The access-start regressions also cover far-PRE guard connectivity, physical
 RC settling frozen across candidates/PVT, stale-baseline rejection, and

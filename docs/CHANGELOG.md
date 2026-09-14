@@ -86,6 +86,75 @@ record is added.
   `outputs/validation/V2.1.2-rerun/`; this is functional screening, not
   PVT/mismatch qualification.
 
+### Post-release cleanup — 2026-09-13 (generated circuits unchanged)
+
+- Move the working plans from `plans/` to `docs/plans/` and drop the
+  superseded V2.1.0-labeled snapshot of the schedule. Remove the other
+  superseded records: the pre-release `DISTRIBUTED_ONLY_V2_1_0` report and
+  JSON, the `TIMING_LOOKUP_V2_1_0_FOLLOWUP` review and JSON (its repairs are
+  released in V2.1.1), the star-RC screen of the removed topology and the
+  completed V2.0.7 `DISTRIBUTED_RC_PLAN`. Their exact contents remain at
+  `git show 61d01a7:docs/design/<name>`; the remaining documents cite them
+  that way, and every relative link in the tracked Markdown resolves.
+- Remove unreferenced code: `GlobalConfig.get_metric()`, `get_metric_names()`,
+  `get_objective_formula()` and `get_constraints()`; the CLI's never-called
+  `clean_generated_outputs()` (attempts are preserved, not cleaned);
+  `Sram6TCoreMcTestbench.get_table_head()`; the never-instantiated `Pbuff`
+  standard cell; the equivalent-cell tester's actual-versus-model comparison
+  and static-power plotting helpers; and `testbenches/yaml_change.py`, which
+  nothing imported, needed the absent `ruamel.yaml` and called its own CSV
+  summary with a missing argument. The empty
+  `yield_estimation/demo_6tstamTestbench.py` is deleted. `dev/`-only helpers
+  (`timing_from_measurements`, `provisional_period`, `materialize_decks`) stay.
+- Review of the V2.1.1/V2.1.2 runtime diff: the bounded-step retry, the
+  PVT overrides, the access-guard probes and the duplicate-probe parser
+  behave as recorded. Two repairs: an interrupted CLI solver run
+  (`KeyboardInterrupt`, not an `Exception`) left no `summary.json`, so the
+  recorded `xyce` and seed were lost; the summary is now written before the
+  interrupt propagates, with a regression test. The read&write power-window
+  comment cited the old 8.5-cycle analysis stop; it now cites the 8.7-cycle
+  `_analysis_stop()`. A waveform plotting failure no longer rejects a CLI run
+  whose measures passed: the `.prn` stays on disk, the summary records
+  `waveform_error` with `waveform_png: null` and is written to `summary.json`,
+  and the run exits 0, with a regression test. The preserved V2.1.1 attempt
+  that a duplicate-probe plot failure had rejected keeps its historical label.
+- Validation: 127 compiler tests pass on Python 3.11 and 3.9, alongside 54
+  development tests, six optimizer tests and compileall; `git diff --check` is
+  clean. Three CLI decks (8x4 nominal write, 16x16
+  two-sample per-device read, 8x8 SF 0.9 V / 125 °C read&write) match a
+  detached `61d01a7` worktree; the per-device model file again differs only in
+  the name digest that includes the absolute PDK path, with byte-identical
+  content. No generated circuit, timing budget, driver class or run identity
+  changes. `current_scoring_version()` hashes every `sram_compiler/*.py`, so
+  its digest changes as for any source edit; `sizing_table.json` holds no
+  record, so nothing is invalidated. No simulation was run.
+
+### Phase 4–6 follow-up — 2026-09-14 (generated circuits unchanged)
+
+- Run Phases 4 and 5 of the [evaluation plan](plans/V2_1_1_TIMING_FOLLOWUP.md)
+  on these sources: 19 nominal lookup-clock cases (widths to 128 columns,
+  heights to 512 rows at 9 ns, the unseen 48x20 geometry, FF −40 °C address
+  hazards, 6T and 10T mux, local stubs off, cell-pin RC, same-R/C refinement
+  and three-times wire stress) and 12 single-rank per-device seeds. **30 of 35
+  attempts pass, 70,450 of 82,224 checks**, no solver abort or retry. The
+  [follow-up record](design/TIMING_FOLLOWUP_V2_1_2.md) and its JSON hold every
+  identity, metric and measurement.
+- Finding: the shared 4 ns class is exhausted for 10T with a column mux at
+  SS 0.9 V / 125 °C. The 16x16 sequence fails only its read outputs (sense
+  enable at 1.184 cycles against the 1.2-cycle deadline) and all three 8x4
+  mismatch seeds fail the same way; the array passes at 4.5 and 5 ns and at
+  TT on 4 ns. The three-times wire-stress 64x4 read fails its 1.18-cycle
+  output sample at 4.5 ns and passes at 5 ns. The clock table and driver
+  classes are unchanged; a 10T-with-mux budget one class up is recorded as a
+  proposal. A write-enable spike at the read-to-write boundary at FF −40 °C
+  (up to 0.63 V under mismatch, no check failing) is an open TIME item.
+- Phase 6: the [qualification scope](plans/V2_1_2_QUALIFICATION_SCOPE.md)
+  defines extracted-metal inputs, the PVT/sample matrix and the separate
+  half-select and yield-estimator briefs.
+- Local tooling: the follow-up queue accepts single-rank per-device cases with
+  explicit seeds (never the materialized MPI fallback); `dev/v212_followup_report.py`
+  and `dev/v212_followup_plots.py` summarize and plot the queues.
+
 ## V2.1.1 — 2026-09-13 — distributed-only signal wiring and access exclusion
 
 The [V2.1.1 change](design/DISTRIBUTED_ONLY_V2_1_1.md) removes the star
@@ -119,7 +188,7 @@ tests, six optimizer tests and a two-sample per-device CLI write with plotting.
 Compilation, isolated generation without `dev/`, and `git diff --check` pass.
 The initial wide-write overlap failure and earlier V2.1.0 measurements retain
 their original labels and source identities. Remaining class/PVT/mismatch and
-extracted-metal work is recorded in the [evaluation plan](../plans/V2_1_1_TIMING_FOLLOWUP.md).
+extracted-metal work is recorded in the [evaluation plan](plans/V2_1_1_TIMING_FOLLOWUP.md).
 
 ## V2.1.0 — 2026-09-12 — fixed timing classes and V2.0.11 review
 

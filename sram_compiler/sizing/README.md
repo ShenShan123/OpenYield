@@ -245,5 +245,11 @@ frozen driver baseline. A longer clock alone cannot repair wordline/precharge
 overlap; release checks reject unsafe or missing events. Driver transistor
 classes and replica sense timing K=1/N=9 are unchanged. The
 [V2.1.1 report](../../docs/design/DISTRIBUTED_ONLY_V2_1_1.md) and
-[evaluation schedule](../../plans/V2_1_1_TIMING_FOLLOWUP.md) record current
+[evaluation schedule](../../docs/plans/V2_1_1_TIMING_FOLLOWUP.md) record current
 distributed-only coverage; V2.1.0 waveform passes remain historical evidence.
+
+Known class limit (V2.1.2 [follow-up](../../docs/design/TIMING_FOLLOWUP_V2_1_2.md)):
+the classes are shared by cell type and mux, and the 4 ns class is exhausted
+for 10T cells with a column mux at SS 0.9 V / 125 °C: 16x16 fails its read
+outputs and 8x4 fails under per-device mismatch, while both pass at 4.5 ns.
+The table is unchanged; a separate 10T-with-mux budget needs its own evidence.

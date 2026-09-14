@@ -122,13 +122,12 @@ OpenYield/
 │   │   ├── wordline_driver.py           # Wordline driver
 │   │   ├── decoder.py                   # Row decoder and cascaded decoder structures
 │   │   └── time_generate.py             # Clock, delay chain, flip-flop, and control timing generation
-│   └── testbenches/                     # Testbenches, MC simulation, SNM processing, and YAML updates
+│   └── testbenches/                     # Testbenches, MC simulation, and SNM processing
 │       ├── base_testbench.py            # Base testbench defining power, PDK, default timing, and simulation APIs
 │       ├── sram_6t_core_testbench.py    # SRAM array functional testbench that builds read/write peripherals and the full test circuit
 │       ├── sram_6t_core_MC_testbench.py # Monte Carlo testbench that generates Xyce MC netlists and parses results
 │       ├── parameter_factor.py          # Factory methods that create subcircuit instances from YAML configs
-│       ├── snm.py                       # SNM curve parsing, crossing detection, and statistics table generation
-│       └── yaml_change.py               # Optional in-place YAML updates (needs ruamel.yaml) and CSV summary
+│       └── snm.py                       # SNM curve parsing, crossing detection, and statistics table generation
 └── sim1/                                # Default output directory for main_sram.py
 ```
 
@@ -172,12 +171,6 @@ Add `--run-xyce` to simulate. Outputs are written under `outputs/per_device_mc/`
 Use `--variation-mode nominal` for a deterministic corner run (omit `--mc-runs`
 or set it to 1). See its [guide](per_device_mc/README.md) for output and
 variation options.
-
-`sram_compiler/testbenches/yaml_change.py` still provides the in-place YAML
-update helpers (`update_global_yaml_inplace()`, `update_sram6t_yaml_inplace()`)
-that earlier versions of `main_sram.py` called on every run. They need
-`ruamel.yaml`, which the conda environment does not install; use them only when
-you intend to change the tracked YAML files.
 
 ## 5. Modify the Array Size
 

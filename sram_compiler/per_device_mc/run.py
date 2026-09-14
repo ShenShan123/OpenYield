@@ -165,29 +165,6 @@ def make_run_name(
     )
 
 
-def clean_generated_outputs(run_dir: Path) -> None:
-    """Remove results from an earlier run of the same configuration."""
-    run_dir.mkdir(parents=True, exist_ok=True)
-    for name in (
-        "deck.sp",
-        "models_per_device.spice",
-        "model_audit.csv",
-        "summary.json",
-        "tmp_mc.spice",
-        "waveform.png",
-    ):
-        path = run_dir / name
-        if path.is_file():
-            path.unlink()
-    for path in run_dir.glob("deck.sp.*"):
-        if path.is_file():
-            path.unlink()
-    for pattern in ("mc_*_table.data", "param_sweep_*.data"):
-        for path in run_dir.glob(pattern):
-            if path.is_file():
-                path.unlink()
-
-
 def waveform_columns(summary: dict[str, Any]) -> list[str]:
     operation = str(summary["operation"])
     if operation in SNM_OPERATIONS:
@@ -507,11 +484,29 @@ def main() -> int:
                 if not summary['metrics_checked'] and rejection is None:
                     rejection = RuntimeError('SRAM metrics are missing or FAILED in the requested ensemble')
             if args.waveform:
-                summary["waveform_png"] = str(plot_waveform(deck_path, summary))
+                try:
+                    summary["waveform_png"] = str(plot_waveform(deck_path, summary))
+                except Exception as exc:
+                    # The .prn stays on disk; a plot that cannot be drawn is
+                    # neither a solver nor a measurement failure and must not
+                    # turn passing measures into a rejected run.
+                    summary["waveform_png"] = None
+                    summary["waveform_error"] = f'{type(exc).__name__}: {exc}'
+                    print(f'warning: waveform plot failed: {summary["waveform_error"]}',
+                          file=sys.stderr)
     except Exception as exc:
         summary['simulation_error'] = f'{type(exc).__name__}: {exc}'
         rejection = rejection or exc
-    if args.audit or rejection is not None:
+    except BaseException as exc:
+        # An interrupted or killed solver run is an incomplete outcome, not a
+        # missing one: keep its deck, seed and Xyce provenance before leaving.
+        summary['simulation_error'] = f'{type(exc).__name__}: {exc}'
+        (Path(summary["run_dir"]) / "summary.json").write_text(
+            json.dumps(summary, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        raise
+    if args.audit or rejection is not None or 'waveform_error' in summary:
         (Path(summary["run_dir"]) / "summary.json").write_text(
             json.dumps(summary, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",

@@ -3,7 +3,7 @@
 Historical V2.1.0 evidence record. The distributed-only implementation and
 subsequent retention/CLI repairs are released as **V2.1.1**; see the
 [current report](DISTRIBUTED_ONLY_V2_1_1.md) and
-[evaluation schedule](../../plans/V2_1_1_TIMING_FOLLOWUP.md). Measurements,
+[evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md). Measurements,
 source identities and report-time queue states below keep their original
 labels and do not describe current qualification.
 
@@ -12,9 +12,10 @@ following the driver-size class strategy requested for V2.1.0. This record is a
 functional diagnostic, not full PVT or local-mismatch qualification. Historical
 CSVs and qualification records are unchanged; `sizing_table.json` remains empty.
 
-The [September 12 follow-up review](TIMING_LOOKUP_V2_1_0_FOLLOWUP.md) records
+The September 12 follow-up review
+(`git show 61d01a7:docs/design/TIMING_LOOKUP_V2_1_0_FOLLOWUP.md`) recorded
 additional retention/CLI/scorer repairs, fresh write-waveform checks and the
-resumable large-array schedule. Results below retain their original scope
+resumable large-array schedule; those repairs are released in V2.1.1. Results below retain their original scope
 and measurement identities.
 
 ## Timing policy

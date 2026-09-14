@@ -3,15 +3,22 @@
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
 [current release report](design/DISTRIBUTED_ONLY_V2_1_1.md) and
-[evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md). The unchanged timing
+[evaluation schedule](plans/V2_1_1_TIMING_FOLLOWUP.md). The unchanged timing
 table was introduced in the [V2.1.0 review](design/TIMING_LOOKUP_V2_1_0.md).
 
 V2.1.2 keeps that circuit and adds run traceability (CLI VDD/temperature,
 recorded Xyce installation, bounded-step retry for explicit `.TRAN` fields).
 Its audit of the supplied [first-500 write-failure inventory](issue_reports/write_failure_cases_first_500.md)
-is appended to that report; see the [changelog](CHANGELOG.md).
+is appended to that report; see the [changelog](CHANGELOG.md). Its Phase 4/5
+[timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md) screens class boundaries
+and a per-device pilot and records the 10T column-mux class limit.
 
-Project plans and release history live here. Usage guides live beside the code
+Working plans (`plans/`), design and validation records (`design/`) and the
+release history live here. The [qualification scope](plans/V2_1_2_QUALIFICATION_SCOPE.md)
+defines the extracted-metal inputs, the PVT/sample matrix and the separate
+half-select and yield briefs (plan Phase 6). Superseded pre-release snapshots were removed on
+2026-09-13; the [changelog](CHANGELOG.md) names them and their git-history
+paths. Usage guides live beside the code
 they describe. Commands and code paths in the documents are relative to the
 repository root unless stated otherwise.
 
@@ -44,15 +51,15 @@ The supplied evidence CSVs are kept unchanged in `docs/data/`:
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |
 | [Yield estimation](../yield_estimation/README.md) | Monte Carlo and importance-sampling algorithms |
 
-- [Distributed RC plan](design/DISTRIBUTED_RC_PLAN.md),
-  [model/configuration guide](design/DISTRIBUTED_RC_MODEL.md) and
+- [Distributed RC model/configuration guide](design/DISTRIBUTED_RC_MODEL.md) and
   [validation record](design/DISTRIBUTED_RC_VALIDATION.md) (V2.0.7 implementation, V2.0.8 audit).
 - [V2.0.10 distributed-RC review](design/DISTRIBUTED_RC_V210_REVIEW.md): the
   precharge settling guard, TIME load correction and the wire/timing limits.
 - [V2.0.11 audit and write screen](design/WRITE_VALIDATION_V211.md): failure
   handling and measurement-window fixes, the star-topology write and read
   waveform screen, and the open release-margin and yield-path items.
-- [V2.1.0 star-shape RC screen](design/STAR_RC_SCREEN_V2_1_0.md): the preserved
-  pre-removal topology audit that motivated the distributed-only change.
 - [V2.1.1 distributed-only wiring](design/DISTRIBUTED_ONLY_V2_1_1.md): removal
   of star paths, peripheral/decoder/clock/select ladders, and fresh evaluation.
+- [V2.1.2 timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md): Phase 4 class
+  boundaries, wire refinement and stress, Phase 5 per-device pilot, and the
+  10T column-mux finding at the frozen 4 ns class.

@@ -2,15 +2,16 @@
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
 
-V2.1.1 carries forward the full retention and finite CLI metric checks first
-recorded in the [V2.1.0 follow-up](design/TIMING_LOOKUP_V2_1_0_FOLLOWUP.md),
+V2.1.1 carries forward the full retention and finite CLI metric checks of the
+V2.1.0 follow-up review (see the V2.1.0 and V2.1.1 [changelog](CHANGELOG.md) entries),
 and adds distributed-only defaults, periphery/decoder/clock/select routing and
 local write-capture checks. See the
 [release report](design/DISTRIBUTED_ONLY_V2_1_1.md) for current validation status. Local `dev/v210_waveform_checks.py` checks every probed write column
 and final sequence retention directly from waveforms.
-`dev/v210_followup_queue.py` runs the nominal full-array follow-up serially
-with preserved attempts, source identities and bounded lifetimes. See the
-[schedule and resume commands](../plans/V2_1_1_TIMING_FOLLOWUP.md).
+`dev/v210_followup_queue.py` runs the full-array follow-up serially with
+preserved attempts, source identities and bounded lifetimes; it accepts nominal
+cases and single-rank per-device cases with explicit seeds (V2.1.2). See the
+[schedule and resume commands](plans/V2_1_1_TIMING_FOLLOWUP.md).
 
 V2.1.2 extends the runtime `utils.xyce.execute_xyce` timestep retry to `.TRAN`
 lines with a start time or a step ceiling above 20 ps; a deck already bounded
@@ -63,6 +64,8 @@ The following commands require the ignored `dev/` workspace:
 | `dev/sizing/execution.py` | Support campaign MPI execution and timeout cleanup |
 | `dev/sizing/provenance.py` | Verify local scoring sources against the tracked manifest |
 | `dev/summarize_qualification.py` | Aggregate campaign checkpoints with on-disk reruns and `retry_dcop` results (V2.0.9 evidence summary) |
+| `dev/v212_followup_report.py` | Summarize the V2.1.2 Phase 4/5 queues and fixed-clock diagnostics into `followup-summary.json` and a Markdown table |
+| `dev/v212_followup_plots.py` | Write-capture plots of selected V2.1.2 follow-up cases |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash
@@ -257,6 +260,6 @@ The current validator rejects star cases. Five historical star-generation
 scripts were retired from active `dev/`; their exact contents remain in
 `outputs/validation/distributed-only-V2.1.0/incoming-source.tar.gz` and are
 listed in `retired-tools.json`. Use the new
-[distributed-only evaluation plan](../plans/V2_1_1_TIMING_FOLLOWUP.md) for
+[distributed-only evaluation plan](plans/V2_1_1_TIMING_FOLLOWUP.md) for
 current runs. The reviewed `dev/sizing/` source manifest was refreshed;
 old evidence is incompatible with the new scoring identity.

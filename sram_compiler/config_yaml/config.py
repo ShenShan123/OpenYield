@@ -131,29 +131,6 @@ class GlobalConfig:
             f"  目标函数: {getattr(self.objectives, 'formula', '未定义')}"
         )
 
-    def get_metric(self, metric_name: str) -> Any:
-        """获取指定的性能指标配置"""
-        if hasattr(self, 'metrics') and hasattr(self.metrics, metric_name):
-            return getattr(self.metrics, metric_name)
-        return None
-
-    def get_metric_names(self) -> List[str]:
-        """获取所有性能指标名称"""
-        if hasattr(self, 'metrics'):
-            return [name for name in dir(self.metrics) if not name.startswith('__')]
-        return []
-
-    def get_objective_formula(self) -> str:
-        """获取目标函数公式"""
-        return getattr(self.objectives, 'formula', '')
-
-    def get_constraints(self) -> List[str]:
-        """获取约束条件"""
-        constraints = getattr(self.objectives, 'constraints', [])
-        # 如果约束是字符串，则转换为列表
-        if isinstance(constraints, str):
-            return [constraints]
-        return constraints
 # 全局配置加载函数
 def load_global_config(file_path: str) -> GlobalConfig:
     """加载全局配置文件"""
