@@ -28,9 +28,9 @@ snapshots, and qualification evidence retain their original version labels.
 | [Development guide](DEVELOPMENT.md) | Tracked regression tests and ignored local experiments/qualification runners |
 | [Original V2.0.4 design](design/DRIVER_SIZING_PROPOSAL_V2.0.4.md) | Preserved design snapshot, including its historical source paths |
 
-The supplied evidence CSVs remain at the repository root:
-[driver sizing data](../DRIVER_SIZING_data.csv) and
-[timing data](../TIMING_AUTOCONFIG_data.csv).
+The supplied evidence CSVs are kept unchanged in `docs/data/`:
+[driver sizing data](data/DRIVER_SIZING_data.csv) and
+[timing data](data/TIMING_AUTOCONFIG_data.csv). See the [data audit](data/README.md).
 
 | Directory guide | Contents |
 |---|---|

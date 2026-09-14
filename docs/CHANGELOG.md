@@ -50,6 +50,42 @@ wrapper-generated deck and its `.mt0` measurements byte-for-byte and records
 `xyce`. No independent waveform scoring, PVT/mismatch campaign or qualification
 record is added.
 
+### Post-release review — 2026-09-13 (compiler identity unchanged)
+
+- Move the supplied CSVs, byte-identical, to `docs/data/` with an
+  [audit record](data/README.md). The local `dev/sizing/campaign.py` reads the
+  new path; `scoring_sources.json` changes only that file's hash, which
+  supersedes earlier local scoring identities (no qualification record exists).
+  `sizing_rules.json` keeps the bare file name because it is part of the driver
+  baseline digest. Correction: no tracked file pinned the CSV hashes; the
+  manifest pins `campaign.py`, not the data.
+- Both CSVs are sound; the timing CSV has caveats (duplicate rows, unflagged
+  superseded `v202_corners`/`v202_tsweep` runs, no sample index). Values the
+  documents misprinted are corrected in place from the CSVs.
+  `DRIVER_SIZING_PROPOSAL.md`: the 512x4 K1N9 read access is 1683 ps (printed
+  1676) and eight other cells are re-rounded. `TIMING_AUTOCONFIG.md`: the
+  section 3.4 PVT factor table was built from the superseded corner runs and is
+  recomputed from `v202_corners_f`. Also corrected there: eight worst-case factor
+  cells, two fit cells, the V2.0.2 row count (494, not 526), the `TCLK_WLEN` and
+  mux ranges, the write-phase exception and the Monte Carlo sigma wording. This
+  file: V2.0.3 row count (615, not 614), write sigma and factor range; V2.0.2 mux,
+  10T and fastest-corner statements. "108 corner runs" is correct: the 72 final
+  rows plus 36 `read&write` decks the CSV does not hold. The V2.0.4 snapshot keeps
+  its original numbers; no deck, table or rule changes.
+- Waveform rerun on these sources: all eleven V2.1.1 release cases pass
+  **33,096 checks** with unchanged per-case counts, and every `.prn` waveform and
+  `.mt0` measurement is byte-identical to V2.1.1. Decks differ only in the order
+  of three case-insensitive `.PRINT` names. The seven 16x16 inventory write
+  points, now scored by the independent waveform checks, pass **8,183 checks**
+  (1,169 each); `TWRITE_TOTAL` is within 0.4 ps and `VPRE_ACCESS_ERROR` within
+  0.0001 V of the CLI audit, with minimum PRE90-to-WL50 188.9 ps and WL10-to-PRE90
+  restore 122.6 ps (SF 1.1 V 0 °C). None of the 18 runs printed a solver warning or
+  needed a retry. Two-sample per-device 2x2 CLI writes (TT, and SS 0.9 V 125 °C
+  through `--vdd`/`--temperature`) pass and record `xyce`. 126 compiler, 54
+  development and six optimizer tests pass. Artifacts are local under ignored
+  `outputs/validation/V2.1.2-rerun/`; this is functional screening, not
+  PVT/mismatch qualification.
+
 ## V2.1.1 — 2026-09-13 — distributed-only signal wiring and access exclusion
 
 The [V2.1.1 change](design/DISTRIBUTED_ONLY_V2_1_1.md) removes the star
@@ -626,7 +662,7 @@ algorithm code was changed.
   1.0 V, SS and SF x 125 C x 0.9 V and TT / 25 C / 0.9 V on 8x4 and 16x16
   (6T and 10T), 64x16, 256x8, 16x256, 64x64 (SS, 1.0 V) and 512x4 (read);
   75 decks, all completed. Relative to TT / 25 C / 1.0 V every control phase and the read
-  access are 2.13-2.31x slower at SS / 125 C / 0.9 V, with the same factor
+  access are 2.12-2.31x slower at SS / 125 C / 0.9 V, with the same factor
   on every size run and both cells (the buffer taper and the bitline terms
   scale together); the supply step to 0.9 V costs 1.13x alone. The write
   access is worst at SF: 3.8x at 8x4 (0.5x write driver), 2.4x at 16x16.
@@ -647,8 +683,8 @@ algorithm code was changed.
   seed 2026): 8x4 and 16x16 reads at the proposed periods (2.35 / 2.5 ns,
   25 % margin) pass every sample with 2.7 % sigma on the limiting phase and
   > 210 ps slack; the 8x4 write at SS / 125 C / 0.9 V and the 16x16 write at
-  SF / 125 C / 0.9 V pass every sample (10 % and 6 % sigma on the write
-  access).
+  SF / 125 C / 0.9 V pass every sample (16 % and 6 % sigma on the write
+  access; 10 % and 4 % on the `low` phase).
 
 ### Left open
 
@@ -670,7 +706,7 @@ algorithm code was changed.
   the PSTC window overlaps the start-up precharge for `t_period < 5 ns`;
   the scratch harness scores `OUT` inside the wordline phase, which is
   50 ps stricter than the functional limit at 16x16.
-- Evidence of this entry: `TIMING_AUTOCONFIG_data.csv` (614 runs: the
+- Evidence of this entry: `TIMING_AUTOCONFIG_data.csv` (615 rows: the
   V2.0.2 sweeps with their phase measures, the worst-case decks and the
   validation decks).
 
@@ -783,9 +819,9 @@ were not touched.
 
 ### Observations (verified, not changed)
 
-- At TT / 125 C every control-path delay is 1.65-1.8x its 25 C value (16x16
-  6T read 308 -> 536 ps, `TRESTORE` 257 -> 460 ps); SS / -40 C is the
-  fastest condition in these models (8x4 6T read 226 ps vs 302 at TT / 25 C);
+- At TT / 125 C every control-path delay is 1.64-1.74x its 25 C value (16x16
+  6T read 308 -> 536 ps, `TRESTORE` 258 -> 437 ps); TT / -40 C is the
+  fastest condition in these models (8x4 6T read 203 ps vs 291 at TT / 25 C);
   SF is the slowest write corner (8x4 6T write 174 ps vs 131). The 10 ns
   clock leaves > 8 ns of margin everywhere; the estimated minimum period at
   TT / 125 C is ~1.7 ns for 16x16.
@@ -806,7 +842,7 @@ last row / last column. Read delay = `wl_en` rise -> `OUT`; write delay =
 on} x {read, write, read&write}) completed and pass every waveform check;
 only the two 10T 16x512 `read&write` decks are missing (10 h job limit).
 Every `read&write` deck shows the correct 40 ns `OUT` period. Mux on: reads
-0-16 ps faster, writes 0-19 ps slower than the values below.
+0-29 ps faster, writes 1 ps faster to 19 ps slower than the values below.
 
 | array (mux off) | 6T read [ps] | 6T write [ps] | 10T read [ps] | 10T write [ps] | 6T PAVG read / write [uW] |
 |---|---|---|---|---|---|
@@ -856,7 +892,8 @@ at 1.000 V at every access for all periods.
 | FF 125 C | 451 | 244 | 478 | 156 | 74.0 / 26.0 |
 | TT 125 C | 507 | 266 | 536 | 174 | 60.7 / 13.6 |
 
-10T values are within +4 to +20 ps of the 6T ones at every condition.
+10T reads are 2-14 ps slower than the 6T ones at every condition; 10T writes
+are 8-23 ps slower at 16x16 and between 22 ps faster and 5 ps slower at 8x4.
 
 **Monte Carlo (Xyce `.SAMPLING`, `vth_std = 0.05`, seed 2026):** 5-sample
 read / write decks at 8x4, 16x16, 32x8 and 64x16 (both cells, mux off / on)

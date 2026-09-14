@@ -48,7 +48,7 @@ full qualification is in progress and tracked
 in `docs/DRIVER_SIZING_PROPOSAL.md`. The historical fits below choose a calibration
 clock only; they are not reused as qualification for the new periphery.
 The numbers come from
-the V2.0.2 sweeps (526 nominal / corner / period runs, see `TIMING_AUTOCONFIG_data.csv`) and from the worst-case PVT characterisation run for this
+the V2.0.2 sweeps (494 rows, 490 unique, in `docs/data/TIMING_AUTOCONFIG_data.csv`) and from the worst-case PVT characterisation run for this
 proposal (section 3.4). Everything marked *phase 2* is optional follow-up.
 
 ## 0. Recommendation in short
@@ -93,7 +93,7 @@ proposal (section 3.4). Everything marked *phase 2* is optional follow-up.
 |---|---|---|---|---|
 | `clk` | testbench pulse source | period `T`, 50 % duty, capture edge at `1 ns + 0.2 T`, access (falling) edge at `1 ns + 0.7 T` | none today (10 ns) | **`T` per array** |
 | address, data, `csb`, `web` | testbench pulse sources | valid from `0.1 T` to `0.3 T` around the capture edge (setup = hold = `0.1 T`) | scales with `T` | follows `T` (setup must stay > DFF setup at the worst case, section 6) |
-| `wl_en` / `WL{row}` / `w_en` | `wl_pdrive(gated_clk_bar)`, wordline driver, `AND2_WEN(gated_clk_bar, we)` | whole clock-low phase, `T/2`, starting `TCLK_WLEN` = 112-150 ps after the edge (290 ps for 512-column write decks: clock-buffer load) | edge time grows with rows / cols (buffer taper) | `T/2 >= low_wc * (1 + m)` |
+| `wl_en` / `WL{row}` / `w_en` | `wl_pdrive(gated_clk_bar)`, wordline driver, `AND2_WEN(gated_clk_bar, we)` | whole clock-low phase, `T/2`, starting `TCLK_WLEN` = 112-190 ps after the edge (287-290 ps for 512-column write decks: clock-buffer load) | edge time grows with rows / cols (buffer taper) | `T/2 >= low_wc * (1 + m)` |
 | `PRE` | `NAND3(clk_buf, cs, wl_en_bar)` + `PRE_BUF` | whole clock-high phase, `T/2`, plus the `wl_en_bar` overlap | restore time 190-430 ps (rows, cols) | `T/2 >= high_wc * (1 + m)` |
 | `s_en` | `AND3(rbl_delay, gated_clk_bar, we_bar)`, `rbl_delay` = replica bitline fully discharged by one replica cell + 9-stage delay chain | self-timed: wordline + ~250 ps at TT / 25 C for every size, tracks rows and PVT by construction (the replica column carries `rows + 1` cells of load) | tracks automatically | unchanged (phase 2: `K`, `N`) |
 | `sa_iso` | `NOR2(s_en, w_en)` + inverter | `s_en \| w_en` | - | derived |
@@ -177,8 +177,8 @@ clock-high phase on most sizes (the restore grows with the columns: precharge
 of every bitline plus the `PRE` buffer taper; the row-scaled write driver
 keeps the write access itself at 70-130 ps). The 10T cell is 0-135 ps slower
 on reads at >= 64 rows (1.2 ps per row) and within 15 ps elsewhere; the mux
-changes the phases by -16..+20 ps. The full table (27 sizes x 2 cells x mux)
-is `TIMING_AUTOCONFIG_data.csv` (source `v202_sweep`).
+changes the phases by -29..+24 ps. The full table (27 sizes x 2 cells x mux)
+is `docs/data/TIMING_AUTOCONFIG_data.csv` (source `v202_sweep`).
 
 ### 3.3 Model fit (nominal)
 
@@ -187,12 +187,12 @@ Least-squares fits per (cell, operation, mux) over the 27 sizes
 
 | cell | op | mux | phase | form | coefficients | rms | worst under-prediction |
 |---|---|---|---|---|---|---|---|
-| 6T | read | off | low | `a + b*rows + c*log2(cols)` | 390, 0.946, 9.06 | 7 | 18 (16x1) |
+| 6T | read | off | low | `a + b*rows + c*log2(cols)` | 390, 0.946, 9.05 | 7 | 18 (16x1) |
 | 6T | read | off | high | `a + b*rows + c*log2(cols)` | 221, 0.076, 8.19 | 5 | 12 |
 | 6T | write | off | low | `a + b*cols + c*cols/wd_scale` | 234, 0.298, 0.107 | 15 | 29 (2x128) |
 | 6T | write | off | high | `a + b*rows + c*cols + d*log2(rows)` | 188, -0.020, 0.410, 10.7 | 8 | 25 (2x128) |
 | 10T | read | off | low | `a + b*rows + c*log2(cols)` | 392, 1.20, 9.33 | 9 | 23 (100x50) |
-| 10T | write | off | high | `a + b*rows + c*cols + d*log2(rows)` | 188, -0.013, 0.409, 10.6 | 9 | 25 |
+| 10T | write | off | high | `a + b*rows + c*cols + d*log2(rows)` | 188, -0.013, 0.409, 10.6 | 8 | 25 |
 
 (`wd_scale = max(8, rows) / 16`, the write-driver width scale; mux-on
 coefficients differ by < 5 %.) A pure `rows + cols` linear model is 2-3x
@@ -204,28 +204,30 @@ margin; the table anchors the exact points anyway.
 ### 3.4 PVT factors
 
 Per-phase factors relative to TT / 25 C / 1.0 V, mean over 8x4 and 16x16,
-both cells (V2.0.2 corner runs, 1.0 V):
+both cells (final V2.0.2 corner runs `v202_corners_f`, 1.0 V; clock ->
+`wl_en`, decode, restore and high from the read decks):
 
 | condition | clk->wl_en | decode | restore | read access | write access | low (r) | low (w) | high |
 |---|---|---|---|---|---|---|---|---|
-| TT -40 C | 0.72 | 0.71 | 0.70 | 0.72 | 0.66 | 0.72 | 0.70 | 0.70 |
-| SS -40 C | 0.78 | 0.76 | 0.75 | 0.77 | 0.69 | 0.77 | 0.75 | 0.75 |
-| FF 25 C | 0.90 | 0.91 | 0.92 | 0.94 | 0.95 | 0.93 | 0.93 | 0.92 |
-| FS 25 C | 1.02 | 0.99 | 1.01 | 1.03 | 0.90 | 1.02 | 0.97 | 1.01 |
-| SF 25 C | 0.98 | 1.02 | 1.00 | 1.05 | 1.25 (1.64 at 8x4 6T) | 1.02 | 1.12 | 1.00 |
-| SS 25 C | 1.11 | 1.10 | 1.10 | 1.14 | 1.10 | 1.13 | 1.11 | 1.10 |
-| TT 85 C | 1.37 | 1.38 | 1.39 | 1.45 | 1.53 | 1.43 | 1.45 | 1.39 |
-| FF 125 C | 1.47 | 1.50 | 1.53 | 1.59 | 1.77 | 1.55 | 1.63 | 1.53 |
-| TT 125 C | 1.65 | 1.69 | 1.71 | 1.79 | 1.94 (2.16 at 8x4 6T) | 1.75 | 1.80 | 1.71 |
+| TT -40 C | 0.72 | 0.71 | 0.70 | 0.70 | 0.65 | 0.70 | 0.69 | 0.70 |
+| SS -40 C | 0.78 | 0.76 | 0.75 | 0.75 | 0.69 | 0.76 | 0.75 | 0.75 |
+| FF 25 C | 0.90 | 0.91 | 0.92 | 0.91 | 0.93 | 0.91 | 0.92 | 0.92 |
+| FS 25 C | 1.02 | 0.99 | 1.01 | 1.00 | 0.91 | 1.00 | 0.98 | 1.01 |
+| SF 25 C | 0.98 | 1.02 | 1.00 | 1.01 | 1.17 (1.33 at 8x4 6T) | 1.00 | 1.08 | 1.00 |
+| SS 25 C | 1.11 | 1.10 | 1.10 | 1.11 | 1.09 | 1.11 | 1.11 | 1.10 |
+| TT 85 C | 1.37 | 1.38 | 1.40 | 1.42 | 1.50 | 1.40 | 1.44 | 1.40 |
+| FF 125 C | 1.47 | 1.50 | 1.54 | 1.55 | 1.71 | 1.53 | 1.60 | 1.54 |
+| TT 125 C | 1.65 | 1.69 | 1.72 | 1.75 | 1.90 (2.03 at 8x4 6T) | 1.72 | 1.78 | 1.72 |
 
 Temperature dominates in these models (no temperature inversion at 1.0 V:
 -40 C is the fastest condition), the slow process corner adds ~10 %, and the
 write access is the most corner-sensitive phase (SF: strong PMOS pull-up
-against the row-scaled driver). The factors are nearly the same for the
-control phases (clock -> `wl_en`, decode, restore) and only 5-10 % larger
-for the bitline phases, so a per-phase factor table is enough; no size
-dependence was visible between 8x4 and 16x16 (checked again up to 512x4 in
-the worst-case runs below).
+against the row-scaled driver). The control phases
+(clock -> `wl_en`, decode, restore) agree within 5 %, the read access is
+within 4 % of the largest of them and the write access differs by up to 15 %,
+so a per-phase factor table is enough; apart from the 8x4 6T write access no
+size dependence was visible between 8x4 and 16x16 (checked again up to 512x4
+in the worst-case runs below).
 
 **Worst case for this PDK.** The slowest combination has to be measured, not
 assumed: SS / 125 C and SF / 125 C at 1.0 V and at 0.9 V (VDD -10 %) were
@@ -238,18 +240,18 @@ not in the V2.0.2 set. They were run for this proposal on 8x4, 16x16, 64x16,
 |---|---|---|---|---|---|---|---|---|---|
 | SS / 125 C / 0.9 V | read | 10T 16x16, 16x16, 16x256, 256x8, 512x4, 64x16, 8x4 | 2.12-2.26 | 2.20-2.24 | 2.16-2.22 | 2.27-2.31 | 2.24-2.28 | 2.16-2.22 | all pass |
 | SS / 125 C / 0.9 V | write | 10T 16x16, 16x16, 16x256, 256x8, 64x16, 8x4 | 1.96-2.24 | 2.07-2.24 | 2.08-2.20 | 2.31-2.45 | 2.11-2.32 | 2.08-2.20 | all pass |
-| SS / 125 C / 1.0 V | read | 10T 16x16, 16x16, 16x256, 256x8, 512x4, 64x16, 64x64, 8x4 | 1.85-1.96 | 1.91-1.94 | 1.87-1.94 | 1.93-1.99 | 1.92-1.98 | 1.87-1.94 | all pass |
+| SS / 125 C / 1.0 V | read | 10T 16x16, 16x16, 16x256, 256x8, 512x4, 64x16, 64x64, 8x4 | 1.85-1.96 | 1.91-1.94 | 1.88-1.94 | 1.93-1.99 | 1.92-1.98 | 1.88-1.94 | all pass |
 | SS / 125 C / 1.0 V | write | 10T 16x16, 16x16, 16x256, 256x8, 64x16, 64x64, 8x4 | 1.74-1.95 | 1.81-1.95 | 1.82-1.92 | 2.01-2.25 | 1.85-2.07 | 1.82-1.92 | all pass |
-| SF / 125 C / 1.0 V | read | 16x16, 16x256, 256x8, 64x16, 8x4 | 1.63-1.72 | 1.72-1.74 | 1.69-1.73 | 1.78 | 1.74-1.76 | 1.69-1.73 | all pass |
-| SF / 125 C / 1.0 V | write | 16x16, 16x256, 256x8, 64x16, 8x4 | 1.59-1.69 | 1.62-1.74 | 1.63-1.71 | 1.91-3.55 | 1.73-2.64 | 1.63-1.71 | all pass |
+| SF / 125 C / 1.0 V | read | 16x16, 16x256, 256x8, 64x16, 8x4 | 1.63-1.72 | 1.72-1.74 | 1.69-1.72 | 1.78 | 1.74-1.76 | 1.69-1.72 | all pass |
+| SF / 125 C / 1.0 V | write | 16x16, 16x256, 256x8, 64x16, 8x4 | 1.59-1.69 | 1.62-1.74 | 1.63-1.71 | 1.90-3.55 | 1.73-2.64 | 1.63-1.71 | all pass |
 | FS / 125 C / 1.0 V | read | 16x16, 16x256, 256x8, 64x16, 8x4 | 1.66-1.74 | 1.67-1.73 | 1.68-1.76 | 1.68-1.73 | 1.69-1.73 | 1.68-1.76 | FAIL: 6T_256x8_read_FS_125C_v1.0; 6T_64x16_read_FS_125C_v1.0 |
 | FS / 125 C / 1.0 V | write | 16x16, 16x256, 256x8, 64x16, 8x4 | 1.56-1.73 | 1.62-1.74 | 1.63-1.72 | 1.67-1.72 | 1.61-1.72 | 1.63-1.72 | all pass |
 | FF / 125 C / 1.0 V | read | 16x256, 256x8, 64x16 | 1.45-1.52 | 1.53-1.54 | 1.50-1.54 | 1.52-1.55 | 1.52-1.54 | 1.50-1.54 | FAIL: 6T_256x8_read_FF_125C_v1.0; 6T_64x16_read_FF_125C_v1.0 |
 | FF / 125 C / 1.0 V | write | 16x256, 256x8, 64x16 | 1.43-1.51 | 1.44-1.55 | 1.45-1.51 | 1.59-1.62 | 1.50-1.55 | 1.45-1.51 | all pass |
-| TT / 25 C / 0.9 V | read | 16x16, 16x256, 256x8, 512x4, 64x16, 8x4 | 1.10-1.16 | 1.12-1.14 | 1.12-1.14 | 1.13-1.15 | 1.14 | 1.12-1.14 | all pass |
-| TT / 25 C / 0.9 V | write | 16x16, 16x256, 256x8, 64x16, 8x4 | 1.11-1.17 | 1.13 | 1.11-1.13 | 1.10-1.14 | 1.12-1.16 | 1.11-1.13 | all pass |
+| TT / 25 C / 0.9 V | read | 16x16, 16x256, 256x8, 512x4, 64x16, 8x4 | 1.10-1.16 | 1.12-1.14 | 1.12-1.14 | 1.13-1.15 | 1.13-1.15 | 1.12-1.14 | all pass |
+| TT / 25 C / 0.9 V | write | 16x16, 16x256, 256x8, 64x16, 8x4 | 1.11-1.17 | 1.12-1.13 | 1.11-1.13 | 1.09-1.14 | 1.12-1.16 | 1.11-1.13 | all pass |
 
-The worst case is per phase, not one corner. SS / 125 C / 0.9 V is the slowest condition for every control phase (clock -> `wl_en` 2.12-2.26x, decode 2.20-2.24x, restore 2.16-2.22x) and for the read access (2.27-2.31x), with the same factor at every size run (the bitline term and the buffer terms scale together). The write access is worst at SF / 125 C / 0.9 V on arrays with fewer than 16 rows, where the write driver is at its 0.5x scale (8x4: 3.82x, `low` 2.89x), and at SS from 16 rows up (2.31-2.45x). The supply term (-10 %) is larger than the process term (SS vs TT). Every deck passes all waveform checks at the 10 ns period. Factors for the model, max over the 125 C / 0.9 V runs: k_wlen = 2.26, k_dec = 2.24, k_restore = 2.22, k_access_read = 2.31, k_access_write = 3.82 (rows < 16, SF) / 2.41 (rows >= 16); resulting k_low_read = 2.28, k_high = 2.22.
+The worst case is per phase, not one corner. SS / 125 C / 0.9 V is the slowest condition for every control phase (clock -> `wl_en` 2.12-2.26x, decode 2.20-2.24x, restore 2.16-2.22x) and for the read access (2.27-2.31x), with the same factor at every size run (the bitline term and the buffer terms scale together). The write access is worst at SF / 125 C / 0.9 V on arrays with fewer than 16 rows, where the write driver is at its 0.5x scale (8x4: 3.82x, `low` 2.89x), and at SS from 16 rows up (2.31-2.41x). The supply term (-10 %) is larger than the process term (SS vs TT). Every deck passes all waveform checks at the 10 ns period. Factors for the model, max over the 125 C / 0.9 V runs: k_wlen = 2.26, k_dec = 2.24, k_restore = 2.22, k_access_read = 2.31, k_access_write = 3.82 (rows < 16, SF) / 2.41 (rows >= 16); resulting k_low_read = 2.28, k_high = 2.22.
 <!-- WC_TABLE_END -->
 
 Resulting worst-case phases and periods for the characterised sizes (the
@@ -268,8 +270,9 @@ devices):
 
 The read phase sets the period on every characterised size (at 512 rows the
 bitline term alone is 1.6 ns at the worst case). Within the write operation
-the restore is the longer phase everywhere except 8x4, where the 0.5x write
-driver makes the write access the longer one.
+the restore is the longer phase except at 8x4, where the 0.5x write driver
+makes the write access the longer one, and at 10T 16x16 (567 / 537 ps); at
+6T 16x16 the two are within 2 ps.
 
 
 ### 3.5 Local variation
@@ -289,8 +292,9 @@ seed 2026, this proposal):
 | 8x4 write | SF / 125 C / 0.9 V, 1.85 ns | - | 3 of 5 (the same two plus the 2.8 ns sample) |
 | 16x16 write | SF / 125 C / 0.9 V, 10 ns | 515 / 20 (4 %) / 548 (write access 241 / 14 / 264) | 0 of 5 |
 
-Three sigma is therefore ~8 % of the limiting phase for reads and ~30 % for
-the write access of an 8-row array at the worst corner. The SF failures are
+Three sigma is therefore ~8 % of the limiting phase for reads and ~30 % of
+the write `low` phase of an 8-row array at SS / 125 C / 0.9 V (the write
+access alone has 16 % sigma). The SF failures are
 not a timing effect: with the 10 ns clock the driver still cannot pull the
 bitline below 0.26 V against the strong PMOS of a slow-NMOS sample, so it is
 a DC write-ability limit of the 0.5x write driver that the row-scaling rule
@@ -360,7 +364,7 @@ one YAML parameter. What it covers at the worst case:
 | item | size | note |
 |---|---|---|
 | settling of the amplifier / output latch after the VDD/2 crossings the measures use | 0-8 % (section 3.1, worst-case sweeps) | inside every margin |
-| local variation, 3 sigma | ~8 % of `low` for reads at the worst case (2.7 % sigma); ~30 % for the write access of 8-row arrays (10 % sigma), < 12 % elsewhere | a 6-sigma target (large macros) needs ~2x these |
+| local variation, 3 sigma | ~8 % of `low` for reads at the worst case (2.7 % sigma); ~30 % of the write `low` phase of 8-row arrays (10 % sigma; 16 % on the write access alone), < 12 % elsewhere | a 6-sigma target (large macros) needs ~2x these |
 | model residual | 2-4 % | zero for table entries |
 | stimulus setup / hold | `0.1 T` = 150-250 ps at the resulting periods | exceeds the DFF setup at the worst case (the sweeps of section 3.1 pass at `0.1 T` = 150 ps) |
 | design margin | remainder | the usual allowance for un-modelled loads (RC, `w_rc`) |
