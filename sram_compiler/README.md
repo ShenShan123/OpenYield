@@ -1,6 +1,6 @@
-# SRAM Compiler and Test Platform User Guide — V2.1.2
+# SRAM Compiler and Test Platform User Guide — V2.1.3
 
-V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. The [timing guide](sizing/README.md#clock-classes-v210) covers settings, explicit overrides and evidence limits.
+V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux); 6T arrays keep their clocks. The [timing guide](sizing/README.md#clock-classes-v210) covers settings, explicit overrides and evidence limits.
 
 V2.1.1 signal interconnect is distributed-only, including the bitline periphery,
 decoder, write-data clock and mux selects. Omitting `interconnect` uses the

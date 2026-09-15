@@ -63,7 +63,12 @@ Screened so far, all with the illustrative wires and frozen V2.1.0 clocks:
   and stress, local stubs on and off, cell-pin RC, 6T and 10T mux, hazards).
 - Local mismatch: the Phase 5 pilot, three explicit per-device seeds per case,
   5 % relative sigma on `vth0`, `u0` and `voff` of every MOS (the
-  `full-local-v1` policy that a qualification record must declare).
+  `full-local-v1` policy that a qualification record must declare), expanded
+  to ten seeds per case in V2.1.3 together with the 10T class-bound seeds.
+- 10T arrays: the V2.1.3 [10T budget](../design/TIMING_10T_BUDGET_V2_1_3.md)
+  screens every reachable 10T class bound at SS 0.9 V / 125 °C with and
+  without a mux and the 64x16 SF write; the 10T clocks differ from 6T, so
+  the array classes below are per cell type.
 
 Proposed qualification matrix per array class and operation:
 
@@ -74,7 +79,7 @@ Proposed qualification matrix per array class and operation:
 | Temperature | −40, 25, 85, 125 °C | |
 | First points | SS 0.8/125 read, SS 0.8/−40 read, SF 0.8/125 write, SF 0.8/−40 write, FF 1.1/−40 sequence, FS 0.8/125 sequence, SS 0.9/125 (timing basis), TT 1.0/25 (reference) | Worst known directions first; the full grid is 80 points |
 | Array classes | Each lookup anchor boundary: rows 32/64/128/256/512, columns 4 to 512 | The clock is fixed per class, so the class upper bound is the case |
-| Mismatch | 10 seeds per point after the 3-seed pilot review | Failure-free counts bound the rate only weakly (0 of 100 gives ≤ 3 % at 95 %); statistical yield needs the estimator brief |
+| Mismatch | 10 seeds per point (the V2.1.3 [pilot](../design/TIMING_10T_BUDGET_V2_1_3.md) ran ten seeds on the four Phase 5 cases and three seeds at the 10T class bounds) | Failure-free counts bound the rate only weakly (0 of 100 gives ≤ 3 % at 95 %); statistical yield needs the estimator brief |
 
 Cost bounds the matrix. With full transistor arrays, 4,096 cells take about
 an hour per case at eight ranks (V2.1.1 8x512 write 54 min, 64x64 sequence

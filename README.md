@@ -1,4 +1,4 @@
-# OpenYield V2.1.2: SRAM yield analysis and optimization
+# OpenYield V2.1.3: SRAM yield analysis and optimization
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
 
@@ -12,6 +12,17 @@ candidates and PVT samples. It also fixes narrow-array RC precharge overlap,
 write-register initialization, the distributed output-latch enable, and yield
 callers' measurement handling. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210)
 and [release review](docs/design/TIMING_LOOKUP_V2_1_0.md) for settings and validation limits.
+
+V2.1.3 gives 10T cells their own evidenced timing budget. The V2.1.2 follow-up
+had found the shared 4 ns class failing 10T with a column mux at SS 0.9 V /
+125 °C; the V2.1.3 [evidence run](docs/design/TIMING_10T_BUDGET_V2_1_3.md)
+found the 10T read port alone over that class and its penalty growing with
+height, so `timing_lookup.json` now carries a `variants` entry for
+`SRAM_10T_CELL` (rows 2000/2200/2400/3200/5600 ps, columns 200 ps above the
+shared ladder: 5 ns up to 32 rows / 16 columns, 14 ns at 512 rows) with at
+least 250 ps of output margin at every class bound. 6T decks, the shared
+classes, driver sizes and checks are unchanged. The per-device pilot is
+expanded to ten seeds. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210).
 
 V2.1.2 keeps the V2.1.1 circuit, timing and driver sizes. The per-device CLI accepts
 `--vdd`/`--temperature`, run metadata records the Xyce installation, and the

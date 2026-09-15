@@ -1,7 +1,6 @@
 # OpenYield project instructions
 
-Current release: **V2.1.2** (V2.1.1 circuit, timing and sizing unchanged; bounded-step Xyce retry for explicit `.TRAN` fields, CLI `--vdd`/`--temperature`, recorded Xyce installation and an audited first-500 write-failure inventory. V2.1.1 added distributed-only signal wiring, fixed array-class timing lookup, complete write-register initialization, frozen access/retention checks and preserved numerical retry evidence; driver transistor classes remain V2.0.9). Known limit from the V2.1.2 Phase 4/5 follow-up (`docs/design/TIMING_FOLLOWUP_V2_1_2.md`): the shared 4 ns class fails for 10T cells with a column mux at SS 0.9 V/125 °C (16x16 nominal, 8x4 under mismatch) and passes at 4.5 ns; the table stays frozen until a separate budget is evidenced.
-The `rules_only` rule identity and the qualification artifact format remain V2.0.5; preserve historical version labels when referring to measurements or archived proposals. `docs/CHANGELOG.md` is per release (V2.x.x). `AGENTS.md` holds the detailed working conventions;
+This project is a open-source SRAM compiler for yield estimation and transistor sizing optimizations. The main functions include SRAM netlist generation with distributed RC loads, global and local process variations, and full DC/TRAN analyses. `REDAME.md` in both root and sub-folders are the tutorials for this projects. `docs/CHANGELOG.md`is per release (V2.x.x).`AGENTS.md` holds the detailed working conventions.
 
 ## Purpose and architecture
 
@@ -16,7 +15,7 @@ The `rules_only` rule identity and the qualification artifact format remain V2.0
 
 ## Working conventions
 
-- Make sure the SRAM read/write/hold operations totally CORRECT first, including write, read, hold opertations. Then solve the driver sizings, transistor sizing optimizations, and yield estimations.
+- Make sure the SRAM read/write/hold operations totally CORRECT first. Then solve the driver sizes, transistor sizing optimizations, and yield estimations.
 - Run commands from the repository root. Resolve data paths from source-file locations, not the caller's working directory; avoid new machine-local paths.
 - Append optional arguments. Do not reformat unrelated legacy code or comments.
 - YAML widths/lengths use SI metres; PySpice uses unit objects, and parameter sweeps use SPICE expression strings. Test numeric and sweep paths together.
@@ -24,11 +23,10 @@ The `rules_only` rule identity and the qualification artifact format remain V2.0
   samples. Changed architecture/peripheral inputs must not silently reuse it.
 - Use per-device mismatch as default in MC simulations; equivalent cells are approximations. Generated decks or passing measures alone do not prove waveform correctness, retention, sensing margin, or timing qualification.
 - Keep generated decks/results under ignored `outputs/` or a temporary path. Keep ad hoc development scripts under ignored `dev/`, outside `sram_compiler/`. Preserve supplied CSV evidence.
-- Keep topology separate from sizing policy; resolve loads from actual scaled widths. Preserve positional factory/testbench arguments and append optional ones.
+- Keep topology separate from sizing and timing policy; resolve loads from actual scaled widths. Preserve positional factory/testbench arguments and append optional ones.
 - A change to the lookup table or to the `rules_only` derivation path must be intended: compare generated decks against the previous commit (detached `git worktree`) before claiming decks are unchanged; changed classes need new waveform evidence.
 - Generated decks or passing measures alone do not prove correctness; check waveforms (the qualification scorer or `.prn` crossings) and say exactly which validation ran.
-- Preserve supplied evidence (`docs/data/DRIVER_SIZING_data.csv`, `docs/data/TIMING_AUTOCONFIG_data.csv`,
-  `docs/qualification/*.json`). Never promote partial or failed qualification runs.
+- Preserve supplied evidence (e.g., `docs/data/DRIVER_SIZING_data.csv`, `docs/data/TIMING_AUTOCONFIG_data.csv`, `docs/qualification/*.json`). Never promote partial or failed qualification runs.
 - Xyce specifics: `.SAMPLING useExpr=true` plus `.options samples numsamples=N seed=S` enable sampling (AGAUSS returns its mean without it); failed measures print `FAILED`
   (`MEASFAIL=1`); "Time step too small" gets one tighter-step retry in the runner; native MPI sampling crashes on large decks, hence the materialized cards.
 - `pkill -f <pattern>` also matches the shell that runs it; kill by PID or from a script file.
@@ -44,5 +42,4 @@ The `rules_only` rule identity and the qualification artifact format remain V2.0
 - `docs/DEVELOPMENT.md` documents local tools and the tracked scoring-source
   manifest; compiler table lookup must work when `dev/` is absent.
 - Check `git diff --check` and review the final diff. Recent commits use
-  `fix(sram_compiler): ...` and `docs: ...`; no repository-wide CI/linter config
-  or package manifest was found in the initial scan.
+  `fix(sram_compiler): ...` and `docs: ...`; no repository-wide CI/linter config or package manifest was found in the initial scan.

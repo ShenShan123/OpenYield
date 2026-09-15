@@ -1,4 +1,4 @@
-# V2.1.2 driver sizing and timing: fixed classes
+# V2.1.3 driver sizing and timing: fixed classes
 
 V2.1.1 adds a far-PRE access-start guard: WL, write and sense enable wait for
 physical precharge release. The immutable baseline records its observer and
@@ -202,7 +202,8 @@ T = ceil_to_50ps(2 * max(row_budget, column_budget) * (1 + margin))
 
 Column bounds ≤4/8/16/32/64/128/256/512 contribute budgets
 1600/1600/1600/1800/2000/2400/2800/3200 ps. For example 16x32 uses 4.5 ns
-and 48x20 uses 4.5 ns. Classes are shared across cell type, mux, RC and PVT.
+and 48x20 uses 4.5 ns. Classes are shared across RC, PVT and mux, and across
+cell type except for the evidenced 10T variant below.
 Extrapolation uses the final geometric ratio and is flagged; it is unqualified.
 The stored phase fields are budgets, not measurements. These settings are not
 full PVT or mismatch qualification; see the
@@ -214,6 +215,42 @@ timing:
   margin: 0.25
   # lookup: path/from/project/root/timing_lookup.json
 ```
+
+### 10T cells (V2.1.3)
+
+`variants` in the table hold a separate ladder for one cell type, optionally
+restricted to one `mux` setting. The loader requires the shared anchors and
+rejects any budget below the shared one, so a variant can only add margin.
+The V2.1.3 entry for `SRAM_10T_CELL` applies with or without a column mux.
+At SS 0.9 V / 125 °C the 10T read port discharges the replica bitline about
+1 ps per row slower than 6T and its sense path adds a near-constant 200 ps,
+and a column mux costs a further pass-gate delay of about 140 ps that the
+shared class absorbs for 6T but not for 10T: the V2.1.2
+[follow-up](../../docs/design/TIMING_FOLLOWUP_V2_1_2.md) found 16x16 10T with
+a mux failing at 4 ns, and the V2.1.3 evidence run found 16x16 10T without a
+mux failing the same read-output checks, a flat 200 ps failing the 128x8
+mux read at 5.5 ns and a 4.5 ns class leaving 125 ps at the 32x16 bound
+(81 ps under one mismatch seed). The row budget therefore grows with height
+and keeps at least 250 ps between the local read output and the 1.2 T
+deadline at every class bound, nominal SS 0.9 V / 125 °C. The 512-row class
+is set by the storage node instead: the 10T read-disturb bump (0.196 V
+against 0.131 V for 6T) decays only as the bitline discharges, and a 512-row
+bitline left Q at 0.108 V at the deadline at 11 ns against the 0.1 VDD
+tolerance, so that class gives the bitline about 5.6 ns:
+
+| Row bound | 10T budget (ps) | Period (ns) | Column bound | 10T budget (ps) | Period (ns) |
+|---|---|---|---|---|---|
+| 32 | 2000 | 5.0 | 4 / 8 / 16 | 1800 | 4.5 |
+| 64 | 2200 | 5.5 | 32 | 2000 | 5.0 |
+| 128 | 2400 | 6.0 | 64 | 2200 | 5.5 |
+| 256 | 3200 | 8.0 | 128 | 2600 | 6.5 |
+| 512 | 5600 | 14.0 | 256 / 512 | 3000 / 3400 | 7.5 / 8.5 |
+
+`ArrayTiming.budget` records `SRAM_10T_CELL` when the variant applies and
+`shared` otherwise (a mux-restricted variant would read `SRAM_10T_CELL/mux`
+or `/nomux`); 6T decks are unchanged from V2.1.2. The nominal boundary run
+and the ten-seed mismatch pilot behind this budget are in the
+[10T budget record](../../docs/design/TIMING_10T_BUDGET_V2_1_3.md).
 
 For a diagnostic override use `timing: {mode: fixed, t_period: 1.0e-8}` (seconds).
 `timing.fixed` is independent of the removed legacy driver `sizing.fixed` mode.
@@ -248,8 +285,9 @@ classes and replica sense timing K=1/N=9 are unchanged. The
 [evaluation schedule](../../docs/plans/V2_1_1_TIMING_FOLLOWUP.md) record current
 distributed-only coverage; V2.1.0 waveform passes remain historical evidence.
 
-Known class limit (V2.1.2 [follow-up](../../docs/design/TIMING_FOLLOWUP_V2_1_2.md)):
-the classes are shared by cell type and mux, and the 4 ns class is exhausted
-for 10T cells with a column mux at SS 0.9 V / 125 °C: 16x16 fails its read
-outputs and 8x4 fails under per-device mismatch, while both pass at 4.5 ns.
-The table is unchanged; a separate 10T-with-mux budget needs its own evidence.
+The V2.1.2 [follow-up](../../docs/design/TIMING_FOLLOWUP_V2_1_2.md) found the
+shared 4 ns class exhausted for 10T cells with a column mux at SS 0.9 V /
+125 °C (16x16 fails its read outputs, 8x4 fails under per-device mismatch,
+both pass at 4.5 ns). V2.1.3 adopts the separate 10T budget above with its
+own [evidence run](../../docs/design/TIMING_10T_BUDGET_V2_1_3.md); the shared
+classes are unchanged.

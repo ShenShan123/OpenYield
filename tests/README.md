@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.1.2
+# Compiler regression tests — V2.1.3
 
 V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
 
@@ -13,6 +13,13 @@ installation on a failed run. The post-release cleanup adds the interrupted
 CLI run, whose summary and solver identity must survive a `KeyboardInterrupt`,
 and the failed waveform plot, which records `waveform_error` without
 rejecting passing measures.
+
+V2.1.3 adds the timing-table variant cases: the 10T budget above the shared
+ladder at every anchor and beyond it, with and without a mux, the shared
+budget for 6T under PVT and RC changes, `ArrayTiming.budget`, a mux-restricted
+variant leaving the other mux setting on the shared class, and rejection of
+variants with an unsupported cell, non-boolean mux, duplicate cell, shifted
+anchors, a missing class or a budget below the shared one.
 
 The access-start regressions also cover far-PRE guard connectivity, physical
 RC settling frozen across candidates/PVT, stale-baseline rejection, and

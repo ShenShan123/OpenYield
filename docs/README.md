@@ -1,4 +1,4 @@
-# OpenYield V2.1.2 documentation
+# OpenYield V2.1.3 documentation
 
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
@@ -12,6 +12,13 @@ Its audit of the supplied [first-500 write-failure inventory](issue_reports/writ
 is appended to that report; see the [changelog](CHANGELOG.md). Its Phase 4/5
 [timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md) screens class boundaries
 and a per-device pilot and records the 10T column-mux class limit.
+
+V2.1.3 adopts a separate timing budget for 10T cells (with or without a
+column mux) after its own [evidence run](design/TIMING_10T_BUDGET_V2_1_3.md):
+row classes 2000/2200/2400/3200/5600 ps and column classes 200 ps above the
+shared ladder, with at least 250 ps of read-output margin at every class
+bound; the ten-seed per-device pilot is recorded there too. 6T decks and the
+shared classes are unchanged.
 
 Working plans (`plans/`), design and validation records (`design/`) and the
 release history live here. The [qualification scope](plans/V2_1_2_QUALIFICATION_SCOPE.md)
@@ -63,3 +70,7 @@ The supplied evidence CSVs are kept unchanged in `docs/data/`:
 - [V2.1.2 timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md): Phase 4 class
   boundaries, wire refinement and stress, Phase 5 per-device pilot, and the
   10T column-mux finding at the frozen 4 ns class.
+- [V2.1.3 10T timing budget](design/TIMING_10T_BUDGET_V2_1_3.md): why the
+  shared class and two candidate 10T ladders were rejected, the adopted 10T
+  ladder with its nominal boundary run, and the mismatch seeds at the class
+  bounds plus the ten-seed pilot.

@@ -7,6 +7,68 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.3 — 2026-09-14 — separate 10T timing budget
+
+V2.1.3 changes the clock of every 10T array and nothing else: no 6T deck,
+driver size class, TIME circuit or check changes. The V2.1.2 follow-up left
+the shared 4 ns class failing 10T cells with a column mux at SS 0.9 V /
+125 °C; this release adopts a separate, evidenced 10T budget and expands the
+per-device pilot to ten seeds.
+
+- `timing_lookup.json` (`v2.1.3-timing-2`) gains `variants`: a separate row
+  and column ladder keyed by `cell_type` and, optionally, `mux`. The loader
+  requires the shared anchors, one entry per cell type and never a budget
+  below the shared one. `resolve_timing()` selects the variant for the
+  baseline's cell type and mux; `ArrayTiming.budget` records `shared` or
+  `SRAM_10T_CELL` (a mux-restricted variant would read `.../mux` or
+  `.../nomux`) in every run record.
+- The `SRAM_10T_CELL` variant applies with or without a column mux: row
+  budgets 2000/2200/2400/3200/5600 ps for ≤32/64/128/256/512 rows (5, 5.5, 6,
+  8 and 14 ns) and column budgets 200 ps above the shared ladder
+  (1800/1800/1800/2000/2200/2600/3000/3400 ps). Reason, from the retained
+  V2.1.2 traces and the V2.1.3 evidence run: at SS 0.9 V / 125 °C the 10T read
+  port discharges the replica bitline about 1 ps per row slower than 6T and
+  its sense path adds a near-constant 200 ps, so the penalty grows with height
+  (about 265 ps at 16 rows, 440 ps at 128 rows); a column mux adds a pass-gate
+  delay of about 140 ps that the shared class absorbs for 6T (74 ps of margin
+  at 16x16) but not for 10T. Rule applied to the 10T ladder: at least 250 ps
+  between the local read output and the 1.2 T deadline at every class bound,
+  nominal SS 0.9 V / 125 °C, because the validator samples the output 60 ps
+  before the deadline and the mismatch seeds move it by up to about 110 ps.
+  The 512-row class is set by the storage node: the 10T read-disturb bump
+  (0.196 V against 0.131 V for 6T) decays only as the bitline discharges, and
+  at 11 ns a 512-row array still held Q at 0.108 V at the deadline against
+  the 0.1 VDD tolerance, so that class gives the bitline about 5.6 ns.
+- Tests: the 10T budget at every anchor and beyond it with and without a mux,
+  the shared budget for 6T under PVT and RC changes, `ArrayTiming.budget`, a
+  mux-restricted variant, and rejection of malformed variants (129 compiler
+  tests).
+- Local tooling: `dev/v212_followup_report.py` accepts `--base`, `--queues`,
+  `--diagnostics`, `--version` and `--plan` so it summarizes the V2.1.3 queues.
+- Evidence ([record](design/TIMING_10T_BUDGET_V2_1_3.md) and JSON): on the
+  final table **56 of 58 attempts and 146,952 of 160,814 checks pass**:
+  all 18 nominal class-bound cases at SS 0.9 V / 125 °C with and without a
+  mux (8x4 to 512x4 and 8x128, plus the 64x16 SF write), at least 282 ps
+  of read-output margin at every 10T bound; 3 of 3 mismatch seeds at the 32-row
+  and 64-row bounds; the Phase 5 pilot expanded to ten seeds (8x4 10T mux 10
+  of 10 at 5 ns, 16x16 SS read, 16x16 SF write and 8x4 FF cold 10 of 10
+  each with the V2.1.2 seeds). The three rejected ladders (23 of 27 attempts)
+  are preserved in the same record: the shared class fails 16x16 10T without
+  a mux, a flat 200 ps fails the 128x8 mux read at 5.5 ns, and the 4.5 ns
+  32-row class fails one of three mismatch seeds at 32x16.
+- Known limit: the 6T sequence with a column mux passes the shared 4 ns
+  class at 16x16 with 74 ps nominal and fails 2 of 3 mismatch seeds
+  (51 and 57 ps at the deadline); a 6T-with-mux variant needs its own
+  evidence run. The FF −40 °C write-enable spike recurs at 0.38 to 0.72 V
+  over seven new seeds with no check failing (open TIME item). The 6T ladder
+  is unchanged and not re-evidenced under mismatch at its 128- and 256-row
+  bounds (203 and 175 ps nominal).
+- Validation: 129 compiler tests on Python 3.11 and 3.9, 54 development and
+  six optimizer tests, compileall and `git diff --check`. Eight decks compared
+  against a detached `e26a7ec` worktree: the four 6T decks are byte-identical
+  and the four 10T decks differ only in stimulus, `.TRAN` and measurement
+  times. Artifacts are local under ignored `outputs/validation/V2.1.3-10t-mux-budget/`.
+
 ## V2.1.2 — 2026-09-13 — run traceability and write-failure inventory audit
 
 V2.1.2 changes no generated circuit, timing budget or driver size class. It

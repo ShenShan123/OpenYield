@@ -55,6 +55,12 @@ The input star-RC screen is in git history
   plus the three-times wire-stress read; both pass at the next class. The
   clock table and driver classes are unchanged. Phase 6 is scoped in the
   [qualification scope](V2_1_2_QUALIFICATION_SCOPE.md).
+- V2.1.3 (September 14 and 15) adopted a separate 10T timing budget with its
+  own evidence run and expanded the pilot to ten seeds: see the
+  [10T budget record](../design/TIMING_10T_BUDGET_V2_1_3.md). The 10T read
+  port alone exceeds the shared class, its penalty grows with height, and the
+  512-row class is set by the 10T read-disturb bump on the storage node; the
+  adopted ladder keeps at least 250 ps at every class bound. Pilot: 40 seeds accounted for on the final table (10T 8x4 mux 10 of 10 at 5 ns; 16x16 SS read, 16x16 SF write and 8x4 FF cold 7 of 7 new seeds each, 10 of 10 with V2.1.2; 3 of 3 at each 10T class bound); the 6T-mux 16x16 control fails 2 of 3 seeds at the shared 4 ns class, the next timing item.
 
 ## Preserve historical baselines and evidence labels
 
@@ -85,7 +91,7 @@ cannot bypass these gates because peripheral and control routes changed too.
 | 2. Revalidate small writes and control capture | Complete | 1 | Nine final-source cases pass independent waveforms and runtime measures |
 | 3. Resolve large-array write race | Complete | 2 | Both large cases pass at 8 ns / 5 ns; diagnosed failure preserved |
 | 4. Clock-class/control-path coverage | Complete (September 14) | 3 | Scored: 17 of 19 pass; 10T-mux class and wire-stress limits recorded |
-| 5. PVT and per-device pilot | Complete (September 14) | 4 | All 12 seeds accounted for: 9 pass, 3 electrical 10T-mux failures, no numerical event |
+| 5. PVT and per-device pilot | Complete (September 14; ten seeds September 15) | 4 | All 12 pilot seeds accounted for: 9 pass, 3 electrical 10T-mux failures, no numerical event; V2.1.3 ten-seed expansion: 40 of 40 seeds accounted for, 38 pass; both failures are 6T-mux control seeds at the unchanged shared class |
 | 6. Qualification and architecture backlog | Scope written (September 14); execution later | 5 reviewed | [Scope and briefs](V2_1_2_QUALIFICATION_SCOPE.md) written; extracted metal, half-select and yield work remain |
 
 ### Phase 1 — topology and compatibility (implemented)
@@ -223,7 +229,12 @@ Phase 4 class finding; sense enable at 1.167 to 1.182 cycles). No sample
 needed a retry or printed a solver warning. The FF cold sequences show a
 write-enable spike of 0.50 to 0.63 V (0.41 V nominal) at the read-to-write
 boundary while the wordline is still high; no check fails and it is an open
-TIME item. Expansion to ten seeds waits for review of the 10T-mux budget.
+TIME item. Expansion to ten seeds waited for review of the 10T-mux budget.
+
+Result (September 15, 2026, V2.1.3): the separate 10T budget is adopted
+(rows 2000/2200/2400/3200/5600 ps, columns 200 ps above the shared ladder,
+with or without a mux) and the pilot is expanded to ten seeds per case:
+8x4 10T mux SS sequence 10 of 10 at 5 ns (470–576 ps of output margin), 16x16 SS read 7 of 7 new seeds (122–193 ps), 16x16 SF write 7 of 7, 8x4 FF cold sequence 7 of 7 (write-enable spike 0.38 to 0.72 V, no check failing), plus 3 of 3 seeds at the 10T 32-row and 64-row class bounds. A 6T-mux 16x16 control at the shared 4 ns class fails 2 of 3 seeds (51 and 57 ps), so 6T with a column mux needs its own variant and evidence run. See the [10T budget record](../design/TIMING_10T_BUDGET_V2_1_3.md).
 
 ### Phase 6 — remaining scope
 

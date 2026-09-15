@@ -1,4 +1,4 @@
-# OpenYield V2.1.2 development tools
+# OpenYield V2.1.3 development tools
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
 
@@ -64,8 +64,8 @@ The following commands require the ignored `dev/` workspace:
 | `dev/sizing/execution.py` | Support campaign MPI execution and timeout cleanup |
 | `dev/sizing/provenance.py` | Verify local scoring sources against the tracked manifest |
 | `dev/summarize_qualification.py` | Aggregate campaign checkpoints with on-disk reruns and `retry_dcop` results (V2.0.9 evidence summary) |
-| `dev/v212_followup_report.py` | Summarize the V2.1.2 Phase 4/5 queues and fixed-clock diagnostics into `followup-summary.json` and a Markdown table |
-| `dev/v212_followup_plots.py` | Write-capture plots of selected V2.1.2 follow-up cases |
+| `dev/v212_followup_report.py` | Summarize the V2.1.2 Phase 4/5 queues and fixed-clock diagnostics into `followup-summary.json` and a Markdown table; `--base`, `--queues`, `--diagnostics`, `--version` and `--plan` select another campaign root (V2.1.3 10T-mux budget) |
+| `dev/v212_followup_plots.py` | Write-capture plots of selected V2.1.2 follow-up cases; `--base` and `--select queue:case` plot another campaign's cases |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash

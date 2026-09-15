@@ -57,6 +57,7 @@ class ArrayTiming(TimingConfig):
     size_class: str = ""
     extrapolated: bool = False
     qualified: bool = False
+    budget: str = "shared"
 
     def validate_for(self, config, driver_sizes):
         if driver_sizes.key != self.driver_key:
@@ -97,7 +98,38 @@ def load_timing_lookup(path=None):
     table = json.loads(raw)
     if not isinstance(table, dict) or table.get('schema') != 1:
         raise ValueError('Unsupported timing lookup schema')
-    for group, bound in (('row_classes', 'max_rows'), ('column_classes', 'max_cols')):
+    _validate_ladders(table)
+    variants = table.get('variants', [])
+    if not isinstance(variants, list):
+        raise ValueError('Timing lookup variants must be a list')
+    seen = set()
+    for variant in variants:
+        if (not isinstance(variant, dict) or variant.get('cell_type') not in _CELL_TYPES
+                or not isinstance(variant.get('mux', False), bool)):
+            raise ValueError('Timing lookup variants need a supported cell_type and, if given, a boolean mux')
+        # One entry per cell type; an entry without mux covers both mux settings.
+        if variant['cell_type'] in seen:
+            raise ValueError('Duplicate timing lookup variant')
+        seen.add(variant['cell_type'])
+        _validate_ladders(variant)
+        # A variant is a separately evidenced budget for one architecture; it
+        # keeps the shared anchors and may only add to the shared budget.
+        for group, bound in _BOUNDS.items():
+            shared = table[group]
+            if (len(variant[group]) != len(shared)
+                    or any(entry[bound] != base[bound] or entry['half_period_ps'] < base['half_period_ps']
+                           for entry, base in zip(variant[group], shared))):
+                raise ValueError('Timing lookup variants must keep the shared anchors and never relax a budget')
+    table['sha256'] = hashlib.sha256(raw).hexdigest()
+    return table
+
+
+_CELL_TYPES = ('SRAM_6T_CELL', 'SRAM_10T_CELL')
+_BOUNDS = {'row_classes': 'max_rows', 'column_classes': 'max_cols'}
+
+
+def _validate_ladders(table):
+    for group, bound in _BOUNDS.items():
         entries = table.get(group)
         if not isinstance(entries, list) or not entries:
             raise ValueError(f'Timing lookup needs a non-empty {group}')
@@ -112,8 +144,16 @@ def load_timing_lookup(path=None):
             previous_bound, previous_budget = limit, budget
         if len(entries) > 1 and entries[-1]['half_period_ps'] <= entries[-2]['half_period_ps']:
             raise ValueError('The final timing budget must grow for geometric extrapolation')
-    table['sha256'] = hashlib.sha256(raw).hexdigest()
-    return table
+
+
+def _budget_ladders(table, cell_type, mux):
+    """The variant ladders for this architecture, or the shared ladders."""
+    for variant in table.get('variants', []):
+        if variant['cell_type'] == cell_type and variant.get('mux', mux) == mux:
+            if 'mux' not in variant:
+                return variant, cell_type
+            return variant, f'{cell_type}/mux' if mux else f'{cell_type}/nomux'
+    return table, 'shared'
 
 
 def resolve_timing(config, driver_sizes, context=None):
@@ -121,6 +161,9 @@ def resolve_timing(config, driver_sizes, context=None):
 
     Like driver sizing, unseen dimensions round up and sizes beyond the last
     class extrapolate the ladder. Use integer ps until conversion to seconds.
+    A table variant keyed by cell type and optionally mux (V2.1.3: 10T cells
+    with or without a column mux) replaces the shared ladders for that
+    architecture only.
     Exact qualified driver records retain their measured timing.
     """
     driver_sizes.validate_for(config, driver_sizes.cell_type, driver_sizes.mux, context)
@@ -148,8 +191,9 @@ def resolve_timing(config, driver_sizes, context=None):
     margin = options.get('margin', .25)
     if isinstance(margin, bool) or not isinstance(margin, (float, int)) or not isfinite(margin) or margin < 0:
         raise ValueError('Timing margin must be finite and nonnegative')
-    row = interpolate_class(table['row_classes'], 'max_rows', ('half_period_ps',), driver_sizes.rows)
-    col = interpolate_class(table['column_classes'], 'max_cols', ('half_period_ps',), driver_sizes.cols)
+    ladders, budget = _budget_ladders(table, driver_sizes.cell_type, driver_sizes.mux)
+    row = interpolate_class(ladders['row_classes'], 'max_rows', ('half_period_ps',), driver_sizes.rows)
+    col = interpolate_class(ladders['column_classes'], 'max_cols', ('half_period_ps',), driver_sizes.cols)
     half_ps = max(row['half_period_ps'], col['half_period_ps'])
     period = ceil(2 * half_ps * (1 + margin) / 50) * 50e-12
     return ArrayTiming(period, half_ps * 1e-12, half_ps * 1e-12, half_ps * 1e-12,
@@ -157,7 +201,7 @@ def resolve_timing(config, driver_sizes, context=None):
                        options_key=_options_key(options), table_sha256=table['sha256'],
                        table_version=table.get('lookup_version', ''),
                        size_class=f"rows<={row['max_rows']}/cols<={col['max_cols']}",
-                       extrapolated=row['extrapolated'] or col['extrapolated'])
+                       extrapolated=row['extrapolated'] or col['extrapolated'], budget=budget)
 
 
 def timing_from_measurements(read, writes, *, margin=0.25):

@@ -43,7 +43,8 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertEqual(timing.source, 'lookup')
                 self.assertEqual(len(timing.table_sha256), 64)
 
-    def test_period_is_shared_across_cells_mux_pvt_and_physical_modes(self):
+    def test_period_is_shared_across_pvt_and_physical_modes_except_the_10t_budget(self):
+        """Only 10T cells have their own evidenced budget (V2.1.3); PVT and RC never change a class."""
         for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
             for mux in (False, True):
                 for rc in (False, True):
@@ -52,7 +53,33 @@ class TimingLookupTests(unittest.TestCase):
                     cfg.global_config.temperature = 125
                     sizes = resolve_driver_sizes(cfg, cell_type=cell, mux=mux,
                                                  physical_context=physical_context(rc))
-                    self.assertAlmostEqual(resolve_timing(cfg, sizes).t_period / 1e-9, 4.5)
+                    timing = resolve_timing(cfg, sizes)
+                    separate = cell == 'SRAM_10T_CELL'
+                    self.assertAlmostEqual(timing.t_period / 1e-9, 5.5 if separate else 4.5)
+                    self.assertEqual(timing.budget, 'SRAM_10T_CELL' if separate else 'shared')
+
+    def test_10t_budget_grows_with_height_above_the_shared_ladder(self):
+        """The 10T read port discharges the replica bitline about 1 ps per row slower than 6T and its
+        sense path adds about 200 ps: the shared 4 ns class failed 16x16 10T with and without a mux,
+        a flat 200 ps failed the 128x8 mux read at 5.5 ns and 32x16 failed a mismatch seed at 4.5 ns,
+        so the row budget grows with height and keeps 250 ps at every class bound; at 512 rows the
+        10T read-disturb bump must also decay within the storage tolerance, which needs 14 ns."""
+        cases = [(8, 4, 5), (16, 16, 5), (32, 16, 5), (33, 16, 5.5), (16, 32, 5),
+                 (64, 16, 5.5), (128, 8, 6), (256, 4, 8), (512, 4, 14),
+                 (8, 64, 5.5), (8, 128, 6.5), (8, 512, 8.5), (513, 4, 24.5)]
+        for rows, cols, ns in cases:
+            for mux in (True, False):
+                with self.subTest(rows=rows, cols=cols, mux=mux):
+                    cfg = load_config(rows, cols, 'SS')
+                    sizes = resolve_driver_sizes(cfg, cell_type='SRAM_10T_CELL', mux=mux)
+                    timing = resolve_timing(cfg, sizes)
+                    self.assertAlmostEqual(timing.t_period / 1e-9, ns)
+                    self.assertEqual(timing.budget, 'SRAM_10T_CELL')
+                    self.assertEqual(timing.extrapolated, rows > 512)
+                    self.assertEqual(timing.table_version, 'v2.1.3-timing-2')
+                    shared = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=mux))
+                    self.assertGreater(timing.t_period, shared.t_period)
+                    self.assertEqual(shared.budget, 'shared')
 
     def test_injected_baseline_survives_candidates_and_rejects_changed_contract(self):
         cfg = load_config(8, 4, 'TT')
@@ -88,7 +115,7 @@ class TimingLookupTests(unittest.TestCase):
             previous = os.getcwd()
             try:
                 os.chdir(temp)
-                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.0')
+                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.3')
             finally:
                 os.chdir(previous)
         cfg.global_config.timing = {'mode': 'fixed', 't_period': 10e-9}
@@ -123,6 +150,31 @@ class TimingLookupTests(unittest.TestCase):
                 path.write_text(json.dumps(table))
                 with self.assertRaises(ValueError):
                     load_timing_lookup(path)
+            # A variant is a separately evidenced budget: one per architecture,
+            # on the shared anchors, and never below the shared budget.
+            base = load_timing_lookup()
+            variant = base['variants'][0]
+            relaxed = dict(variant, row_classes=[dict(variant['row_classes'][0], half_period_ps=1500)]
+                           + variant['row_classes'][1:])
+            shifted = dict(variant, row_classes=[dict(variant['row_classes'][0], max_rows=16)]
+                           + variant['row_classes'][1:])
+            short = dict(variant, column_classes=variant['column_classes'][:-1])
+            for variants in ([dict(variant, cell_type='SRAM_8T_CELL')], [dict(variant, mux=1)],
+                             [variant, variant], [variant, dict(variant, mux=True)],
+                             [relaxed], [shifted], [short], {'a': variant}, [None]):
+                path.write_text(json.dumps(dict(base, variants=variants)))
+                with self.subTest(variants=variants), self.assertRaises(ValueError):
+                    load_timing_lookup(path)
+            # A mux-restricted variant leaves the other mux setting on the shared class.
+            cfg.global_config.timing = {'mode': 'lookup', 'lookup': str(path)}
+            path.write_text(json.dumps(dict(base, variants=[dict(variant, mux=True)])))
+            for mux, ns, budget in ((True, 5., 'SRAM_10T_CELL/mux'), (False, 4., 'shared')):
+                timing = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_10T_CELL', mux=mux))
+                self.assertAlmostEqual(timing.t_period / 1e-9, ns)
+                self.assertEqual(timing.budget, budget)
+            path.write_text(json.dumps(dict(base, variants=[])))
+            sizes = resolve_driver_sizes(cfg, cell_type='SRAM_10T_CELL', mux=True)
+            self.assertAlmostEqual(resolve_timing(cfg, sizes).t_period / 1e-9, 4.)
 
     def test_numeric_and_swept_decks_share_clock_and_check_actual_rc_terminal(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -200,7 +252,7 @@ class TimingLookupTests(unittest.TestCase):
             second, repeated = run.generate_deck(args)
             self.assertNotEqual(first.parent, second.parent)
             self.assertEqual(evidence.read_text(), 'FAILED original')
-            self.assertEqual(summary['compiler_version'], 'V2.1.2')
+            self.assertEqual(summary['compiler_version'], 'V2.1.3')
             self.assertAlmostEqual(summary['timing']['t_period'], 4e-9)
             self.assertEqual(summary['timing']['source'], 'fixed')
             args.run_xyce = True

@@ -1,3 +1,3 @@
 """Compiler release identity used by generated run metadata."""
 
-VERSION = "V2.1.2"
+VERSION = "V2.1.3"
