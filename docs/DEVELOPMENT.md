@@ -1,4 +1,4 @@
-# OpenYield V2.1.3 development tools
+# OpenYield V2.1.4 development tools
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
 
@@ -20,6 +20,13 @@ bound` in runs that complete, so classify a run by its exit status,
 `Time step too small` / `DC Operating Point Failed` and missing outputs, never
 by that warning. Keep the recorded `xyce` installation: the `openyield`
 environment links MPICH, so Open MPI `ORTE` errors come from another stack.
+
+V2.1.4 adds two checks to `dev/v210_waveform_checks.py` for read&write
+sequences: `strict_cycle_N_write_enable_quiet` (every column's local write
+enable stays at or below 0.1 VDD from 0.65 T to 1.65 T of a read cycle) and
+`strict_cycle_N_sense_enable_quiet` (the local sense enable, write cycles).
+The eleven pre-fix FF −40 °C sequences fail the first. The validator also
+prints `WE` and the held request `XTIME:we_hold(_bar)`.
 
 The circuit generator lives in `sram_compiler/`. Reusable compiler regression
 tests live in the tracked top-level `tests/` directory. Local experiments,
@@ -67,6 +74,7 @@ The following commands require the ignored `dev/` workspace:
 | `dev/v212_followup_report.py` | Summarize the V2.1.2 Phase 4/5 queues and fixed-clock diagnostics into `followup-summary.json` and a Markdown table; `--base`, `--queues`, `--diagnostics`, `--version` and `--plan` select another campaign root (V2.1.3 10T-mux budget) |
 | `dev/v212_followup_plots.py` | Write-capture plots of selected V2.1.2 follow-up cases; `--base` and `--select queue:case` plot another campaign's cases |
 | `dev/v213_sense_timing.py` | Request-to-sense-enable, request-to-output and deadline-margin measurements per read cycle from a validator case directory (the sense-timing columns of the V2.1.3 10T budget record) |
+| `dev/v214_boundary_enable.py` | WE, held request, access request and WL_EN edges and the W_EN/S_EN peaks at every clock edge that ends an access, with `--json` and a `--plot` of the worst read-to-write edge (the V2.1.4 write-enable spike evidence) |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash

@@ -47,6 +47,23 @@ class PrechargeExclusionTests(unittest.TestCase):
         self.assertEqual(time['Xprecharge_guard_delay'].node_names[2], 'rwl_pre_bar')
         self.assertFalse(any(e.name[0].upper() == 'B' for e in guard.elements))
 
+    def test_access_gates_see_the_write_request_only_through_its_wordline_hold_latch(self):
+        """The `we` register updates on the edge that ends an access, before the request falls
+        (20 vs 38 ps at FF -40 C), so a raw `we` input pulsed w_en to 0.72 V while a read wordline
+        was still on. Every gate must see the request held while wl_en is high, buffered or not."""
+        for rows, cols, guard in ((16, 4, False), (8, 128, True)):
+            with self.subTest(rows=rows, cols=cols):
+                time = TIMEFactory(num_rows=rows, num_cols=cols, operation='read&write',
+                                   precharge_off_guard=guard).create()
+                request = 'access_clk_bar' if guard else 'gated_clk_bar'
+                self.assertEqual(time['Xwe_hold'].node_names,
+                                 ['VDD', 'VSS', 'we', 'wl_en_bar', 'we_hold', 'we_hold_bar'])
+                self.assertEqual(time['Xw_en'].node_names[2:4], [request, 'we_hold'])
+                self.assertEqual(time['Xs_en'].node_names[2:5], ['rbl_delay', request, 'we_hold_bar'])
+                raw = {e.name for e in time.elements if {'we', 'we_bar'} & set(e.node_names)}
+                self.assertEqual(raw, {'Xdff_buf1', 'Xwe_hold'})
+                self.assertIn('w_en_unbuf' if cols == 128 else 'w_en', time['Xw_en'].node_names)
+
     def test_compiler_observes_replica_precharge_terminal_in_numeric_and_sweep_decks(self):
         for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
             for mux in (False, True):

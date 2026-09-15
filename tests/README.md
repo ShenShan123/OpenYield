@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.1.3
+# Compiler regression tests — V2.1.4
 
 V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
 
@@ -20,6 +20,14 @@ budget for 6T under PVT and RC changes, `ArrayTiming.budget`, a mux-restricted
 variant leaving the other mux setting on the shared class, and rejection of
 variants with an unsupported cell, non-boolean mux, duplicate cell, shifted
 anchors, a missing class or a budget below the shared one.
+
+V2.1.4 adds the 6T ladders at every class bound with and without a mux (a
+mux never gets a shorter clock), the `SRAM_6T_CELL/mux` budget record, and
+the TIME write-request hold latch: every access gate, buffered or not, sees
+the write request only through the latch enabled by `wl_en_bar`; and the
+transient stop, whose printed `.TRAN` value must lie on the output interval
+and never end before 8.7 T (2 T for single operations) for every lookup
+clock and a fixed diagnostic clock.
 
 The access-start regressions also cover far-PRE guard connectivity, physical
 RC settling frozen across candidates/PVT, stale-baseline rejection, and

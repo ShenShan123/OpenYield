@@ -69,6 +69,12 @@ Screened so far, all with the illustrative wires and frozen V2.1.0 clocks:
   screens every reachable 10T class bound at SS 0.9 V / 125 °C with and
   without a mux and the 64x16 SF write; the 10T clocks differ from 6T, so
   the array classes below are per cell type.
+- 6T arrays: the V2.1.4 [6T budget](../design/TIMING_6T_BUDGET_V2_1_4.md)
+  raises the shared classes, adds a 6T column-mux ladder and screens every
+  6T class bound with and without a mux, three mismatch seeds at the 32-,
+  64- and 128-row bounds and the ten-seed pilot again on the TIME block with
+  the write-request hold latch. The array classes are now per architecture:
+  shared (6T), 6T with a mux, 10T. The 10T records predate that TIME change.
 
 Proposed qualification matrix per array class and operation:
 

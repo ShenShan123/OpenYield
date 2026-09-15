@@ -1,4 +1,4 @@
-# V2.1.3 driver sizing and timing: fixed classes
+# V2.1.4 driver sizing and timing: fixed classes
 
 V2.1.1 adds a far-PRE access-start guard: WL, write and sense enable wait for
 physical precharge release. The immutable baseline records its observer and
@@ -194,16 +194,18 @@ T = ceil_to_50ps(2 * max(row_budget, column_budget) * (1 + margin))
 
 | Row bound | Half-cycle budget (ps) | Period with 25% margin (ns) |
 |---|---|---|
-| 32 | 1600 | 4.0 |
-| 64 | 1800 | 4.5 |
-| 128 | 2000 | 5.0 |
-| 256 | 2400 | 6.0 |
+| 32 | 1800 | 4.5 |
+| 64 | 1900 | 4.75 |
+| 128 | 2100 | 5.25 |
+| 256 | 2500 | 6.25 |
 | 512 | 3600 | 9.0 |
 
-Column bounds ≤4/8/16/32/64/128/256/512 contribute budgets
-1600/1600/1600/1800/2000/2400/2800/3200 ps. For example 16x32 uses 4.5 ns
-and 48x20 uses 4.5 ns. Classes are shared across RC, PVT and mux, and across
-cell type except for the evidenced 10T variant below.
+The row budgets are the V2.1.4 values (V2.1.0 to V2.1.3:
+1600/1800/2000/2400/3600 ps). Column bounds ≤4/8/16/32/64/128/256/512
+contribute budgets 1600/1600/1600/1800/2000/2400/2800/3200 ps. For example
+16x32 uses 4.5 ns and 48x20 uses 4.75 ns. Classes are shared across RC and
+PVT; the evidenced 10T and 6T column-mux variants below replace them for
+those architectures.
 Extrapolation uses the final geometric ratio and is flagged; it is unqualified.
 The stored phase fields are budgets, not measurements. These settings are not
 full PVT or mismatch qualification; see the
@@ -247,10 +249,37 @@ tolerance, so that class gives the bitline about 5.6 ns:
 | 512 | 5600 | 14.0 | 256 / 512 | 3000 / 3400 | 7.5 / 8.5 |
 
 `ArrayTiming.budget` records `SRAM_10T_CELL` when the variant applies and
-`shared` otherwise (a mux-restricted variant would read `SRAM_10T_CELL/mux`
-or `/nomux`); 6T decks are unchanged from V2.1.2. The nominal boundary run
-and the ten-seed mismatch pilot behind this budget are in the
-[10T budget record](../../docs/design/TIMING_10T_BUDGET_V2_1_3.md).
+`shared` otherwise (a mux-restricted variant reads `<cell>/mux` or
+`<cell>/nomux`). The nominal boundary run and the ten-seed mismatch pilot
+behind this budget are in the
+[10T budget record](../../docs/design/TIMING_10T_BUDGET_V2_1_3.md); it ran on
+the V2.1.3 TIME block, before the V2.1.4 write-request hold latch.
+
+### 6T cells (V2.1.4)
+
+V2.1.4 applies the 10T rule to both 6T ladders. At SS 0.9 V / 125 °C the
+V2.1.4 probe reads (on the new TIME block) left 109 ps between the local read
+output and the 1.2 T deadline at the 32x16 bound at 4 ns and 206, 203 and
+175 ps at 64, 128 and 256 rows, so the shared row budgets rise to the table
+above. A column mux delays the 6T output by about 70 ps at 32 rows, 95 ps at
+64, 150 ps at 128, 200 ps at 256 and 275 ps at 512 rows: at the old shared
+classes the 32x16 (38 ps), 128x8 (53 ps) and 256x4 (29 ps late) mux reads
+failed their output checks nominally and the 16x16 mux sequence failed two
+of three mismatch seeds. The `SRAM_6T_CELL` entry with `"mux": true` gives
+6T with a column mux its own rows and keeps the shared columns; sequences
+need about 50 ps more than reads, hence 4.75 ns up to 32 rows:
+
+| Row bound | 6T-mux budget (ps) | Period (ns) |
+|---|---|---|
+| 32 | 1900 | 4.75 |
+| 64 | 2000 | 5.0 |
+| 128 | 2200 | 5.5 |
+| 256 | 2700 | 6.75 |
+| 512 | 3600 | 9.0 |
+
+`ArrayTiming.budget` reads `SRAM_6T_CELL/mux` for these arrays. The boundary
+run, the mismatch seeds and the write-waveform gate are in the
+[6T budget record](../../docs/design/TIMING_6T_BUDGET_V2_1_4.md).
 
 For a diagnostic override use `timing: {mode: fixed, t_period: 1.0e-8}` (seconds).
 `timing.fixed` is independent of the removed legacy driver `sizing.fixed` mode.
@@ -290,4 +319,4 @@ shared 4 ns class exhausted for 10T cells with a column mux at SS 0.9 V /
 125 °C (16x16 fails its read outputs, 8x4 fails under per-device mismatch,
 both pass at 4.5 ns). V2.1.3 adopts the separate 10T budget above with its
 own [evidence run](../../docs/design/TIMING_10T_BUDGET_V2_1_3.md); the shared
-classes are unchanged.
+classes were unchanged until V2.1.4 re-evidenced both 6T ladders.

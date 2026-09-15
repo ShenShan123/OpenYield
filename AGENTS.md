@@ -2,7 +2,7 @@
 
 This project is a open-source SRAM compiler for yield estimation and transistor sizing optimizations. The main functions include SRAM netlist generation with distributed RC loads, global and local process variations, and full DC/TRAN analyses. `REDAME.md` in both root and sub-folders are the tutorials for this projects. `docs/CHANGELOG.md`is per release (V2.x.x).`AGENTS.md` holds the detailed working conventions.
 
-Current release: **V2.1.3** (separate, evidenced timing budget for 10T cells with or without a column mux in `sram_compiler/sizing/timing_lookup.json`; 6T decks, the shared classes, driver sizes and checks are unchanged; ten-seed per-device pilot). Open items with their evidence and next steps are in `docs/plans/V2_1_3_OPEN_ITEMS.md`: 6T with a column mux fails 2 of 3 mismatch seeds at the shared 4 ns class and needs its own variant and evidence run; the FF −40 °C write-enable spike; the shared 6T ladder's class-bound margins; the 10T read-disturb bump that sets the 512-row 10T clock.
+Current release: **V2.1.4** (6T first: a TIME write-request hold latch removes the FF −40 °C write-enable spike; the shared 6T row classes become 1800/1900/2100/2500/3600 ps and 6T with a column mux gets its own `timing_lookup.json` variant, rows 1900/2000/2200/2700/3600 ps, both keeping 250 ps of read-output margin at every class bound; driver sizes unchanged; `docs/design/TIMING_6T_BUDGET_V2_1_4.md`). Remaining open items are in `docs/plans/V2_1_3_OPEN_ITEMS.md`, 10T next: the 10T class evidence predates the TIME latch and must be re-run, the 10T read-disturb bump that sets the 512-row 10T clock, 10T classes without mismatch seeds, and the carried Phase 6 scope.
 
 ## Purpose and architecture
 

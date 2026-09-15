@@ -7,6 +7,76 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.4 — 2026-09-15 — 6T timing: write-request hold latch and 6T ladders
+
+V2.1.4 closes the 6T items of the [V2.1.3 open items](plans/V2_1_3_OPEN_ITEMS.md)
+(1 to 3) and leaves the 10T items for the next round. It changes the TIME
+block of every array and the clock of 6T arrays; driver size classes and the
+10T clocks are unchanged.
+
+- Fix (TIME, `sram_compiler/subcircuits/time_generate.py`): the write request
+  registered on the clock edge that ends an access gated `w_en` and `s_en`
+  directly. At FF 1.1 V / −40 °C the register output moved 20 ps after
+  CLK_BUF while the access request fell at 38 ps, so the write enable pulsed
+  to 0.38 to 0.72 V (8x4 6T, eleven retained V2.1.1 to V2.1.3 sequences) while
+  the read wordline was still on. The request now passes a hold latch
+  (`Xwe_hold`, the address-latch cell enabled by `wl_en_bar`) and both enables
+  use the held request; the `wl_en_bar` inverter counts the two extra NAND2
+  inputs. The read-cycle write enable now peaks at 6 mV and the access path is
+  unchanged (16x16 mux and 8x4 SS sequences reproduce their request-to-output
+  times exactly).
+- Fix (testbench, `_analysis_stop()`): the transient stop `1 ns + 8.7 T` is
+  rounded up onto the output interval. The new quarter-nanosecond clocks put
+  it off the 2 ps print grid (42.325 ns at 4.75 ns), and some traces then
+  ended with the final time printed twice, which the waveform scorer rejects
+  (`strict_finite_monotonic`; five of 93 attempts of the first final run).
+  Only decks whose stop was off the grid change.
+- `timing_lookup.json` `v2.1.4-timing-3`: shared row budgets
+  1800/1900/2100/2500/3600 ps (was 1600/1800/2000/2400/3600; 4.5 ns up to
+  32 rows, 4.75, 5.25, 6.25 and 9 ns), which now apply to 6T without a mux,
+  and a `SRAM_6T_CELL` variant with `"mux": true`, rows
+  1900/2000/2200/2700/3600 ps and shared columns (4.75, 5, 5.5, 6.75 and
+  9 ns); `ArrayTiming.budget` reads `SRAM_6T_CELL/mux`. Reason: V2.1.4 probe
+  reads at SS 0.9 V / 125 °C on the V2.1.3 table left 109 ps at the 32x16 6T
+  bound (4 ns) and 206 ps at 64x16 (4.5 ns), and a mux delays the 6T output
+  by about 70 to 275 ps from 32 to 512 rows, so the 32x16 (38 ps), 128x8
+  (53 ps) and 256x4 (29 ps late) mux reads failed their output checks
+  nominally. Both 6T ladders now follow the V2.1.3 rule of at least 250 ps
+  between the read output and the 1.2 T deadline at every class bound.
+- Tests: the TIME latch connectivity for buffered and unbuffered enables
+  (no access gate sees the raw request), the 6T ladders with and without a
+  mux at every bound (a mux never gets a shorter clock), the updated shared
+  classes and `SRAM_6T_CELL/mux`. Local scorer: `write_enable_quiet` and
+  `sense_enable_quiet` checks with tests; the validator prints `WE` and
+  `XTIME:we_hold`; new `dev/v214_boundary_enable.py`.
+- Evidence ([record](design/TIMING_6T_BUDGET_V2_1_4.md) and JSON): on the
+  final sources **92 of 92 attempts and 305,371 of 305,371 checks pass**:
+  21 nominal class-bound cases at SS 0.9 V / 125 °C (SF for writes) with at
+  least 257 ps of read-output margin (298 ps below 512 rows); the V2.1.1
+  write-waveform gate (10 cases, including an 8x8 mux FF −40 °C sequence and
+  one 8x4 10T mux smoke case); three mismatch seeds at the 32-, 64- and
+  128-row bounds with and without a mux and at the 16x16 mux sequence (all
+  pass with 264 ps or more); and ten seeds each at the 8x8 mux sequence and
+  the 16x16 SS read, 16x16 SF write and 8x4 FF −40 °C pilot cases. Every
+  boundary write-enable peak is at most 17 mV. The probe run on the V2.1.3
+  table (11 of 14 attempts) and the 22 superseded first-run attempts (17
+  passed, 5 failed on the duplicated sample) are preserved in the same record.
+- Known limits: the V2.1.3 10T boundary run, seeds and pilot ran the old TIME
+  block and are not repeated (one 8x4 10T mux sequence smoke case); the 10T
+  read-disturb bump and the 10T classes without seeds stay open, now with the
+  TIME re-run as open item 7.
+- Validation: 132 compiler tests on Python 3.11 and 3.9, 55 development and
+  six optimizer tests, compileall and `git diff --check`. Eight decks compared
+  against a detached `9b785f8` worktree: 10T decks differ only in TIME, 6T
+  decks in TIME and, where a class changed, in stimulus, `.TRAN` and
+  measurement times. Every deck of the first final run was regenerated from
+  the final sources without a simulator: 70 of 93 identical (probe order and
+  per-device model paths normalized, model cards compared), the 22
+  off-grid-stop attempts changed as intended and were rerun, and one
+  per-device read differed only by the runtime's single DC-operating-point
+  retry option. Artifacts are
+  local under ignored `outputs/validation/V2.1.4-6t-timing/`.
+
 ## V2.1.3 — 2026-09-14 — separate 10T timing budget
 
 V2.1.3 changes the clock of every 10T array and nothing else: no 6T deck,

@@ -162,8 +162,8 @@ def resolve_timing(config, driver_sizes, context=None):
     Like driver sizing, unseen dimensions round up and sizes beyond the last
     class extrapolate the ladder. Use integer ps until conversion to seconds.
     A table variant keyed by cell type and optionally mux (V2.1.3: 10T cells
-    with or without a column mux) replaces the shared ladders for that
-    architecture only.
+    with or without a column mux; V2.1.4: 6T cells with a column mux) replaces
+    the shared ladders for that architecture only.
     Exact qualified driver records retain their measured timing.
     """
     driver_sizes.validate_for(config, driver_sizes.cell_type, driver_sizes.mux, context)

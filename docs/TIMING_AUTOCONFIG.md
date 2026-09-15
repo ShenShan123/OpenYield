@@ -1,4 +1,4 @@
-# Automatic timing configuration — V2.1.3 guide and historical proposal
+# Automatic timing configuration — V2.1.4 guide and historical proposal
 
 V2.1.1 retains the timing table introduced in V2.1.0: **a fixed lookup table with
 row and column classes, like driver sizing**. `timing.mode: lookup` is now the
@@ -7,10 +7,11 @@ budgets in ps. Select the next row and column anchors, take the larger budget,
 apply the configured margin (25% by default), double it and round up to 50 ps.
 No model fit, automatic calibration or simulation runs inside the resolver.
 
-The row classes are ≤32/64/128/256/512 with budgets 1600/1800/2000/2400/3600 ps.
+The row classes are ≤32/64/128/256/512 with budgets 1800/1900/2100/2500/3600 ps
+(V2.1.4; 1600/1800/2000/2400/3600 ps before).
 Column classes are ≤4/8/16/32/64/128/256/512 with budgets
-1600/1600/1600/1800/2000/2400/2800/3200 ps. Thus 8x4 and 16x16 use 4 ns,
-48x20 uses 4.5 ns, and 512x4 uses 9 ns and 8x512 uses 8 ns. Beyond the final anchor the
+1600/1600/1600/1800/2000/2400/2800/3200 ps. Thus 8x4 and 16x16 use 4.5 ns,
+48x20 uses 4.75 ns, and 512x4 uses 9 ns and 8x512 uses 8 ns. Beyond the final anchor the
 geometric ladder continues, with `extrapolated: true` and no qualification claim.
 V2.1.3 adds one `variants` entry: 10T cells, with or without a column mux,
 take row budgets 2000/2200/2400/3200/5600 ps and column budgets 200 ps above
@@ -18,6 +19,12 @@ the shared ladder (5 ns up to 32 rows / 16 columns, 14 ns at 512 rows),
 after the V2.1.2 follow-up and the V2.1.3 evidence run measured their read
 path about 200 ps plus 1 ps per row slower than 6T at SS 0.9 V / 125 °C; see
 the [10T budget record](design/TIMING_10T_BUDGET_V2_1_3.md).
+V2.1.4 raises the shared row budgets, which now apply to 6T cells without a
+mux only, and adds a `SRAM_6T_CELL` variant for 6T with a column mux (rows
+1900/2000/2200/2700/3600 ps, shared columns: 4.75 ns up to 32 rows) after the
+V2.1.4 probe reads left 109 ps at the 32x16 6T bound and failed the 32x16,
+128x8 and 256x4 mux reads at the old classes; see the
+[6T budget record](design/TIMING_6T_BUDGET_V2_1_4.md).
 
 These are design budgets informed by the historical envelope below, with
 allowance for the current guard; they are **not measured phases or full PVT /

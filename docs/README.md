@@ -1,4 +1,4 @@
-# OpenYield V2.1.3 documentation
+# OpenYield V2.1.4 documentation
 
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
@@ -20,6 +20,13 @@ shared ladder, with at least 250 ps of read-output margin at every class
 bound; the ten-seed per-device pilot is recorded there too. 6T decks and the
 shared classes are unchanged. What it left open, with evidence and next
 steps, is in the [V2.1.3 open items](plans/V2_1_3_OPEN_ITEMS.md).
+
+V2.1.4 closes the 6T open items there with its own
+[evidence run](design/TIMING_6T_BUDGET_V2_1_4.md): a write-request hold latch
+in TIME removes the FF −40 °C write-enable spike, the shared 6T row classes
+become 1800/1900/2100/2500/3600 ps and 6T with a column mux gets a variant
+(rows 1900/2000/2200/2700/3600 ps), both keeping 250 ps of read-output margin
+at every class bound. The 10T items stay open for the next round.
 
 Working plans (`plans/`), design and validation records (`design/`) and the
 release history live here. The [qualification scope](plans/V2_1_2_QUALIFICATION_SCOPE.md)
@@ -75,3 +82,7 @@ The supplied evidence CSVs are kept unchanged in `docs/data/`:
   shared class and two candidate 10T ladders were rejected, the adopted 10T
   ladder with its nominal boundary run, and the mismatch seeds at the class
   bounds plus the ten-seed pilot.
+- [V2.1.4 6T timing budget](design/TIMING_6T_BUDGET_V2_1_4.md): the TIME
+  write-enable race and its hold latch, the probe reads that rejected the
+  shared 6T classes, the adopted shared and 6T-mux ladders with their
+  boundary run, mismatch seeds, pilot and write-waveform gate.

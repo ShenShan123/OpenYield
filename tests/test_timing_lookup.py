@@ -29,10 +29,10 @@ class TimingLookupTests(unittest.TestCase):
         self.addCleanup(self.output.__exit__, None, None, None)
 
     def test_boundaries_round_up_and_extrapolate_without_claiming_evidence(self):
-        cases = [(1, 1, 4), (32, 4, 4), (33, 4, 4.5), (64, 16, 4.5),
-                 (65, 16, 5), (129, 4, 6), (257, 4, 9),
-                 (16, 17, 4.5), (48, 20, 4.5), (16, 512, 8),
-                 (513, 4, 13.5), (4, 513, 9.15)]
+        cases = [(1, 1, 4.5), (32, 4, 4.5), (33, 4, 4.75), (64, 16, 4.75),
+                 (65, 16, 5.25), (129, 4, 6.25), (257, 4, 9),
+                 (16, 17, 4.5), (48, 20, 4.75), (16, 512, 8),
+                 (513, 4, 13), (4, 513, 9.15)]
         for rows, cols, ns in cases:
             with self.subTest(rows=rows, cols=cols):
                 cfg = load_config(rows, cols, 'TT')
@@ -43,20 +43,45 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertEqual(timing.source, 'lookup')
                 self.assertEqual(len(timing.table_sha256), 64)
 
-    def test_period_is_shared_across_pvt_and_physical_modes_except_the_10t_budget(self):
-        """Only 10T cells have their own evidenced budget (V2.1.3); PVT and RC never change a class."""
-        for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
-            for mux in (False, True):
-                for rc in (False, True):
-                    cfg = load_config(48, 20, 'SF')
-                    cfg.global_config.vdd = .9
-                    cfg.global_config.temperature = 125
-                    sizes = resolve_driver_sizes(cfg, cell_type=cell, mux=mux,
-                                                 physical_context=physical_context(rc))
-                    timing = resolve_timing(cfg, sizes)
-                    separate = cell == 'SRAM_10T_CELL'
-                    self.assertAlmostEqual(timing.t_period / 1e-9, 5.5 if separate else 4.5)
-                    self.assertEqual(timing.budget, 'SRAM_10T_CELL' if separate else 'shared')
+    def test_period_is_shared_across_pvt_and_physical_modes_except_the_evidenced_variants(self):
+        """10T cells (V2.1.3) and 6T cells with a mux (V2.1.4) have their own evidenced budgets;
+        PVT and RC never change a class."""
+        expected = {('SRAM_6T_CELL', False): (4.75, 'shared'),
+                    ('SRAM_6T_CELL', True): (5, 'SRAM_6T_CELL/mux'),
+                    ('SRAM_10T_CELL', False): (5.5, 'SRAM_10T_CELL'),
+                    ('SRAM_10T_CELL', True): (5.5, 'SRAM_10T_CELL')}
+        for (cell, mux), (ns, budget) in expected.items():
+            for rc in (False, True):
+                cfg = load_config(48, 20, 'SF')
+                cfg.global_config.vdd = .9
+                cfg.global_config.temperature = 125
+                sizes = resolve_driver_sizes(cfg, cell_type=cell, mux=mux,
+                                             physical_context=physical_context(rc))
+                timing = resolve_timing(cfg, sizes)
+                self.assertAlmostEqual(timing.t_period / 1e-9, ns)
+                self.assertEqual(timing.budget, budget)
+
+    def test_6t_budgets_keep_250ps_of_read_output_margin_at_every_class_bound(self):
+        """At SS 0.9 V / 125 C the shared V2.1.3 classes left 109 ps at the 32x16 6T read bound (4 ns) and
+        206/203/175 ps at 64, 128 and 256 rows, and a column mux delays the output by 70 to 275 ps more:
+        32x16, 128x8 and 256x4 mux reads failed their output checks nominally and the 16x16 mux sequence
+        failed two of three mismatch seeds. Both 6T ladders now keep the 10T rule of 250 ps at each bound,
+        so a mux never gets a shorter clock than the same array without one."""
+        cases = [(8, 4, 4.5, 4.75), (16, 16, 4.5, 4.75), (32, 16, 4.5, 4.75), (33, 16, 4.75, 5),
+                 (64, 16, 4.75, 5), (128, 8, 5.25, 5.5), (256, 4, 6.25, 6.75), (512, 4, 9, 9),
+                 (16, 32, 4.5, 4.75), (8, 64, 5, 5), (8, 128, 6, 6), (8, 512, 8, 8), (513, 4, 13, 12)]
+        for rows, cols, plain_ns, mux_ns in cases:
+            with self.subTest(rows=rows, cols=cols):
+                cfg = load_config(rows, cols, 'SS')
+                plain = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=False))
+                muxed = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=True))
+                self.assertAlmostEqual(plain.t_period / 1e-9, plain_ns)
+                self.assertAlmostEqual(muxed.t_period / 1e-9, mux_ns)
+                self.assertEqual((plain.budget, muxed.budget), ('shared', 'SRAM_6T_CELL/mux'))
+                self.assertEqual(muxed.table_version, 'v2.1.4-timing-3')
+                self.assertEqual(muxed.extrapolated, rows > 512)
+                if rows <= 512:
+                    self.assertGreaterEqual(muxed.t_period, plain.t_period)
 
     def test_10t_budget_grows_with_height_above_the_shared_ladder(self):
         """The 10T read port discharges the replica bitline about 1 ps per row slower than 6T and its
@@ -76,10 +101,10 @@ class TimingLookupTests(unittest.TestCase):
                     self.assertAlmostEqual(timing.t_period / 1e-9, ns)
                     self.assertEqual(timing.budget, 'SRAM_10T_CELL')
                     self.assertEqual(timing.extrapolated, rows > 512)
-                    self.assertEqual(timing.table_version, 'v2.1.3-timing-2')
+                    self.assertEqual(timing.table_version, 'v2.1.4-timing-3')
                     shared = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=mux))
                     self.assertGreater(timing.t_period, shared.t_period)
-                    self.assertEqual(shared.budget, 'shared')
+                    self.assertEqual(shared.budget, 'SRAM_6T_CELL/mux' if mux else 'shared')
 
     def test_injected_baseline_survives_candidates_and_rejects_changed_contract(self):
         cfg = load_config(8, 4, 'TT')
@@ -115,7 +140,7 @@ class TimingLookupTests(unittest.TestCase):
             previous = os.getcwd()
             try:
                 os.chdir(temp)
-                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.3')
+                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.4')
             finally:
                 os.chdir(previous)
         cfg.global_config.timing = {'mode': 'fixed', 't_period': 10e-9}
@@ -168,13 +193,14 @@ class TimingLookupTests(unittest.TestCase):
             # A mux-restricted variant leaves the other mux setting on the shared class.
             cfg.global_config.timing = {'mode': 'lookup', 'lookup': str(path)}
             path.write_text(json.dumps(dict(base, variants=[dict(variant, mux=True)])))
-            for mux, ns, budget in ((True, 5., 'SRAM_10T_CELL/mux'), (False, 4., 'shared')):
+            for mux, ns, budget in ((True, 5., 'SRAM_10T_CELL/mux'), (False, 4.5, 'shared')):
                 timing = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_10T_CELL', mux=mux))
                 self.assertAlmostEqual(timing.t_period / 1e-9, ns)
                 self.assertEqual(timing.budget, budget)
             path.write_text(json.dumps(dict(base, variants=[])))
-            sizes = resolve_driver_sizes(cfg, cell_type='SRAM_10T_CELL', mux=True)
-            self.assertAlmostEqual(resolve_timing(cfg, sizes).t_period / 1e-9, 4.)
+            for cell in ('SRAM_10T_CELL', 'SRAM_6T_CELL'):
+                sizes = resolve_driver_sizes(cfg, cell_type=cell, mux=True)
+                self.assertAlmostEqual(resolve_timing(cfg, sizes).t_period / 1e-9, 4.5)
 
     def test_numeric_and_swept_decks_share_clock_and_check_actual_rc_terminal(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -190,7 +216,7 @@ class TimingLookupTests(unittest.TestCase):
                 tb.add_meas_and_print(simulator, tb.data_init(), 'write')
                 tb.add_analysis(simulator.circuit, 'write', 1)
                 deck = str(simulator).upper()
-                self.assertAlmostEqual(float(tb.t_period) / 1e-9, 4.)
+                self.assertAlmostEqual(float(tb.t_period) / 1e-9, 4.5)
                 self.assertEqual(tb.driver_sizes.precharge_guard_stages, 4)
                 local_wl = tb.cell_probe('WL').upper()
                 self.assertIn(f'V({local_wl})', deck)
@@ -198,7 +224,7 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertIn('VACCESS_ERROR_0', deck)
                 self.assertIn('VHOLD_ERROR_0', deck)
                 line = next(l for l in deck.splitlines() if ' VACCESS_ERROR_0 ' in l)
-                self.assertIn('AT=5.8E-09', line)
+                self.assertIn('AT=6.4E-09', line)
 
     def test_retention_covers_deadline_through_next_access_including_last_cycle(self):
         import re
@@ -219,6 +245,39 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertLessEqual(start, deadline)
                 self.assertAlmostEqual(stop - deadline, .5 * float(tb.t_period), delta=1e-18)
                 self.assertLessEqual(stop, float(tb._analysis_stop('read&write')) + 1e-18)
+
+    def test_transient_stop_lies_on_the_output_grid_for_every_lookup_clock(self):
+        """Xyce prints on the INITIAL_INTERVAL grid. The quarter-nanosecond V2.1.4 clocks put 1 ns + 8.7 T
+        off that grid (42.325 ns at 4.75 ns on 2 ps) and some traces then printed the final time twice,
+        which the waveform scorer rejects. The stop must lie on the grid and never cut the final cycle."""
+        import re
+
+        class Deck:
+            raw_spice = ''
+
+        # Lookup clocks (4.5, 4.75, 5.25, 6.25, 6.75, 12 and the extrapolated 9.65 ns) and a fixed
+        # 12.25 ns diagnostic clock, whose 107.575 ns stop needs more digits than the usual .4e.
+        cases = [('SRAM_6T_CELL', 8, 4, False, None), ('SRAM_6T_CELL', 8, 8, True, None),
+                 ('SRAM_6T_CELL', 65, 16, False, None), ('SRAM_6T_CELL', 129, 4, False, None),
+                 ('SRAM_6T_CELL', 129, 4, True, None), ('SRAM_6T_CELL', 513, 4, True, None),
+                 ('SRAM_10T_CELL', 4, 513, False, None), ('SRAM_6T_CELL', 8, 4, False, 12.25e-9)]
+        with tempfile.TemporaryDirectory() as temp:
+            for cell, rows, cols, mux, fixed in cases:
+                tb = Sram6TCoreMcTestbench(load_config(rows, cols, 'SS'), sram_cell_type=cell,
+                                           choose_columnmux=mux, variation_mode='nominal', sim_path=temp)
+                if fixed:
+                    TimingConfig(fixed, 0, 0, 0, source='diagnostic').apply(tb)
+                for step in (float(tb.t_step), 2e-12):
+                    tb.t_step = step
+                    for operation, cycles in (('read&write', 8.7), ('read', 2)):
+                        with self.subTest(cell=cell, rows=rows, cols=cols, mux=mux, fixed=fixed,
+                                          step=step, operation=operation):
+                            deck = Deck()
+                            tb.add_analysis(deck, operation, 1)
+                            stop = float(re.search(r'^\.TRAN \S+ (\S+)', deck.raw_spice, re.M)[1])
+                            self.assertAlmostEqual(stop / step, round(stop / step), delta=1e-6)
+                            self.assertGreaterEqual(stop, 1e-9 + cycles * float(tb.t_period) - 1e-18)
+                            self.assertLess(stop, 1e-9 + cycles * float(tb.t_period) + step)
 
     def test_late_wrong_missing_or_unretained_data_cannot_be_a_passing_sample(self):
         data = pd.DataFrame({'VACCESS_ERROR_0': [0., .4, np.nan, 0.],
@@ -252,7 +311,7 @@ class TimingLookupTests(unittest.TestCase):
             second, repeated = run.generate_deck(args)
             self.assertNotEqual(first.parent, second.parent)
             self.assertEqual(evidence.read_text(), 'FAILED original')
-            self.assertEqual(summary['compiler_version'], 'V2.1.3')
+            self.assertEqual(summary['compiler_version'], 'V2.1.4')
             self.assertAlmostEqual(summary['timing']['t_period'], 4e-9)
             self.assertEqual(summary['timing']['source'], 'fixed')
             args.run_xyce = True

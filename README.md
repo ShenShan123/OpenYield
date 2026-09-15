@@ -1,4 +1,5 @@
-# OpenYield V2.1.3: SRAM yield analysis and optimization
+# OpenYield V2.1.4: SRAM yield analysis and optimization
+
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
 
@@ -12,6 +13,17 @@ candidates and PVT samples. It also fixes narrow-array RC precharge overlap,
 write-register initialization, the distributed output-latch enable, and yield
 callers' measurement handling. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210)
 and [release review](docs/design/TIMING_LOOKUP_V2_1_0.md) for settings and validation limits.
+
+V2.1.4 fixes a TIME control race and re-evidences both 6T clock ladders. The
+write request registered on the clock edge that ends an access now passes a
+hold latch that is transparent only while the wordline enable is low, so the
+write enable no longer pulses (0.38 to 0.72 V at FF 1.1 V / −40 °C) while a
+read wordline is still on. With the 250 ps output-margin rule of V2.1.3 the
+shared 6T row budgets become 1800/1900/2100/2500/3600 ps (4.5 ns up to 32
+rows) and 6T arrays with a column mux get their own variant (rows
+1900/2000/2200/2700/3600 ps, 4.75 ns up to 32 rows). See the
+[6T budget record](docs/design/TIMING_6T_BUDGET_V2_1_4.md). 10T clocks are
+unchanged; the 10T evidence predates the TIME latch and is the next round.
 
 V2.1.3 gives 10T cells their own evidenced timing budget. The V2.1.2 follow-up
 had found the shared 4 ns class failing 10T with a column mux at SS 0.9 V /
@@ -88,14 +100,14 @@ scripts live under ignored `dev/`. See the [development guide](docs/DEVELOPMENT.
 
 * **Xyce Integration:** Utilizes the Xyce parallel circuit simulator for transistor-level simulations.
 * **Monte Carlo Simulation Support:**
-    * Built-in Monte Carlo simulations within Xyce.
-    * Support for user-defined Monte Carlo simulations, allowing for custom process parameter generation.
+  * Built-in Monte Carlo simulations within Xyce.
+  * Support for user-defined Monte Carlo simulations, allowing for custom process parameter generation.
 * **SRAM Cell Types:** Supports 6T and 10T SRAM cells.
 * **Equivalent Circuit Modeling:** Fast approximate equivalent circuits for unused SRAM cells (5-capacitor parasitic model: `c_bl`, `c_blb`, `c_wl`, `c_wl_bl`, `c_wl_blb`) to speed up large-array simulation.
 * **Performance Metrics Analysis:** Evaluates critical SRAM performance metrics:
-    * Hold / Read / Write Static Noise Margin (SNM)
-    * Read and Write Delay
-    * Static and Dynamic Power
+  * Hold / Read / Write Static Noise Margin (SNM)
+  * Read and Write Delay
+  * Static and Dynamic Power
 * **SRAM Sizing Optimization:** Integrated two-stage optimization for transistor sizing and architecture configuration.
 * **Output Parsing and Waveform Plotting:** Includes parsers to extract simulation results and tools to visualize signal waveforms.
 * **OpenYield V2 optimizers:** An isolated offline optimizer package under `size_optimization/openyield_v2/` with evolutionary, Bayesian, and surrogate-based methods.
@@ -105,45 +117,44 @@ scripts live under ignored `dev/`. See the [development guide](docs/DEVELOPMENT.
 ## Dependencies
 
 * **[FreePDK45](https://eda.ncsu.edu/freepdk/freepdk45/):** Required by SRAM circuit generator and Xyce simulator.
-
 * **[PySpice](https://pyspice.fabrice-salvaire.fr/releases/v1.4/overview.html):** Required by SRAM circuit generator:
 
-    ```bash
-    pip install PySpice
-    ```
-
+  ```bash
+  pip install PySpice
+  ```
 * **[Xyce](https://xyce.sandia.gov/about-xyce/):** A SPICE simulator for fast simulation. Install using conda through vlsida channel (built for [OpenRAM](https://github.com/VLSIDA/OpenRAM.git)):
 
-    ```bash
-    conda install -q -y -c vlsida-eda trilinos
-    conda install -q -y -c vlsida-eda xyce
-    ```
-    For building your own Xyce please refer to this [guide](https://xyce.sandia.gov/documentation-tutorials/building-guide/)
+  ```bash
+  conda install -q -y -c vlsida-eda trilinos
+  conda install -q -y -c vlsida-eda xyce
+  ```
 
+  For building your own Xyce please refer to this [guide](https://xyce.sandia.gov/documentation-tutorials/building-guide/)
 * **Python packages for the bundled circuit-backed optimizers** (install via pip; tSS-BO still needs its separate repository):
 
-    ```bash
-    pip install numpy scipy matplotlib pandas torch botorch gpytorch \
-      smac ConfigSpace cma gymnasium scikit-learn tqdm tabpfn PyYAML
-    ```
-
+  ```bash
+  pip install numpy scipy matplotlib pandas torch botorch gpytorch \
+    smac ConfigSpace cma gymnasium scikit-learn tqdm tabpfn PyYAML
+  ```
 * **OpenYield V2 extras** (only needed for `size_optimization/openyield_v2/`):
 
-    ```bash
-    pip install -r size_optimization/openyield_v2/requirements.txt
-    ```
+  ```bash
+  pip install -r size_optimization/openyield_v2/requirements.txt
+  ```
 
 ## Usage Examples
 
 ### 0. Conda Environment Creation
 
 Create the conda environment from the `yml` file:
+
 ```bash
 conda env create -f environment.yml
 conda activate openyield
 ```
 
 Or update an existing environment:
+
 ```bash
 conda env update -f environment.yml
 ```
@@ -167,6 +178,7 @@ for both workflows.
 #### Configuration via YAML
 
 Key parameters in `sram_compiler/config_yaml/global.yaml`:
+
 ```yaml
 vdd: 1.0            # Supply voltage (V)
 temperature: 27     # Temperature (Celsius)
@@ -177,6 +189,7 @@ corner: TT          # Process corner (TT/FF/SS/FS/SF)
 ```
 
 Transistor widths and models for each cell type are in:
+
 - `sram_compiler/config_yaml/sram_6t_cell.yaml`
 - `sram_compiler/config_yaml/sram_10t_cell.yaml`
 - `sram_compiler/config_yaml/precharge.yaml`, `wordline_driver.yaml`, etc.
@@ -191,6 +204,7 @@ python -m sram_compiler.per_device_mc.run --rows 8 --cols 4 --mc-runs 2 --run-xy
 ```
 
 Or programmatically:
+
 ```python
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 from config import SRAM_CONFIG
@@ -276,12 +290,12 @@ python -m sram_compiler.per_device_mc.run \
 
 Variation modes:
 
-| Mode | Behavior |
-|------|----------|
-| `nominal` | No process variation |
-| `shared` | Existing model-card Monte Carlo; devices sharing a base model share its random parameters |
-| `custom` | Parameter-table flow using `process_parameters.vars` from the cell YAML; a one-dimensional 10T table is treated as one sample |
-| `per-device` (default) | Independent `vth0`, `u0`, and `voff` expressions for every MOS retained in the generated netlist |
+| Mode                     | Behavior                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `nominal`              | No process variation                                                                                                           |
+| `shared`               | Existing model-card Monte Carlo; devices sharing a base model share its random parameters                                      |
+| `custom`               | Parameter-table flow using`process_parameters.vars` from the cell YAML; a one-dimensional 10T table is treated as one sample |
+| `per-device` (default) | Independent`vth0`, `u0`, and `voff` expressions for every MOS retained in the generated netlist                          |
 
 `--vth-std` is the relative standard deviation used for all three varied parameters; the default is `0.05`.
 
@@ -299,20 +313,20 @@ OpenYield includes a suite of optimization algorithms for SRAM transistor sizing
 
 #### Available Algorithms
 
-| Algorithm | Script | Description |
-|-----------|--------|-------------|
-| SA | `demo_sa.py` | Simulated Annealing |
-| PSO | `demo_pso.py` | Particle Swarm Optimization |
-| CBO | `demo_cbo.py` | Constrained Bayesian Optimization |
-| RoSE-Opt | `demo_roseopt.py` | Reinforcement Learning Enhanced BO |
-| CMA-ES | `demo_cmaes.py` | Covariance Matrix Adaptation Evolution Strategy |
-| SMAC | `demo_smac.py` | Sequential Model-based Algorithm Configuration |
-| NSGA-II | `demo_nsgaii.py` | Multi-Objective Genetic Algorithm |
-| MOEAD | `demo_moead.py` | Multi-Objective Evolutionary Algorithm based on Decomposition |
-| MOBO | `demo_mobo.py` | Multi-Objective Bayesian Optimization |
-| CPN | `demo_cpn.py` | TabPFN-based Bayesian Optimization (requires `tabpfn`) |
-| tSS-BO | `demo_tssbo.py` | Truncated Subspace Sampling BO (requires separate tSS-BO repo) |
-| Random | `demo_random.py` | Random Search (baseline) |
+| Algorithm | Script              | Description                                                    |
+| --------- | ------------------- | -------------------------------------------------------------- |
+| SA        | `demo_sa.py`      | Simulated Annealing                                            |
+| PSO       | `demo_pso.py`     | Particle Swarm Optimization                                    |
+| CBO       | `demo_cbo.py`     | Constrained Bayesian Optimization                              |
+| RoSE-Opt  | `demo_roseopt.py` | Reinforcement Learning Enhanced BO                             |
+| CMA-ES    | `demo_cmaes.py`   | Covariance Matrix Adaptation Evolution Strategy                |
+| SMAC      | `demo_smac.py`    | Sequential Model-based Algorithm Configuration                 |
+| NSGA-II   | `demo_nsgaii.py`  | Multi-Objective Genetic Algorithm                              |
+| MOEAD     | `demo_moead.py`   | Multi-Objective Evolutionary Algorithm based on Decomposition  |
+| MOBO      | `demo_mobo.py`    | Multi-Objective Bayesian Optimization                          |
+| CPN       | `demo_cpn.py`     | TabPFN-based Bayesian Optimization (requires`tabpfn`)        |
+| tSS-BO    | `demo_tssbo.py`   | Truncated Subspace Sampling BO (requires separate tSS-BO repo) |
+| Random    | `demo_random.py`  | Random Search (baseline)                                       |
 
 #### Running an Optimization
 
@@ -332,12 +346,14 @@ python size_optimization/experiment.py
 ```
 
 This runs a two-stage flow:
+
 1. Stage 1 (SMAC): Search over architecture configurations (rows, cols, arrays).
 2. Stage 2: Optimize transistor sizing for the best architecture candidates.
 
 #### Optimization Parameter Space
 
 The parameter space is defined in `size_optimization/exp_utils.py`:
+
 - **`ModifiedSRAMParameterSpace`**: 7-dimensional bitcell transistor sizing space.
 - **`CompositeSRAMParameterSpace`**: 24-dimensional joint space (bitcell + peripheral circuits).
 
@@ -359,6 +375,7 @@ See [`size_optimization/openyield_v2/README.md`](size_optimization/openyield_v2/
 OpenYield includes SRAM yield estimators based on Monte Carlo and importance sampling.
 
 #### Available Algorithms
+
 - **MC**: Monte Carlo
 - **MNIS**: Mean-shifted Importance Sampling
 - **ACS**: Adaptive Compressed Sampling
@@ -436,3 +453,8 @@ OpenYield/
 ## Contributing
 
 Contributions and reproducible issue reports are welcome.
+
+# Cite Us
+
+```
+```

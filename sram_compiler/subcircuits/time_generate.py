@@ -870,9 +870,10 @@ class TIME(BaseSubcircuit):
         self.X('wl_en',
                wl_en.NAME,
                'VDD', 'VSS', access_request, 'wl_en')
-        # wl_en_bar enables the address hold latches (2 NAND2 inputs per bit)
-        # and the precharge NAND3; size it for that fan-out.
-        wlb_scale = max(1, ceil((2 * self.n_bits + 1) / 5.0))
+        # wl_en_bar enables the address hold latches and the write-request
+        # hold latch (2 NAND2 inputs per latch) and the precharge NAND3; size
+        # it for that fan-out.
+        wlb_scale = max(1, ceil((2 * (self.n_bits + 1) + 1) / 5.0))
         inv_wl_en_bar = Pinv(
             nmos_model="NMOS_VTG",
             pmos_model="PMOS_VTG",
@@ -904,7 +905,18 @@ class TIME(BaseSubcircuit):
         self.X('inv_rbl_delay_bar',
                inv_rbl_delay_bar.NAME,
                'VDD', 'VSS', 'rbl_delay', 'rbl_delay_bar')
-        
+
+        # Write-request hold latch (V2.1.4).  `we` is registered on the rising
+        # clock edge that also ends the access.  At FF 1.1 V / -40 C the
+        # register output changed 20 ps after clk_buf but the access request
+        # fell only after 38 ps (82 and 133 ps at SS), so at a read-to-write
+        # boundary w_en = request & we pulsed to 0.38-0.72 V while the read
+        # wordline was still on.  Like the address bits, the request is held
+        # by a latch that is transparent while wl_en is low; wl_en falls only
+        # after the request, so w_en and s_en now end with the request alone.
+        self.X('we_hold', addr_latch.NAME,
+               'VDD', 'VSS', 'we', 'wl_en_bar', 'we_hold', 'we_hold_bar')
+
         # Write enable shares the precharge-qualified wordline request and
         # remains active until the raw clock-low request ends.
         #
@@ -941,12 +953,12 @@ class TIME(BaseSubcircuit):
             wen_src = 'w_en'
             self.X('w_en',
                    w_en.NAME,
-                   'VDD','VSS' , access_request ,'we', 'w_en' )
+                   'VDD','VSS' , access_request ,'we_hold', 'w_en' )
         else:
             wen_src = 'w_en_unbuf'
             self.X('w_en',
                    w_en.NAME,
-                   'VDD','VSS' , access_request ,'we', 'w_en_unbuf' )
+                   'VDD','VSS' , access_request ,'we_hold', 'w_en_unbuf' )
             wen_buf = TaperedBuffer('WEN_BUF', effort_based=effort_buffers, drive_scale=ceil(self.wen_load / wen_effort), load_units=self.wen_load)
             self.subcircuit(wen_buf)
             self.X('w_en_buf', wen_buf.NAME, 'VDD', 'VSS', 'w_en_unbuf', 'w_en')
@@ -977,12 +989,12 @@ class TIME(BaseSubcircuit):
             sen_src = 's_en'
             self.X('s_en',
                    s_en.NAME,
-                   'VDD','VSS' ,'rbl_delay', access_request ,'we_bar' ,'s_en' )
+                   'VDD','VSS' ,'rbl_delay', access_request ,'we_hold_bar' ,'s_en' )
         else:
             sen_src = 's_en_unbuf'
             self.X('s_en',
                    s_en.NAME,
-                   'VDD','VSS' ,'rbl_delay', access_request ,'we_bar' ,'s_en_unbuf' )
+                   'VDD','VSS' ,'rbl_delay', access_request ,'we_hold_bar' ,'s_en_unbuf' )
             sen_buf = TaperedBuffer('SEN_BUF', effort_based=effort_buffers, drive_scale=ceil(sen_load / sen_effort), load_units=sen_load)
             self.subcircuit(sen_buf)
             self.X('s_en_buf', sen_buf.NAME, 'VDD', 'VSS', 's_en_unbuf', 's_en')

@@ -445,9 +445,13 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         """End of the transient analysis (see add_analysis).
 
         Include the complete final restore phase of the eight-cycle sequence.
+        Round up onto the output interval (t_step): Xyce prints on that grid,
+        and an off-grid stop (1 ns + 8.7 * 4.75 ns = 42.325 ns on 2 ps, V2.1.4)
+        ended some traces with the final time printed twice.
         """
         cycles = 8.7 if operation == 'read&write' else 2
-        return 1.0 @ u_ns + cycles * float(self.t_period)
+        step = float(self.t_step)
+        return ceil((1e-9 + cycles * float(self.t_period)) / step - 1e-6) * step
 
     def _add_access_checks(self, simulator, operation, q, qb):
         """Check data at the frozen deadline and retention before the next access.
@@ -778,8 +782,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'.DC U -{u_tmp:.2f} {u_tmp:.2f} 0.001\n'
         else:
             t_stop = self._analysis_stop(operation)
+            # .4e keeps 1 ps below 100 ns; print more digits only when it would move the stop.
+            stop_text = f'{t_stop:.4e}' if abs(float(f'{t_stop:.4e}') - t_stop) < 1e-18 else f'{t_stop:.9e}'
             max_step = '' if self.t_max_step is None else f' 0 {float(self.t_max_step):.4e}'
-            circuit.raw_spice += f'.TRAN {float(self.t_step):.4e} {t_stop:.4e}{max_step}\n'
+            circuit.raw_spice += f'.TRAN {float(self.t_step):.4e} {stop_text}{max_step}\n'
             # Timing interval option is set only in .TRAN analysis.
             circuit.raw_spice += \
                 f'.OPTIONS OUTPUT INITIAL_INTERVAL={float(self.t_step):.4e}\n'
