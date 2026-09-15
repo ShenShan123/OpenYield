@@ -62,7 +62,8 @@ per-device pilot to ten seeds.
   evidence run. The FF −40 °C write-enable spike recurs at 0.38 to 0.72 V
   over seven new seeds with no check failing (open TIME item). The 6T ladder
   is unchanged and not re-evidenced under mismatch at its 128- and 256-row
-  bounds (203 and 175 ps nominal).
+  bounds (203 and 175 ps nominal). These and the other open items are
+  collected in the [V2.1.3 open items](plans/V2_1_3_OPEN_ITEMS.md).
 - Validation: 129 compiler tests on Python 3.11 and 3.9, 54 development and
   six optimizer tests, compileall and `git diff --check`. Eight decks compared
   against a detached `e26a7ec` worktree: the four 6T decks are byte-identical

@@ -66,6 +66,7 @@ The following commands require the ignored `dev/` workspace:
 | `dev/summarize_qualification.py` | Aggregate campaign checkpoints with on-disk reruns and `retry_dcop` results (V2.0.9 evidence summary) |
 | `dev/v212_followup_report.py` | Summarize the V2.1.2 Phase 4/5 queues and fixed-clock diagnostics into `followup-summary.json` and a Markdown table; `--base`, `--queues`, `--diagnostics`, `--version` and `--plan` select another campaign root (V2.1.3 10T-mux budget) |
 | `dev/v212_followup_plots.py` | Write-capture plots of selected V2.1.2 follow-up cases; `--base` and `--select queue:case` plot another campaign's cases |
+| `dev/v213_sense_timing.py` | Request-to-sense-enable, request-to-output and deadline-margin measurements per read cycle from a validator case directory (the sense-timing columns of the V2.1.3 10T budget record) |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash

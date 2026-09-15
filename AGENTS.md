@@ -2,6 +2,8 @@
 
 This project is a open-source SRAM compiler for yield estimation and transistor sizing optimizations. The main functions include SRAM netlist generation with distributed RC loads, global and local process variations, and full DC/TRAN analyses. `REDAME.md` in both root and sub-folders are the tutorials for this projects. `docs/CHANGELOG.md`is per release (V2.x.x).`AGENTS.md` holds the detailed working conventions.
 
+Current release: **V2.1.3** (separate, evidenced timing budget for 10T cells with or without a column mux in `sram_compiler/sizing/timing_lookup.json`; 6T decks, the shared classes, driver sizes and checks are unchanged; ten-seed per-device pilot). Open items with their evidence and next steps are in `docs/plans/V2_1_3_OPEN_ITEMS.md`: 6T with a column mux fails 2 of 3 mismatch seeds at the shared 4 ns class and needs its own variant and evidence run; the FF −40 °C write-enable spike; the shared 6T ladder's class-bound margins; the 10T read-disturb bump that sets the 512-row 10T clock.
+
 ## Purpose and architecture
 
 * Data flow: YAML in `sram_compiler/config_yaml/` -> `SRAM_CONFIG` (`sram_compiler/config_yaml/config.py`; root `config.py` re-exports it) -> factories in `sram_compiler/testbenches/parameter_factor.py` -> subcircuits in `sram_compiler/subcircuits/` (all derive from `BaseSubcircuit`, which owns the RC helper)-> `Sram6TCoreTestbench` (array, replica column, decoder, wordline drivers, TIME block, column periphery) -> `Sram6TCoreMcTestbench` (variation, stimuli, `.MEASURE`/`.PRINT`, Xyce execution, result parsing) -> metrics consumed by `size_optimization/exp_utils.py` (optimizer objective) or `yield_estimation/`.

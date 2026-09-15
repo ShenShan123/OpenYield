@@ -18,7 +18,8 @@ column mux) after its own [evidence run](design/TIMING_10T_BUDGET_V2_1_3.md):
 row classes 2000/2200/2400/3200/5600 ps and column classes 200 ps above the
 shared ladder, with at least 250 ps of read-output margin at every class
 bound; the ten-seed per-device pilot is recorded there too. 6T decks and the
-shared classes are unchanged.
+shared classes are unchanged. What it left open, with evidence and next
+steps, is in the [V2.1.3 open items](plans/V2_1_3_OPEN_ITEMS.md).
 
 Working plans (`plans/`), design and validation records (`design/`) and the
 release history live here. The [qualification scope](plans/V2_1_2_QUALIFICATION_SCOPE.md)

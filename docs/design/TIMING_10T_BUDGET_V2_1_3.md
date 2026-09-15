@@ -20,7 +20,8 @@ of a sequence; "deadline margin" is its distance to the 1.2 T data deadline.
 The independent validator samples the output and the storage nodes 0.015 T
 before the deadline, so a deadline margin below about 60 ps fails its output
 check. The measurements come from the retained `.prn` traces (`S_EN`,
-`XSENSEAMP_*:EN_end`, `OUT`, `WL_EN`, replica bitline).
+`XSENSEAMP_*:EN_end`, `OUT`, `WL_EN`, replica bitline) through the local
+`dev/v213_sense_timing.py`.
 
 ## 1. Why the shared class was exhausted, and why two 10T ladders were rejected
 
