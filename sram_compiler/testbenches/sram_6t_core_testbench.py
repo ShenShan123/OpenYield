@@ -11,6 +11,7 @@ from sram_compiler.testbenches.base_testbench import BaseTestbench  # type: igno
 from math import ceil, log2
 from copy import copy
 from sram_compiler.interconnect import resolve_interconnect, add_tapped_line, cell_wire_nodes
+from sram_compiler.equivalent_modeling import resolve_equivalent
 from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
 from sram_compiler.sizing.table import physical_context
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Cell
@@ -19,7 +20,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     def __init__(self, sram_config, sram_cell_type="SRAM_6T_CELL",
                  w_rc=False, pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
                  custom_mc: bool = False,sweep_cell: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
-                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,real_cell_mode:int = 0,
+                 sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,real_cell_mode:int = None,
                  q_init_val: int = 0, sim_path: str = '', next_row: int = None,
                  driver_sizes=None, timing_config=None, temperature=None, interconnect=None
                  ):
@@ -29,6 +30,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.temperature = global_cfg.temperature if temperature is None else temperature
         self.interconnect = resolve_interconnect(
             getattr(global_cfg, 'interconnect', None) if interconnect is None else interconnect)
+        # Equivalent cells are a simulation input: global.yaml carries the
+        # default, an explicit real_cell_mode overrides it (as for interconnect).
+        self.equivalent = resolve_equivalent(
+            getattr(global_cfg, 'equivalent', None) if real_cell_mode is None else real_cell_mode)
+        real_cell_mode = self.equivalent.mode
 
         super().__init__(
             f'SRAM_6T_CORE_{global_cfg.num_rows}x{global_cfg.num_cols}_TB',

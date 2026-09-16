@@ -1,4 +1,4 @@
-# V2.1.3 open items — status after V2.1.4
+# V2.1.3 open items — status after V2.1.5
 
 Written September 15, 2026 after the V2.1.3 release (`6c619ab`): everything the
 [10T timing budget record](../design/TIMING_10T_BUDGET_V2_1_3.md) found but
@@ -8,10 +8,11 @@ change, as the [V2.1.1 plan](V2_1_1_TIMING_FOLLOWUP.md) and the
 [qualification scope](V2_1_2_QUALIFICATION_SCOPE.md) require.
 
 **V2.1.4 (September 15, 2026) closed the 6T items 1 to 3** with the
-[6T budget record](../design/TIMING_6T_BUDGET_V2_1_4.md); the 10T items 4
-and 5 are the next round, joined by item 7, which the V2.1.4 TIME change
-created. Waveform paths below are relative to the ignored
-`outputs/validation/` directory; each case directory holds `deck.sp`,
+[6T budget record](../design/TIMING_6T_BUDGET_V2_1_4.md).
+**V2.1.5 (September 16, 2026) closed the 10T items 4, 5 and 7** in one round
+with the [10T record](../design/TIMING_10T_BUDGET_V2_1_5.md). Only the carried
+Phase 6 scope (item 6) is still open. Waveform paths below are relative to the
+ignored `outputs/validation/` directory; each case directory holds `deck.sp`,
 `deck.sp.prn`, `result.json` and `xyce.log`.
 
 | Item | Status | Where |
@@ -19,11 +20,12 @@ created. Waveform paths below are relative to the ignored
 | 1. 6T with a column mux needs its own budget | Closed in V2.1.4 | `SRAM_6T_CELL` mux variant, section 2 of the 6T record |
 | 2. FF −40 °C write-enable spike | Closed in V2.1.4 (bug fixed) | TIME write-request hold latch, section 1 |
 | 3. Shared 6T ladder margins | Closed in V2.1.4 (classes raised) | Shared row classes, sections 2 and 3 |
-| 4. 10T read-disturb bump | Open (10T round) | below |
-| 5. 10T classes without mismatch evidence | Open (10T round) | below |
+| 4. 10T read-disturb bump | Closed in V2.1.5 (10T pull-down resized) | below, and sections 1 and 2 of the 10T record |
+| 5. 10T classes without mismatch evidence | Closed in V2.1.5 (seeds added) | below, and section 4 of the 10T record |
 | 6. Phase 6 scope | Open, unchanged | below |
-| 7. 10T evidence predates the TIME latch | Open (10T round, new) | below |
+| 7. 10T evidence predates the TIME latch | Closed in V2.1.5 (matrix re-run) | below, and sections 3 and 4 of the 10T record |
 | Found during V2.1.4: duplicated final waveform sample | Fixed in V2.1.4 (bug) | below, and section 6 of the 6T record |
+| Found during V2.1.5: a table variant could ask for less time than the shared ladder | Fixed in V2.1.5 (bug) | below |
 
 ## 1. 6T with a column mux needs its own timing budget — closed
 
@@ -163,7 +165,7 @@ Final evidence: all 21 reruns pass (116,295 of 116,295 checks); their decks
 stop at 42.326 ns and their traces end at 42.324 and 42.326 ns
 (`V2.1.4-6t-timing/fix-*-queue/`).
 
-## 4. 10T read-disturb bump (cell-level observation) — open
+## 4. 10T read-disturb bump (cell-level observation) — closed
 
 Evidence: during a read the 10T cell's low storage node rises to 0.196 V
 (0.131 V for 6T) and decays only as the bitline discharges. At 512 rows
@@ -172,22 +174,53 @@ at 11 ns against the 0.1 VDD tolerance; 0.051 V at 14 ns). At 256 rows Q is
 0.06 V at 8 ns. For comparison, the 512x4 6T mux read of V2.1.4 settles Q to
 0.063 V at 9 ns.
 
-Proposal: this is a property of the 10T cell as sized in
-`sram_compiler/config_yaml/` (read-port and pull-down widths), not of the
-timing. Either accept the 14 ns class for 512-row 10T arrays or size the
-10T read path in a separate, evidenced cell change; a cell width change
-alters every 10T deck and needs the 10T boundary run again.
+Root cause (a sizing choice, not a bug): the 10T cell pulls its storage node
+down through two stacked NMOS (`MNL1` in series with `MNL2`) where 6T has one,
+and the Schmitt feedback device on the disturbed side is off during the
+disturb, so the bump is the read current through twice the pull-down
+resistance of a 6T cell of the same width — and the tracked 10T cell used the
+6T pull-down width, 205 nm.
 
-## 5. 10T classes without mismatch evidence — open
+Resolution: `sram_10t_cell.yaml` widens the pull-down to 287 nm (1.4x, with the
+usual ±20 % optimizer bounds) and `timing_lookup.json` `v2.1.5-timing-4` drops
+the 10T 512-row budget from 5600 ps (14 ns) to 4000 ps (10 ns). Three
+candidates were screened at SS 0.9 V / 125 °C with the probe-only `cell_widths`
+key of the local validator (`V2.1.5-10t/probe-*`), all at the same wires,
+driver classes and clocks:
+
+| 10T pull-down | Bump peak, 16x16 | 512x4 mux read at 11 ns: Q at deadline (tolerance 0.090 V) | 512x4 output margin | 128x8 output margin at 6 ns | Read SNM | Write SNM | Bitcell area |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 205 nm (V2.1.3) | 0.190 V | 0.1001 V, **fails** two storage checks | 560 ps | 282 ps | 240.9 mV | 370.1 mV | 1.194 µm² |
+| **287 nm (V2.1.5)** | **0.155 V** | **0.0556 V, passes** | **958 ps** | **438 ps** | **251.6 mV** | **354.6 mV** | **1.391 µm² (+16.5 %)** |
+| 369 nm (rejected) | 0.131 V | 0.0349 V, passes | 1,172 ps | 522 ps | 261.0 mV | 343.4 mV | 1.588 µm² (+33 %) |
+
+The 369 nm candidate also passes 512x4 at 9.5 ns and 10 ns
+(`probe-M1`, `probe-M2`) and was rejected because the extra 16.5 % of bitcell
+area on every 10T array buys one 200 ps class step at 512 rows only. The
+287 nm cell carries 244 ps of settling margin and 408 ps of output margin at
+its adopted 10 ns class; the final evidence is section 3 of the
+[10T record](../design/TIMING_10T_BUDGET_V2_1_5.md). The resize also moves the
+read output about 400 ps earlier at every height, so the classes below 512 rows
+now hold well over the 250 ps rule; spending that is a later round's job with
+its own evidence.
+
+## 5. 10T classes without mismatch evidence — closed
 
 Evidence: mismatch seeds cover the 32- and 64-row 10T bounds and 8x4. The
 128-row bound keeps 282 ps nominal at 6 ns (the smallest 10T margin), the
 256-row bound 529 ps at 8 ns, the column bounds 397 ps or more; none has
 seeds. Ten seeds bound a failure rate only to 26 % at 95 % confidence.
 
-Proposal: three seeds at 128x8 (about 15 minutes each on one rank) in the
-10T round, together with item 7; the full statistical question belongs to
-the yield estimator brief.
+Resolution: the V2.1.5 round runs 25 per-device seeds on the released sources
+(`V2.1.5-10t/pd-Q1..Q10`), all of which pass: the 128-row bound gets the three
+seeds this item asked for, with a mux (266–543 ps of read-output margin) and
+without one (474–648 ps); the 32-row bound keeps its three (360–407 ps), the
+64-row bound its three (440–542 ps) and the 8x4 mux sequence its ten
+(566–665 ps), all repeated on the resized cell; and the new FF −40 °C sequence
+gets three. The 266 ps sample (128x8 with a mux, seed 20261002) is the tightest
+of the round and still above the 250 ps rule. Ten seeds remain a pilot, not a
+yield statement — that is still the yield-estimator brief of item 6. Table in
+section 4 of the [10T record](../design/TIMING_10T_BUDGET_V2_1_5.md).
 
 ## 6. Carried from the Phase 6 scope — open
 
@@ -196,7 +229,7 @@ extracted-metal inputs before any timing qualification; the half-select
 write architecture; the yield-estimator repairs. The qualification matrix's
 array classes are per architecture: shared (6T), 6T with a mux, and 10T.
 
-## 7. 10T evidence predates the V2.1.4 TIME latch — open (new)
+## 7. 10T evidence predates the V2.1.4 TIME latch — closed
 
 The write-request hold latch is in the TIME block that 10T arrays share. The
 10T clocks are unchanged and the 10T decks differ only in TIME
@@ -205,10 +238,40 @@ waveform record ran the old TIME block. V2.1.4 ran one 10T smoke case, the
 8x4 10T mux SS sequence of the write gate (passed 1,303 checks, 548 ps of
 read-output margin at 5 ns, boundary write-enable peak 6 mV).
 
-Proposal: in the 10T round, rerun the V2.1.3 10T boundary matrix and seeds
-(`V2.1.3-10t-mux-budget/final2-*-cases.json`, `pd2-Q1..Q5`) on the current
-sources with the new quiet checks, add an FF −40 °C 10T sequence, and
-combine it with items 4 and 5. About 3.5 hours on eight ranks.
+Resolution: the V2.1.5 round reran the whole V2.1.3 10T boundary matrix and its
+seeds on the released sources with the V2.1.4 TIME block and the V2.1.4 quiet
+checks, and added the FF 1.1 V / −40 °C sequences the 10T rounds had never run
+(8x4 10T and 8x8 10T with a mux, nominal plus three seeds). **45 of 45
+attempts and 173,193 of 173,193 checks pass.** The cold sequences keep boundary
+write-enable peaks of 6 to 7 mV and sense-enable peaks of 1 mV, the same
+magnitudes the 6T record measured after the latch. Every 10T class bound also
+holds more read-output margin than it did in V2.1.3, because the item-4 cell
+resize speeds the read path up; no class below 512 rows moved. Tables in
+sections 3 and 4 of the [10T record](../design/TIMING_10T_BUDGET_V2_1_5.md).
+
+## Found during V2.1.5: a table variant could ask for less time than the shared ladder — fixed
+
+Evidence: with the new 10T ladder (rows 2000/2200/2400/3200/4000 ps) a
+513-row 10T array resolved to 12.5 ns while the same 6T array resolved to
+13 ns. Both are beyond the last anchor and flagged `extrapolated`, so neither
+carries evidence, but a 10T array clocking faster than 6T contradicts the
+reason the 10T variant exists.
+
+Root cause (a bug): `timing_lookup.json`'s policy says a variant "may never
+fall below the shared budget", and `load_timing_lookup` enforces that at every
+tabulated anchor. Beyond the last anchor each ladder extrapolates its *own*
+final ratio, and the 10T ratio (4000/3200 = 1.25) is now flatter than the
+shared one (3600/2500 = 1.44), so the floor stopped holding exactly where
+there is no evidence. The same anomaly already existed for 6T with a mux
+(2700 → 3600 ps, ratio 1.33): at 513 rows it asked for 12 ns against the
+shared 13 ns, and `tests/test_timing_lookup.py` had worked around it with an
+`if rows <= 512` guard.
+
+Resolution: `resolve_timing()` floors every variant class at the shared class
+of the same size, so the policy holds at any size. Only extrapolated sizes
+move, and only upwards; every tabulated class is unchanged. The test now
+asserts the invariant without a guard, plus a dedicated case over 513 to 4,096
+rows and columns.
 
 ## Tooling left local
 
@@ -216,9 +279,14 @@ combine it with items 4 and 5. About 3.5 hours on eight ranks.
 output and the deadline margin per read cycle from a validator case
 directory; `dev/v214_boundary_enable.py` measures the WE, held-request,
 access-request and WL_EN edges and the write/sense-enable peaks at every
-access-ending clock edge (with a plot option); `dev/v212_followup_report.py`
-and `dev/v212_followup_plots.py` take `--base`/`--queues` and
-`--base`/`--select` for another campaign root. All stay under ignored
-`dev/`, listed in the [development guide](../DEVELOPMENT.md). The V2.1.4
-campaign scripts (`run_probe.sh`, `run_final.sh`, `gen_final_cases.py`,
-`assemble_record.py`) are in `V2.1.4-6t-timing/`.
+access-ending clock edge (with a plot option); `dev/v215_read_disturb.py`
+measures the read-disturb bump's peak, its value at the 1.2 T deadline and the
+time it needs to fall back inside the storage tolerance, and
+`dev/v215_10t_snm.py` compares hold/read/write SNM across cell candidates;
+`dev/v212_followup_report.py` and `dev/v212_followup_plots.py` take
+`--base`/`--queues` and `--base`/`--select` for another campaign root. All stay
+under ignored `dev/`, listed in the [development guide](../DEVELOPMENT.md). The
+V2.1.4 campaign scripts (`run_probe.sh`, `run_final.sh`, `gen_final_cases.py`,
+`assemble_record.py`) are in `V2.1.4-6t-timing/`; the V2.1.5 ones, plus
+`apply_release.py` (the tracked cell/table edit) and `compare_decks.py` (deck
+regeneration against another worktree), are in `V2.1.5-10t/`.

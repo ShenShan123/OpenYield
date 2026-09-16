@@ -25,7 +25,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                  vth_std=0.05, mc=True, enable_mc=None, custom_mc=False,
                  sweep_cell=False, sweep_precharge=False, sweep_senseamp=False, sweep_wordlinedriver=False,
                  sweep_columnmux=False, sweep_writedriver=False, sweep_decoder=False,
-                 corner='TT', choose_columnmux=True, real_cell_mode=0,
+                 corner='TT', choose_columnmux=True, real_cell_mode=None,
                  q_init_val=0, sim_path='sim', enable_waveform=True,
                  mc_seed=None, xyce_options=None, t_max_step=None, next_row=None,
                  driver_sizes=None, timing_config=None, variation_mode=None, temperature=None,
@@ -1153,6 +1153,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                            self.sram_config.global_config, f'pdk_path_{self.corner}')).read_bytes()).hexdigest(),
                        'driver_sizes': self.driver_sizes.to_dict(),
                        'timing': self.timing_config.to_dict(),
+                       'equivalent': self.equivalent.to_dict(),
                        'full_device_coverage': self.variation_mode == 'per-device'
                                                and self.real_cell_mode == 0}, f, indent=2)
         # assert 0

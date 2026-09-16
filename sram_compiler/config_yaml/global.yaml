@@ -30,6 +30,15 @@ sizing:
 timing:
   mode: lookup
   margin: 0.25
+# Equivalent array model (sram_compiler/equivalent_modeling/README.md).
+# 0 = full transistor array, the reference and the only mode whose per-device
+# mismatch covers every cell; 1 = cross (target row and column real), 2 = target
+# row, 3 = target column, 4 = target cell only. Modes 1-4 replace the remaining
+# cells with extracted loads, keep every physical wire, and are approximations:
+# never promote them to qualification evidence. `--real-cell-mode` and the
+# testbench argument override this default.
+equivalent:
+  mode: 0
 # Illustrative physical wires: 1 ohm / 0.1 fF per pitch, not foundry extraction.
 # Replace this geometry with extracted values before timing qualification.
 interconnect:

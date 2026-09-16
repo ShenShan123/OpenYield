@@ -194,6 +194,19 @@ def resolve_timing(config, driver_sizes, context=None):
     ladders, budget = _budget_ladders(table, driver_sizes.cell_type, driver_sizes.mux)
     row = interpolate_class(ladders['row_classes'], 'max_rows', ('half_period_ps',), driver_sizes.rows)
     col = interpolate_class(ladders['column_classes'], 'max_cols', ('half_period_ps',), driver_sizes.cols)
+    if ladders is not table:
+        # "A variant may never fall below the shared budget" holds at every
+        # size, not only at the tabulated anchors: beyond the last anchor each
+        # ladder extrapolates its own final ratio, and a variant whose ratio is
+        # flatter than the shared one would otherwise ask for less time than
+        # the architecture it was separated from (V2.1.5: the 10T ladder ends
+        # 3200 -> 4000 ps, the shared one 2500 -> 3600 ps).
+        for entry, group, bound, size in ((row, 'row_classes', 'max_rows', driver_sizes.rows),
+                                          (col, 'column_classes', 'max_cols', driver_sizes.cols)):
+            shared = interpolate_class(table[group], bound, ('half_period_ps',), size)
+            if shared['half_period_ps'] > entry['half_period_ps']:
+                entry['half_period_ps'] = shared['half_period_ps']
+                entry['extrapolated'] = entry['extrapolated'] or shared['extrapolated']
     half_ps = max(row['half_period_ps'], col['half_period_ps'])
     period = ceil(2 * half_ps * (1 + margin) / 50) * 50e-12
     return ArrayTiming(period, half_ps * 1e-12, half_ps * 1e-12, half_ps * 1e-12,

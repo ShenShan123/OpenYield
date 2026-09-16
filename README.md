@@ -87,7 +87,7 @@ lookup classes. See the [waveform review](docs/design/DISTRIBUTED_RC_V210_REVIEW
 for tested arrays and the wire configurations that remain unsafe.
 
 Documentation: [compiler guide](sram_compiler/README.md),
-[equivalent models](equivalent_modeling/README.md),
+[equivalent models](sram_compiler/equivalent_modeling/README.md),
 [sizing optimization](size_optimization/README.md),
 [yield estimation](yield_estimation/README.md), and
 [plans and release history](docs/README.md).
@@ -234,6 +234,7 @@ mc_testbench = Sram6TCoreMcTestbench(
     variation_mode='per-device',   # the default; 'nominal', 'shared', 'custom' are explicit
     mc_seed=20260711,              # reproducible sampling; None draws a new seed per run
     real_cell_mode=0,              # full array; 1-4 use the equivalent circuit for unused cells
+                                   # (None, the default, takes global.yaml's `equivalent` block)
     corner='TT',
     sim_path='sim/',
 )
@@ -261,15 +262,31 @@ Simulation outputs (netlists, waveforms, results) are saved to the `sim_path` di
 
 For large arrays, unused SRAM cells can be replaced with a compact 5-capacitor equivalent circuit to reduce simulation time.
 
-Set `real_cell_mode=1` (or modes 2–4) when creating the testbench. Mode `0` keeps the complete transistor array.
+V2.1.5 makes this a simulation input. `global.yaml` carries the default:
 
-To analyze and characterize the equivalent model for different array sizes:
-
-```bash
-python equivalent_modeling/main_sram.py
+```yaml
+equivalent:
+  mode: 0        # 0 = full transistor array (reference); 1-4 = equivalent cells
 ```
 
-This compares simulation results with and without the equivalent model across different array configurations. See [`equivalent_modeling/README.md`](equivalent_modeling/README.md) for the model description.
+`--real-cell-mode` on the command line, the `real_cell_mode` testbench argument
+and `REAL_CELL_MODE` in `main_sram.py` override it; `None` keeps the YAML value.
+Mode `0` keeps the complete transistor array and is the only mode whose
+per-device mismatch covers every cell, so modes 1–4 never carry qualification
+evidence. Modes 1–4 call Xyce during netlist generation to extract the cell
+parasitics, so Xyce must be on PATH even to build the deck.
+
+To measure the approximation against the full transistor array:
+
+```bash
+python3 -m sram_compiler.equivalent_modeling.compare --sizes 16x16,32x32 --modes 0,1,4 --plot
+```
+
+Results land in `outputs/equivalent_modeling/<timestamp>/` (`result.csv`,
+`result_diff.csv`, `settings.json`). See
+[`sram_compiler/equivalent_modeling/README.md`](sram_compiler/equivalent_modeling/README.md)
+for the model description and
+[the V2.1.5 record](docs/design/EQUIVALENT_MODEL_V2_1_5.md) for measured errors.
 
 #### Per-device process variation
 
@@ -299,7 +316,7 @@ Variation modes:
 
 `--vth-std` is the relative standard deviation used for all three varied parameters; the default is `0.05`.
 
-`real-cell-mode` remains `0` (full array), `1` (target-row/target-column cross), `2` (target row), `3` (target column), or `4` (target cell). In modes 1–4, replaced cells are represented by the existing equivalent circuit; retained cells and peripheral MOS devices receive per-device variation. Write simulation is available in all five modes. In modes 3 and 4, the target cell write transition remains transistor-level, while replaced cells contribute the equivalent RC and WL-controlled static-power model. Their internal write state and whole-row dynamic write power should therefore be treated as approximations rather than full-array transistor-level results.
+`real-cell-mode` is `0` (full array), `1` (target-row/target-column cross), `2` (target row), `3` (target column), or `4` (target cell); omitted, it takes the `equivalent` block of `global.yaml`, and the resolved mode is recorded in `summary.json`. In modes 1–4, replaced cells are represented by the existing equivalent circuit; retained cells and peripheral MOS devices receive per-device variation. Write simulation is available in all five modes. In modes 3 and 4, the target cell write transition remains transistor-level, while replaced cells contribute the equivalent RC and WL-controlled static-power model. Their internal write state and whole-row dynamic write power should therefore be treated as approximations rather than full-array transistor-level results.
 
 Generation is the default. Add `--run-xyce` to simulate or `--audit` to save model counts and hierarchy details. The runner accepts `read`, `write`, `read&write`, `hold_snm`, `read_snm`, and `write_snm`.
 
@@ -362,6 +379,8 @@ The parameter space is defined in `size_optimization/exp_utils.py`:
 `size_optimization/openyield_v2/` adds a separate surrogate-optimization path without changing the circuit generator or the existing optimization scripts. It includes NSGA2, SPEA2, UNSGA3, CTAEA, GPBO, PAREGO, MACE, and the proposed coarse-search/refinement method.
 
 The package reads `datasets/train_6t.csv` and `datasets/train_10t.csv`. These are static TT/25 °C samples generated with the equivalent circuit enabled and per-device variation disabled; they are not current per-device Monte Carlo results.
+
+`train_10t.csv` also predates the V2.1.5 10T pull-down resize: its `pd_width` column spans 164-246 nm, the old YAML bounds, while the tracked 10T cell is now 287 nm with bounds 230-344 nm. The offline 10T surrogate therefore describes a design space that barely overlaps the current default, and a 10T run of this package must either regenerate the dataset or be read as a study of the old cell. The 6T dataset is unaffected.
 
 ```bash
 python -m size_optimization.openyield_v2.run_experiment --dry-run
@@ -436,9 +455,6 @@ OpenYield/
 │   ├── MOBO/                     # MOBO implementation
 │   ├── moead/                    # MOEAD implementation
 │   └── openyield_v2/             # Offline evolutionary/Bayesian optimizer package and datasets
-├── equivalent_modeling/
-│   ├── README.md                 # Equivalent circuit modes and accuracy boundary
-│   └── main_sram.py              # Equivalent circuit analysis script
 ├── tran_models/                  # FreePDK45 transistor model files
 └── yield_estimation/             # Yield estimation algorithms
 ```
@@ -456,5 +472,16 @@ Contributions and reproducible issue reports are welcome.
 
 # Cite Us
 
-```
+```LaTeX
+@INPROCEEDINGS{OpenYield,
+  author={Shen, Shan and Li, Xingyang and Liu, Zhuohua and Ma, Junhao and Wang, Yikai and Wu, Yiheng and Sun, Yuquan and Xing, Wei W.},
+  booktitle={2025 IEEE 43rd International Conference on Computer Design (ICCD)},
+  title={OpenYield: An Open-Source SRAM Yield Analysis and Optimization Benchmark Suite},
+  year={2025},
+  volume={},
+  number={},
+  pages={167-175},
+  doi={10.1109/ICCD65941.2025.00030}
+}
+
 ```

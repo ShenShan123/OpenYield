@@ -69,7 +69,7 @@ class TimingLookupTests(unittest.TestCase):
         so a mux never gets a shorter clock than the same array without one."""
         cases = [(8, 4, 4.5, 4.75), (16, 16, 4.5, 4.75), (32, 16, 4.5, 4.75), (33, 16, 4.75, 5),
                  (64, 16, 4.75, 5), (128, 8, 5.25, 5.5), (256, 4, 6.25, 6.75), (512, 4, 9, 9),
-                 (16, 32, 4.5, 4.75), (8, 64, 5, 5), (8, 128, 6, 6), (8, 512, 8, 8), (513, 4, 13, 12)]
+                 (16, 32, 4.5, 4.75), (8, 64, 5, 5), (8, 128, 6, 6), (8, 512, 8, 8), (513, 4, 13, 13)]
         for rows, cols, plain_ns, mux_ns in cases:
             with self.subTest(rows=rows, cols=cols):
                 cfg = load_config(rows, cols, 'SS')
@@ -78,20 +78,24 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertAlmostEqual(plain.t_period / 1e-9, plain_ns)
                 self.assertAlmostEqual(muxed.t_period / 1e-9, mux_ns)
                 self.assertEqual((plain.budget, muxed.budget), ('shared', 'SRAM_6T_CELL/mux'))
-                self.assertEqual(muxed.table_version, 'v2.1.4-timing-3')
+                self.assertEqual(muxed.table_version, 'v2.1.5-timing-4')
                 self.assertEqual(muxed.extrapolated, rows > 512)
-                if rows <= 512:
-                    self.assertGreaterEqual(muxed.t_period, plain.t_period)
+                # V2.1.5: the variant floor makes this hold beyond the table too. The
+                # 6T-mux ladder ends 2700 -> 3600 ps against the shared 2500 -> 3600 ps,
+                # so without the floor a 513-row mux array asked for 12 ns and the same
+                # array without a mux for 13 ns.
+                self.assertGreaterEqual(muxed.t_period, plain.t_period)
 
     def test_10t_budget_grows_with_height_above_the_shared_ladder(self):
         """The 10T read port discharges the replica bitline about 1 ps per row slower than 6T and its
         sense path adds about 200 ps: the shared 4 ns class failed 16x16 10T with and without a mux,
         a flat 200 ps failed the 128x8 mux read at 5.5 ns and 32x16 failed a mismatch seed at 4.5 ns,
         so the row budget grows with height and keeps 250 ps at every class bound; at 512 rows the
-        10T read-disturb bump must also decay within the storage tolerance, which needs 14 ns."""
+        10T read-disturb bump must also decay within the storage tolerance, which the V2.1.5 10T
+        pull-down width reaches at 10 ns (14 ns with the V2.1.3 width)."""
         cases = [(8, 4, 5), (16, 16, 5), (32, 16, 5), (33, 16, 5.5), (16, 32, 5),
-                 (64, 16, 5.5), (128, 8, 6), (256, 4, 8), (512, 4, 14),
-                 (8, 64, 5.5), (8, 128, 6.5), (8, 512, 8.5), (513, 4, 24.5)]
+                 (64, 16, 5.5), (128, 8, 6), (256, 4, 8), (512, 4, 10),
+                 (8, 64, 5.5), (8, 128, 6.5), (8, 512, 8.5), (513, 4, 13)]
         for rows, cols, ns in cases:
             for mux in (True, False):
                 with self.subTest(rows=rows, cols=cols, mux=mux):
@@ -101,10 +105,35 @@ class TimingLookupTests(unittest.TestCase):
                     self.assertAlmostEqual(timing.t_period / 1e-9, ns)
                     self.assertEqual(timing.budget, 'SRAM_10T_CELL')
                     self.assertEqual(timing.extrapolated, rows > 512)
-                    self.assertEqual(timing.table_version, 'v2.1.4-timing-3')
+                    self.assertEqual(timing.table_version, 'v2.1.5-timing-4')
                     shared = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=mux))
-                    self.assertGreater(timing.t_period, shared.t_period)
                     self.assertEqual(shared.budget, 'SRAM_6T_CELL/mux' if mux else 'shared')
+                    # Inside the table a 10T array always gets more time than the same 6T
+                    # array. Beyond it each ladder extrapolates its own final ratio, and the
+                    # 10T ratio is now the flatter one, so the variant floor (never below the
+                    # shared budget) is what keeps 10T from clocking faster than 6T there.
+                    if timing.extrapolated:
+                        self.assertGreaterEqual(timing.t_period, shared.t_period)
+                    else:
+                        self.assertGreater(timing.t_period, shared.t_period)
+
+    def test_a_variant_never_asks_for_less_time_than_the_shared_ladder_it_left(self):
+        """The table policy says a variant may only add to the shared budget. It is validated at
+        the anchors, but a variant whose final ratio is flatter than the shared one would fall
+        below it under extrapolation: with the V2.1.5 10T ladder ending 3200 -> 4000 ps against
+        the shared 2500 -> 3600 ps, a 513-row 10T array resolved to 12.5 ns while the same 6T
+        array resolved to 13 ns. The resolver floors every variant class at the shared one."""
+        for rows, cols in ((513, 4), (1024, 4), (4096, 4), (8, 1024), (2048, 2048)):
+            cfg = load_config(rows, cols, 'SS')
+            for cell in ('SRAM_10T_CELL', 'SRAM_6T_CELL'):
+                for mux in (True, False):
+                    with self.subTest(rows=rows, cols=cols, cell=cell, mux=mux):
+                        variant = resolve_timing(cfg, resolve_driver_sizes(
+                            cfg, cell_type=cell, mux=mux))
+                        shared = resolve_timing(cfg, resolve_driver_sizes(
+                            cfg, cell_type='SRAM_6T_CELL', mux=False))
+                        self.assertGreaterEqual(variant.t_period, shared.t_period)
+                        self.assertTrue(variant.extrapolated)
 
     def test_injected_baseline_survives_candidates_and_rejects_changed_contract(self):
         cfg = load_config(8, 4, 'TT')
@@ -140,7 +169,7 @@ class TimingLookupTests(unittest.TestCase):
             previous = os.getcwd()
             try:
                 os.chdir(temp)
-                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.4')
+                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.5')
             finally:
                 os.chdir(previous)
         cfg.global_config.timing = {'mode': 'fixed', 't_period': 10e-9}
@@ -311,7 +340,7 @@ class TimingLookupTests(unittest.TestCase):
             second, repeated = run.generate_deck(args)
             self.assertNotEqual(first.parent, second.parent)
             self.assertEqual(evidence.read_text(), 'FAILED original')
-            self.assertEqual(summary['compiler_version'], 'V2.1.4')
+            self.assertEqual(summary['compiler_version'], 'V2.1.5')
             self.assertAlmostEqual(summary['timing']['t_period'], 4e-9)
             self.assertEqual(summary['timing']['source'], 'fixed')
             args.run_xyce = True

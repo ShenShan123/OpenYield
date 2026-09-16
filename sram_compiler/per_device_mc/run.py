@@ -20,6 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from PySpice.Unit import u_Ohm, u_pF  # type: ignore  # noqa: E402
 
 from sram_compiler.config_yaml.config import SRAM_CONFIG  # type: ignore  # noqa: E402
+from sram_compiler.equivalent_modeling import resolve_equivalent
 from sram_compiler.interconnect import load_interconnect, resolve_interconnect
 from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
 from sram_compiler.sizing.table import physical_context
@@ -230,6 +231,10 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
     if wire_file is not None:
         config.global_config.interconnect = load_interconnect(wire_file)
     interconnect = resolve_interconnect(config.global_config.interconnect)
+    # None keeps the global.yaml `equivalent` block; the option overrides it.
+    equivalent = resolve_equivalent(config.global_config.equivalent
+                                    if args.real_cell_mode is None else args.real_cell_mode)
+    args.real_cell_mode = equivalent.mode
     cell_type = config.global_config.sram_cell_type
     custom_vars = (
         get_custom_vars(config, cell_type) if args.variation_mode == "custom" else None
@@ -332,6 +337,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         "target_col": target_col,
         "operation": args.operation,
         "real_cell_mode": args.real_cell_mode,
+        "equivalent": equivalent.to_dict(),
         "variation_mode": args.variation_mode,
         "mc_runs": mc_runs,
         "corner": args.corner,
@@ -390,7 +396,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-row", type=int)
     parser.add_argument("--target-col", type=int)
     parser.add_argument("--operation", choices=OPERATIONS, default="read")
-    parser.add_argument("--real-cell-mode", type=int, choices=range(5), default=0)
+    parser.add_argument("--real-cell-mode", type=int, choices=range(5), default=None,
+                        help="equivalent array model; default: the global.yaml `equivalent` block "
+                             "(0 = full transistor array, 1-4 replace unused cells, an approximation)")
     parser.add_argument(
         "--variation-mode", choices=VARIATION_MODES, default="per-device"
     )

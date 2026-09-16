@@ -97,6 +97,10 @@ OpenYield/
 │   │   ├── netlist.py                  # Independent model specialization per retained MOS
 │   │   └── sampling.py                 # Materialized local draws for MPI execution
 │   ├── sizing/                         # Fixed driver size classes, measured timing, and qualified-table lookup
+│   ├── equivalent_modeling/            # Equivalent array model as a simulation input
+│   │   ├── README.md                   # Modes, accuracy boundary, and the YAML/CLI/API option
+│   │   ├── __init__.py                 # EquivalentConfig and resolve_equivalent (mode validation)
+│   │   └── compare.py                  # Accuracy and runtime measurement against the full array
 │   ├── config_yaml/                     # Global and module-level YAML parameter files
 │   │   ├── global.yaml
 │   │   ├── config.py                    # YAML loader that converts data into dot-accessible config objects
@@ -265,7 +269,7 @@ Each YAML file under `sram_compiler/config_yaml/` corresponds to one module:
 
 | File | Purpose |
 | --- | --- |
-| `global.yaml` | Global simulation parameters, PVT, array size, MC runs, and PDK paths |
+| `global.yaml` | Global simulation parameters, PVT, array size, MC runs, PDK paths, and the `sizing` / `timing` / `interconnect` / `equivalent` blocks |
 | `sram_6t_cell.yaml` | 6T cell sizes, threshold models, sweep vectors, and process-parameter table |
 | `sram_10t_cell.yaml` | 10T cell sizes, threshold models, sweep vectors, and process-parameter table |
 | `wordline_driver.yaml` | Wordline driver NAND/INV sizes and models |
@@ -347,7 +351,11 @@ Meanings:
 - `mc` / `custom_mc`: Derived from `variation_mode`; the testbench rejects inconsistent combinations.
 - `mc_seed`: Xyce sampling seed; `None` draws a new seed every run.
 - `sweep_*`: Enable parameter sweep for the corresponding module (not combinable with per-device mismatch).
-- `real_cell_mode`: `0` keeps the full transistor array; `1`-`4` replace unused cells with the equivalent circuit.
+- `real_cell_mode`: `0` keeps the full transistor array; `1`-`4` replace unused cells
+  with the equivalent circuit. `None` (the default) takes the `equivalent` block of
+  `global.yaml`; the resolved selection is on the testbench as `equivalent` and in every
+  run record. Modes `1`-`4` are approximations and call Xyce during netlist generation
+  (see [equivalent_modeling/README.md](equivalent_modeling/README.md)).
 - `q_init_val`: Initial stored value of the target cell.
 - `t_max_step`, `xyce_options`: Xyce solver knobs (see 13.1).
 - `next_row`: row address captured at the clock edge that ends a `read` / `write`
@@ -663,7 +671,9 @@ Try the following first:
 
 - Reduce `num_rows` / `num_cols`.
 - Set `monte_carlo_runs` to 1.
-- Set `REAL_CELL_MODE = 1` (equivalent cells for the unused array).
+- Set `REAL_CELL_MODE = 1`, `--real-cell-mode 1`, or `equivalent: {mode: 1}` in
+  `global.yaml` (equivalent cells for the unused array; an approximation, so measure it
+  with `python3 -m sram_compiler.equivalent_modeling.compare` before trusting it).
 - For large arrays, run only one of `read` or `write` first, instead of enabling all sweep switches at the beginning.
 - Keep `w_rc=False` for quick functional verification, then enable RC later.
 

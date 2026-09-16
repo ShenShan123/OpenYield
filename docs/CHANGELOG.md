@@ -7,6 +7,86 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.5 — 2026-09-16 — equivalent model as an input; 10T read-path resize
+
+V2.1.5 merges the top-level `equivalent_modeling/` directory into
+`sram_compiler/` and makes the equivalent array model a first-class simulation
+input, and closes the 10T items (4, 5 and 7) of the
+[V2.1.3 open items](plans/V2_1_3_OPEN_ITEMS.md) with its own
+[evidence run](design/TIMING_10T_BUDGET_V2_1_5.md). It changes the 10T cell and
+the 512-row 10T clock; 6T decks, driver size classes and the TIME circuit are
+unchanged. Against a detached `acec3be` worktree, the merge alone leaves all
+nine reference decks byte-identical; with the cell resize the five 6T decks
+stay identical and the four 10T decks differ only in the eleven pull-down
+widths of the array and replica cells (22 lines; the 512-row clock is the only
+timing change). See `outputs/validation/V2.1.5-10t/deck-comparison/`.
+
+- Equivalent model (`sram_compiler/equivalent_modeling/`): the package holds
+  `EquivalentConfig` / `resolve_equivalent` (modes 0-4, validated once and
+  recorded), the accuracy and runtime entrance `compare.py`, and the guide that
+  was `equivalent_modeling/README.md`. `global.yaml` gains an `equivalent:`
+  block; `--real-cell-mode`, the `real_cell_mode` testbench argument and
+  `REAL_CELL_MODE` in `main_sram.py` default to `None` and take that block,
+  exactly as `interconnect` already worked. Run records (`summary.json`,
+  `*.variation.json`, the validator's `result.json`) carry the resolved
+  `equivalent` block, and `full_device_coverage` still requires mode 0.
+  The old `equivalent_modeling/main_sram.py` (which called the removed
+  `enable_mc=` API) and its `run.sh` and notebook are replaced by
+  `python3 -m sram_compiler.equivalent_modeling.compare`.
+  Measured against mode 0 at TT 1.0 V / 25 °C
+  ([record](design/EQUIVALENT_MODEL_V2_1_5.md)): read and write delay stay
+  within 0.21 % and 0.48 % in every mode; average power stays within 0.4 % in
+  the modes that keep the whole target row (1 and 2) but falls 7 to 8 % in the
+  modes that keep only the target column or cell (3 and 4); the static-power
+  term is unusable (−27 % in mode 1, sign-flipped in mode 2). The runtime gain
+  grows with the array — for the cross mode, +31 % (slower) at 8x8, −16 % at
+  16x16 and −37 % at 32x32, where the target-cell mode reaches −51 % — because
+  the netlist-time Xyce extraction cost is roughly fixed while the removed
+  transistors are not. That is not the order-of-magnitude figure the old
+  documentation carried, which came from a topology that aggregated the omitted
+  cells' wire loads; V2.1.1 keeps every wire segment.
+- 10T cell (`sram_compiler/config_yaml/sram_10t_cell.yaml`): the pull-down
+  width becomes 287 nm (was 205 nm, the 6T single-pull-down width), with the
+  usual ±20 % optimizer bounds. Reason: the 10T cell pulls its storage node
+  down through two stacked NMOS, so the read-disturb bump is the read current
+  through twice a 6T pull-down resistance. At SS 0.9 V / 125 °C the bump peaked
+  at 0.196 V (0.131 V for 6T) and a 512-row bitline left the node at 0.100 V at
+  the 11 ns deadline against the 0.1 VDD storage tolerance. The wider stack
+  drops the peak to 0.161 V and the 512-row deadline value to 0.056 V, moves
+  the read output about 400 ps earlier at every height (the 128x8 bound gains
+  156 ps, from 282 to 438 ps), and raises read SNM by 11 mV while costing
+  16 mV of write SNM and 16.5 % of bitcell area (1.194 → 1.391 µm²).
+- `timing_lookup.json` `v2.1.5-timing-4`: the `SRAM_10T_CELL` 512-row row
+  budget becomes 4000 ps (10 ns, was 5600 ps / 14 ns). Every other class is
+  unchanged; the resize leaves them with more margin than the 250 ps rule
+  needs, which a later round can spend with its own evidence.
+- Fix (`sram_compiler/sizing/timing.py`): a variant class is floored at the
+  shared class at every size, not only at the tabulated anchors. Beyond the
+  last anchor each ladder extrapolates its own final ratio, and the V2.1.5 10T
+  ladder ends 3200 → 4000 ps against the shared 2500 → 3600 ps, so a 513-row
+  10T array resolved to 12.5 ns while the same 6T array resolved to 13 ns —
+  a variant asking for less time than the architecture it was separated from.
+  The same anomaly existed for 6T-with-mux (12 ns against 13 ns) and a test had
+  worked around it. Only extrapolated (already flagged, unevidenced) sizes move.
+- Known staleness surfaced by the resize: `size_optimization/openyield_v2/datasets/train_10t.csv`
+  was sampled over the old 10T bounds (`pd_width` 164-246 nm) and is not
+  regenerated here, so the offline 10T surrogate now describes a design space
+  that barely overlaps the tracked cell. Recorded in the README; the 6T dataset
+  is unaffected.
+- Tests: the equivalent option from YAML, CLI and API with its provenance
+  (`tests/test_equivalent_modeling.py`); the new 10T classes and table version;
+  the variant floor beyond the table; the entrance default.
+- Evidence ([record](design/TIMING_10T_BUDGET_V2_1_5.md) and its tables): on
+  the released sources **45 of 45 attempts and 173,193 of 173,193 checks pass**
+  — 20 nominal 10T class-bound cases at SS 0.9 V / 125 °C (SF for the write,
+  FF 1.1 V / −40 °C for two sequences the V2.1.3 round never ran), including
+  the 512-row bound at its new 10 ns class, and 25 mismatch seeds (the V2.1.3
+  32- and 64-row seeds and ten-seed 8x4 pilot repeated on the new cell, plus
+  three seeds at the 128-row bound and three on the FF −40 °C sequence). No
+  class bound keeps less than 438 ps of read-output margin nominally, and the
+  tightest sample of the round is 266 ps. One per-device case took the
+  runtime's single timestep retry and then passed; no solver aborted.
+
 ## V2.1.4 — 2026-09-15 — 6T timing: write-request hold latch and 6T ladders
 
 V2.1.4 closes the 6T items of the [V2.1.3 open items](plans/V2_1_3_OPEN_ITEMS.md)

@@ -1,4 +1,4 @@
-# OpenYield V2.1.4 documentation
+# OpenYield V2.1.5 documentation
 
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
@@ -26,7 +26,17 @@ V2.1.4 closes the 6T open items there with its own
 in TIME removes the FF −40 °C write-enable spike, the shared 6T row classes
 become 1800/1900/2100/2500/3600 ps and 6T with a column mux gets a variant
 (rows 1900/2000/2200/2700/3600 ps), both keeping 250 ps of read-output margin
-at every class bound. The 10T items stay open for the next round.
+at every class bound.
+
+V2.1.5 closes the remaining 10T items with its own
+[10T round](design/TIMING_10T_BUDGET_V2_1_5.md) and merges the equivalent array
+model into the compiler as a simulation input
+([accuracy record](design/EQUIVALENT_MODEL_V2_1_5.md)). The 10T pull-down is
+widened to 287 nm because the read-disturb bump that set the 512-row class is
+the read current through two stacked pull-downs, which drops that class from
+14 ns to 10 ns and gains read-output margin at every height; the whole 10T
+boundary matrix and its mismatch seeds were rerun on the current TIME block.
+Only the carried Phase 6 scope is still open.
 
 Working plans (`plans/`), design and validation records (`design/`) and the
 release history live here. The [qualification scope](plans/V2_1_2_QUALIFICATION_SCOPE.md)
@@ -62,7 +72,7 @@ The supplied evidence CSVs are kept unchanged in `docs/data/`:
 | [Per-device mismatch](../sram_compiler/per_device_mc/README.md) | Default local mismatch, CLI, and in-memory configuration |
 | [Driver sizing](../sram_compiler/sizing/README.md) | Fixed driver size classes (V2.0.9 lookup table), timing, and qualification workflows |
 | [Circuit review](../sram_compiler/CIRCUIT_REVIEW.md) | Circuit findings and verification evidence |
-| [Equivalent modeling](../equivalent_modeling/README.md) | Equivalent circuit modes, usage, and accuracy boundaries |
+| [Equivalent modeling](../sram_compiler/equivalent_modeling/README.md) | Equivalent circuit modes, usage, and accuracy boundaries |
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |
 | [Yield estimation](../yield_estimation/README.md) | Monte Carlo and importance-sampling algorithms |
 
@@ -86,3 +96,10 @@ The supplied evidence CSVs are kept unchanged in `docs/data/`:
   write-enable race and its hold latch, the probe reads that rejected the
   shared 6T classes, the adopted shared and 6T-mux ladders with their
   boundary run, mismatch seeds, pilot and write-waveform gate.
+- [V2.1.5 10T round](design/TIMING_10T_BUDGET_V2_1_5.md): why the read-disturb
+  bump is a pull-down sizing problem, the three cell candidates and why the
+  1.8x one was rejected, the new 512-row class, and the rerun boundary matrix
+  and seeds on the V2.1.4 TIME block.
+- [V2.1.5 equivalent model](design/EQUIVALENT_MODEL_V2_1_5.md): what the merge
+  into `sram_compiler/equivalent_modeling/` changed, and the measured delay,
+  power and runtime error of each mode against the full transistor array.

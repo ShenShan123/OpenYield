@@ -59,6 +59,8 @@ class GlobalConfig:
         self.sizing = config_data.get("sizing", {"mode": "lookup"})
         self.timing = config_data.get("timing", {"mode": "lookup"})
         self.interconnect = config_data.get("interconnect", {"mode": "distributed"})
+        # Equivalent array model; the resolver validates the mode.
+        self.equivalent = config_data.get("equivalent", {"mode": 0})
 
         # 特殊处理性能指标
         self.metrics = self._process_performance_metrics(config_data.get("performance_metrics", {}))

@@ -1,4 +1,4 @@
-# OpenYield V2.1.4 development tools
+# OpenYield V2.1.5 development tools
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
 
@@ -27,6 +27,14 @@ enable stays at or below 0.1 VDD from 0.65 T to 1.65 T of a read cycle) and
 `strict_cycle_N_sense_enable_quiet` (the local sense enable, write cycles).
 The eleven pre-fix FF −40 °C sequences fail the first. The validator also
 prints `WE` and the held request `XTIME:we_hold(_bar)`.
+
+V2.1.5 adds two probe-only keys to a `dev/validate_distributed_rc.py` case:
+`cell_widths` (`pd`/`pg`/`pu`/`fd`/`l` in metres, applied to the cell YAML in
+memory; the matched replica follows through `resolve_driver_sizes`) and
+`timing_lookup` (an unreleased class table). Both exist to screen candidates
+before a table or YAML change; an evidence run omits them so the widths come
+from the tracked cell YAML and the clocks from the tracked
+`timing_lookup.json`. `result.json` records `cell_widths` and `equivalent`.
 
 The circuit generator lives in `sram_compiler/`. Reusable compiler regression
 tests live in the tracked top-level `tests/` directory. Local experiments,
@@ -75,6 +83,7 @@ The following commands require the ignored `dev/` workspace:
 | `dev/v212_followup_plots.py` | Write-capture plots of selected V2.1.2 follow-up cases; `--base` and `--select queue:case` plot another campaign's cases |
 | `dev/v213_sense_timing.py` | Request-to-sense-enable, request-to-output and deadline-margin measurements per read cycle from a validator case directory (the sense-timing columns of the V2.1.3 10T budget record) |
 | `dev/v214_boundary_enable.py` | WE, held request, access request and WL_EN edges and the W_EN/S_EN peaks at every clock edge that ends an access, with `--json` and a `--plot` of the worst read-to-write edge (the V2.1.4 write-enable spike evidence) |
+| `dev/v215_read_disturb.py` | Peak, deadline value and settling time of the read-disturb bump on the target storage node per read cycle, and the shortest clock the settling time allows (the V2.1.5 10T cell-resize evidence) |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash

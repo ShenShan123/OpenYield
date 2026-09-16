@@ -14,9 +14,12 @@ SRAM_10T_CELL:
     nmos_width:
       type: "continuous list"     # 参数类型：连续型列表 / Parameter type: continuous list
       names: ['pd', 'pg', 'fd']         # 对应器件实例名称 / The corresponding device instance names一个下拉，一个传输
-      upper: [2.46e-7, 1.62e-7, 2.46e-7]  # 参数范围上界 / Parameter upper bounds pd范围：45nm-135nnm, pg范围：67.5nm-202.5nm, fd范围：45nm-135nnm
-      lower: [1.64e-7, 1.08e-7, 1.08e-7]    # 参数范围下界 / Parameter lower bounds pg范围:67.5nm-202.5nm, fd范围：45nm-135nnm
-      value: [2.05e-07, 1.35e-07, 1.35e-07]    # 默认值  pd默认90nm,pg默认135nm, fd默认90nm
+      upper: [3.444e-07, 1.62e-7, 2.46e-7]  # 参数范围上界 / Parameter upper bounds (pd 默认值 +20%)
+      lower: [2.296e-07, 1.08e-7, 1.08e-7]  # 参数范围下界 / Parameter lower bounds (pd 默认值 -20%)
+      # V2.1.5: pd 由 2.05e-07 加宽到 2.87e-07。10T 下拉是两个串联 NMOS，读扰动凸起
+      # 是读电流乘以两倍的 6T 下拉电阻；加宽后凸起与 6T 相当，512 行 10T 时钟由 14 ns
+      # 降到 10 ns。见 docs/design/TIMING_10T_BUDGET_V2_1_5.md
+      value: [2.87e-07, 1.35e-07, 1.35e-07]    # 默认值  pd默认287nm, pg默认135nm, fd默认135nm
       value_sweep: [[9.1e-08, 9.2e-08, 9.3e-08], [1.351e-07, 1.352e-07, 1.353e-07], [1.351e-07, 1.352e-07, 1.353e-07]] # 参数扫描向量
       description: "0:Pull-down MOS width, 1:Pass MOS width, 2:Feed-forward MOS width / 0:下拉, 1:传输, 2:前馈NMOS晶体管宽度"
     length: # 这个版本先使用同一个沟道长度 / In this version, we use a unified gate length

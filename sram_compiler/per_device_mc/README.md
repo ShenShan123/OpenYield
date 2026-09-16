@@ -74,7 +74,7 @@ interrupt propagates.
 A single per-device sample is random. Use `--variation-mode nominal` for a
 deterministic corner run. Equivalent modes 1–4 only vary the retained devices;
 replaced cells remain approximations. See the
-[equivalent-model guide](../../equivalent_modeling/README.md).
+[equivalent-model guide](../equivalent_modeling/README.md).
 Per-device mismatch requires a separate deck per geometry and cannot be combined
 with legacy `.STEP` geometry sweeps.
 

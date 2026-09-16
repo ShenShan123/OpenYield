@@ -23,7 +23,10 @@ class MainEntranceTests(unittest.TestCase):
         # explicitly and seed it, otherwise one sample is a silent random draw.
         self.assertEqual(main_sram.VARIATION_MODE, 'per-device')
         self.assertIsNotNone(main_sram.MC_SEED)
-        self.assertEqual(main_sram.REAL_CELL_MODE, 0)
+        # None takes the tracked global.yaml `equivalent` block, which must be
+        # the full transistor array: an approximate array would make the
+        # entrance's per-device sample cover only part of the cells.
+        self.assertIsNone(main_sram.REAL_CELL_MODE)
         with tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
             config = main_sram.configure(2, 2, False, 'TT', main_sram.CELL_6T)
             tb = main_sram.build_testbench(config, temp)
@@ -31,6 +34,7 @@ class MainEntranceTests(unittest.TestCase):
         self.assertEqual(tb.variation_mode, 'per-device')
         self.assertEqual(tb.mc_seed, main_sram.MC_SEED)
         self.assertEqual(tb.real_cell_mode, 0)
+        self.assertFalse(tb.equivalent.approximate)
         self.assertIn('MC_NMOS_', deck)
 
     def test_script_settings_override_in_memory_without_rewriting_tracked_yaml(self):
