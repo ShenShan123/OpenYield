@@ -1,4 +1,4 @@
-# OpenYield V2.1.4: SRAM yield analysis and optimization
+# OpenYield V2.1.6: SRAM yield analysis and optimization
 
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
@@ -13,6 +13,20 @@ candidates and PVT samples. It also fixes narrow-array RC precharge overlap,
 write-register initialization, the distributed output-latch enable, and yield
 callers' measurement handling. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210)
 and [release review](docs/design/TIMING_LOOKUP_V2_1_0.md) for settings and validation limits.
+
+V2.1.6 makes the write drivers take the precharge slot. An audit of the TIME
+block found the local wordline rising 23 to 189 ps before the write drivers
+had the bitlines at their rails; now the precharge is inhibited in a write
+cycle and the write enable turns the drivers on in the clock-high phase, once
+the previous wordline and the physical precharge are observed off, so BL/BLB
+sit at their write rails about 2 ns before the wordline starts and the cell
+flips 131 ps (8x4 TT) to 333 ps (64x16 SS 0.9 V / 125 °C) after the clock
+falls instead of 287 to 826 ps. Checks now expect bitlines restored before a
+read and at the rails before a write, write decks measure the write slot
+(`TWSLOT`) and an idle → write probe (`select_every`) exists; every timing
+class is kept and re-evidenced. See the
+[write-slot record](docs/design/WRITE_SLOT_V2_1_6.md) and the
+[TIME control-path reference](docs/design/TIME_CONTROL_PATH.md).
 
 V2.1.4 fixes a TIME control race and re-evidences both 6T clock ladders. The
 write request registered on the clock edge that ends an access now passes a

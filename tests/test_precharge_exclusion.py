@@ -32,9 +32,19 @@ class PrechargeExclusionTests(unittest.TestCase):
                            precharge_off_guard=True, precharge_off_guard_stages=4).create()
         self.assertEqual(time.NODES[-2:], ['rwl', 'pre_far'])
         self.assertEqual(time['Xaccess_guard'].node_names,
-                         ['VDD', 'VSS', 'gated_clk_bar', 'pre_far', 'access_clk_bar'])
+                         ['VDD', 'VSS', 'gated_clk_bar', 'pre_far', 'access_clk_bar', 'pre_off_ready'])
         self.assertEqual(time['Xwl_en'].node_names[-2], 'access_clk_bar')
-        self.assertEqual(time['Xw_en'].node_names[2], 'access_clk_bar')
+        # V2.1.6 write slot: w_en = we_hold & cs & (wl_en | (pre_ready & pre_off_ready))
+        # turns the write drivers on in the clock-high phase, once the previous
+        # wordline and the physical precharge are observed off; PRE is inhibited
+        # by the held write request.
+        self.assertEqual(time['Xw_en'].node_names[2:5], ['we_hold', 'cs', 'write_window'])
+        self.assertEqual(time['Xwrite_slot'].node_names[2:5], ['pre_ready', 'pre_off_ready', 'write_slot'])
+        self.assertEqual(time['Xwrite_window_nor'].node_names[2:5], ['wl_en', 'write_slot', 'write_window_bar'])
+        self.assertEqual(time['Xpre_write_gate'].node_names[2:5], ['pre_ready', 'we_hold_bar', 'pre_gate'])
+        self.assertEqual(time['Xpre_unbuf'].node_names[2:5], ['clk_buf', 'cs_pre', 'pre_gate'])
+        self.assertEqual(time['Xprecharge_select_delay'].node_names[2:4], ['cs', 'cs_pre'])
+        self.assertEqual(subcircuit(time, 'PRECHARGE_SELECT_DELAY').stages, 8)
         self.assertEqual(time['Xs_en'].node_names[3], 'access_clk_bar')
         guard = subcircuit(time, 'PRECHARGE_OFF_GUARD')
         # The raw request directly inhibits the final gate. The delay never
@@ -58,7 +68,11 @@ class PrechargeExclusionTests(unittest.TestCase):
                 request = 'access_clk_bar' if guard else 'gated_clk_bar'
                 self.assertEqual(time['Xwe_hold'].node_names,
                                  ['VDD', 'VSS', 'we', 'wl_en_bar', 'we_hold', 'we_hold_bar'])
-                self.assertEqual(time['Xw_en'].node_names[2:4], [request, 'we_hold'])
+                self.assertEqual(time['Xw_en'].node_names[2:5], ['we_hold', 'cs', 'write_window'])
+                # Without the precharge-off guard the slot is the wordline-off signal
+                # itself (here wl_en_bar: the factory default has no replica guard).
+                self.assertEqual(time['Xwrite_window_nor'].node_names[3],
+                                 'write_slot' if guard else 'wl_en_bar')
                 self.assertEqual(time['Xs_en'].node_names[2:5], ['rbl_delay', request, 'we_hold_bar'])
                 raw = {e.name for e in time.elements if {'we', 'we_bar'} & set(e.node_names)}
                 self.assertEqual(raw, {'Xdff_buf1', 'Xwe_hold'})

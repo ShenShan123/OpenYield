@@ -11,7 +11,7 @@ from sram_compiler.sizing import resolve_driver_sizes
 from sram_compiler.subcircuits.decoder import DECODER_CASCADE
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Cell
 from sram_compiler.subcircuits.standard_cell import Pinv
-from sram_compiler.subcircuits.time_generate import DelayChain, TaperedBuffer
+from sram_compiler.subcircuits.time_generate import ReplicaDelayChain, TaperedBuffer
 from sram_compiler.testbenches.sram_6t_core_testbench import Sram6TCoreTestbench
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 
@@ -54,7 +54,7 @@ class PathTests(unittest.TestCase):
     def test_delay_chain_odd_counts_and_polarity(self):
         for stages in (1, 5, 9, 11):
             with self.subTest(stages=stages), redirect_stdout(io.StringIO()):
-                chain = DelayChain(stages=stages)
+                chain = ReplicaDelayChain(stages=stages)
                 lines = str(chain).splitlines()
                 drivers = [line for line in lines if line.startswith('Xdinv')]
                 self.assertEqual(len(drivers), stages)
@@ -63,7 +63,7 @@ class PathTests(unittest.TestCase):
                 self.assertEqual(sum(line.startswith('Xdload') for line in lines), 4 * stages)
         for stages in (0, 2, True, 3.5):
             with self.assertRaises(ValueError):
-                DelayChain(stages=stages)
+                ReplicaDelayChain(stages=stages)
 
     def test_buffer_effort_adds_stages_at_large_loads(self):
         with redirect_stdout(io.StringIO()):
@@ -119,7 +119,8 @@ class PathTests(unittest.TestCase):
                          ['RWL_tap2', 'RWL_tap3'])
         self.assertEqual(sum(line.startswith('XWRITEDRIVER_') for line in deck.splitlines()), 4)
         self.assertIn('VDD VSS w_en_line_tap3 VSS BL3_periph_tap1 BLB3_periph_tap1 WRITEDRIVER', deck)
-        self.assertIn('XREPLICA_WDRV_LOAD VDD VSS VSS VSS RBL_periph_tap1 RBLB_periph_tap1 WRITEDRIVER', deck)
+        # V2.1.6: the replica write driver writes a 0 with the real drivers (write slot).
+        self.assertIn('XREPLICA_WDRV_LOAD VDD VSS w_en_line_far VSS RBL_periph_tap1 RBLB_periph_tap1 WRITEDRIVER', deck)
         self.assertEqual(sizes.replica_nmos_widths[1], 0.135e-6)
 
     def test_replica_bitline_and_wordline_share_the_array_rc_configuration(self):
@@ -204,7 +205,10 @@ class PathTests(unittest.TestCase):
         time = next(block for block in circuit.subcircuits if block.name == 'TIME')
         self.assertTrue(tb.driver_sizes.replica_precharge_guard)
         self.assertEqual(time.NODES[-2:], ['rwl', 'pre_far'])
-        self.assertIn('clk_buf cs pre_ready PRE_UNBUF', str(time))
+        # V2.1.6: the precharge is additionally inhibited by the held write request.
+        self.assertIn('pre_ready we_hold_bar pre_gate AND2_PRE_WRITE', str(time))
+        self.assertIn('VDD VSS cs cs_pre PRECHARGE_SELECT_DELAY', str(time))
+        self.assertIn('clk_buf cs_pre pre_gate PRE_UNBUF', str(time))
         self.assertEqual(tb.driver_sizes.precharge_guard_stages, 4)
         self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end TIME', str(circuit['XTIME']))
         # An unmatched replica cannot represent the physical wordline load.

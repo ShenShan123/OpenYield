@@ -84,11 +84,16 @@ The following commands require the ignored `dev/` workspace:
 | `dev/v213_sense_timing.py` | Request-to-sense-enable, request-to-output and deadline-margin measurements per read cycle from a validator case directory (the sense-timing columns of the V2.1.3 10T budget record) |
 | `dev/v214_boundary_enable.py` | WE, held request, access request and WL_EN edges and the W_EN/S_EN peaks at every clock edge that ends an access, with `--json` and a `--plot` of the worst read-to-write edge (the V2.1.4 write-enable spike evidence) |
 | `dev/v215_read_disturb.py` | Peak, deadline value and settling time of the read-disturb bump on the target storage node per read cycle, and the shortest clock the settling time allows (the V2.1.5 10T cell-resize evidence) |
+| `dev/v216_time_audit/` | TIME / replica-column audit tools (V2.1.6): `topo_check.py` (static connectivity and subcircuit-collision audit over a size matrix), `run_case.py` + `analyse.py` (one deck with extra TIME-internal probes and the Boolean-relation / event-table checker), `write_order.py` (bitline-rail versus wordline ordering per write cycle), `snapshot_decks.py` + `compare_snapshots.py` (netlist equivalence proof for refactors); see `docs/design/TIME_CONTROL_PATH.md` |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash
 python3 -m unittest discover -s dev/tests -v
 ```
+
+The validator case key `select_every` (V2.1.6) selects one cycle in N of a
+single read/write deck, so the idle → write boundary of the write slot is
+simulated; write decks write 1 then 0 and report `TWSLOT`.
 
 Keep future ad hoc test scripts and development experiments in `dev/` so they
 are ignored automatically. Generated results still belong in `outputs/` or a

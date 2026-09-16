@@ -184,7 +184,9 @@ replica `(1, 9)` does not claim compliance with the read limit.
 
 ## Clock classes (V2.1.0)
 
-`timing_lookup.json` uses the same row and column anchors as driver sizing.
+`timing_lookup.json` (`v2.1.6-timing-5`: every class re-evidenced on the
+V2.1.6 write slot, see `docs/design/WRITE_SLOT_V2_1_6.md`) uses the same row
+and column anchors as driver sizing.
 Each entry contains an integer `half_period_ps` budget; choose the next anchor
 at or above each dimension, then compute:
 

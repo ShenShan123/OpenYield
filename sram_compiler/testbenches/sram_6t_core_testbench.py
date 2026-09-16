@@ -22,7 +22,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                  custom_mc: bool = False,sweep_cell: bool = False,sweep_precharge: bool = False,sweep_senseamp: bool = False,sweep_wordlinedriver: bool = False,
                  sweep_columnmux:bool = False,sweep_writedriver:bool = False,sweep_decoder:bool = False,corner="TT",choose_columnmux:bool = True,real_cell_mode:int = None,
                  q_init_val: int = 0, sim_path: str = '', next_row: int = None,
-                 driver_sizes=None, timing_config=None, temperature=None, interconnect=None
+                 driver_sizes=None, timing_config=None, temperature=None, interconnect=None,
+                 select_every: int = 1,
                  ):
         # 保存配置对象引用
         self.sram_config = sram_config  #包含所有子电路参数
@@ -83,6 +84,13 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # hold margin between the old wordline falling and the new decoder
         # output rising.
         self.next_row = next_row
+        # V2.1.6: chip select one cycle in `select_every` (1 = every cycle).  The
+        # idle cycles between two single-deck accesses probe the write -> idle
+        # -> write boundary of the write slot; single decks toggle their write
+        # data, so the second write also probes write -> write with new data.
+        if isinstance(select_every, bool) or not isinstance(select_every, int) or select_every < 1:
+            raise ValueError('select_every must be a positive integer')
+        self.select_every = select_every
         # default mux inputs
         self.mux_in = 1
         self.timing_config = timing_config
@@ -635,8 +643,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         return circuit
 
     def _wenb_scale(self):
-        """Width scale of the w_en_bar inverter: 2 NAND2 inputs (0.45 um) per
-        column on a 0.36 um unit inverter, fan-out <= 8."""
+        """Width scale of the w_en_bar inverter: 2 NAND2 inputs (0.45 um times
+        the hold-latch scale) per column on a 0.36 um unit inverter, fan-out <= 8."""
         return self.driver_sizes.loads.wenb_scale
 
     def create_write_periphery(self, circuit: Circuit, operation: str = 'write'):#创造写外围电路
@@ -665,7 +673,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             # The replica bitline must see the same disabled output-stack drain
             # load as a real bitline, including on large row-scaled drivers.
             circuit.X('REPLICA_WDRV_LOAD', write_drv.name,
-                      self.power_node, self.gnd_node, self.gnd_node, self.gnd_node,
+                      self.power_node, self.gnd_node, self.control_tap('w_en'), self.gnd_node,
                       self.periphery_tap('BL', None, 'write'), self.periphery_tap('BLB', None, 'write'))
 
         if operation == 'read':
@@ -697,7 +705,13 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                        length=0.05e-6, num='_wen_bar')
         circuit.subcircuit(wen_inv)
         circuit.X('WEN_BAR', wen_inv.NAME, self.power_node, self.gnd_node, 'w_en', 'w_en_bar')
-        din_latch = D_latch(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG")
+        # The latch output drives the row-scaled write-driver input (wd_in
+        # class); size it with that class so its data settles before the write
+        # slot turns the drivers on (V2.1.6: a unit latch into an 8x input
+        # slewed for ~700 ps at 512 rows / SS while the drivers were already on).
+        latch_scale = max(1.0, float(self.driver_sizes.wd_in))
+        din_latch = D_latch(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
+                            pmos_width=0.27e-6 * latch_scale, nmos_width=0.18e-6 * latch_scale)
         circuit.subcircuit(din_latch)
 
         # Instantiate write drivers for all columns 为每列添加写驱动器实例
@@ -720,7 +734,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             )
 
         if operation == 'write':
-            # Write `1` into all columns    设置所有输入数据为高电平（写 1）
+            # Write `1` into all columns in the first selected cycle, `0` in the
+            # next (V2.1.6: the second write drives the opposite rails, so the
+            # write slot of the following cycle is measured as TWSLOT).
             for col in range(self.num_cols):    
                 #circuit.V(f'DIN{col}', f'DIN{col}', self.gnd_node, self.vdd @ u_V)
                 circuit.PulseVoltageSource(
@@ -729,7 +745,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                         delay_time=1.0 @ u_ns +0.1 * self.t_period,  # 预充电开始后0.5ns,留1s静默
                         rise_time=self.t_rise,fall_time=self.t_fall,
                         pulse_width=0.2 * self.t_period , # 保持有效
-                        period=self.t_period)
+                        period=2 * self.select_every * self.t_period)
         elif operation =="read&write":
             # Write `1` into all columns    设置输入数据为高低转换
             for col in range(self.num_cols):    
@@ -1152,6 +1168,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # register captures `target_row` at the edge that starts the access and
         # `next_row` at the edge that ends it.
         n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
+        if self.select_every != 1 and (operation == 'read&write' or self.next_row is not None):
+            raise ValueError("select_every applies to single 'read' / 'write' decks without next_row")
         if self.next_row is None:
             next_row = self.target_row
         else:
@@ -1200,14 +1218,26 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         )
 
         # 添加片选信号源 VCSB
-        circuit.PulseVoltageSource(
-            'CSB', 'csb', self.gnd_node,
-            initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
-            delay_time=1.0 @ u_ns,
-            rise_time=self.t_rise, fall_time=self.t_fall,
-            pulse_width=0.1 * self.t_period,
-            period=self.t_period
-        )
+        if self.select_every == 1:
+            circuit.PulseVoltageSource(
+                'CSB', 'csb', self.gnd_node,
+                initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
+                delay_time=1.0 @ u_ns,
+                rise_time=self.t_rise, fall_time=self.t_fall,
+                pulse_width=0.1 * self.t_period,
+                period=self.t_period
+            )
+        else:
+            # Selected only around every select_every-th capture edge (setup =
+            # hold = 0.1 T, like the address bits); high at the other edges.
+            circuit.PulseVoltageSource(
+                'CSB', 'csb', self.gnd_node,
+                initial_value=self.vdd @ u_V, pulsed_value=0 @ u_V,
+                delay_time=1.0 @ u_ns + 0.1 * self.t_period,
+                rise_time=self.t_rise, fall_time=self.t_fall,
+                pulse_width=0.2 * self.t_period,
+                period=self.select_every * self.t_period
+            )
 
         if operation == 'read':
         # 添加写使能信号源 VWEB

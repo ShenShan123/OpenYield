@@ -414,9 +414,15 @@ while the write drivers are on. Every transient testbench carries the full colum
 periphery (precharge on all columns and on the replica column, column mux,
 sense amplifiers); the write testbenches add the write drivers, each fed
 through a data-hold latch that is transparent while `w_en` is low, so a write
-cycle is `precharge -> write -> precharge` with the real bitline load and the
-write data cannot change while the drivers are enabled. `w_en` asserts after
-the shared precharge-off guard is ready and deasserts with the clock-low request.
+cycle is `write slot -> write -> precharge (in the next read cycle)` with the
+real bitline load and the write data cannot change while the drivers are
+enabled. Since V2.1.6 the write drivers take the precharge slot: in a write
+cycle PRE is inhibited and `w_en` turns the drivers on in the clock-high
+phase, once the previous wordline and the physical precharge are observed off,
+so BL/BLB sit at their write rails before the wordline rises; `w_en` deasserts
+when the wordline request ends. Write decks write 1 then 0 and measure the
+next write's slot as `TWSLOT` (its clock-high work) instead of `TRESTORE`;
+`select_every=N` selects one cycle in N to probe the idle → write boundary.
 
 The segment measures (`TDECODER`, `TPRCH`, `TWLDRV`, `TSWING`, `TSA`, `TS_EN`,
 `TWDRV`, `TWRITE_Q`, ...) are still written to `.mt0` / `.data.csv` for inspection,

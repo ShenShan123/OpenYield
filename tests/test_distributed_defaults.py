@@ -10,7 +10,7 @@ from sram_compiler.interconnect import InterconnectConfig, load_interconnect, re
 from sram_compiler.sizing.table import physical_context
 from sram_compiler.subcircuits import sram_cell_add_equivalent as equivalent
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Column, Dummy_Row
-from sram_compiler.subcircuits.replica_column import Replica_Column
+from sram_compiler.subcircuits.replica_column import ReplicaColumn
 from sram_compiler.subcircuits.sram_6t_core import Sram6TCore
 from sram_compiler.subcircuits.sram_10t_core import Sram10TCore
 
@@ -61,7 +61,7 @@ class DistributedDefaultsTests(unittest.TestCase):
 
     def test_replica_has_exact_array_height_and_tapped_bitlines(self):
         with redirect_stdout(io.StringIO()):
-            replica = Replica_Column(4, 3, 'NMOS_VTG', 'PMOS_VTG', 'NMOS_VTG', 'NMOS_VTG')
+            replica = ReplicaColumn(4, 3, 'NMOS_VTG', 'PMOS_VTG', 'NMOS_VTG', 'NMOS_VTG')
         cells = [str(e).split() for e in replica.elements if e.name.startswith('XReplica_CELL')]
         self.assertEqual(len(cells), 4)
         self.assertEqual(replica.cell_count, 4)

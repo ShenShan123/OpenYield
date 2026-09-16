@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.1.4
+# Compiler regression tests — V2.1.6
 
 V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
 
@@ -83,3 +83,12 @@ V2.0.9 adds the `LookupTests` in `test_driver_sizing.py`: fixed size classes,
 their rule lower bound, independence from cell/mux/RC/wires, ladder
 interpolation and extrapolation, invalid or alternative tables, and the removed
 legacy mode; the RC and driver-path tests now exercise `lookup` and `rules_only`.
+
+V2.1.6 updates the TIME netlist expectations to the write slot (`AND3_WEN`,
+`write_slot`, `write_window`, `pre_gate`, `cs_pre`, the guard's exported
+`pre_off_ready`, the enabled replica write driver in `wen_load`), the
+plan-aware runtime measures (`VWL_WEN_*` before a write, `TWSLOT` in write
+decks) and the renamed helper classes (`ReplicaDelayChain`, `DataRegister`,
+`ReplicaColumn`); `dev/tests/test_v210_waveform_checks.py` models the slot in
+its synthetic traces and rejects a bitline that is not at its rail when the
+wordline starts.

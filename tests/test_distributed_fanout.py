@@ -7,7 +7,7 @@ import unittest
 from sram_compiler.interconnect import resolve_interconnect
 from sram_compiler.subcircuits.decoder import DECODER_CASCADE
 from sram_compiler.subcircuits.standard_cell import AND2, AND3, Pinv
-from sram_compiler.subcircuits.time_generate import DATA_DFF
+from sram_compiler.subcircuits.time_generate import DataRegister
 from sram_compiler.testbenches.parameter_factor import (
     DecoderCascadeFactory, DummyColumnFactory, DummyRowFactory, TIMEFactory,
 )
@@ -113,7 +113,7 @@ class DistributedFanoutTests(unittest.TestCase):
         for columns in (1, 4, 64, 512):
             for refinement in (1, 3):
                 with self.subTest(columns=columns, refinement=refinement), contextlib.redirect_stdout(io.StringIO()):
-                    register = DATA_DFF(num_cols=columns, interconnect=wire_config(refinement))
+                    register = DataRegister(num_cols=columns, interconnect=wire_config(refinement))
                     resistors = line_elements(register, 'CLK_line', 'R')
                     self.assertEqual(len(resistors), 2 * columns * refinement)
                     self.assertAlmostEqual(sum(float(e.resistance) for e in resistors), columns)
@@ -143,7 +143,7 @@ class DistributedFanoutTests(unittest.TestCase):
     def test_default_decoder_and_write_register_are_distributed(self):
         with contextlib.redirect_stdout(io.StringIO()):
             decoder = DECODER_CASCADE('N', 'P', 'N', 'P', num_rows=4)
-            register = DATA_DFF(num_cols=4)
+            register = DataRegister(num_cols=4)
         self.assertEqual(decoder.interconnect.mode, 'distributed')
         self.assertEqual(register.interconnect.mode, 'distributed')
         self.assertTrue(line_elements(decoder, 'A0_line', 'R'))

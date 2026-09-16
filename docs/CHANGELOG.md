@@ -7,6 +7,70 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.6 — 2026-09-16 — write drivers in the precharge slot; TIME audit and refactor
+
+V2.1.6 changes the write timing of the TIME block and re-evidences the
+timing table on the new sources ([record](design/WRITE_SLOT_V2_1_6.md)).
+It follows an audit of `time_generate.py` and `replica_column.py` (static
+connectivity over 630 TIME configurations, eight Xyce decks checked against
+every Boolean relation of the block; tools in `dev/v216_time_audit/`) that
+found no functional defect but one forbidden ordering: in a write cycle the
+local wordline rose 23 to 189 ps *before* the write drivers had the bitlines
+at their rails, because `wl_en` and `w_en` fanned out from the same access
+request. Reads are unchanged within 10 ps on the wordline path; driver size
+classes are unchanged.
+
+- Write slot (`TIME`): in a write cycle the precharge is inhibited by the held
+  write request (`pre_gate = pre_ready & we_hold_bar`) and
+  `w_en = we_hold & cs & (wl_en | (pre_ready & pre_off_ready))` turns the
+  drivers on in the clock-high phase, once the previous wordline (replica
+  observer plus settling) and the physical precharge (far-PRE observer plus
+  settling, now exported by the guard as `pre_off_ready`) are off. BL/BLB sit
+  at their write rails 1.9 to 2.3 ns before the wordline starts in every
+  measured case; the cell flips 131 ps (8x4 TT) and 333 ps (64x16 SS) after
+  the clock falls instead of 287 and 826 ps. The select is delayed by eight
+  unit stages into the precharge gate (`cs_pre`): the request reaches that
+  gate five gate delays after the select, so the first selected write after an
+  idle cycle otherwise precharged for those five gates under the rising write
+  enable. The replica column's write driver, an inert load since V2.0.5, is
+  enabled from the far `w_en` tap and writes a 0; `wen_load` counts it. The
+  testbench's write-data hold latch scales with the write-driver input class
+  (`wd_in`) and `wenb_scale` counts that scale: the first evidence run found a
+  unit latch driving the 8x input of a 512-row array still slewing (about
+  700 ps at SS 125 °C) when the slot turned the drivers on; decks up to 64
+  rows are unchanged by this.
+- Checks: bitlines are expected restored to VDD before a read and at the write
+  rails before a write. `VRESTORE_ERROR_k` takes its targets from the next
+  selected cycle; before a write `VWL_WEN_*_k` (wordline low when
+  `XTIME:write_slot` rises) replaces `VWL_PRE_*_k`; write decks write 1 then 0
+  and measure `TWSLOT` (capture edge of the next write to its driven bitline at
+  0.1 VDD) instead of `TRESTORE`, which `timing_from_measurements` and the
+  minimum-period estimate use as the clock-high work of a write cycle. The
+  local checks add `bitlines_driven_before_wordline`,
+  `release_before_write_enable` and `WL_during_write_slot`, end the
+  write-enable quiet window at the wordline release, and the scorer checks
+  `all_bitlines_driven` and `wl_off_before_write_enable` for write cases.
+  `scoring_sources.json` is refreshed.
+- Boundary probes: the testbench option `select_every` (single read/write
+  decks; validator case key of the same name) selects one cycle in N, so the
+  idle → write boundary is simulated; the toggled write data covers
+  write → write with new data.
+- `timing_lookup.json` `v2.1.6-timing-5`: every class kept and re-evidenced
+  at its bound (58 of 58 cases, 213,020 of 213,020 checks); the write side only gained margin.
+- Readability: `time_generate.py` is rebuilt as fifteen builders in signal
+  order with the sizing policy in `ControlSizing`, named constants for the
+  unit devices, the passed models honoured everywhere, type hints, the history
+  moved to [`TIME_CONTROL_PATH.md`](design/TIME_CONTROL_PATH.md) and the
+  unused `pdrive2_for_pre`, dead `disconnect` path and unused imports removed;
+  classes are renamed (`pdrive` → `ClockBuffer`, `wl_pdrive` →
+  `WordlineEnableBuffer`, `dff` → `Dff`, `DFF_BUF` → `DffBuffer`,
+  `DelayChain` → `ReplicaDelayChain`, `WenDelayChain` → `UnitDelayChain`,
+  `ADDR_DFF` → `AddressRegister`, `DATA_DFF` → `DataRegister`,
+  `D_latch_addr` → `HoldLatch`, `Replica_Cell` / `Replica_Column` →
+  `ReplicaCell` / `ReplicaColumn`) while every subcircuit `NAME`, instance and
+  node name is kept. The refactor was accepted on 1331 of 1331 byte-identical
+  netlists (`dev/v216_time_audit/snapshot_decks.py`).
+
 ## V2.1.5 — 2026-09-16 — equivalent model as an input; 10T read-path resize
 
 V2.1.5 merges the top-level `equivalent_modeling/` directory into

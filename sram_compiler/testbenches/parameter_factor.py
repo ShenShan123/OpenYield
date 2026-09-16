@@ -6,7 +6,7 @@ from sram_compiler.subcircuits.sram_6t_core import Sram6TCell, Sram6TCore
 from sram_compiler.subcircuits.sram_10t_core import Sram10TCell, Sram10TCore
 from sram_compiler.subcircuits.decoder import DECODER_CASCADE
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Row, Dummy_Column
-from sram_compiler.subcircuits.replica_column import Replica_Column
+from sram_compiler.subcircuits.replica_column import ReplicaColumn
 from sram_compiler.subcircuits.time_generate import TIME
 def read_mos_model_from_param_file(names,param_file):
     """
@@ -1002,7 +1002,7 @@ class ReplicaColumnFactory:
         
     def create(self):
         config = self._get_config()
-        return Replica_Column(**config)
+        return ReplicaColumn(**config)
     
 class TIMEFactory:
     def __init__(self, 

@@ -1,4 +1,4 @@
-# OpenYield V2.1.5 documentation
+# OpenYield V2.1.6 documentation
 
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
@@ -37,6 +37,16 @@ the read current through two stacked pull-downs, which drops that class from
 14 ns to 10 ns and gains read-output margin at every height; the whole 10T
 boundary matrix and its mismatch seeds were rerun on the current TIME block.
 Only the carried Phase 6 scope is still open.
+
+V2.1.6 makes the write drivers take the precharge slot after an audit of the
+TIME block ([write-slot record](design/WRITE_SLOT_V2_1_6.md)): in a write
+cycle the precharge is inhibited and the write enable turns the drivers on in
+the clock-high phase, so BL/BLB are at their write rails before the wordline
+rises. The checks, the write decks (`TWSLOT`, write 1 then 0) and an
+idle → write probe (`select_every`) follow; every timing class is kept and
+re-evidenced. The [TIME control-path reference](design/TIME_CONTROL_PATH.md)
+holds the signal table, the history of every stage and the naming contract
+of the refactored `time_generate.py`.
 
 Working plans (`plans/`), design and validation records (`design/`) and the
 release history live here. The [qualification scope](plans/V2_1_2_QUALIFICATION_SCOPE.md)

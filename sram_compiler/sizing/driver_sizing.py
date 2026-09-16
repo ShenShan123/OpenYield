@@ -369,15 +369,21 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     sa = sram_config.senseamp
     sa_n_units = round(_positive('SA NMOS width', sa.nmos_width.value) / 0.36e-6, 12)
     sa_iso_units = round(2 * (4 / 3) * _positive('SA PMOS width', sa.pmos_width.value) / 0.36e-6, 12)
-    wenb_scale = max(1, ceil(2 * 0.45 * cols / 0.36 / 8.0))
+    # The write-data hold latches scale with the write-driver input class
+    # (V2.1.6: the write slot turns the drivers on ~300 ps after the capture
+    # edge, and a unit latch driving an 8x driver input slewed for ~700 ps at
+    # 512 rows / SS), so w_en_bar drives two NAND2 inputs of that scale per column.
+    latch_scale = max(1.0, scales["wd_in"])
+    wenb_scale = max(1, ceil(2 * 0.45 * cols * latch_scale / 0.36 / 8.0))
     wl_load = (rows * scales["wl_nand"] * nand_units
                + scales["wl_nand"] * nand_units + (rows + 1) * rc_wl_units)
     wl_en_scale = max(1, ceil(wl_load / (24.0 if effort_buffers else 32.0)))
     loads = DriverLoads(
         # The access guard observes far PRE with a half-unit inverter.
         pre_load=(cols + 1) * 3 * pre_width / 0.36e-6 + (cols + 1) * rc_input_units + .5,
-        wen_load=cols * (2 * wn * scales["wd_out"] + (wn + wp) * scales["wd_in"])
-        / 0.36e-6 + 4 * wenb_scale + cols * rc_input_units,
+        # The replica write driver is enabled with the real ones (write slot).
+        wen_load=(cols + 1) * (2 * wn * scales["wd_out"] + (wn + wp) * scales["wd_in"])
+        / 0.36e-6 + 4 * wenb_scale + (cols + 1) * rc_input_units,
         # The matched replica driver adds one NAND2 with the same local RC.
         wl_load=wl_load,
         num_sa=num_sa,

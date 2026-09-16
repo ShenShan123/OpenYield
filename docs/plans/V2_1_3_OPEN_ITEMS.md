@@ -26,6 +26,7 @@ ignored `outputs/validation/` directory; each case directory holds `deck.sp`,
 | 7. 10T evidence predates the TIME latch | Closed in V2.1.5 (matrix re-run) | below, and sections 3 and 4 of the 10T record |
 | Found during V2.1.4: duplicated final waveform sample | Fixed in V2.1.4 (bug) | below, and section 6 of the 6T record |
 | Found during V2.1.5: a table variant could ask for less time than the shared ladder | Fixed in V2.1.5 (bug) | below |
+| Found during the V2.1.6 audit: the wordline rose before the write drivers had the bitlines at their rails | Fixed in V2.1.6 (write slot) | [write-slot record](../design/WRITE_SLOT_V2_1_6.md) |
 
 ## 1. 6T with a column mux needs its own timing budget — closed
 

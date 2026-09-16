@@ -53,7 +53,7 @@ class ResolverTests(unittest.TestCase):
         cfg = config()
         sizes = resolve_driver_sizes(cfg)
         self.assertAlmostEqual(sizes.loads.pre_load, 6.125)
-        self.assertAlmostEqual(sizes.loads.wen_load, 17.0)  # 9 units + 8 hold-buffer units
+        self.assertAlmostEqual(sizes.loads.wen_load, 19.25)  # 5 drivers (replica included) x 2.25 units + 8 hold-buffer units
         self.assertAlmostEqual(sizes.loads.wl_load, 9.0)  # 8 rows + fixed replica NAND
         cfg.precharge.pmos_width.value *= 2
         cfg.write_driver.nmos_width.value *= 2
@@ -61,7 +61,7 @@ class ResolverTests(unittest.TestCase):
         cfg.wordline_driver.pmos_width.value[0] *= 2
         changed = resolve_driver_sizes(cfg)
         self.assertAlmostEqual(changed.loads.pre_load, 11.75)
-        self.assertAlmostEqual(changed.loads.wen_load, 24.0)
+        self.assertAlmostEqual(changed.loads.wen_load, 28.0)
         self.assertAlmostEqual(changed.loads.wl_load, 18.0)
         self.assertAlmostEqual(changed.area_precharge_width, .27e-6, places=15)
         self.assertAlmostEqual(changed.area_wordline_width, .54e-6, places=15)
@@ -91,7 +91,7 @@ class ResolverTests(unittest.TestCase):
         base = resolve_driver_sizes(cfg)
         rc = resolve_driver_sizes(cfg, physical_context=physical_context(True))
         self.assertAlmostEqual(rc.loads.pre_load - base.loads.pre_load, 34)
-        self.assertAlmostEqual(rc.loads.wen_load - base.loads.wen_load, 32)
+        self.assertAlmostEqual(rc.loads.wen_load - base.loads.wen_load, 34)
         self.assertAlmostEqual(rc.loads.wl_load - base.loads.wl_load, 54.4)
         self.assertAlmostEqual(rc.loads.sen_load, 84.25)
         self.assertAlmostEqual(rc.loads.iso_load, 136)
@@ -295,7 +295,7 @@ class LookupTests(unittest.TestCase):
             custom = resolve_driver_sizes(config(mode="lookup"), sizing={"mode": "lookup", "lookup": str(path)})
         self.assertEqual((default.wd_out, custom.wd_out), (2, 3))
         self.assertNotEqual(default.key, custom.key)
-        self.assertEqual(custom.loads.wen_load, 4 * (2 * 0.18 * 3 + 0.54) / 0.36 + 8)
+        self.assertAlmostEqual(custom.loads.wen_load, 5 * (2 * 0.18 * 3 + 0.54) / 0.36 + 8)
 
     def test_lookup_scales_reach_generated_devices_and_time_loads(self):
         cfg = config(16, 16, "lookup")

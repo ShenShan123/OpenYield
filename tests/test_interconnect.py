@@ -186,7 +186,8 @@ class ArrayWireTests(unittest.TestCase):
                 time_block = next(s for s in circuit.subcircuits if s.name == 'TIME')
                 self.assertIn('rwl_pre_bar rwl_pre_delayed PRECHARGE_GUARD_DELAY', str(time_block))
                 self.assertIn('rwl_pre_bar rwl_pre_delayed pre_ready AND2_PRE_GUARD', str(time_block))
-                self.assertIn('clk_buf cs pre_ready PRE_UNBUF', str(time_block))
+                self.assertIn('pre_ready we_hold_bar pre_gate AND2_PRE_WRITE', str(time_block))
+                self.assertIn('clk_buf cs_pre pre_gate PRE_UNBUF', str(time_block))
                 replica = next(s for s in circuit.subcircuits if 'replica_column' in s.name)
                 self.assertEqual(sum(e.name.startswith('XReplica_CELL') for e in replica.elements), 4)
                 rbl = [e for e in replica.elements if e.name.startswith('Rwire_RBL_')]
@@ -286,15 +287,19 @@ class ArrayWireTests(unittest.TestCase):
                 simulator = circuit.simulator(simulator='xyce-serial', temperature=25)
                 tb.add_meas_and_print(simulator, tb.data_init(), operation)
                 tb.add_analysis(simulator.circuit, operation, 1)
-                lines = [line.upper() for line in str(simulator).splitlines() if line.upper().startswith('.MEAS') and 'VWL_PRE_' in line.upper()]
+                # V2.1.6: before a read the entry event is the precharge (VWL_PRE_*),
+                # before a write the write slot (VWL_WEN_*); the sequence alternates.
+                lines = [line.upper() for line in str(simulator).splitlines()
+                         if line.upper().startswith('.MEAS') and ('VWL_PRE_' in line.upper() or 'VWL_WEN_' in line.upper())]
                 self.assertEqual(len(lines), 3 * cycles)
                 for cycle in range(cycles):
-                    self.assertTrue(any(f'VWL_PRE_FAR_{cycle} FIND V({tb.arr_inst_prefix}:WL3_FAR)'.upper() in line for line in lines))
-                    self.assertTrue(any(f'VWL_PRE_LOCAL_{cycle} FIND V({tb.cell_probe("WL")})'.upper() in line for line in lines))
-                self.assertTrue(all('WHEN V(PRE)=0.9' in line and 'TD=' in line and 'TO=' in line
-                                    for line in lines if 'PEAK' not in line))
-                self.assertTrue(all('MAX {IF(V(PRE)<0.9' in line and 'FROM=' in line and 'TO=' in line
-                                    for line in lines if 'PEAK' in line))
+                    kind = 'PRE' if operation == 'read' or (operation == 'read&write' and cycle % 2 == 0) else 'WEN'
+                    self.assertTrue(any(f'VWL_{kind}_FAR_{cycle} FIND V({tb.arr_inst_prefix}:WL3_FAR)'.upper() in line for line in lines))
+                    self.assertTrue(any(f'VWL_{kind}_LOCAL_{cycle} FIND V({tb.cell_probe("WL")})'.upper() in line for line in lines))
+                self.assertTrue(all(('WHEN V(PRE)=0.9' if 'VWL_PRE' in line else 'WHEN V(XTIME:WRITE_SLOT)=0.5') in line
+                                    and 'TD=' in line and 'TO=' in line for line in lines if 'PEAK' not in line))
+                self.assertTrue(all(('MAX {IF(V(PRE)<0.9' if 'VWL_PRE' in line else 'MAX {IF(V(XTIME:WRITE_SLOT)>0.5') in line
+                                    and 'FROM=' in line and 'TO=' in line for line in lines if 'PEAK' in line))
                 # A window may not claim more precharge than was simulated: the
                 # last sequence cycle's interval runs past the .TRAN stop, and a
                 # rebound check over unsimulated time is not a check.
@@ -355,7 +360,7 @@ class ArrayWireTests(unittest.TestCase):
             with patch.object(run, 'parse_args', return_value=args), \
                     patch.object(run, 'generate_deck', return_value=(deck, dict(summary))), \
                     patch.object(run, 'run_xyce'):
-                Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .4\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .4\n')
+                Path(str(deck)+'.mt0').write_text('VWL_WEN_FAR_0 = .4\nVWL_WEN_LOCAL_0 = .01\nVWL_WEN_PEAK_0 = .4\n')
                 with self.assertRaisesRegex(RuntimeError, 'precharge'):
                     run.main()
                 # The rejected sample is the one that has to be investigated:
@@ -364,8 +369,8 @@ class ArrayWireTests(unittest.TestCase):
                 self.assertIs(audit['precharge_release_checked'], False)
                 self.assertIn('precharge', audit['precharge_release_error'])
                 self.assertEqual(audit['seed'], 1)
-                self.assertIn('VWL_PRE_FAR_0', Path(str(deck)+'.data.csv').read_text())
-                Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .01\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .02\nVACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\nTWRITE_TOTAL = 2e-10\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
+                self.assertIn('VWL_WEN_FAR_0', Path(str(deck)+'.data.csv').read_text())
+                Path(str(deck)+'.mt0').write_text('VWL_WEN_FAR_0 = .01\nVWL_WEN_LOCAL_0 = .01\nVWL_WEN_PEAK_0 = .02\nVACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\nTWRITE_TOTAL = 2e-10\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
                 self.assertEqual(run.main(), 0)
                 self.assertIs(json.loads((Path(temp) / 'summary.json').read_text())
                               ['precharge_release_checked'], True)

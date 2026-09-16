@@ -78,7 +78,7 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertAlmostEqual(plain.t_period / 1e-9, plain_ns)
                 self.assertAlmostEqual(muxed.t_period / 1e-9, mux_ns)
                 self.assertEqual((plain.budget, muxed.budget), ('shared', 'SRAM_6T_CELL/mux'))
-                self.assertEqual(muxed.table_version, 'v2.1.5-timing-4')
+                self.assertEqual(muxed.table_version, 'v2.1.6-timing-5')
                 self.assertEqual(muxed.extrapolated, rows > 512)
                 # V2.1.5: the variant floor makes this hold beyond the table too. The
                 # 6T-mux ladder ends 2700 -> 3600 ps against the shared 2500 -> 3600 ps,
@@ -105,7 +105,7 @@ class TimingLookupTests(unittest.TestCase):
                     self.assertAlmostEqual(timing.t_period / 1e-9, ns)
                     self.assertEqual(timing.budget, 'SRAM_10T_CELL')
                     self.assertEqual(timing.extrapolated, rows > 512)
-                    self.assertEqual(timing.table_version, 'v2.1.5-timing-4')
+                    self.assertEqual(timing.table_version, 'v2.1.6-timing-5')
                     shared = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=mux))
                     self.assertEqual(shared.budget, 'SRAM_6T_CELL/mux' if mux else 'shared')
                     # Inside the table a 10T array always gets more time than the same 6T
@@ -169,7 +169,7 @@ class TimingLookupTests(unittest.TestCase):
             previous = os.getcwd()
             try:
                 os.chdir(temp)
-                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.5')
+                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.6')
             finally:
                 os.chdir(previous)
         cfg.global_config.timing = {'mode': 'fixed', 't_period': 10e-9}
@@ -340,7 +340,7 @@ class TimingLookupTests(unittest.TestCase):
             second, repeated = run.generate_deck(args)
             self.assertNotEqual(first.parent, second.parent)
             self.assertEqual(evidence.read_text(), 'FAILED original')
-            self.assertEqual(summary['compiler_version'], 'V2.1.5')
+            self.assertEqual(summary['compiler_version'], 'V2.1.6')
             self.assertAlmostEqual(summary['timing']['t_period'], 4e-9)
             self.assertEqual(summary['timing']['source'], 'fixed')
             args.run_xyce = True
