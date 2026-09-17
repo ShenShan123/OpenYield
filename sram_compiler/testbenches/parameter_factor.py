@@ -7,7 +7,7 @@ from sram_compiler.subcircuits.sram_10t_core import Sram10TCell, Sram10TCore
 from sram_compiler.subcircuits.decoder import DECODER_CASCADE
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Row, Dummy_Column
 from sram_compiler.subcircuits.replica_column import ReplicaColumn
-from sram_compiler.subcircuits.time_generate import TIME
+from sram_compiler.subcircuits.time_generate import TIME_CONTROL
 def read_mos_model_from_param_file(names,param_file):
     """
     Read MOS models from parameter file
@@ -1004,7 +1004,7 @@ class ReplicaColumnFactory:
         config = self._get_config()
         return ReplicaColumn(**config)
     
-class TIMEFactory:
+class TimeControlFactory:
     def __init__(self, 
                  nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
                  pmos_width=0.27e-6, nmos_width=0.18e-6,
@@ -1032,7 +1032,7 @@ class TIMEFactory:
         self.num_cols = num_cols
         self.w_rc = w_rc
         self.operation = operation
-        # fan-out information for the s_en / wl_en buffers (see TIME)
+        # fan-out information for the s_en / wl_en buffers (see TIME_CONTROL)
         self.num_sa = num_sa
         self.wl_load = wl_load
         self.pre_load = pre_load
@@ -1049,7 +1049,7 @@ class TIMEFactory:
         self.access_load = access_load
         self.precharge_off_tau = precharge_off_tau
     def create(self):
-        return TIME(
+        return TIME_CONTROL(
             nmos_model=self.nmos_model,
             pmos_model=self.pmos_model,
             pmos_width=self.pmos_width,

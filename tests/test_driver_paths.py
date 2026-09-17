@@ -40,7 +40,7 @@ class PathTests(unittest.TestCase):
                         else:
                             self.assertIn(f'V(DIN_HOLD{col})=0', initial)
                             self.assertIn(f'V(DIN_HOLDB{col})=0.9', initial)
-                            self.assertIn(f'V(XTIME:XDFF_BUF_DATA:XDFF_{col}:Z5)=0.9', initial)
+                            self.assertIn(f'V(XTIME_CONTROL:XDFF_BUF_DATA:XDFF_{col}:Z5)=0.9', initial)
 
     def test_wide_buffer_fingers_preserve_total_transistor_width(self):
         with redirect_stdout(io.StringIO()):
@@ -181,7 +181,7 @@ class PathTests(unittest.TestCase):
                         dummy = instance_subckt(top, 'XRWL_LOAD_0')
                         self.assertEqual(count(found[dummy], 'RR_WL_'), stub)
                         # Bitline: replica precharge is the array precharge; the replica
-                        # bitline reaches TIME through the sense-amplifier input segments.
+                        # bitline reaches TIME_CONTROL through the sense-amplifier input segments.
                         self.assertEqual(instance_subckt(top, 'XPRECHARGE_RBL'), instance_subckt(top, 'XPRECHARGE_0'))
                         sense = instance_subckt(top, 'XSENSEAMP_0')
                         self.assertEqual(count(found[sense], 'RR_IN_'), segments)
@@ -189,12 +189,12 @@ class PathTests(unittest.TestCase):
                         self.assertEqual(count(found[replica_sense], 'RR_IN_'), segments)
                         self.assertEqual(count(top, 'RR_RBL_SENSE_'), 0)
                         self.assertEqual(count(top, 'CCg_RBL_SENSE_'), 0)
-                        time_line = next(line for line in top if line.startswith('XTIME '))
+                        time_line = next(line for line in top if line.startswith('XTIME_CONTROL '))
                         sense_node = ('XREPLICA_SENSEAMP:IN_end' if w_rc else
                                       ('RBL_MUX' if mux else 'RBL_periph_tap2'))
                         self.assertIn(f' {sense_node} ', time_line)
                         pre_node = 'XPRECHARGE_RBL:ENB_end' if w_rc else 'PRE_line_far'
-                        self.assertIn(f' RWL_far {pre_node} TIME', time_line)
+                        self.assertIn(f' RWL_far {pre_node} TIME_CONTROL', time_line)
 
     def test_rc_precharge_waits_for_the_matched_physical_wordline(self):
         with redirect_stdout(io.StringIO()):
@@ -202,15 +202,15 @@ class PathTests(unittest.TestCase):
             cfg.global_config.sizing = {'mode': 'rules_only'}
             tb = Sram6TCoreTestbench(cfg, choose_columnmux=False, w_rc=True)
             circuit = tb.create_testbench('read', 7, 3)
-        time = next(block for block in circuit.subcircuits if block.name == 'TIME')
+        time = next(block for block in circuit.subcircuits if block.name == 'TIME_CONTROL')
         self.assertTrue(tb.driver_sizes.replica_precharge_guard)
         self.assertEqual(time.NODES[-2:], ['rwl', 'pre_far'])
         # V2.1.6: the precharge is additionally inhibited by the held write request.
-        self.assertIn('pre_ready we_hold_bar pre_gate AND2_PRE_WRITE', str(time))
-        self.assertIn('VDD VSS cs cs_pre PRECHARGE_SELECT_DELAY', str(time))
+        self.assertIn('pre_ready we_hold_bar pre_gate PRECHARGE_WRITE_AND', str(time))
+        self.assertIn('VDD VSS cs cs_delayed cs_pre SELECT_DELAY_AND', str(time))
         self.assertIn('clk_buf cs_pre pre_gate PRE_UNBUF', str(time))
         self.assertEqual(tb.driver_sizes.precharge_guard_stages, 4)
-        self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end TIME', str(circuit['XTIME']))
+        self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end TIME_CONTROL', str(circuit['XTIME_CONTROL']))
         # An unmatched replica cannot represent the physical wordline load.
         cfg.global_config.sizing['replica'] = {'matched': False}
         with redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, 'matched replica'):

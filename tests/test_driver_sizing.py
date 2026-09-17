@@ -78,7 +78,7 @@ class ResolverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'matched replica'):
             resolve_driver_sizes(config(16, 16, "lookup"),
                                  sizing={"mode": "lookup", "replica": {"matched": False}})
-        self.assertEqual(sizes.loads.wl_load, 34.0)  # TIME ceil must not see 34 + epsilon.
+        self.assertEqual(sizes.loads.wl_load, 34.0)  # TIME_CONTROL ceil must not see 34 + epsilon.
 
     def test_parasitic_factor_changes_load_terms_not_small_array_floor(self):
         small = resolve_driver_sizes(config(), sizing={"mode": "rules_only", "parasitic_factor": 2})
@@ -311,7 +311,7 @@ class LookupTests(unittest.TestCase):
         wl = blocks["WORDLINEDRIVER"]
         self.assertAlmostEqual(float(wl.nand_nmos_width), 0.36e-6, places=15)
         self.assertAlmostEqual(float(wl.inv_nmos_width), 0.36e-6, places=15)
-        time = blocks["TIME"]
+        time = blocks["TIME_CONTROL"]
         self.assertEqual((time.pre_load, time.wen_load, time.wl_load),
                          (sizes.loads.pre_load, sizes.loads.wen_load, sizes.loads.wl_load))
         self.assertEqual(sizes.loads.wl_load, 34.0)  # 16 rows + replica, NAND class 2
@@ -354,7 +354,7 @@ class GeneratorTests(unittest.TestCase):
             circuit = tb.create_testbench("write", 7, 3)
         subcircuits = {item.name: item for item in circuit.subcircuits}
         self.assertAlmostEqual(float(subcircuits["WRITEDRIVER"]["M7"].width), 0.27e-6, places=15)
-        time = subcircuits["TIME"]
+        time = subcircuits["TIME_CONTROL"]
         self.assertEqual((time.pre_load, time.wen_load, time.wl_load, time.num_sa),
                          (sizes.loads.pre_load, sizes.loads.wen_load,
                           sizes.loads.wl_load, sizes.loads.num_sa))

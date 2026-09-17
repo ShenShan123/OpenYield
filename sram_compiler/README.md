@@ -1,4 +1,4 @@
-# SRAM Compiler and Test Platform User Guide — V2.1.4
+# SRAM Compiler and Test Platform User Guide — V2.1.7
 
 V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes-v210) covers settings, explicit overrides and evidence limits.
 
@@ -125,7 +125,7 @@ OpenYield/
 │   │   ├── mux_and_sa.py                # Column mux and sense amplifier
 │   │   ├── wordline_driver.py           # Wordline driver
 │   │   ├── decoder.py                   # Row decoder and cascaded decoder structures
-│   │   └── time_generate.py             # Clock, delay chain, flip-flop, and control timing generation
+│   │   └── time_generate.py             # TIME_CONTROL block: clock, registers, delay chains and every enable pulse
 │   └── testbenches/                     # Testbenches, MC simulation, and SNM processing
 │       ├── base_testbench.py            # Base testbench defining power, PDK, default timing, and simulation APIs
 │       ├── sram_6t_core_testbench.py    # SRAM array functional testbench that builds read/write peripherals and the full test circuit
@@ -423,6 +423,13 @@ so BL/BLB sit at their write rails before the wordline rises; `w_en` deasserts
 when the wordline request ends. Write decks write 1 then 0 and measure the
 next write's slot as `TWSLOT` (its clock-high work) instead of `TRESTORE`;
 `select_every=N` selects one cycle in N to probe the idle → write boundary.
+Since V2.1.7 the select that gates the precharge and the write enable
+(`cs_pre`) is delayed on its rising edge only, so new write data passes the
+hold latch before `w_en` closes it at an idle → write edge and an unselected
+cycle stops both enables at once; a `select_every` write deck changes its data
+at the selected edges. The control block is `TIME_CONTROL` (instance
+`XTIME_CONTROL`; probe paths read `XTIME_CONTROL:<node>`); see
+[`docs/design/TIME_CONTROL_PATH.md`](../docs/design/TIME_CONTROL_PATH.md).
 
 The segment measures (`TDECODER`, `TPRCH`, `TWLDRV`, `TSWING`, `TSA`, `TS_EN`,
 `TWDRV`, `TWRITE_Q`, ...) are still written to `.mt0` / `.data.csv` for inspection,

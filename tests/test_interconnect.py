@@ -183,10 +183,10 @@ class ArrayWireTests(unittest.TestCase):
                 self.assertTrue(tb.driver_sizes.replica_matched)
                 self.assertTrue(tb.driver_sizes.replica_precharge_guard)
                 self.assertEqual(tb.driver_sizes.precharge_guard_stages, 4)
-                time_block = next(s for s in circuit.subcircuits if s.name == 'TIME')
+                time_block = next(s for s in circuit.subcircuits if s.name == 'TIME_CONTROL')
                 self.assertIn('rwl_pre_bar rwl_pre_delayed PRECHARGE_GUARD_DELAY', str(time_block))
-                self.assertIn('rwl_pre_bar rwl_pre_delayed pre_ready AND2_PRE_GUARD', str(time_block))
-                self.assertIn('pre_ready we_hold_bar pre_gate AND2_PRE_WRITE', str(time_block))
+                self.assertIn('rwl_pre_bar rwl_pre_delayed pre_ready PRECHARGE_GUARD_AND', str(time_block))
+                self.assertIn('pre_ready we_hold_bar pre_gate PRECHARGE_WRITE_AND', str(time_block))
                 self.assertIn('clk_buf cs_pre pre_gate PRE_UNBUF', str(time_block))
                 replica = next(s for s in circuit.subcircuits if 'replica_column' in s.name)
                 self.assertEqual(sum(e.name.startswith('XReplica_CELL') for e in replica.elements), 4)
@@ -194,7 +194,7 @@ class ArrayWireTests(unittest.TestCase):
                 self.assertAlmostEqual(sum(float(e.resistance) for e in rbl), 4.)
                 rwl = [e for e in circuit.elements if e.name.startswith('Rwire_RWL_')]
                 self.assertAlmostEqual(sum(float(e.resistance) for e in rwl), 4.)
-                self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end TIME', str(circuit['XTIME']))
+                self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end TIME_CONTROL', str(circuit['XTIME_CONTROL']))
                 self.assertIn('RWL_tap3', str(circuit[f'X{replica.name}']))
                 self.assertTrue(tb.cell_probe('WL').endswith(':WL3_tap3'))
 
@@ -296,9 +296,9 @@ class ArrayWireTests(unittest.TestCase):
                     kind = 'PRE' if operation == 'read' or (operation == 'read&write' and cycle % 2 == 0) else 'WEN'
                     self.assertTrue(any(f'VWL_{kind}_FAR_{cycle} FIND V({tb.arr_inst_prefix}:WL3_FAR)'.upper() in line for line in lines))
                     self.assertTrue(any(f'VWL_{kind}_LOCAL_{cycle} FIND V({tb.cell_probe("WL")})'.upper() in line for line in lines))
-                self.assertTrue(all(('WHEN V(PRE)=0.9' if 'VWL_PRE' in line else 'WHEN V(XTIME:WRITE_SLOT)=0.5') in line
+                self.assertTrue(all(('WHEN V(PRE)=0.9' if 'VWL_PRE' in line else 'WHEN V(XTIME_CONTROL:WRITE_SLOT)=0.5') in line
                                     and 'TD=' in line and 'TO=' in line for line in lines if 'PEAK' not in line))
-                self.assertTrue(all(('MAX {IF(V(PRE)<0.9' if 'VWL_PRE' in line else 'MAX {IF(V(XTIME:WRITE_SLOT)>0.5') in line
+                self.assertTrue(all(('MAX {IF(V(PRE)<0.9' if 'VWL_PRE' in line else 'MAX {IF(V(XTIME_CONTROL:WRITE_SLOT)>0.5') in line
                                     and 'FROM=' in line and 'TO=' in line for line in lines if 'PEAK' in line))
                 # A window may not claim more precharge than was simulated: the
                 # last sequence cycle's interval runs past the .TRAN stop, and a
@@ -309,6 +309,62 @@ class ArrayWireTests(unittest.TestCase):
                 self.assertAlmostEqual(float(tran.split()[2]), stop, delta=stop * 1e-6)
                 for line in lines:
                     self.assertLessEqual(float(line.split('TO=')[1].split()[0]), stop * (1 + 1e-9))
+
+    def test_write_slot_checks_do_not_require_replica_settling_stages(self):
+        """sizing.precharge_guard_stages is a documented nonnegative option.  The write slot
+        exists whenever both guards do, so zero settling stages must still yield a deck with its
+        release checks (V2.1.6 refused every transient deck at zero stages)."""
+        import tempfile
+        cfg = load_config(4, 4, 'TT')
+        cfg.global_config.sizing = {'mode': 'lookup', 'precharge_guard_stages': 0}
+        with tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
+            tb = Sram6TCoreMcTestbench(cfg, variation_mode='nominal', sim_path=temp)
+            circuit = tb.create_testbench('read&write', 3, 0)
+            simulator = circuit.simulator(simulator='xyce-serial', temperature=25)
+            tb.add_meas_and_print(simulator, tb.data_init(), 'read&write')
+        self.assertEqual(tb.driver_sizes.precharge_guard_stages, 0)
+        control = next(s for s in circuit.subcircuits if s.name == 'TIME_CONTROL')
+        self.assertEqual(control['Xwrite_slot'].node_names[2:5], ['rwl_pre_bar', 'pre_off_ready', 'write_slot'])
+        deck = str(simulator).upper()
+        for cycle in range(8):
+            kind = 'PRE' if cycle % 2 == 0 else 'WEN'
+            self.assertIn(f'.MEAS TRAN VWL_{kind}_PEAK_{cycle} ', deck)
+
+    def test_idle_probe_registers_new_write_data_at_the_selected_edge(self):
+        """With select_every > 1 the write data is held through the idle cycles and changes 0.1 T
+        before the next selected capture edge, so the idle -> write boundary registers new data
+        while the write-data hold latch is about to close.  The V2.1.6 stimulus changed it at the
+        idle edge instead, where w_en stays low and the latch is open for a whole cycle."""
+        import tempfile
+        from sram_compiler.testbenches.sram_6t_core_MC_testbench import cycle_plan
+
+        def level(source, time):
+            delay, rise, fall = (float(source.delay_time), float(source.rise_time), float(source.fall_time))
+            width, period = float(source.pulse_width), float(source.period)
+            phase = (time - delay) % period if time >= delay else -1.0
+            high = 0 <= phase and rise <= phase <= rise + width
+            return float(source.pulsed_value if high else source.initial_value)
+
+        for every in (1, 2, 3):
+            with self.subTest(select_every=every), tempfile.TemporaryDirectory() as temp, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                tb = Sram6TCoreMcTestbench(load_config(4, 4, 'TT'), variation_mode='nominal',
+                                          sim_path=temp, select_every=every)
+                circuit = tb.create_testbench('write', 3, 0)
+                period, vdd = float(tb.t_period), float(tb.vdd)
+                span, plan = cycle_plan('write', every)
+                held = None
+                for cycle, (kind, data) in enumerate(plan):
+                    held = data if kind == 'write' else held
+                    edge = 1e-9 + (cycle + .2) * period
+                    # Stable from 0.1 T before to just after the capture edge.
+                    for offset in (-.1 * period + 2 * float(tb.t_rise), 0., .05 * period):
+                        value = level(circuit['VDIN0'], edge + offset)
+                        if kind == 'write' or every > 1:
+                            self.assertEqual(value, held * vdd, (cycle, offset))
+                    if every > 1 and kind == 'write' and cycle:
+                        # New data arrives at the selected edge itself, not in the idle cycle before it.
+                        self.assertNotEqual(level(circuit['VDIN0'], edge - .3 * period), held * vdd)
 
     def test_unsafe_or_missing_precharge_samples_cannot_be_returned_as_success(self):
         import pandas as pd

@@ -215,6 +215,14 @@ Every case, latest attempt (`outputs/validation/V2.1.6-write-slot/`, `assemble_r
 
 ## 6. Limits
 
+*V2.1.7 follow-up:* the idle -> write probes below changed the write data
+inside the idle cycle, so they never registered new data at the idle -> write
+edge; with new data there the write-data hold latch closed 24 to 29 ps after
+the data at FF -40 C. V2.1.7 gates the write enable with the rising-edge
+select delay and re-runs this matrix; see
+[`SELECT_GATE_V2_1_7.md`](SELECT_GATE_V2_1_7.md). Names in this record are
+the V2.1.6 ones (`TIME`, `XTIME`, ...).
+
 * Screening at the class bounds with illustrative wires; extracted metal,
   half-select writes (a column mask does not exist in this architecture: every
   column is written) and the yield estimator remain the carried Phase 6 scope.

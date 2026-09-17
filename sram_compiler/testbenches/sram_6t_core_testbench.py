@@ -1,7 +1,7 @@
 from PySpice.Spice.Netlist import Circuit 
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
 from sram_compiler.subcircuits.standard_cell import D_latch,Pinv  # type: ignore
-from sram_compiler.testbenches.parameter_factor import (TIMEFactory,ReplicaColumnFactory,
+from sram_compiler.testbenches.parameter_factor import (TimeControlFactory,ReplicaColumnFactory,
                                                         DecoderCascadeFactory,WordlineDriverFactory,
                                                         PrechargeFactory,ColumnMuxFactory,SenseAmpFactory,WriteDriverFactory,
                                                         Sram6TCellFactory,Sram6TCoreFactory,Sram10TCellFactory,Sram10TCoreFactory)
@@ -85,9 +85,10 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # output rising.
         self.next_row = next_row
         # V2.1.6: chip select one cycle in `select_every` (1 = every cycle).  The
-        # idle cycles between two single-deck accesses probe the write -> idle
-        # -> write boundary of the write slot; single decks toggle their write
-        # data, so the second write also probes write -> write with new data.
+        # idle cycles between two single-deck accesses probe the access -> idle
+        # -> access boundaries of the precharge and the write slot; single write
+        # decks toggle their data at the selected edges, so the second write
+        # registers new data (write -> write, or idle -> write).
         if isinstance(select_every, bool) or not isinstance(select_every, int) or select_every < 1:
             raise ValueError('select_every must be a positive integer')
         self.select_every = select_every
@@ -102,12 +103,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         self.timing_config.apply(self)
         #self.set_vdd(5)
 
-    def create_time_circuit(self, circuit: Circuit,operation: str):
-        """Create time generation circuitry"""
-        # Create TIME circuit
+    def create_time_control_circuit(self, circuit: Circuit,operation: str):
+        """Create the TIME_CONTROL block (control-signal generator)"""
         self.operation=operation
         loads = self.driver_sizes.loads
-        time_circuit = TIMEFactory(
+        time_control = TimeControlFactory(
             nmos_model="NMOS_VTG",
             pmos_model="PMOS_VTG",
             num_rows=self.num_rows,
@@ -130,7 +130,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             access_load=loads.access_load,
             precharge_off_tau=self.driver_sizes.precharge_off_tau,
         ).create()
-        circuit.subcircuit(time_circuit)   # Add to main circuit
+        circuit.subcircuit(time_control)   # Add to main circuit
         
         # Calculate address bits
         n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
@@ -144,19 +144,19 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             data_input_nodes = [f'DIN{i}' for i in range(self.num_cols)]
             data_output_nodes = [f'DIN_dff{i}' for i in range(self.num_cols)]
         
-        # All TIME connections
-        time_connections = [
+        # All TIME_CONTROL connections
+        control_connections = [
             'VDD', 'VSS', 'clk', 'csb', 'web', 'clk_buf', 'clk_bar',
             'cs_bar', 'cs', 'we_bar', 'we', 'gated_clk_bar', 'gated_clk_buf', 'wl_en'
         ]
         
         # Add address nodes
-        time_connections.extend(address_input_nodes)
-        time_connections.extend(address_output_nodes)
+        control_connections.extend(address_input_nodes)
+        control_connections.extend(address_output_nodes)
         if operation == 'write' or operation == 'read&write':
             # Add data nodes
-            time_connections.extend(data_input_nodes)
-            time_connections.extend(data_output_nodes)
+            control_connections.extend(data_input_nodes)
+            control_connections.extend(data_output_nodes)
         
         # Add remaining nodes.  With RC, the replica bitline reaches the timing
         # block through the same two segments a real bitline sees at its
@@ -166,18 +166,18 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         # devices as a real column, including when local series RC is disabled.
         rbl_node = ('XREPLICA_SENSEAMP:IN_end' if self.w_rc else
                     ('RBL_MUX' if self.choose_columnmux else self.periphery_tap('BL', None, 'sense')))
-        time_connections.extend([rbl_node, 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE', 'sa_iso'])
+        control_connections.extend([rbl_node, 'rbl_delay', 'rbl_delay_bar', 's_en', 'w_en', 'PRE', 'sa_iso'])
         if self.driver_sizes.replica_precharge_guard:
-            time_connections.append('RWL_far')
+            control_connections.append('RWL_far')
         if self.driver_sizes.precharge_off_guard:
             # The replica precharge sits past the final real column. Observe
             # its transistor gate, including the optional local series stub.
-            time_connections.append('XPRECHARGE_RBL:ENB_end' if self.w_rc else 'PRE_line_far')
+            control_connections.append('XPRECHARGE_RBL:ENB_end' if self.w_rc else 'PRE_line_far')
         
-        # Instantiate TIME circuit
+        # Instantiate the TIME_CONTROL block (instance XTIME_CONTROL)
         circuit.X(
-            'TIME', time_circuit.NAME,
-            *time_connections
+            'TIME_CONTROL', time_control.NAME,
+            *control_connections
         )
         return circuit
     
@@ -737,6 +737,14 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             # Write `1` into all columns in the first selected cycle, `0` in the
             # next (V2.1.6: the second write drives the opposite rails, so the
             # write slot of the following cycle is measured as TWSLOT).
+            # With select_every > 1 the data is held through the idle cycles and
+            # changes 0.1 T before the next selected edge, so the idle -> write
+            # probe also registers new data at that edge (V2.1.7; a change in the
+            # idle cycle left the write-data hold latch open long before w_en).
+            if self.select_every == 1:
+                data_width = 0.2 * self.t_period
+            else:
+                data_width = self.select_every * self.t_period - self.t_rise
             for col in range(self.num_cols):    
                 #circuit.V(f'DIN{col}', f'DIN{col}', self.gnd_node, self.vdd @ u_V)
                 circuit.PulseVoltageSource(
@@ -744,7 +752,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                         initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
                         delay_time=1.0 @ u_ns +0.1 * self.t_period,  # 预充电开始后0.5ns,留1s静默
                         rise_time=self.t_rise,fall_time=self.t_fall,
-                        pulse_width=0.2 * self.t_period , # 保持有效
+                        pulse_width=data_width,  # 保持有效
                         period=2 * self.select_every * self.t_period)
         elif operation =="read&write":
             # Write `1` into all columns    设置输入数据为高低转换
@@ -1122,15 +1130,15 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         print(f"[DEBUG] self.arr_inst_prefix = {self.arr_inst_prefix}")
         print(f"[DEBUG] self.cell_inst_prefix = {self.cell_inst_prefix} of {self.name}")
 
-        # Control wires first: the replica, TIME, decoder and periphery blocks
+        # Control wires first: the replica, TIME_CONTROL, decoder and periphery blocks
         # below all tap them.
         self._add_control_wires(circuit, operation)
         self._add_periphery_wires(circuit)
         # Create Replica Column 
         self.create_replica_column(circuit)
         self.create_replica_wordline(circuit)
-        # Create TIME circuit for timing control
-        self.create_time_circuit(circuit, operation)
+        # Create the TIME_CONTROL block for timing control
+        self.create_time_control_circuit(circuit, operation)
         self.add_cs_startup_clamp(circuit)
         # 创建译码器（输出连接到字线驱动器）
         self.create_decoder(circuit)

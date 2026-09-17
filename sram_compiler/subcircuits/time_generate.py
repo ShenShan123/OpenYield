@@ -1,8 +1,8 @@
-"""TIME: the control-signal generator of the SRAM macro.
+"""TIME_CONTROL: the control-signal generator of the SRAM macro.
 
 Every enable pulse of the macro starts here.  From the external clock, chip
 select, write request, address and write data, the block derives (in signal
-order, which is also the order of the builders in :class:`TIME`):
+order, which is also the order of the builders in :class:`TIME_CONTROL`):
 
     clk_buf / clk_bar         buffered internal clock and its complement
     A_dff*, DIN_dff*          registered and held address / write data
@@ -13,6 +13,7 @@ order, which is also the order of the builders in :class:`TIME`):
     rbl_delay                 replica bitline through the replica delay chain
     we_hold                   write request held while a wordline is on
     pre_ready                 previous wordline observed off (replica wordline)
+    cs_pre                    select of the clock-high enables, delayed on its rising edge
     write_slot, write_window  the write drivers' clock-high slot
     w_en                      write enable (the write slot, then the access)
     s_en                      sense enable (replica timed, reads only)
@@ -25,7 +26,7 @@ come from ``sram_compiler.sizing.driver_sizing``.  The design rationale and the
 measurements behind each stage are in ``docs/design/TIME_CONTROL_PATH.md``;
 the comments here only say what a stage does and why it exists.
 
-Instance and node names inside TIME are part of the testbench contract
+Instance and node names inside TIME_CONTROL are part of the testbench contract
 (``.IC`` targets, probes and the qualification scorer read them), so a change
 of topology keeps them and a refactor must leave the generated netlist
 byte-identical.
@@ -116,8 +117,8 @@ class TaperedBuffer(BaseSubcircuit):
 
 class HoldLatch(D_latch):
     """D_LATCH with its own subcircuit name: the address and write-request hold
-    latches of TIME (transparent while wl_en is low, opaque while a wordline is on)."""
-    NAME = "D_LATCH_ADDR"
+    latches of TIME_CONTROL (transparent while wl_en is low, opaque while a wordline is on)."""
+    NAME = "HOLD_LATCH"
 
 
 class TransmissionGate(BaseSubcircuit):
@@ -147,7 +148,7 @@ class TransmissionGate(BaseSubcircuit):
 
 class ClockBuffer(BaseSubcircuit):
     """Four-stage tapered clock buffer (1 : 3 : 9 : 27 unit widths times `drive_scale`)."""
-    NAME = "pdrive"
+    NAME = "CLOCK_BUFFER"
     NODES = ('VDD', 'VSS', 'A', 'Z')
 
     def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
@@ -181,7 +182,7 @@ class WordlineEnableBuffer(BaseSubcircuit):
     of one, so `drive_scale` = ceil(load / 32) keeps the fan-out below eight
     (V2.0.2: the fixed stage took 280 / 600 ps to switch at 512 rows).
     """
-    NAME = "wl_pdrive"
+    NAME = "WORDLINE_ENABLE_BUFFER"
     NODES = ('VDD', 'VSS', 'A', 'Z')
 
     def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
@@ -235,10 +236,10 @@ class Dff(BaseSubcircuit):
 class DffBuffer(BaseSubcircuit):
     """Flip-flop with buffered complementary outputs: Q follows D, QB is its complement.
 
-    TIME registers the active-low chip select and write request with it, so
+    TIME_CONTROL registers the active-low chip select and write request with it, so
     the QB output carries the active-high `cs` / `we` and Q the complement.
     """
-    NAME = "DFF_BUF"
+    NAME = "DFF_BUFFER"
     NODES = ('VDD', 'VSS', 'D', 'Q', 'QB', 'CLK')
 
     def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
@@ -262,7 +263,7 @@ class ReplicaDelayChain(BaseSubcircuit):
     the stage count `N` (with the replica cell count `K`) sets the sensing
     margin (docs/DRIVER_SIZING_PROPOSAL.md).  Legacy instance names are kept.
     """
-    NAME = "delay_chain"
+    NAME = "REPLICA_DELAY_CHAIN"
     NODES = ('VDD', 'VSS', 'in', 'out')
 
     def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
@@ -283,7 +284,7 @@ class ReplicaDelayChain(BaseSubcircuit):
 
 class UnitDelayChain(BaseSubcircuit):
     """Even (non-inverting) unit-inverter chain with `loads_per_stage` dummy loads per stage."""
-    NAME = "wen_delay_chain"
+    NAME = "UNIT_DELAY_CHAIN"
     NODES = ('VDD', 'VSS', 'in', 'out')
 
     def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
@@ -300,7 +301,7 @@ class UnitDelayChain(BaseSubcircuit):
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
         inv = Pinv(nmos_model, pmos_model, nmos_width=UNIT_NMOS_WIDTH, pmos_width=UNIT_PMOS_WIDTH,
-                   length=length, num='_wen_delay')
+                   length=length, num='_unit_delay')
         self.subcircuit(inv)
         prev = 'in'
         for i in range(self.stages):
@@ -312,8 +313,8 @@ class UnitDelayChain(BaseSubcircuit):
 
 
 class AddressRegister(BaseSubcircuit):
-    """One flip-flop per address bit, clustered in TIME before the decoder wires."""
-    NAME = "ADDR_DFF"
+    """One flip-flop per address bit, clustered in TIME_CONTROL before the decoder wires."""
+    NAME = "ADDRESS_REGISTER"
 
     def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
                  num_rows: int = 16) -> None:
@@ -331,7 +332,7 @@ class AddressRegister(BaseSubcircuit):
 class DataRegister(BaseSubcircuit):
     """One flip-flop per write-data bit; the clock crosses the array width on
     the wordline wire geometry, one tap per column (V2.1.1 distributed wiring)."""
-    NAME = "DATA_DFF"
+    NAME = "DATA_REGISTER"
 
     def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
                  num_cols: int = 8, interconnect=None) -> None:
@@ -349,28 +350,33 @@ class DataRegister(BaseSubcircuit):
 
 # Gate identities: PySpice keeps one subcircuit definition per name and scope,
 # so every gate with its own sizes or role carries its own name.
-class AND3_WEN(AND3):
-    """w_en = we_hold & cs & write_window."""
-    NAME = "AND3_WEN"
+class WriteEnableAnd(AND3):
+    """w_en = we_hold & cs_pre & write_window."""
+    NAME = "WRITE_ENABLE_AND"
 
 
 class PrechargeWriteAnd(AND2):
     """Precharge qualifier: wordline observed off & no write request."""
-    NAME = "AND2_PRE_WRITE"
+    NAME = "PRECHARGE_WRITE_AND"
 
 
 class WriteSlotAnd(AND2):
     """Write slot: previous wordline observed off & physical precharge observed off."""
-    NAME = "AND2_WRITE_SLOT"
+    NAME = "WRITE_SLOT_AND"
 
 
 class WriteWindowNor(PNOR2):
-    NAME = "PNOR2_WRITE_WINDOW"
+    NAME = "WRITE_WINDOW_NOR"
 
 
-class PrechargeSelectDelay(UnitDelayChain):
-    """Delays the select into the precharge gate past the write-request inhibit path."""
-    NAME = "PRECHARGE_SELECT_DELAY"
+class SelectDelay(UnitDelayChain):
+    """Delays the select for the clock-high enables past the write-request inhibit path."""
+    NAME = "SELECT_DELAY"
+
+
+class SelectDelayAnd(AND2):
+    """cs_pre = cs & delayed cs: rises after the select delay, falls with the select."""
+    NAME = "SELECT_DELAY_AND"
 
 
 class PrechargeGuardDelay(UnitDelayChain):
@@ -379,7 +385,7 @@ class PrechargeGuardDelay(UnitDelayChain):
 
 
 class PrechargeGuardAnd(AND2):
-    NAME = "AND2_PRE_GUARD"
+    NAME = "PRECHARGE_GUARD_AND"
 
 
 class PrechargeOffDelay(UnitDelayChain):
@@ -387,7 +393,7 @@ class PrechargeOffDelay(UnitDelayChain):
 
 
 class PrechargeAccessAnd(AND2):
-    NAME = "AND2_PRE_ACCESS"
+    NAME = "PRECHARGE_ACCESS_AND"
 
 
 class PrechargeOffGuard(BaseSubcircuit):
@@ -414,8 +420,8 @@ class PrechargeOffGuard(BaseSubcircuit):
         self.stages = stages
         self.access_load = access_load
         self.settling_tau = settling_tau
-        observer = Pinv(nmos_model, pmos_model, .045e-6, .135e-6,
-                        .05e-6, num='_pre_off_observer')
+        observer = Pinv(nmos_model, pmos_model, *OBSERVER_WIDTHS,
+                        GATE_LENGTH, num='_pre_off_observer')
         delay = PrechargeOffDelay(nmos_model, pmos_model, stages=stages)
         ready = PNOR2(nmos_model, pmos_model, .09e-6, .54e-6, .05e-6)
         drive_scale = max(6, ceil(access_load / 6.0))
@@ -448,10 +454,10 @@ def address_bits(num_rows: int) -> int:
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class ControlSizing:
-    """Buffer scales of the TIME enables for their loads (unit inverters).
+    """Buffer scales of the TIME_CONTROL enables for their loads (unit inverters).
 
     The loads are supplied by ``resolve_driver_sizes`` (V2.0.4+); the
-    fallbacks reproduce the V2.0.2 estimates for direct ``TIME`` callers.
+    fallbacks reproduce the V2.0.2 estimates for direct ``TIME_CONTROL`` callers.
     Every enable drives up to `effort` unit loads per unit of drive directly;
     above ``4 * effort`` a :class:`TaperedBuffer` follows the gate.
     """
@@ -490,7 +496,7 @@ def resolve_control_sizing(num_rows: int, num_cols: int, operation: str, effort_
                            pre_load: Optional[float], wen_load: Optional[float], sen_load: Optional[float],
                            iso_load: Optional[float], sen_effort: Optional[float],
                            access_load: Optional[float]) -> ControlSizing:
-    """Fill the load fallbacks and derive every buffer scale (see the docstrings of TIME)."""
+    """Fill the load fallbacks and derive every buffer scale (see the docstrings of TIME_CONTROL)."""
     n_bits = address_bits(num_rows)
     writes = operation == 'write' or operation == 'read&write'
     num_sa = num_cols if num_sa is None else int(num_sa)
@@ -546,7 +552,7 @@ def resolve_control_sizing(num_rows: int, num_cols: int, operation: str, effort_
 # ---------------------------------------------------------------------------
 # The control block
 # ---------------------------------------------------------------------------
-class TIME(BaseSubcircuit):
+class TIME_CONTROL(BaseSubcircuit):
     """Control-signal generator (see the module docstring for the signal list).
 
     Ports: VDD, VSS, clk, csb, web, clk_buf, clk_bar, cs_bar, cs, we_bar, we,
@@ -555,7 +561,7 @@ class TIME(BaseSubcircuit):
     The data ports exist for the write operations, `rwl` with the replica
     precharge guard and `pre_far` with the precharge-off guard.
     """
-    NAME = "TIME"
+    NAME = "TIME_CONTROL"
 
     def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
                  # Base widths for NAND gate transistors
@@ -646,6 +652,7 @@ class TIME(BaseSubcircuit):
         self._add_replica_delay()
         self._add_write_request_hold()
         self._add_wordline_off_guard()
+        self._add_select_delay()
         self._add_write_slot()
         self._add_write_enable()
         self._add_sense_enable()
@@ -692,6 +699,7 @@ class TIME(BaseSubcircuit):
         self.X(instance, gate.NAME, 'VDD', 'VSS', *inputs, source)
         if buffered:
             buffer = TaperedBuffer(buffer_name, effort_based=self.effort_buffers, drive_scale=drive_scale,
+                                   nmos_model=self.nmos_model, pmos_model=self.pmos_model,
                                    load_units=load_units, fall_strength=fall_strength)
             self.subcircuit(buffer)
             self.X(buffer_instance, buffer.NAME, 'VDD', 'VSS', source, output)
@@ -713,8 +721,9 @@ class TIME(BaseSubcircuit):
         latch = HoldLatch(self.nmos_model, self.pmos_model)
         self.subcircuit(latch)
         self.hold_latch = latch
-        buffer = TaperedBuffer('ABUF', drive_scale=self.sizing.addr_scale, effort_based=self.effort_buffers,
-                               load_units=self.sizing.addr_fanout_units)
+        buffer = TaperedBuffer('ADDRESS_BUFFER', drive_scale=self.sizing.addr_scale,
+                               nmos_model=self.nmos_model, pmos_model=self.pmos_model,
+                               effort_based=self.effort_buffers, load_units=self.sizing.addr_fanout_units)
         self.subcircuit(buffer)
         for i in range(self.n_bits):
             self.X(f'addr_hold_{i}', latch.NAME,
@@ -780,7 +789,8 @@ class TIME(BaseSubcircuit):
 
     def _add_wordline_enable(self) -> None:
         """wl_en = buffer(access request); wl_en_bar enables the hold latches."""
-        buffer = WordlineEnableBuffer(drive_scale=self.sizing.wl_en_scale, fold_gates=self.effort_buffers)
+        buffer = WordlineEnableBuffer(self.nmos_model, self.pmos_model,
+                                      drive_scale=self.sizing.wl_en_scale, fold_gates=self.effort_buffers)
         self.subcircuit(buffer)
         self.X('wl_en', buffer.NAME, 'VDD', 'VSS', self.access_request, 'wl_en')
         inverter = self._unit_inverter('_wl_en_bar', self.sizing.wlb_scale)
@@ -789,7 +799,7 @@ class TIME(BaseSubcircuit):
 
     def _add_replica_delay(self) -> None:
         """rbl -> rbl_delay (inverting chain) -> rbl_delay_bar: the replica-timed sense trigger."""
-        chain = ReplicaDelayChain(stages=self.dc_stages)
+        chain = ReplicaDelayChain(self.nmos_model, self.pmos_model, stages=self.dc_stages)
         self.subcircuit(chain)
         self.X('delaychain', chain.NAME, 'VDD', 'VSS', 'rbl', 'rbl_delay')
         inverter = self._unit_inverter()
@@ -816,20 +826,42 @@ class TIME(BaseSubcircuit):
         self.wordline_off = 'wl_en_bar'
         if not self.replica_precharge_guard:
             return
-        observer = Pinv('NMOS_VTG', 'PMOS_VTG', .045e-6, .135e-6,
-                        length=.05e-6, num='_rwl_precharge')
+        observer = Pinv(self.nmos_model, self.pmos_model, *OBSERVER_WIDTHS,
+                        length=GATE_LENGTH, num='_rwl_precharge')
         self.subcircuit(observer)
         self.X('rwl_precharge_guard', observer.NAME, 'VDD', 'VSS', 'rwl', 'rwl_pre_bar')
         self.wordline_off = 'rwl_pre_bar'
         if not self.precharge_guard_stages:
             return
-        delay = PrechargeGuardDelay(stages=self.precharge_guard_stages)
+        delay = PrechargeGuardDelay(self.nmos_model, self.pmos_model, stages=self.precharge_guard_stages)
         ready = PrechargeGuardAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
         self.subcircuit(delay)
         self.subcircuit(ready)
         self.X('precharge_guard_delay', delay.NAME, 'VDD', 'VSS', 'rwl_pre_bar', 'rwl_pre_delayed')
         self.X('precharge_guard_ready', ready.NAME, 'VDD', 'VSS', 'rwl_pre_bar', 'rwl_pre_delayed', 'pre_ready')
         self.wordline_off = 'pre_ready'
+
+    def _add_select_delay(self) -> None:
+        """cs_pre: the select of the clock-high enables (precharge and write drivers).
+
+        The select and the write request are registered on the same edge, but
+        the request reaches the precharge gate through the hold latch and an
+        AND2 (five gate delays), so at the first selected write after an idle
+        cycle a raw select would fire the precharge for those gates under the
+        rising write enable (V2.1.6).  Likewise the write data reaches the
+        drivers through the data register and the testbench hold latch, which
+        closes when w_en rises: with the raw select the latch closed only
+        ~25 ps after new data had settled at FF -40 C (V2.1.7).  Only the rising
+        edge is delayed (eight unit stages, then an AND with the select), so an
+        unselected cycle stops both enables at once instead of racing the
+        delayed select against the wordline-off guard.
+        """
+        delay = SelectDelay(self.nmos_model, self.pmos_model, stages=8, loads_per_stage=2)
+        gate = SelectDelayAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
+        self.subcircuit(delay)
+        self.subcircuit(gate)
+        self.X('select_delay', delay.NAME, 'VDD', 'VSS', 'cs', 'cs_delayed')
+        self.X('select_gate', gate.NAME, 'VDD', 'VSS', 'cs', 'cs_delayed', 'cs_pre')
 
     def _add_write_slot(self) -> None:
         """The write drivers take the precharge slot of a write cycle (V2.1.6).
@@ -839,18 +871,21 @@ class TIME(BaseSubcircuit):
         the previous wordline and the physical precharge are observed off, in
         the clock-high phase; write_window = wl_en | write_slot keeps the
         drivers on until the wordline request ends.  BL/BLB therefore sit at
-        their write rails before the wordline rises.  The select is delayed
-        into the precharge gate (cs_pre) because it reaches that gate five
-        gate delays before the held request could inhibit it: at the first
-        selected write after an idle cycle the precharge would otherwise fire
-        for those five gates and overlap the drivers.
+        their write rails before the wordline rises.
+
+        Without the replica guard nothing observes the previous wordline:
+        wordline_off is wl_en_bar, and wl_en | wl_en_bar would hold the drivers
+        on across consecutive writes (the hold latch never reopens for new
+        data).  The drivers then start with the wordline enable, as before
+        V2.1.6 (V2.1.7).
         """
         pre_gate = PrechargeWriteAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
         self.subcircuit(pre_gate)
         self.X('pre_write_gate', pre_gate.NAME, 'VDD', 'VSS', self.wordline_off, 'we_hold_bar', 'pre_gate')
-        select_delay = PrechargeSelectDelay(self.nmos_model, self.pmos_model, stages=8, loads_per_stage=2)
-        self.subcircuit(select_delay)
-        self.X('precharge_select_delay', select_delay.NAME, 'VDD', 'VSS', 'cs', 'cs_pre')
+        if not self.replica_precharge_guard:
+            self.write_window = 'wl_en'
+            return
+        self.write_window = 'write_window'
         slot = self.wordline_off
         if self.precharge_off_guard:
             slot_and = WriteSlotAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
@@ -866,13 +901,13 @@ class TIME(BaseSubcircuit):
         self.X('write_window_inv', window_inv.NAME, 'VDD', 'VSS', 'write_window_bar', 'write_window')
 
     def _add_write_enable(self) -> None:
-        """w_en = we_hold & cs & write_window, buffered above 32 unit loads (V2.0.2)."""
-        gate = self._and_gate(AND3_WEN, ENABLE_INVERTER)
+        """w_en = we_hold & cs_pre & write_window, buffered above 32 unit loads (V2.0.2)."""
+        gate = self._and_gate(WriteEnableAnd, ENABLE_INVERTER)
         self.subcircuit(gate)
         s = self.sizing
         self.wen_source = self._buffered_output(
-            'w_en', gate, ('we_hold', 'cs', 'write_window'), 'w_en', s.wen_buffered, 'WEN_BUF', 'w_en_buf',
-            drive_scale=ceil(s.wen_load / s.wen_effort), load_units=s.wen_load)
+            'w_en', gate, ('we_hold', 'cs_pre', self.write_window), 'w_en', s.wen_buffered,
+            'WRITE_ENABLE_BUFFER', 'w_en_buf', drive_scale=ceil(s.wen_load / s.wen_effort), load_units=s.wen_load)
 
     def _add_sense_enable(self) -> None:
         """s_en = rbl_delay & access request & !we_hold: the replica-timed sense trigger.
@@ -886,7 +921,7 @@ class TIME(BaseSubcircuit):
         s = self.sizing
         self.sen_source = self._buffered_output(
             's_en', gate, ('rbl_delay', self.access_request, 'we_hold_bar'), 's_en', s.sen_buffered,
-            'SEN_BUF', 's_en_buf', drive_scale=ceil(s.sen_load / s.sen_effort), load_units=s.sen_load)
+            'SENSE_ENABLE_BUFFER', 's_en_buf', drive_scale=ceil(s.sen_load / s.sen_effort), load_units=s.sen_load)
 
     def _add_sense_isolation(self) -> None:
         """sa_iso = s_en | w_en: the amplifier's input pass gates open while it is
@@ -902,7 +937,7 @@ class TIME(BaseSubcircuit):
         s = self.sizing
         self._buffered_output(
             'sa_iso_inv', inverter, ('sa_iso_bar',), 'sa_iso', s.iso_buffered(self.effort_buffers),
-            'ISO_BUF', 'sa_iso_buf', drive_scale=ceil(s.iso_load / s.iso_effort), load_units=s.iso_load,
+            'SENSE_ISOLATION_BUFFER', 'sa_iso_buf', drive_scale=ceil(s.iso_load / s.iso_effort), load_units=s.iso_load,
             fall_strength=s.iso_fall_strength)
 
     def _add_precharge(self) -> None:
@@ -917,7 +952,8 @@ class TIME(BaseSubcircuit):
                       nmos_width=0.27e-6, pmos_width=0.27e-6, length=0.05e-6, w_rc=self.w_rc)
         self.subcircuit(nand)
         self.X('pre_unbuf', nand.NAME, 'VDD', 'VSS', 'clk_buf', 'cs_pre', 'pre_gate', 'PRE_UNBUF')
-        buffer = TaperedBuffer('PRE_BUF', effort_based=self.effort_buffers, drive_scale=self.sizing.pre_scale,
+        buffer = TaperedBuffer('PRECHARGE_BUFFER', effort_based=self.effort_buffers, drive_scale=self.sizing.pre_scale,
+                               nmos_model=self.nmos_model, pmos_model=self.pmos_model,
                                load_units=self.pre_load)
         self.subcircuit(buffer)
         self.X('pre', buffer.NAME, 'VDD', 'VSS', 'PRE_UNBUF', 'PRE')

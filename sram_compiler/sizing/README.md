@@ -86,7 +86,7 @@ control buffers of V2.0.5.
   only the V2.0.9 three-sample screen at 1024x4, 2048x2 and 8x1024 behind them;
   add measured anchors to the table instead of relying on them.
 
-The TIME control buffers (`PRE`, `w_en`, `s_en`, isolation, `wl_en`, address and
+The TIME_CONTROL buffers (`PRE`, `w_en`, `s_en`, isolation, `wl_en`, address and
 clock) are still sized from the actual loads of the resolved classes; they are
 not part of the table. Their per-stage widths remain the effort-based tapers of
 V2.0.4 and are folded into fingers of at most 2 um.
@@ -184,8 +184,9 @@ replica `(1, 9)` does not claim compliance with the read limit.
 
 ## Clock classes (V2.1.0)
 
-`timing_lookup.json` (`v2.1.6-timing-5`: every class re-evidenced on the
-V2.1.6 write slot, see `docs/design/WRITE_SLOT_V2_1_6.md`) uses the same row
+`timing_lookup.json` (`v2.1.7-timing-6`: every class re-evidenced on the
+V2.1.7 select gate, see `docs/design/SELECT_GATE_V2_1_7.md`, after the
+V2.1.6 write slot, `docs/design/WRITE_SLOT_V2_1_6.md`) uses the same row
 and column anchors as driver sizing.
 Each entry contains an integer `half_period_ps` budget; choose the next anchor
 at or above each dimension, then compute:

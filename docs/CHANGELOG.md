@@ -7,6 +7,70 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.7 — 2026-09-17 — select gate of the clock-high enables; TIME_CONTROL rename
+
+V2.1.7 reviews the V2.1.6 write slot for abnormal functions and boundary
+bugs, fixes the five it found, renames the control block `TIME` to
+`TIME_CONTROL` and re-evidences the timing table on the new sources
+([record](design/SELECT_GATE_V2_1_7.md)). Driver sizes, cells and the timing
+classes are unchanged; steady-state read and write cycles are unchanged.
+
+- Select gate (`TIME_CONTROL`): `cs_pre = cs & cs_delayed` delays only the
+  rising edge of the select (the eight V2.1.6 stages plus an AND2) and now
+  gates both clock-high enables, `PRE = NAND3(clk_buf, cs_pre, pre_gate)` and
+  `w_en = we_hold & cs_pre & write_window`. With the raw select, `w_en` rose at
+  an idle -> write edge as soon as the select did, and the testbench's
+  write-data hold latch closed only 24 to 29 ps after new data had settled at
+  FF 1.1 V / -40 C (4x4 and 8x4, 6T and 10T, twenty mismatch samples); it is
+  now 109 to 112 ps there (180 ps TT, 404 ps SS). The symmetric V2.1.6 delay also
+  kept the select high for eight stages into an unselected cycle while the
+  wordline-off guard re-opened the precharge gate (58 ps apart at 2x4 FF);
+  the gap is now 114 ps. No V2.1.6 deck failed on either race. An idle -> read
+  precharge starts one gate later (+10 to +41 ps) and an idle -> write slot
+  opens after the select delay (TWSLOT 206 / 329 / 738 ps at FF / TT / SS,
+  8x4).
+- Fix: without the replica guard (the factory defaults) the V2.1.6 write
+  window was `wl_en | wl_en_bar`, constantly high, so `w_en` stayed on for
+  every phase of consecutive writes (1.00 V in a stand-alone deck): the
+  write-data hold latch never reopened and the drivers were on while the
+  previous wordline fell. Such a block now starts its drivers with `wl_en`.
+  The testbench always builds both guards.
+- Fix: a deck with the documented `sizing.precharge_guard_stages: 0` raised in
+  the V2.1.6 safety measures; they now require the two guards only.
+- Fix: five builders ignored the block's transistor models (the replica
+  wordline observer was hard-coded; the replica delay chain, guard delay,
+  wordline-enable buffer and every tapered buffer used the defaults), contrary
+  to the V2.1.6 entry. Netlists with the default models are unchanged.
+- Fix (testbench): a `select_every` write deck holds its data through the idle
+  cycles and changes it 0.1 T before the next selected edge. The V2.1.6 decks
+  changed it inside the idle cycle, so the V2.1.6 idle -> write probes never
+  registered new data at that edge.
+- Checks: the local waveform checker adds `strict_idle_<k>_precharge_off` /
+  `_enables_off` for unselected cycles and
+  `strict_cycle_<k>_col_<c>_data_before_write_enable` with
+  `_data_to_write_enable_ps`.
+- Rename: `TIME` -> `TIME_CONTROL` (class, subcircuit, top-level instance
+  `XTIME_CONTROL`, so probe paths read `XTIME_CONTROL:<node>`),
+  `TIMEFactory` -> `TimeControlFactory`, `create_time_circuit` ->
+  `create_time_control_circuit`, and every inner subcircuit named after its
+  class (`pdrive` -> `CLOCK_BUFFER`, `wl_pdrive` -> `WORDLINE_ENABLE_BUFFER`,
+  `DFF_BUF` -> `DFF_BUFFER`, `D_LATCH_ADDR` -> `HOLD_LATCH`, `delay_chain` ->
+  `REPLICA_DELAY_CHAIN`, `wen_delay_chain` -> `UNIT_DELAY_CHAIN`, `ADDR_DFF` /
+  `DATA_DFF` -> `ADDRESS_REGISTER` / `DATA_REGISTER`, `AND3_WEN` ->
+  `WRITE_ENABLE_AND`, `AND2_PRE_*` -> `PRECHARGE_*_AND`, the tapered-buffer
+  roles `ABUF` / `WEN_BUF` / `SEN_BUF` / `ISO_BUF` / `PRE_BUF` ->
+  `*_BUFFER`; full map in
+  [`TIME_CONTROL_PATH.md`](design/TIME_CONTROL_PATH.md), section 6). Instance
+  and node names inside the block are kept. Before the circuit change the
+  rename was proven on 1351 of 1351 netlists identical after the name map
+  (`dev/v217_boundary/`).
+- `timing_lookup.json` `v2.1.7-timing-6`: every class kept and re-evidenced
+  (74 of 74 cases, 236,570 of 236,570 checks; the 64x16 mux read idle probe
+  after a four-rank DC operating-point failure, rerun with Newton line search
+  as V2.1.6 did for the 8x128 read).
+- Tests: one per finding, each shown to fail with its fix reverted; the V2.1.6
+  expectation of a `wl_en_bar` write window for guard-less blocks is removed.
+
 ## V2.1.6 — 2026-09-16 — write drivers in the precharge slot; TIME audit and refactor
 
 V2.1.6 changes the write timing of the TIME block and re-evidences the

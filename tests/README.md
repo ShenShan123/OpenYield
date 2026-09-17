@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.1.6
+# Compiler regression tests — V2.1.7
 
 V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
 
@@ -92,3 +92,18 @@ decks) and the renamed helper classes (`ReplicaDelayChain`, `DataRegister`,
 `ReplicaColumn`); `dev/tests/test_v210_waveform_checks.py` models the slot in
 its synthetic traces and rejects a bitline that is not at its rail when the
 wordline starts.
+
+V2.1.7 renames the control block (`TIME_CONTROL`, `XTIME_CONTROL`,
+`TimeControlFactory`, inner subcircuits such as `PRECHARGE_WRITE_AND`,
+`DATA_REGISTER`, `SELECT_DELAY`) and adds one test per review finding, each
+checked to fail with its fix reverted:
+`test_select_delay_holds_back_only_the_rising_edge_of_both_clock_high_enables`
+(`cs_pre = cs & cs_delayed` feeds only the precharge and write-enable gates),
+`test_write_enable_follows_the_wordline_enable_without_the_replica_guard`
+(it replaces the V2.1.6 expectation of a `wl_en_bar` write window, which was
+the bug), `test_passed_transistor_models_reach_every_control_device`,
+`test_write_slot_checks_do_not_require_replica_settling_stages` and
+`test_idle_probe_registers_new_write_data_at_the_selected_edge`.
+`dev/tests/test_v210_waveform_checks.py` adds idle cycles to its synthetic
+traces and rejects precharge or enable activity there, and new write data
+that reaches the driver latch after the enable.

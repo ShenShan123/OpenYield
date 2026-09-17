@@ -1,4 +1,4 @@
-# OpenYield V2.1.6: SRAM yield analysis and optimization
+# OpenYield V2.1.7: SRAM yield analysis and optimization
 
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
@@ -13,6 +13,19 @@ candidates and PVT samples. It also fixes narrow-array RC precharge overlap,
 write-register initialization, the distributed output-latch enable, and yield
 callers' measurement handling. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210)
 and [release review](docs/design/TIMING_LOOKUP_V2_1_0.md) for settings and validation limits.
+
+V2.1.7 reviews that write slot and renames the control block `TIME` to
+`TIME_CONTROL` (instance `XTIME_CONTROL`, factory `TimeControlFactory`, inner
+subcircuits named after their classes). The select that gates the precharge
+and, now, the write enable is delayed on its rising edge only: at an idle ->
+write edge the write-data hold latch had closed just 24 to 29 ps after new
+data at FF -40 °C (now about 110 ps), and an unselected cycle no longer races
+the delayed select against the wordline-off guard. Four more fixes: a block
+without the replica guard kept its write enable on across writes, a
+zero-settling-stage sizing option refused every deck, five builders ignored
+the passed models, and the idle -> write probe never changed its data at that
+edge. Every timing class is kept and re-evidenced. See the
+[select-gate record](docs/design/SELECT_GATE_V2_1_7.md).
 
 V2.1.6 makes the write drivers take the precharge slot. An audit of the TIME
 block found the local wordline rising 23 to 189 ps before the write drivers

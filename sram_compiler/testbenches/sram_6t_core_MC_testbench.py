@@ -576,7 +576,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         """Check release at the next entry event, including every sequence access.
 
         Before a read the entry event is the precharge (PRE falling, V2.0.2);
-        before a write it is the write slot opening (`XTIME:write_slot` rising,
+        before a write it is the write slot opening (`XTIME_CONTROL:write_slot` rising,
         V2.1.6), which precedes the physical write-driver enables.  Both wait
         for the replica wordline observer, whose mid-rail switching can let a
         slow distributed wordline tail outlast the logic even when data and
@@ -591,8 +591,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         vdd = float(self.vdd)
         analysis_stop = float(self._analysis_stop(operation))
         sizes = self.driver_sizes
-        if not (sizes.precharge_off_guard and sizes.replica_precharge_guard
-                and sizes.precharge_guard_stages):
+        # The write_slot node exists with both guards; the settling stages of
+        # the replica guard are a sizing option and may be zero (V2.1.7).
+        if not (sizes.precharge_off_guard and sizes.replica_precharge_guard):
             raise ValueError('The write-slot safety measures need the replica and precharge-off guards')
         probes = {'FAR': f'{self.arr_inst_prefix}:WL{self.target_row}_far',
                   'LOCAL': self.cell_probe('WL')}
@@ -607,8 +608,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 name, event, active = 'PRE', f'V(PRE)={.9 * vdd:.12g} FALL=1', f'V(PRE)<{.9 * vdd:.12g}'
             else:
                 name = 'WEN'
-                event = f'V(XTIME:write_slot)={.5 * vdd:.12g} RISE=1'
-                active = f'V(XTIME:write_slot)>{.5 * vdd:.12g}'
+                event = f'V(XTIME_CONTROL:write_slot)={.5 * vdd:.12g} RISE=1'
+                active = f'V(XTIME_CONTROL:write_slot)>{.5 * vdd:.12g}'
             for location, node in probes.items():
                 simulator.measure('TRAN', f'VWL_{name}_{location}_{cycle}',
                                   f'FIND V({node}) WHEN {event} TD={start:.12g} TO={stop:.12g}')
@@ -641,17 +642,17 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def _add_interconnect_print(self, simulator):
         """Export physical wire endpoints and sense inputs for waveform scoring."""
         probes = ['RWL', 'RWL_far', self.sense_input_probe('IN'), self.sense_input_probe('INB')]
-        probes += ['XTIME:access_clk_bar', 'XTIME:pre_off_ready', 'XTIME:write_slot', 'XTIME:write_window',
-                   'XTIME:pre_gate', 'XTIME:cs_pre']
+        probes += ['XTIME_CONTROL:access_clk_bar', 'XTIME_CONTROL:pre_off_ready', 'XTIME_CONTROL:write_slot', 'XTIME_CONTROL:write_window',
+                   'XTIME_CONTROL:pre_gate', 'XTIME_CONTROL:cs_pre']
         probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
         for name, taps in self._control_taps.items():
             probes += [name, taps[0], taps[-1], self.control_tap(name)]
         for bit in range(max(1, ceil(log2(self.num_rows)))):
             probes += [f'A_dff{bit}', f'XDECODER:A{bit}_line_far']
         if self.operation in ('write', 'read&write'):
-            probes += ['CLK_BUF', 'XTIME:Xdff_buf_data:CLK_line_far']
+            probes += ['CLK_BUF', 'XTIME_CONTROL:Xdff_buf_data:CLK_line_far']
             for col in sorted({0, self.target_col, self.num_cols - 1}):
-                probes += [f'XTIME:Xdff_buf_data:CLK_line_tap{col}',
+                probes += [f'XTIME_CONTROL:Xdff_buf_data:CLK_line_tap{col}',
                            f'DIN{col}', f'DIN_dff{col}', f'DIN_hold{col}', f'DIN_holdb{col}']
         for col in [0, self.target_col, self.num_cols - 1, None]:
             for pin in ('BL', 'BLB'):
@@ -686,8 +687,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         """Deterministic start-up state of the control path (shared by read / write)."""
         n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
         for bit in range(n_bits):
-            # address register output (inside TIME) and the held / buffered copy
-            init_cond[f'XTIME:A_reg{bit}'] = 0 @ u_V
+            # address register output (inside TIME_CONTROL) and the held / buffered copy
+            init_cond[f'XTIME_CONTROL:A_reg{bit}'] = 0 @ u_V
             init_cond[f'A_dff{bit}'] = 0 @ u_V
         init_cond['we'] = self.vdd @ u_V       # we初始化为高电平
         init_cond['cs_bar'] = self.vdd @ u_V   # cs_bar初始化为高电平
@@ -695,7 +696,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # powers up in a random state; when it comes up "selected" the start-up clamp
         # fights the DFF output inverter (~300 uA) until the clamp releases, i.e. inside
         # the EREAD / EWRITE window.
-        init_cond['XTIME:Xdff_buf:qint'] = self.vdd @ u_V
+        init_cond['XTIME_CONTROL:Xdff_buf:qint'] = self.vdd @ u_V
         if self.operation in ('write', 'read&write'):
             # DIN_dff is already parked at zero by the write setup. Initialize
             # both hold-latch nodes and the register's complementary slave node
@@ -707,7 +708,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 init_cond[f'DIN_holdb{col}'] = self.vdd @ u_V
                 # At clk=0 the master is transparent with DIN=0; the slave
                 # holds zero. Initialize every feedback node consistently.
-                prefix = f'XTIME:Xdff_buf_data:Xdff_{col}'
+                prefix = f'XTIME_CONTROL:Xdff_buf_data:Xdff_{col}'
                 for node in ('D_b', 'z1', 'z3', 'z4', 'z5', 'QB'):
                     init_cond[f'{prefix}:{node}'] = self.vdd @ u_V
                 init_cond[f'{prefix}:z2'] = 0 @ u_V

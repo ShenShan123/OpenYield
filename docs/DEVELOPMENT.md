@@ -1,4 +1,4 @@
-# OpenYield V2.1.5 development tools
+# OpenYield V2.1.7 development tools
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
 
@@ -85,6 +85,7 @@ The following commands require the ignored `dev/` workspace:
 | `dev/v214_boundary_enable.py` | WE, held request, access request and WL_EN edges and the W_EN/S_EN peaks at every clock edge that ends an access, with `--json` and a `--plot` of the worst read-to-write edge (the V2.1.4 write-enable spike evidence) |
 | `dev/v215_read_disturb.py` | Peak, deadline value and settling time of the read-disturb bump on the target storage node per read cycle, and the shortest clock the settling time allows (the V2.1.5 10T cell-resize evidence) |
 | `dev/v216_time_audit/` | TIME / replica-column audit tools (V2.1.6): `topo_check.py` (static connectivity and subcircuit-collision audit over a size matrix), `run_case.py` + `analyse.py` (one deck with extra TIME-internal probes and the Boolean-relation / event-table checker), `write_order.py` (bitline-rail versus wordline ordering per write cycle), `snapshot_decks.py` + `compare_snapshots.py` (netlist equivalence proof for refactors); see `docs/design/TIME_CONTROL_PATH.md` |
+| `dev/v217_boundary/` | V2.1.7 boundary review: `probe.py` (release testbench deck with extra control-block probes and the `--din idle_change` / `--web idle_read` stimulus overrides) + `analyze.py` (per-cycle enable edges, hold-latch timing, idle-cycle levels, relations of the clock-high enables), `noguard_block.py` (stand-alone guard-less block), `snapshot.py` + `compare_renamed.py` (rename proof against a V2.1.6 worktree) and `structural_diff.py` (per-scope netlist comparison); see `docs/design/SELECT_GATE_V2_1_7.md` |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash
@@ -94,6 +95,17 @@ python3 -m unittest discover -s dev/tests -v
 The validator case key `select_every` (V2.1.6) selects one cycle in N of a
 single read/write deck, so the idle → write boundary of the write slot is
 simulated; write decks write 1 then 0 and report `TWSLOT`.
+
+V2.1.7 renames the control-block instance, so every probe path reads
+`XTIME_CONTROL:<node>` (the validator also prints `XTIME_CONTROL:cs_delayed`);
+`dev/v214_boundary_enable.py` and the `dev/v216_time_audit/` tools accept
+decks of either name, the other V2.1.0 to V2.1.5 scripts read archived `XTIME`
+decks only. `dev/v210_waveform_checks.py` adds `strict_idle_<k>_precharge_off`
+/ `_enables_off` (unselected cycles of `select_every` decks) and
+`strict_cycle_<k>_col_<c>_data_before_write_enable` with
+`_data_to_write_enable_ps`; a `select_every` write deck now changes its data
+at the selected edges. The validator case key `guard_stages` sets
+`sizing.precharge_guard_stages` (zero builds a deck again).
 
 Keep future ad hoc test scripts and development experiments in `dev/` so they
 are ignored automatically. Generated results still belong in `outputs/` or a

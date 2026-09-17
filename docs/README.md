@@ -1,4 +1,4 @@
-# OpenYield V2.1.6 documentation
+# OpenYield V2.1.7 documentation
 
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
@@ -47,6 +47,16 @@ idle → write probe (`select_every`) follow; every timing class is kept and
 re-evidenced. The [TIME control-path reference](design/TIME_CONTROL_PATH.md)
 holds the signal table, the history of every stage and the naming contract
 of the refactored `time_generate.py`.
+
+V2.1.7 reviews the write slot for boundary bugs
+([select-gate record](design/SELECT_GATE_V2_1_7.md)): the select of the
+clock-high enables is delayed on its rising edge only and gates the write
+enable too (the idle -> write data latch had 24 to 29 ps at FF -40 °C), a
+guard-less block no longer holds its drivers on, zero settling stages build a
+deck again, every builder honours the passed models, and the idle probes
+register new data at the idle -> write edge. The block is renamed
+`TIME_CONTROL` with its inner subcircuits; the control-path reference maps
+the old names.
 
 Working plans (`plans/`), design and validation records (`design/`) and the
 release history live here. The [qualification scope](plans/V2_1_2_QUALIFICATION_SCOPE.md)

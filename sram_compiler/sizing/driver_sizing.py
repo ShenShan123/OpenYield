@@ -31,7 +31,7 @@ PRECHARGE_OFF_GUARD_STAGES = 4
 
 @dataclass(frozen=True)
 class DriverLoads:
-    """TIME input loads: inverter units except wl_load, which uses NAND units."""
+    """TIME_CONTROL input loads: inverter units except wl_load, which uses NAND units."""
 
     pre_load: float
     wen_load: float
@@ -353,7 +353,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     wp = _positive("write PMOS width", wd.pmos_width.value)
     nand_gate = (_positive("WL NAND NMOS width", wl.nmos_width.value[0])
                  + _positive("WL NAND PMOS width", wl.pmos_width.value[0]))
-    # Normalize unit conversion noise before TIME applies ceil(load / 32).
+    # Normalize unit conversion noise before TIME_CONTROL applies ceil(load / 32).
     # The nominal 0.18 + 0.27 um gate must be exactly one unit, not 1 + epsilon.
     nand_units = round(nand_gate / 0.45e-6, 12)
     rc_input_units = (_positive('pi_cap', context.get('pi_cap', _RULES['peripheral_rc_cap_f'])) / _RULES['unit_inverter_cap_f']
@@ -362,7 +362,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     if type(guard_stages) is not int or guard_stages < 0 or guard_stages % 2:
         raise ValueError('precharge_guard_stages must be a nonnegative even integer')
     # Wordline-driver A/B and sense-amplifier EN/ISO each have two RC sections;
-    # precharge and write-driver enables have one. TIME has no RC wrapper.
+    # precharge and write-driver enables have one. TIME_CONTROL has no RC wrapper.
     rc_wl_units = 2 * rc_input_units / 1.25
     rc_sa_units = 2 * rc_input_units
     num_sa = cols // (2 if mux else 1) + 1
