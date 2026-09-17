@@ -28,6 +28,7 @@ ignored `outputs/validation/` directory; each case directory holds `deck.sp`,
 | Found during V2.1.5: a table variant could ask for less time than the shared ladder | Fixed in V2.1.5 (bug) | below |
 | Found during the V2.1.6 audit: the wordline rose before the write drivers had the bitlines at their rails | Fixed in V2.1.6 (write slot) | [write-slot record](../design/WRITE_SLOT_V2_1_6.md) |
 | Found during the V2.1.7 review: the idle -> write data latch and an unselected cycle raced the select; a guard-less block held its write enable on; zero settling stages, passed models and the idle probe data | Fixed in V2.1.7 (select gate, four more fixes) | [select-gate record](../design/SELECT_GATE_V2_1_7.md) |
+| Found during the V2.1.8 review: the read wordline outlived the sense enable by 1.1 to 2.2 ns; the boundary orders of the precharge, write slot and enables were set by path length only; a deselect dropped the write drivers with the wordline at half VDD | Fixed in V2.1.8 (sense-timed read wordline, enable observers, selected slot) | [enable-overlap record](../design/ENABLE_OVERLAP_V2_1_8.md) |
 
 ## 1. 6T with a column mux needs its own timing budget — closed
 

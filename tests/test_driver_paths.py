@@ -206,7 +206,7 @@ class PathTests(unittest.TestCase):
         self.assertTrue(tb.driver_sizes.replica_precharge_guard)
         self.assertEqual(time.NODES[-2:], ['rwl', 'pre_far'])
         # V2.1.6: the precharge is additionally inhibited by the held write request.
-        self.assertIn('pre_ready we_hold_bar pre_gate PRECHARGE_WRITE_AND', str(time))
+        self.assertIn('pre_ready we_hold_bar enables_off pre_gate PRECHARGE_GATE_AND', str(time))
         self.assertIn('VDD VSS cs cs_delayed cs_pre SELECT_DELAY_AND', str(time))
         self.assertIn('clk_buf cs_pre pre_gate PRE_UNBUF', str(time))
         self.assertEqual(tb.driver_sizes.precharge_guard_stages, 4)

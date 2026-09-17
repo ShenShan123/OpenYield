@@ -10,6 +10,7 @@ from sram_compiler.config_yaml.sweep_config import SWEEP_CONFIGS
 from sram_compiler.interconnect import resolve_interconnect
 from sram_compiler.per_device_mc.run import load_config
 from sram_compiler.sizing import resolve_driver_sizes
+from sram_compiler.sizing.driver_sizing import _RULES
 from sram_compiler.sizing.table import physical_context
 from sram_compiler.subcircuits.standard_cell import AND2
 from sram_compiler.subcircuits.time_generate import TIME_CONTROL
@@ -34,15 +35,17 @@ class PrechargeExclusionTests(unittest.TestCase):
         self.assertEqual(time.NODES[-2:], ['rwl', 'pre_far'])
         self.assertEqual(time['Xaccess_guard'].node_names,
                          ['VDD', 'VSS', 'gated_clk_bar', 'pre_far', 'access_clk_bar', 'pre_off_ready'])
-        self.assertEqual(time['Xwl_en'].node_names[-2], 'access_clk_bar')
-        # V2.1.6 write slot: w_en = we_hold & cs_pre & (wl_en | (pre_ready & pre_off_ready))
-        # turns the write drivers on in the clock-high phase, once the previous
-        # wordline and the physical precharge are observed off; PRE is inhibited
-        # by the held write request.
-        self.assertEqual(time['Xw_en'].node_names[2:5], ['we_hold', 'cs_pre', 'write_window'])
-        self.assertEqual(time['Xwrite_slot'].node_names[2:5], ['pre_ready', 'pre_off_ready', 'write_slot'])
-        self.assertEqual(time['Xwrite_window_nor'].node_names[2:5], ['wl_en', 'write_slot', 'write_window_bar'])
-        self.assertEqual(time['Xpre_write_gate'].node_names[2:5], ['pre_ready', 'we_hold_bar', 'pre_gate'])
+        self.assertEqual(time['Xwl_en'].node_names[2:4], ['access_clk_bar', 's_en_bar'])
+        # V2.1.6 write slot: w_en = we_hold & (wl_en | (cs_pre & write_slot)) with
+        # write_slot = pre_ready & pre_off_ready & !s_en (V2.1.8) turns the write
+        # drivers on in the clock-high phase, once the previous wordline, the
+        # physical precharge and the previous sense enable are observed off;
+        # PRE is inhibited by the held write request and by either enable.
+        self.assertEqual(time['Xw_en'].node_names[2:4], ['we_hold', 'write_window'])
+        self.assertEqual(time['Xwrite_slot'].node_names[2:6], ['pre_ready', 'pre_off_ready', 's_en_bar', 'write_slot'])
+        self.assertEqual(time['Xselected_slot'].node_names[2:5], ['cs_pre', 'write_slot', 'selected_slot'])
+        self.assertEqual(time['Xwrite_window_nor'].node_names[2:5], ['wl_en', 'selected_slot', 'write_window_bar'])
+        self.assertEqual(time['Xpre_gate'].node_names[2:6], ['pre_ready', 'we_hold_bar', 'enables_off', 'pre_gate'])
         self.assertEqual(time['Xpre_unbuf'].node_names[2:5], ['clk_buf', 'cs_pre', 'pre_gate'])
         # V2.1.7: only the rising edge of the select is delayed (cs & delayed cs).
         self.assertEqual(time['Xselect_delay'].node_names[2:4], ['cs', 'cs_delayed'])
@@ -74,7 +77,7 @@ class PrechargeExclusionTests(unittest.TestCase):
                                  ['VDD', 'VSS', 'we', 'wl_en_bar', 'we_hold', 'we_hold_bar'])
                 # The write slot needs the replica guard (see the no-guard test below).
                 window = 'write_window' if replica else 'wl_en'
-                self.assertEqual(time['Xw_en'].node_names[2:5], ['we_hold', 'cs_pre', window])
+                self.assertEqual(time['Xw_en'].node_names[2:4], ['we_hold', window])
                 self.assertEqual(time['Xs_en'].node_names[2:5], ['rbl_delay', request, 'we_hold_bar'])
                 raw = {e.name for e in time.elements if {'we', 'we_bar'} & set(e.node_names)}
                 self.assertEqual(raw, {'Xdff_buf1', 'Xwe_hold'})
@@ -95,8 +98,9 @@ class PrechargeExclusionTests(unittest.TestCase):
         self.assertEqual(subcircuit(time, 'SELECT_DELAY').stages, 8)
         self.assertEqual(time['Xselect_gate'].node_names[2:5], ['cs', 'cs_delayed', 'cs_pre'])
         self.assertIsInstance(subcircuit(time, time['Xselect_gate'].subcircuit_name), AND2)
+        # V2.1.8: the select reaches the write enable through the selected slot only.
         readers = {e.name for e in time.elements if 'cs_pre' in e.node_names[2:-1]}
-        self.assertEqual(readers, {'Xw_en', 'Xpre_unbuf'})
+        self.assertEqual(readers, {'Xselected_slot', 'Xpre_unbuf'})
         # Only the access-phase gated clocks and the select delay read the raw select
         # (Xdff_buf is its register).
         raw = {e.name for e in time.elements if 'cs' in e.node_names[2:-1]} - {'Xdff_buf'}
@@ -111,16 +115,48 @@ class PrechargeExclusionTests(unittest.TestCase):
             with self.subTest(precharge_off_guard=guard):
                 time = TimeControlFactory(num_rows=8, num_cols=4, operation='write',
                                           precharge_off_guard=guard).create()
-                self.assertEqual(time['Xw_en'].node_names[2:5], ['we_hold', 'cs_pre', 'wl_en'])
+                self.assertEqual(time['Xw_en'].node_names[2:4], ['we_hold', 'wl_en'])
                 self.assertNotIn('write_window', {n for e in time.elements for n in e.node_names})
-                self.assertEqual(time['Xpre_write_gate'].node_names[2:5], ['wl_en_bar', 'we_hold_bar', 'pre_gate'])
-        # With the observer (settling stages optional) the slot waits for the replica wordline.
-        for stages, off_guard, slot in ((0, False, 'rwl_pre_bar'), (4, False, 'pre_ready'), (0, True, 'write_slot')):
+                self.assertEqual(time['Xpre_gate'].node_names[2:6], ['wl_en_bar', 'we_hold_bar', 'enables_off', 'pre_gate'])
+        # With the observer (settling stages optional) the slot waits for the replica
+        # wordline and the previous sense enable; without the precharge-off guard its
+        # precharge input is tied high (V2.1.8).
+        for stages, off_guard, off, ready in ((0, False, 'rwl_pre_bar', 'VDD'), (4, False, 'pre_ready', 'VDD'),
+                                              (0, True, 'rwl_pre_bar', 'pre_off_ready')):
             with self.subTest(stages=stages, precharge_off_guard=off_guard):
                 time = TimeControlFactory(num_rows=8, num_cols=4, operation='write', replica_precharge_guard=True,
                                           precharge_guard_stages=stages, precharge_off_guard=off_guard).create()
-                self.assertEqual(time['Xwrite_window_nor'].node_names[2:5], ['wl_en', slot, 'write_window_bar'])
-                self.assertEqual(time['Xw_en'].node_names[2:5], ['we_hold', 'cs_pre', 'write_window'])
+                self.assertEqual(time['Xwrite_slot'].node_names[2:6], [off, ready, 's_en_bar', 'write_slot'])
+                self.assertEqual(time['Xwrite_window_nor'].node_names[2:5], ['wl_en', 'selected_slot', 'write_window_bar'])
+                self.assertEqual(time['Xw_en'].node_names[2:4], ['we_hold', 'write_window'])
+
+    def test_read_wordline_ends_at_the_sense_enable_and_the_clock_high_enables_wait_for_the_enables(self):
+        """V2.1.8: a read wordline that stays on after the sense enable only discharges the
+        bitlines further (the amplifier is isolated from them once it fires) and lengthens the
+        restore; the wordline request therefore ends with the sense enable.  The precharge waits
+        for both enables and the write slot for the sense enable of the preceding read, so the
+        clock-high enables never overlap the previous access; the write enable is not part of the
+        slot (the slot feeds it: the loop would oscillate) and ends with the wordline enable, not
+        with the deselect (which dropped the drivers at half wordline)."""
+        for rows, cols, buffered in ((8, 4, False), (64, 64, True)):
+            with self.subTest(rows=rows, cols=cols):
+                time = TimeControlFactory(num_rows=rows, num_cols=cols, operation='read&write',
+                                          replica_precharge_guard=True, precharge_guard_stages=4,
+                                          precharge_off_guard=True, wen_load=400 if buffered else None,
+                                          sen_load=200 if buffered else None).create()
+                self.assertEqual(time['Xwl_en'].node_names[2:5], ['access_clk_bar', 's_en_bar', 'wl_en'])
+                buffer = subcircuit(time, 'WORDLINE_ENABLE_BUFFER')
+                self.assertEqual(buffer['Xbuf_nand1'].node_names[2:5], ['A', 'B', 'zb1_node'])
+                # The observers read the block's output nodes, never the unbuffered gate outputs.
+                self.assertEqual(time['Xinv_s_en_bar'].node_names[2:4], ['s_en', 's_en_bar'])
+                self.assertEqual(time['Xenables_off_nor'].node_names[2:5], ['s_en', 'w_en', 'enables_off'])
+                self.assertEqual(time['Xs_en'].node_names[-1], 's_en_unbuf' if buffered else 's_en')
+                self.assertEqual(time['Xpre_gate'].node_names[2:5], ['pre_ready', 'we_hold_bar', 'enables_off'])
+                self.assertEqual(time['Xwrite_slot'].node_names[2:5], ['pre_ready', 'pre_off_ready', 's_en_bar'])
+                self.assertNotIn('w_en', time['Xwrite_slot'].node_names)
+                self.assertNotIn('cs_pre', time['Xw_en'].node_names)
+                readers = {e.name for e in time.elements if 'w_en' in e.node_names[2:-1]}
+                self.assertEqual(readers, {'Xenables_off_nor', 'Xsa_iso_nor'} if not buffered else {'Xenables_off_nor'})
 
     def test_passed_transistor_models_reach_every_control_device(self):
         """The observers, delay chains and every buffer follow the models passed to the block
@@ -171,10 +207,15 @@ class PrechargeExclusionTests(unittest.TestCase):
                     if rc:
                         pre += (cols + 1) * 2
                     self.assertAlmostEqual(sizes.loads.pre_load, pre + .5)
-                    # WL buffer's first inverter plus write NAND2 and sense
-                    # NAND3 request inputs, all normalized by 0.36 um.
+                    # WL request NAND2 input (1.25 units per unit of scale, V2.1.8)
+                    # plus the sense NAND3 request input, all normalized by 0.36 um.
                     wl_input = max(1, math.ceil(sizes.loads.wl_load / 24.))
-                    self.assertEqual(sizes.loads.access_load, wl_input + 2.5)
+                    self.assertEqual(sizes.loads.access_load, 1.25 * wl_input + 2.5)
+                    # s_en_bar and the enables-off NOR load the enables (V2.1.8).
+                    senb = max(1, math.ceil(1.25 * (wl_input + 1) / 4.))
+                    rc_units = 2 * physical_context(rc)['pi_cap'] / _RULES['unit_inverter_cap_f'] if rc else 0
+                    self.assertAlmostEqual(sizes.loads.sen_load,
+                                           sizes.loads.num_sa * (.27 / .36 + rc_units) + 3.5 + senb + 1.75)
                     self.assertEqual(sizes.precharge_off_guard_stages, 4)
                     wire = resolve_interconnect().wl
                     expected_tau = cols * wire.resistance_per_pitch * (
@@ -190,7 +231,7 @@ class PrechargeExclusionTests(unittest.TestCase):
     def test_optional_time_ports_preserve_direct_factory_callers(self):
         time = TimeControlFactory(num_rows=4, num_cols=4).create()
         self.assertEqual(time.NODES[-1], 'sa_iso')
-        self.assertEqual(time['Xwl_en'].node_names[-2], 'gated_clk_bar')
+        self.assertEqual(time['Xwl_en'].node_names[2], 'gated_clk_bar')
         for bad in (0, -2, 3, True, 4.0):
             with self.subTest(stages=bad), self.assertRaisesRegex(ValueError, 'positive even'):
                 TIME_CONTROL(precharge_off_guard=True, precharge_off_guard_stages=bad)

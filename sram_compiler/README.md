@@ -1,4 +1,4 @@
-# SRAM Compiler and Test Platform User Guide — V2.1.7
+# SRAM Compiler and Test Platform User Guide — V2.1.8
 
 V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes-v210) covers settings, explicit overrides and evidence limits.
 
@@ -427,8 +427,15 @@ Since V2.1.7 the select that gates the precharge and the write enable
 (`cs_pre`) is delayed on its rising edge only, so new write data passes the
 hold latch before `w_en` closes it at an idle → write edge and an unselected
 cycle stops both enables at once; a `select_every` write deck changes its data
-at the selected edges. The control block is `TIME_CONTROL` (instance
-`XTIME_CONTROL`; probe paths read `XTIME_CONTROL:<node>`); see
+at the selected edges. Since V2.1.8 a read wordline is released at the sense
+trigger (`wl_en = buffer(access_clk_bar & !s_en)`; the amplifier is isolated
+from the bitlines from then on), the precharge waits for the sense and write
+enables of the previous access, the write slot for its sense enable, and
+`w_en = we_hold & (wl_en | (cs_pre & write_slot))` ends with the wordline
+enable rather than with the deselect, so no two enables of different roles
+overlap (`docs/design/ENABLE_OVERLAP_V2_1_8.md`). The control block is
+`TIME_CONTROL` (instance `XTIME_CONTROL`; probe paths read
+`XTIME_CONTROL:<node>`); see
 [`docs/design/TIME_CONTROL_PATH.md`](../docs/design/TIME_CONTROL_PATH.md).
 
 The segment measures (`TDECODER`, `TPRCH`, `TWLDRV`, `TSWING`, `TSA`, `TS_EN`,

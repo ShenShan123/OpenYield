@@ -184,10 +184,12 @@ replica `(1, 9)` does not claim compliance with the read limit.
 
 ## Clock classes (V2.1.0)
 
-`timing_lookup.json` (`v2.1.7-timing-6`: every class re-evidenced on the
-V2.1.7 select gate, see `docs/design/SELECT_GATE_V2_1_7.md`, after the
-V2.1.6 write slot, `docs/design/WRITE_SLOT_V2_1_6.md`) uses the same row
-and column anchors as driver sizing.
+`timing_lookup.json` (`v2.1.8-timing-7`: every class re-evidenced on the
+V2.1.8 sense-timed read wordline and enable orderings, see
+`docs/design/ENABLE_OVERLAP_V2_1_8.md`, after the V2.1.7 select gate,
+`docs/design/SELECT_GATE_V2_1_7.md`, and the V2.1.6 write slot,
+`docs/design/WRITE_SLOT_V2_1_6.md`) uses the same row and column anchors as
+driver sizing.
 Each entry contains an integer `half_period_ps` budget; choose the next anchor
 at or above each dimension, then compute:
 

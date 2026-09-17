@@ -241,6 +241,15 @@ Every case, latest attempt (`outputs/validation/V2.1.7-select-gate/`, `assemble_
 
 ## 6. Limits
 
+*V2.1.8 follow-up:* the enable-overlap review found that the read wordline
+outlived the sense enable by 1.1 to 2.2 ns, that the boundary orders of the
+precharge and the write slot were set by path length only, and that the
+deselect of this release's `w_en = we_hold & cs_pre & write_window` dropped
+the drivers with the local wordline at half VDD; V2.1.8 releases the read
+wordline at the sense trigger, gates the precharge and the slot on the
+previous enables and ends the write enable with the wordline enable, then
+re-runs this matrix; see [`ENABLE_OVERLAP_V2_1_8.md`](ENABLE_OVERLAP_V2_1_8.md).
+
 * Screening at the class bounds with illustrative wires; extracted metal,
   half-select writes and the yield estimator remain the carried Phase 6
   scope.

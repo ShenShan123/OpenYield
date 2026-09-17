@@ -1,4 +1,4 @@
-# OpenYield V2.1.7: SRAM yield analysis and optimization
+# OpenYield V2.1.8: SRAM yield analysis and optimization
 
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
@@ -13,6 +13,18 @@ candidates and PVT samples. It also fixes narrow-array RC precharge overlap,
 write-register initialization, the distributed output-latch enable, and yield
 callers' measurement handling. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210)
 and [release review](docs/design/TIMING_LOOKUP_V2_1_0.md) for settings and validation limits.
+
+V2.1.8 reviews the enable pulses for overlaps inside an access and across
+every access boundary, for 6T and 10T cells, and removes the ones it found:
+the read wordline now ends at the sense trigger (it stayed on for 1.1 to
+2.2 ns after the amplifier had fired and been isolated, the bitline already
+at its rail), the precharge waits for the sense and write enables of the
+previous access and the write slot for its sense enable (orders that path
+length alone had set), and the write enable ends with the wordline enable
+instead of the deselect (which dropped the drivers with the local wordline
+at half VDD). The column-mux select is a DC level in this testbench and
+cannot overlap. Every timing class is kept and re-evidenced. See the
+[enable-overlap record](docs/design/ENABLE_OVERLAP_V2_1_8.md).
 
 V2.1.7 reviews that write slot and renames the control block `TIME` to
 `TIME_CONTROL` (instance `XTIME_CONTROL`, factory `TimeControlFactory`, inner

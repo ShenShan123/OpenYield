@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.1.7
+# Compiler regression tests — V2.1.8
 
 V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
 
@@ -92,6 +92,17 @@ decks) and the renamed helper classes (`ReplicaDelayChain`, `DataRegister`,
 `ReplicaColumn`); `dev/tests/test_v210_waveform_checks.py` models the slot in
 its synthetic traces and rejects a bitline that is not at its rail when the
 wordline starts.
+
+V2.1.8 adds
+`test_read_wordline_ends_at_the_sense_enable_and_the_clock_high_enables_wait_for_the_enables`
+(the wordline request is gated by `s_en_bar`, the precharge gate by
+`enables_off`, the write slot by `s_en_bar` and never by `w_en`, the write
+enable never by `cs_pre` directly, the observers read the buffered enables)
+and updates the wiring and load tests for the AND3 precharge gate, the
+selected slot, the AND2 write enable and the new observer loads
+(`access_load = 1.25 * wl_en_scale + 2.5`, `sen_load` and `wen_load`).
+`dev/tests/test_v210_waveform_checks.py` models the sense-timed read
+wordline and a corruption for every new ordering check.
 
 V2.1.7 renames the control block (`TIME_CONTROL`, `XTIME_CONTROL`,
 `TimeControlFactory`, inner subcircuits such as `PRECHARGE_WRITE_AND`,

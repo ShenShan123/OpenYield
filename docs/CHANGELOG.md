@@ -7,6 +7,83 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.8 — 2026-09-17 — no enable overlaps: sense-timed read wordline; precharge and write slot wait for the enables
+
+V2.1.8 reviews the enable pulses of `TIME_CONTROL` for overlaps inside an
+access and across every access boundary (read -> read, write -> read, read ->
+write, write -> write, idle), for 6T and 10T cells, and removes the ones it
+found ([record](design/ENABLE_OVERLAP_V2_1_8.md)). Driver sizes, cells and
+the timing classes are unchanged.
+
+- Read wordline released at the sense trigger: `wl_en =
+  WORDLINE_ENABLE_BUFFER(access_clk_bar, s_en_bar)`, whose first stage is a
+  NAND2 (`WORDLINE_REQUEST_NAND`) with the drive of the inverter it replaces.
+  Before, the read wordline stayed on for the whole clock-low phase, 1.1 to
+  2.2 ns (25 to 44 % of the period) after the sense enable had fired, with
+  the amplifier already isolated from the bitlines and the bitline at its
+  rail; the pulse was 1.8 to 9 times longer than the sensing needs. It now
+  starts to release 45 ps (FF) to 192 ps (16x16 10T mux SS) after the
+  amplifier's terminal sees the sense enable; the sense margin at the
+  amplifier is unchanged. A write wordline lasts the whole access as before.
+- Precharge and write slot wait for the previous enables: `pre_gate =
+  wordline_off & !we_hold & enables_off` with `enables_off = !(s_en | w_en)`
+  (`PRECHARGE_GATE_AND`, `ENABLES_OFF_NOR`), and `write_slot = wordline_off &
+  pre_off_ready & !s_en` (`WRITE_SLOT_AND`, now an AND3; the precharge input
+  tied high without the precharge-off guard). Before, these orders were set
+  by path length only (27 ps from write enable off to precharge and 15 ps
+  from isolation off to precharge with zero settling stages); they are now
+  gate relations: 42 ps (FF) / 174 ps (SS) from sense enable off to
+  precharge, 86 / 321 ps from write enable off to precharge, 67 / 262 ps
+  from sense enable off to write enable at 8x4, 70 ps at zero stages.
+- Write enable ends with the wordline enable: `selected_slot = cs_pre &
+  write_slot`, `write_window = wl_en | selected_slot`, `w_en = we_hold &
+  write_window` (`SELECTED_SLOT_AND`; `WRITE_ENABLE_AND` is an AND2). The
+  V2.1.7 deselect dropped the drivers with the local wordline at 0.50 V (TT)
+  / 0.43 V (SS) at a write -> idle boundary; they now release 30 ps after
+  the wordline is below 0.1 VDD, as at a selected boundary.
+- Column-mux select: a DC level in this testbench (the column address never
+  changes), so it cannot pulse or overlap; the amplifier is isolated by
+  `sa_iso` while it fires and while the drivers are on. Recorded, unchanged.
+- Loads: `access_load = 1.25 * wl_en_scale + 2.5`; `sen_load` and
+  `wen_load` count the new observer inputs; `validate_for` expects the new
+  access load. The validator prints `XTIME_CONTROL:selected_slot`, `s_en_bar`
+  and `enables_off`.
+- Checks: the local checker, the validator and the qualification scorer
+  search the wordline release from its rise; new checks
+  `_sense_before_wordline_release`, `_sense_off_before_precharge`,
+  `_write_enable_off_before_precharge`, `_sense_off_before_write_enable` and
+  `_write_enable_off_before_write_enable`, each with a metric, and the metrics
+  `_wordline_release_to_deadline_ps` (the read release relative to the edge
+  that ends the access: 7 ps before it at 256x4 SS, 309 / 90 ps after it at
+  512x4 6T / 10T, where the trigger sits close to the deadline and the
+  release path is 547 ps) and `_wordline_at_write_enable_off_v` /
+  `_write_enable_off_after_wordline_ps` (the wordline tail when a write's
+  drivers release: at 256 rows the release and the local wordline's 50 % fall
+  coincide in both releases, at 512 rows the drivers release 295 ps before
+  the wordline is off, as before); a read cycle's write-enable quiet window
+  ends at the later of the wordline release and the sense enable off. Tools in `dev/v218_overlap/` (`overlap.py`,
+  `summarize.py`, `compare.py`, the probe launchers).
+- Naming: `PRECHARGE_WRITE_AND` / `Xpre_write_gate` -> `PRECHARGE_GATE_AND` /
+  `Xpre_gate`; new nodes `s_en_bar`, `enables_off`, `selected_slot`;
+  `WORDLINE_ENABLE_BUFFER` has the ports `A`, `B`, `Z`
+  ([map](design/TIME_CONTROL_PATH.md), section 6).
+- `timing_lookup.json` `v2.1.8-timing-7`: every class kept and re-evidenced
+  (91 of 91 cases, 251,553 of 251,553 checks) on the V2.1.7 matrix plus read -> read and write -> write
+  decks at 8x4 and 16x16 (6T and 10T, FF and SS) with mismatch seeds; two
+  four-rank DC operating points and the five cases that failed only the two
+  provisional checks above (before they became metrics) were rerun in a fix
+  pass on the release checker. `TRESTORE` falls by 30 to 40 % at 64 to 512
+  rows because the restore no longer waits for a wordline released at the
+  edge; the per-cycle energy of the shared read and write decks rises 1 to
+  3 % (the release work moves into the access, plus the observer gates): with
+  `K = 1`, `N = 9` the bitline is at its rail when the amplifier fires, so
+  the bitline energy needs an earlier trigger, which the sense-timed wordline
+  now makes safe (record, section 4).
+- Tests: `test_read_wordline_ends_at_the_sense_enable_and_the_clock_high_enables_wait_for_the_enables`
+  and the updated wiring and load tests (145 tracked tests pass); the local
+  checker tests model the sense-timed release and a corruption for every
+  new check (`dev/tests`).
+
 ## V2.1.7 — 2026-09-17 — select gate of the clock-high enables; TIME_CONTROL rename
 
 V2.1.7 reviews the V2.1.6 write slot for abnormal functions and boundary

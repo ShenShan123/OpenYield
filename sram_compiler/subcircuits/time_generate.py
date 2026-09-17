@@ -9,16 +9,26 @@ order, which is also the order of the builders in :class:`TIME_CONTROL`):
     cs, we                    registered chip select and write request
     gated_clk_bar/buf         cs & clk_bar, cs & clk_buf
     access_clk_bar            clock-low request qualified by the precharge-off guard
-    wl_en, wl_en_bar          wordline enable (buffered for the row count)
+    wl_en, wl_en_bar          wordline enable (buffered for the row count); a read
+                              wordline is released at the sense trigger (V2.1.8)
     rbl_delay                 replica bitline through the replica delay chain
     we_hold                   write request held while a wordline is on
     pre_ready                 previous wordline observed off (replica wordline)
     cs_pre                    select of the clock-high enables, delayed on its rising edge
-    write_slot, write_window  the write drivers' clock-high slot
+    write_slot, selected_slot the write drivers' clock-high slot, and the slot of a
+    write_window              selected cycle; wl_en | selected_slot
     w_en                      write enable (the write slot, then the access)
     s_en                      sense enable (replica timed, reads only)
+    s_en_bar, enables_off     sense enable off; sense and write enables both off (V2.1.8)
     sa_iso                    sense-amplifier input isolation, s_en | w_en
     PRE                       precharge (active low), reads only
+
+Since V2.1.8 no two enables of different roles overlap: the read wordline ends
+when the sense enable fires (the amplifier is isolated from the bitlines from
+then on), the precharge waits for the sense and write enables to be off, the
+write slot for the sense enable to be off, and the write enable ends with the
+wordline enable rather than with the deselect.  The sense enable and the output
+latch it enables overlap by design.
 
 Sizing policy (how many unit inverters each enable needs for its load) is
 separated from the topology in :class:`ControlSizing`; the loads themselves
@@ -175,15 +185,44 @@ class ClockBuffer(BaseSubcircuit):
         self.X('buf_inv4', stages[3].NAME, 'VDD', 'VSS', 'zb3_node', 'Z')
 
 
+class WordlineRequestNand(BaseSubcircuit):
+    """NAND2 of the access request and the sense-off signal, folded like the buffer inverters."""
+    NAME = "WORDLINE_REQUEST_NAND"
+    NODES = ('VDD', 'VSS', 'A', 'B', 'Z')
+
+    def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
+                 nmos_width: float = NAND_NMOS_WIDTH, pmos_width: float = NAND_PMOS_WIDTH,
+                 length: float = GATE_LENGTH, max_finger_width: Optional[float] = None) -> None:
+        super().__init__(nmos_model, pmos_model, nmos_width, pmos_width, length, w_rc=False)
+        self.nmos_model = nmos_model
+        self.pmos_model = pmos_model
+        self.nmos_width = nmos_width
+        self.pmos_width = pmos_width
+        self.length = length
+
+        def fingers(width):
+            if max_finger_width is None:
+                return {}
+            count = max(1, ceil(round(float(width) / max_finger_width, 12)))
+            return {'raw_spice': f'NF={count}'} if count > 1 else {}
+        self.M('pmos1', 'Z', 'A', 'VDD', 'VDD', model=pmos_model, w=pmos_width, l=length, **fingers(pmos_width))
+        self.M('pmos2', 'Z', 'B', 'VDD', 'VDD', model=pmos_model, w=pmos_width, l=length, **fingers(pmos_width))
+        self.M('nmos1', 'Z', 'B', 'net1', 'VSS', model=nmos_model, w=nmos_width, l=length, **fingers(nmos_width))
+        self.M('nmos2', 'net1', 'A', 'VSS', 'VSS', model=nmos_model, w=nmos_width, l=length, **fingers(nmos_width))
+
+
 class WordlineEnableBuffer(BaseSubcircuit):
     """Two-stage wl_en buffer; both stages scale with the wordline-driver load.
 
-    The 1.35 / 0.45 um output stage drives four unit NAND2 inputs at a fan-out
-    of one, so `drive_scale` = ceil(load / 32) keeps the fan-out below eight
+    The first stage is a NAND2 of the access request `A` and the sense-off
+    signal `B` (V2.1.8): a read wordline is released when the sense enable
+    fires, a write wordline (no sense enable) lasts the whole access.  The
+    1.35 / 0.45 um output stage drives four unit NAND2 inputs at a fan-out of
+    one, so `drive_scale` = ceil(load / 32) keeps the fan-out below eight
     (V2.0.2: the fixed stage took 280 / 600 ps to switch at 512 rows).
     """
     NAME = "WORDLINE_ENABLE_BUFFER"
-    NODES = ('VDD', 'VSS', 'A', 'Z')
+    NODES = ('VDD', 'VSS', 'A', 'B', 'Z')
 
     def __init__(self, nmos_model: str = DEFAULT_NMOS_MODEL, pmos_model: str = DEFAULT_PMOS_MODEL,
                  drive_scale: float = 1.0, fold_gates: bool = False) -> None:
@@ -191,13 +230,13 @@ class WordlineEnableBuffer(BaseSubcircuit):
                          w_rc=False)
         drive_scale = max(1.0, float(drive_scale))
         fingers = 2e-6 if fold_gates else None
-        first = Pinv(nmos_model, pmos_model, 0.09e-6 * drive_scale, 0.27e-6 * drive_scale, 0.05e-6,
-                     num=1, max_finger_width=fingers)
+        first = WordlineRequestNand(nmos_model, pmos_model, NAND_NMOS_WIDTH * drive_scale,
+                                    NAND_PMOS_WIDTH * drive_scale, max_finger_width=fingers)
         second = Pinv(nmos_model, pmos_model, 0.45e-06 * drive_scale, 1.35e-06 * drive_scale, 0.05e-6,
                       num=2, max_finger_width=fingers)
         self.subcircuit(first)
         self.subcircuit(second)
-        self.X('buf_inv1', first.NAME, 'VDD', 'VSS', 'A', 'zb1_node')
+        self.X('buf_nand1', first.NAME, 'VDD', 'VSS', 'A', 'B', 'zb1_node')
         self.X('buf_inv2', second.NAME, 'VDD', 'VSS', 'zb1_node', 'Z')
 
 
@@ -350,23 +389,33 @@ class DataRegister(BaseSubcircuit):
 
 # Gate identities: PySpice keeps one subcircuit definition per name and scope,
 # so every gate with its own sizes or role carries its own name.
-class WriteEnableAnd(AND3):
-    """w_en = we_hold & cs_pre & write_window."""
+class WriteEnableAnd(AND2):
+    """w_en = we_hold & write_window."""
     NAME = "WRITE_ENABLE_AND"
 
 
-class PrechargeWriteAnd(AND2):
-    """Precharge qualifier: wordline observed off & no write request."""
-    NAME = "PRECHARGE_WRITE_AND"
+class PrechargeGateAnd(AND3):
+    """Precharge qualifier: wordline observed off & no write request & both enables off."""
+    NAME = "PRECHARGE_GATE_AND"
 
 
-class WriteSlotAnd(AND2):
-    """Write slot: previous wordline observed off & physical precharge observed off."""
+class WriteSlotAnd(AND3):
+    """Write slot: previous wordline observed off & physical precharge observed off & sense enable off."""
     NAME = "WRITE_SLOT_AND"
+
+
+class SelectedSlotAnd(AND2):
+    """selected_slot = cs_pre & write_slot: the slot of a selected cycle."""
+    NAME = "SELECTED_SLOT_AND"
 
 
 class WriteWindowNor(PNOR2):
     NAME = "WRITE_WINDOW_NOR"
+
+
+class EnablesOffNor(PNOR2):
+    """enables_off = !(s_en | w_en)."""
+    NAME = "ENABLES_OFF_NOR"
 
 
 class SelectDelay(UnitDelayChain):
@@ -473,6 +522,7 @@ class ControlSizing:
     clk_drive_scale: float
     wl_en_scale: int
     wlb_scale: int
+    senb_scale: int
     wen_effort: float
     sen_effort: float
     iso_effort: float
@@ -507,7 +557,8 @@ def resolve_control_sizing(num_rows: int, num_cols: int, operation: str, effort_
             pre_load += .5  # The physical far-PRE inverter observer.
     pre_load = float(pre_load)
     if wen_load is None:
-        wen_load = num_cols * (3 * 0.18e-6 + 0.36e-6) * max(8, num_rows) / 16.0 / 0.36e-6
+        # Write drivers plus the enables-off NOR input (1.75 units, V2.1.8).
+        wen_load = num_cols * (3 * 0.18e-6 + 0.36e-6) * max(8, num_rows) / 16.0 / 0.36e-6 + 1.75
     wen_load = float(wen_load)
     # Address buffers: 5 decoder gate inputs per 8 rows, 3-unit output per 8
     # loads; with effort buffers four NAND3 inputs (1.25 units) plus the input
@@ -527,13 +578,20 @@ def resolve_control_sizing(num_rows: int, num_cols: int, operation: str, effort_
     clk_drive_scale = max(1.0, clk_dff_count / ref_dff_count)
     # wl_en: one unit per 32 wordline-driver NAND2 inputs keeps the fan-out <= 8.
     wl_en_scale = max(1, ceil(wl_load / (24.0 if effort_buffers else 32.0)))
-    # Access request load: the first wl_en stage plus the write and sense request inputs.
-    access_load = wl_en_scale + 2.5 if access_load is None else float(access_load)
+    # Access request load: the wordline-request NAND2 input (1.25 units per
+    # unit of scale) plus the sense request input (V2.1.8: the first wl_en
+    # stage was an inverter of `wl_en_scale` units).
+    access_load = 1.25 * wl_en_scale + 2.5 if access_load is None else float(access_load)
     # wl_en_bar: two NAND2 inputs per hold latch (address bits + write request)
     # plus the precharge NAND3, at a fan-out of ~5.
     wlb_scale = max(1, ceil((2 * (n_bits + 1) + 1) / 5.0))
+    # s_en_bar: the wordline-request NAND2 input and the write-slot NAND3 input
+    # (1.25 units each), at a fan-out of ~4 (V2.1.8).
+    senb_scale = max(1, ceil(1.25 * (wl_en_scale + 1) / 4.0))
     wen_effort = 6.0 if effort_buffers else 8.0
-    sen_load = 0.75 * num_sa + 3.5 if sen_load is None else float(sen_load)
+    # Sense enable load: footers + the output latch, plus its inverter and the
+    # enables-off NOR input (1.75 units) since V2.1.8.
+    sen_load = 0.75 * num_sa + 3.5 + senb_scale + 1.75 if sen_load is None else float(sen_load)
     sen_effort = (4.0 if effort_buffers else 8.0) if sen_effort is None else float(sen_effort)
     iso_load = 4.0 * num_sa if iso_load is None else float(iso_load)
     iso_effort = 3.0 if effort_buffers else 8.0
@@ -545,7 +603,8 @@ def resolve_control_sizing(num_rows: int, num_cols: int, operation: str, effort_
         wl_load=wl_load, pre_load=pre_load, wen_load=wen_load, sen_load=sen_load, iso_load=iso_load,
         num_sa=num_sa, access_load=access_load, addr_fanout_units=addr_fanout_units,
         addr_scale=addr_scale, clk_drive_scale=clk_drive_scale, wl_en_scale=wl_en_scale,
-        wlb_scale=wlb_scale, wen_effort=wen_effort, sen_effort=sen_effort, iso_effort=iso_effort,
+        wlb_scale=wlb_scale, senb_scale=senb_scale, wen_effort=wen_effort, sen_effort=sen_effort,
+        iso_effort=iso_effort,
         pre_scale=pre_scale, iso_fall_strength=2.0 if effort_buffers else 1.0)
 
 
@@ -590,9 +649,9 @@ class TIME_CONTROL(BaseSubcircuit):
                   assumes the 0.27 um base width scaled with max(0.5, rows/16).
         wen_load: load on w_en in unit inverter inputs: per column the write
                   driver's EN inverter and two EN-gated NMOS (3 * nmos_w +
-                  pmos_w, row-scaled) plus the testbench's w_en_bar inverter;
-                  default assumes the 0.18/0.36 um base widths scaled with
-                  max(8, rows)/16.
+                  pmos_w, row-scaled) plus the testbench's w_en_bar inverter
+                  and the enables-off NOR input; default assumes the
+                  0.18/0.36 um base widths scaled with max(8, rows)/16.
         precharge_off_tau: frozen PRE wire/load settling scale in seconds;
                   enabling precharge_off_guard appends the physical pre_far input.
         """
@@ -642,6 +701,9 @@ class TIME_CONTROL(BaseSubcircuit):
         )
         # Builders in signal order.  The order also fixes the subcircuit and
         # instance order of the generated netlist, which must not change.
+        # `s_en_bar` and `enables_off` (built last, after the enables they
+        # observe) are referenced by name by the wordline, slot and precharge
+        # builders.
         self._add_address_path()
         self._add_data_register()
         self._add_clock_tree()
@@ -658,6 +720,7 @@ class TIME_CONTROL(BaseSubcircuit):
         self._add_sense_enable()
         self._add_sense_isolation()
         self._add_precharge()
+        self._add_enable_observers()
 
     # -- ports ---------------------------------------------------------------
     def _ports(self) -> list:
@@ -788,11 +851,20 @@ class TIME_CONTROL(BaseSubcircuit):
                    'gated_clk_bar', 'pre_far', self.access_request, 'pre_off_ready')
 
     def _add_wordline_enable(self) -> None:
-        """wl_en = buffer(access request); wl_en_bar enables the hold latches."""
+        """wl_en = buffer(access request & !s_en); wl_en_bar enables the hold latches.
+
+        The request ends when the sense enable fires (V2.1.8): from then on the
+        amplifier is isolated from the bitlines, so a read wordline that
+        stayed on until the clock edge only discharged the bitlines further
+        (1.2 to 1.9 ns at 8x4, the swing complete) and lengthened the restore.
+        A write cycle has no sense enable and keeps its wordline for the whole
+        access.  `s_en` stays high until the access request ends, so the
+        request cannot re-arm within the access.
+        """
         buffer = WordlineEnableBuffer(self.nmos_model, self.pmos_model,
                                       drive_scale=self.sizing.wl_en_scale, fold_gates=self.effort_buffers)
         self.subcircuit(buffer)
-        self.X('wl_en', buffer.NAME, 'VDD', 'VSS', self.access_request, 'wl_en')
+        self.X('wl_en', buffer.NAME, 'VDD', 'VSS', self.access_request, 's_en_bar', 'wl_en')
         inverter = self._unit_inverter('_wl_en_bar', self.sizing.wlb_scale)
         self.subcircuit(inverter)
         self.X('inv_wl_en_bar', inverter.NAME, 'VDD', 'VSS', 'wl_en', 'wl_en_bar')
@@ -866,47 +938,57 @@ class TIME_CONTROL(BaseSubcircuit):
     def _add_write_slot(self) -> None:
         """The write drivers take the precharge slot of a write cycle (V2.1.6).
 
-        pre_gate = wordline_off & !we_hold inhibits the precharge for the whole
-        write cycle; write_slot = wordline_off & pre_off_ready opens as soon as
-        the previous wordline and the physical precharge are observed off, in
-        the clock-high phase; write_window = wl_en | write_slot keeps the
-        drivers on until the wordline request ends.  BL/BLB therefore sit at
-        their write rails before the wordline rises.
+        pre_gate = wordline_off & !we_hold & enables_off inhibits the precharge
+        for the whole write cycle and until the sense and write enables of the
+        previous access are off (V2.1.8); write_slot = wordline_off &
+        pre_off_ready & !s_en opens as soon as the previous wordline, the
+        physical precharge and the previous sense enable are observed off, in
+        the clock-high phase; selected_slot = cs_pre & write_slot is the slot
+        of a selected cycle; write_window = wl_en | selected_slot keeps the
+        drivers on until the wordline enable ends.  BL/BLB therefore sit at
+        their write rails before the wordline rises, and the drivers release
+        after the wordline enable in every case: before V2.1.8 the select gated
+        the write enable directly, so a deselect dropped the drivers with the
+        local wordline still at half VDD (write -> idle at 8x4, TT and SS).
 
         Without the replica guard nothing observes the previous wordline:
         wordline_off is wl_en_bar, and wl_en | wl_en_bar would hold the drivers
         on across consecutive writes (the hold latch never reopens for new
         data).  The drivers then start with the wordline enable, as before
-        V2.1.6 (V2.1.7).
+        V2.1.6 (V2.1.7).  Without the precharge-off guard the slot's precharge
+        input is tied high.
         """
-        pre_gate = PrechargeWriteAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
+        pre_gate = PrechargeGateAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
         self.subcircuit(pre_gate)
-        self.X('pre_write_gate', pre_gate.NAME, 'VDD', 'VSS', self.wordline_off, 'we_hold_bar', 'pre_gate')
+        self.X('pre_gate', pre_gate.NAME, 'VDD', 'VSS', self.wordline_off, 'we_hold_bar', 'enables_off', 'pre_gate')
         if not self.replica_precharge_guard:
             self.write_window = 'wl_en'
             return
         self.write_window = 'write_window'
-        slot = self.wordline_off
-        if self.precharge_off_guard:
-            slot_and = WriteSlotAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
-            self.subcircuit(slot_and)
-            self.X('write_slot', slot_and.NAME, 'VDD', 'VSS', self.wordline_off, 'pre_off_ready', 'write_slot')
-            slot = 'write_slot'
+        slot_and = WriteSlotAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
+        selected = SelectedSlotAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
         window_nor = WriteWindowNor(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
                                     nmos_width=0.09e-6, pmos_width=0.54e-6, length=0.05e-6)
         window_inv = self._unit_inverter('_write_window')
-        self.subcircuit(window_nor)
-        self.subcircuit(window_inv)
-        self.X('write_window_nor', window_nor.NAME, 'VDD', 'VSS', 'wl_en', slot, 'write_window_bar')
+        for sub in (slot_and, selected, window_nor, window_inv):
+            self.subcircuit(sub)
+        self.X('write_slot', slot_and.NAME, 'VDD', 'VSS', self.wordline_off,
+               'pre_off_ready' if self.precharge_off_guard else 'VDD', 's_en_bar', 'write_slot')
+        self.X('selected_slot', selected.NAME, 'VDD', 'VSS', 'cs_pre', 'write_slot', 'selected_slot')
+        self.X('write_window_nor', window_nor.NAME, 'VDD', 'VSS', 'wl_en', 'selected_slot', 'write_window_bar')
         self.X('write_window_inv', window_inv.NAME, 'VDD', 'VSS', 'write_window_bar', 'write_window')
 
     def _add_write_enable(self) -> None:
-        """w_en = we_hold & cs_pre & write_window, buffered above 32 unit loads (V2.0.2)."""
+        """w_en = we_hold & write_window, buffered above 32 unit loads (V2.0.2).
+
+        The select reaches the drivers through the selected slot (clock-high)
+        and through the wordline enable (access), never directly (V2.1.8).
+        """
         gate = self._and_gate(WriteEnableAnd, ENABLE_INVERTER)
         self.subcircuit(gate)
         s = self.sizing
         self.wen_source = self._buffered_output(
-            'w_en', gate, ('we_hold', 'cs_pre', self.write_window), 'w_en', s.wen_buffered,
+            'w_en', gate, ('we_hold', self.write_window), 'w_en', s.wen_buffered,
             'WRITE_ENABLE_BUFFER', 'w_en_buf', drive_scale=ceil(s.wen_load / s.wen_effort), load_units=s.wen_load)
 
     def _add_sense_enable(self) -> None:
@@ -945,8 +1027,9 @@ class TIME_CONTROL(BaseSubcircuit):
 
         The bitlines are precharged for the whole clock-high phase of a selected
         read cycle (V2.0.2: a self-timed pulse let them droop) and released
-        when the clock falls; pre_gate waits for the previous wordline and
-        inhibits the precharge in a write cycle (V2.1.6 write slot).
+        when the clock falls; pre_gate waits for the previous wordline, the
+        sense and write enables (V2.1.8) and inhibits the precharge in a write
+        cycle (V2.1.6 write slot).
         """
         nand = PNAND3(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
                       nmos_width=0.27e-6, pmos_width=0.27e-6, length=0.05e-6, w_rc=self.w_rc)
@@ -957,3 +1040,22 @@ class TIME_CONTROL(BaseSubcircuit):
                                load_units=self.pre_load)
         self.subcircuit(buffer)
         self.X('pre', buffer.NAME, 'VDD', 'VSS', 'PRE_UNBUF', 'PRE')
+
+    def _add_enable_observers(self) -> None:
+        """s_en_bar = !s_en and enables_off = !(s_en | w_en) (V2.1.8).
+
+        s_en_bar ends the wordline request of a read at the sense trigger and
+        holds the write slot until the sense enable of a preceding read is
+        off; enables_off holds the precharge until both enables are off.  Both
+        observe the block's output nodes (the buffered enables), so a
+        wordline, slot or precharge only follows what the periphery has seen.
+        The write enable is not part of the slot: the slot feeds the write
+        enable, and the loop would oscillate.
+        """
+        inverter = self._unit_inverter('_s_en_bar', self.sizing.senb_scale)
+        nor = EnablesOffNor(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
+                            nmos_width=0.09e-6, pmos_width=0.54e-6, length=0.05e-6, w_rc=self.w_rc)
+        self.subcircuit(inverter)
+        self.subcircuit(nor)
+        self.X('inv_s_en_bar', inverter.NAME, 'VDD', 'VSS', 's_en', 's_en_bar')
+        self.X('enables_off_nor', nor.NAME, 'VDD', 'VSS', 's_en', 'w_en', 'enables_off')

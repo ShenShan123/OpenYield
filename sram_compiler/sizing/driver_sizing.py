@@ -102,7 +102,7 @@ class DriverSizes:
             raise ValueError("Frozen driver sizes require the baseline PDK model contents")
         # Archived snapshots can still be read, but the current topology must
         # not silently add an observer or common gate to an older load budget.
-        expected_access = max(1, ceil(self.loads.wl_load / (24.0 if self.effort_buffers else 32.0))) + 2.5
+        expected_access = 1.25 * max(1, ceil(self.loads.wl_load / (24.0 if self.effort_buffers else 32.0))) + 2.5
         if (self.precharge_off_guard is not True
                 or type(self.precharge_off_guard_stages) is not int
                 or self.precharge_off_guard_stages != PRECHARGE_OFF_GUARD_STAGES
@@ -378,21 +378,26 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     wl_load = (rows * scales["wl_nand"] * nand_units
                + scales["wl_nand"] * nand_units + (rows + 1) * rc_wl_units)
     wl_en_scale = max(1, ceil(wl_load / (24.0 if effort_buffers else 32.0)))
+    # V2.1.8: s_en_bar drives the wordline-request NAND2 and the write-slot
+    # NAND3 inputs (1.25 units each); the enables-off NOR adds 1.75 units to
+    # each enable.  Keep these in step with resolve_control_sizing().
+    senb_scale = max(1, ceil(1.25 * (wl_en_scale + 1) / 4.0))
     loads = DriverLoads(
         # The access guard observes far PRE with a half-unit inverter.
         pre_load=(cols + 1) * 3 * pre_width / 0.36e-6 + (cols + 1) * rc_input_units + .5,
         # The replica write driver is enabled with the real ones (write slot).
         wen_load=(cols + 1) * (2 * wn * scales["wd_out"] + (wn + wp) * scales["wd_in"])
-        / 0.36e-6 + 4 * wenb_scale + (cols + 1) * rc_input_units,
+        / 0.36e-6 + 4 * wenb_scale + (cols + 1) * rc_input_units + 1.75,
         # The matched replica driver adds one NAND2 with the same local RC.
         wl_load=wl_load,
         num_sa=num_sa,
         wenb_scale=wenb_scale,
-        sen_load=num_sa * (sa_n_units + rc_sa_units) + 3.5,
+        sen_load=num_sa * (sa_n_units + rc_sa_units) + 3.5 + senb_scale + 1.75,
         iso_load=num_sa * (sa_iso_units + rc_sa_units),
         sen_effort=3.0 if rc_input_units else 4.0,
-        # WL buffer input plus write NAND2 and sense NAND3 request inputs.
-        access_load=wl_en_scale + 2.5,
+        # Wordline-request NAND2 input (1.25 units per unit of wl_en scale) plus
+        # the sense NAND3 request input.
+        access_load=1.25 * wl_en_scale + 2.5,
     )
     periphery = _peripheral_inputs(sram_config)
     pdk = _pdk_inputs(cfg)

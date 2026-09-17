@@ -186,7 +186,7 @@ class ArrayWireTests(unittest.TestCase):
                 time_block = next(s for s in circuit.subcircuits if s.name == 'TIME_CONTROL')
                 self.assertIn('rwl_pre_bar rwl_pre_delayed PRECHARGE_GUARD_DELAY', str(time_block))
                 self.assertIn('rwl_pre_bar rwl_pre_delayed pre_ready PRECHARGE_GUARD_AND', str(time_block))
-                self.assertIn('pre_ready we_hold_bar pre_gate PRECHARGE_WRITE_AND', str(time_block))
+                self.assertIn('pre_ready we_hold_bar enables_off pre_gate PRECHARGE_GATE_AND', str(time_block))
                 self.assertIn('clk_buf cs_pre pre_gate PRE_UNBUF', str(time_block))
                 replica = next(s for s in circuit.subcircuits if 'replica_column' in s.name)
                 self.assertEqual(sum(e.name.startswith('XReplica_CELL') for e in replica.elements), 4)
@@ -324,7 +324,7 @@ class ArrayWireTests(unittest.TestCase):
             tb.add_meas_and_print(simulator, tb.data_init(), 'read&write')
         self.assertEqual(tb.driver_sizes.precharge_guard_stages, 0)
         control = next(s for s in circuit.subcircuits if s.name == 'TIME_CONTROL')
-        self.assertEqual(control['Xwrite_slot'].node_names[2:5], ['rwl_pre_bar', 'pre_off_ready', 'write_slot'])
+        self.assertEqual(control['Xwrite_slot'].node_names[2:6], ['rwl_pre_bar', 'pre_off_ready', 's_en_bar', 'write_slot'])
         deck = str(simulator).upper()
         for cycle in range(8):
             kind = 'PRE' if cycle % 2 == 0 else 'WEN'

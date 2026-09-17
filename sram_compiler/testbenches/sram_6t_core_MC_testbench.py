@@ -643,7 +643,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         """Export physical wire endpoints and sense inputs for waveform scoring."""
         probes = ['RWL', 'RWL_far', self.sense_input_probe('IN'), self.sense_input_probe('INB')]
         probes += ['XTIME_CONTROL:access_clk_bar', 'XTIME_CONTROL:pre_off_ready', 'XTIME_CONTROL:write_slot', 'XTIME_CONTROL:write_window',
-                   'XTIME_CONTROL:pre_gate', 'XTIME_CONTROL:cs_pre']
+                   'XTIME_CONTROL:pre_gate', 'XTIME_CONTROL:cs_pre',
+                   # V2.1.8: the selected slot and the enable observers.
+                   'XTIME_CONTROL:selected_slot', 'XTIME_CONTROL:s_en_bar', 'XTIME_CONTROL:enables_off']
         probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
         for name, taps in self._control_taps.items():
             probes += [name, taps[0], taps[-1], self.control_tap(name)]

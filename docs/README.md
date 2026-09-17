@@ -1,4 +1,4 @@
-# OpenYield V2.1.7 documentation
+# OpenYield V2.1.8 documentation
 
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
@@ -47,6 +47,15 @@ idle → write probe (`select_every`) follow; every timing class is kept and
 re-evidenced. The [TIME control-path reference](design/TIME_CONTROL_PATH.md)
 holds the signal table, the history of every stage and the naming contract
 of the refactored `time_generate.py`.
+
+V2.1.8 reviews the enable pulses for overlaps inside an access and across
+every access boundary, 6T and 10T
+([enable-overlap record](design/ENABLE_OVERLAP_V2_1_8.md)): the read
+wordline ends at the sense trigger, the precharge waits for the sense and
+write enables of the previous access, the write slot for its sense enable,
+and the write enable ends with the wordline enable rather than the deselect;
+the column-mux select is static and cannot overlap. Every timing class is
+kept and re-evidenced.
 
 V2.1.7 reviews the write slot for boundary bugs
 ([select-gate record](design/SELECT_GATE_V2_1_7.md)): the select of the

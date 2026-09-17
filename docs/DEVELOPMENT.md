@@ -1,4 +1,4 @@
-# OpenYield V2.1.7 development tools
+# OpenYield V2.1.8 development tools
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
 
@@ -86,6 +86,7 @@ The following commands require the ignored `dev/` workspace:
 | `dev/v215_read_disturb.py` | Peak, deadline value and settling time of the read-disturb bump on the target storage node per read cycle, and the shortest clock the settling time allows (the V2.1.5 10T cell-resize evidence) |
 | `dev/v216_time_audit/` | TIME / replica-column audit tools (V2.1.6): `topo_check.py` (static connectivity and subcircuit-collision audit over a size matrix), `run_case.py` + `analyse.py` (one deck with extra TIME-internal probes and the Boolean-relation / event-table checker), `write_order.py` (bitline-rail versus wordline ordering per write cycle), `snapshot_decks.py` + `compare_snapshots.py` (netlist equivalence proof for refactors); see `docs/design/TIME_CONTROL_PATH.md` |
 | `dev/v217_boundary/` | V2.1.7 boundary review: `probe.py` (release testbench deck with extra control-block probes and the `--din idle_change` / `--web idle_read` stimulus overrides) + `analyze.py` (per-cycle enable edges, hold-latch timing, idle-cycle levels, relations of the clock-high enables), `noguard_block.py` (stand-alone guard-less block), `snapshot.py` + `compare_renamed.py` (rename proof against a V2.1.6 worktree) and `structural_diff.py` (per-scope netlist comparison); see `docs/design/SELECT_GATE_V2_1_7.md` |
+| `dev/v218_overlap/` | V2.1.8 enable-overlap review: `overlap.py` (per-cycle on-intervals of every enable at its far tap and of the local wordline, and every pair's gap inside the access and across the boundary to the next selected cycle, from a `probe.py` run), `summarize.py` / `compare.py` (worst gap per run, before -> after), `energy.py` / `energy_phases.py` (per-cycle energy of the shared campaign decks and per-phase supply energy from decks printing `I(VVDD)`), `launch_probes.sh` / `launch_quick.sh` (the 24-deck probe batch and the quick sanity batch); `probe.py --dc-stages N` for the earlier-trigger experiment; see `docs/design/ENABLE_OVERLAP_V2_1_8.md` |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash
@@ -95,6 +96,12 @@ python3 -m unittest discover -s dev/tests -v
 The validator case key `select_every` (V2.1.6) selects one cycle in N of a
 single read/write deck, so the idle → write boundary of the write slot is
 simulated; write decks write 1 then 0 and report `TWSLOT`.
+
+V2.1.8 releases a read wordline at the sense trigger, so the local checker,
+the validator and the qualification scorer search the wordline release from
+the wordline's rise (not from the edge that ends the access) and add the
+ordering checks listed in the changelog; `probe.py` prints
+`XTIME_CONTROL:s_en_bar`, `enables_off`, `selected_slot` on V2.1.8 trees.
 
 V2.1.7 renames the control-block instance, so every probe path reads
 `XTIME_CONTROL:<node>` (the validator also prints `XTIME_CONTROL:cs_delayed`);
