@@ -1,4 +1,4 @@
-# SRAM Compiler and Test Platform User Guide — V2.1.8
+# SRAM Compiler and Test Platform User Guide — V2.1.9
 
 V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes-v210) covers settings, explicit overrides and evidence limits.
 
@@ -433,7 +433,15 @@ from the bitlines from then on), the precharge waits for the sense and write
 enables of the previous access, the write slot for its sense enable, and
 `w_en = we_hold & (wl_en | (cs_pre & write_slot))` ends with the wordline
 enable rather than with the deselect, so no two enables of different roles
-overlap (`docs/design/ENABLE_OVERLAP_V2_1_8.md`). The control block is
+overlap (`docs/design/ENABLE_OVERLAP_V2_1_8.md`). Since V2.1.9 the write
+drivers stay on until the wordline is observed off (`w_en = we_hold &
+(wordline_busy | selected_slot)`, `wordline_busy = !(wl_en_bar &
+wordline_off)`; the held write request opens on `wordline_idle`), the next
+write slot opens only after the drivers are observed off (`slot_armed`), and
+every write cycle carries `VWEN_ACCESS_ERROR_<cycle>`, the highest wordline
+level while the target driver's enable is below 0.9 VDD, which
+`access_validity` limits to 0.1 VDD like the other access checks
+(`docs/design/WRITE_HOLD_V2_1_9.md`). The control block is
 `TIME_CONTROL` (instance `XTIME_CONTROL`; probe paths read
 `XTIME_CONTROL:<node>`); see
 [`docs/design/TIME_CONTROL_PATH.md`](../docs/design/TIME_CONTROL_PATH.md).

@@ -1,4 +1,4 @@
-# OpenYield V2.1.8 development tools
+# OpenYield V2.1.9 development tools
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
 
@@ -96,6 +96,18 @@ python3 -m unittest discover -s dev/tests -v
 The validator case key `select_every` (V2.1.6) selects one cycle in N of a
 single read/write deck, so the idle → write boundary of the write slot is
 simulated; write decks write 1 then 0 and report `TWSLOT`.
+
+V2.1.9 keeps the write drivers on until the wordline is observed off: the
+local checker adds `_write_enable_on_during_wordline` (the driver enable at
+least 0.9 VDD from the local wordline's 10 % rise to its 10 % fall, per write
+cycle and column) with the metrics `_min_write_enable_during_wordline_v` and
+`_write_enable_release_after_wordline_ps`, the qualification scorer
+`write_enable_covers_wordline` (and per write cycle of a sequence), and the
+validator prints `XTIME_CONTROL:rwl_pre_bar` and `wordline_idle` and scores the
+runtime `VWEN_ACCESS_ERROR_*` through `access_validity`. The V2.1.9 evidence
+tools are in `outputs/validation/V2.1.9-write-hold/` (`gen_cases.py`,
+`run_final.sh`, `assemble_record.py`, which also takes the write -> write
+data-latch window from the traces of the single write decks).
 
 V2.1.8 releases a read wordline at the sense trigger, so the local checker,
 the validator and the qualification scorer search the wordline release from

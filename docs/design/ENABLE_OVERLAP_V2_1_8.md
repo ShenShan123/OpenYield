@@ -350,6 +350,17 @@ Every case, latest attempt (`outputs/validation/V2.1.8-enable-overlap/`, `assemb
 
 ## 6. Limits
 
+*V2.1.9 follow-up:* the audit of this release found that its write enable,
+which ends with the wordline enable (and at a write -> read boundary with the
+held request, whose latch reopened on `wl_en_bar`), released the drivers
+while the physical wordline was still on: the drivers started to release
+(0.9 VDD) with the local wordline at 0.51 V of 1.1 V at 8x4 FF -40 C, 0.27 V
+at 8x4 SS, about half VDD at 256x4 and 0.90 V at 512x4 SS, where they were
+off (50 %) 235 ps before the wordline had fallen to half VDD. The `WL at w_en off` column
+of section 5 and the write-tail limit below record it; V2.1.9 keeps the
+drivers and the held request on until the wordline is observed off and makes
+it a check; see [`WRITE_HOLD_V2_1_9.md`](WRITE_HOLD_V2_1_9.md).
+
 * Screening at the class bounds with illustrative wires; extracted metal,
   half-select writes and the yield estimator remain the carried Phase 6
   scope.

@@ -426,7 +426,7 @@ class ArrayWireTests(unittest.TestCase):
                 self.assertIn('precharge', audit['precharge_release_error'])
                 self.assertEqual(audit['seed'], 1)
                 self.assertIn('VWL_WEN_FAR_0', Path(str(deck)+'.data.csv').read_text())
-                Path(str(deck)+'.mt0').write_text('VWL_WEN_FAR_0 = .01\nVWL_WEN_LOCAL_0 = .01\nVWL_WEN_PEAK_0 = .02\nVACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\nTWRITE_TOTAL = 2e-10\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
+                Path(str(deck)+'.mt0').write_text('VWL_WEN_FAR_0 = .01\nVWL_WEN_LOCAL_0 = .01\nVWL_WEN_PEAK_0 = .02\nVACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVWEN_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\nTWRITE_TOTAL = 2e-10\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
                 self.assertEqual(run.main(), 0)
                 self.assertIs(json.loads((Path(temp) / 'summary.json').read_text())
                               ['precharge_release_checked'], True)

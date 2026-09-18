@@ -1,4 +1,4 @@
-# OpenYield V2.1.8: SRAM yield analysis and optimization
+# OpenYield V2.1.9: SRAM yield analysis and optimization
 
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
@@ -13,6 +13,22 @@ candidates and PVT samples. It also fixes narrow-array RC precharge overlap,
 write-register initialization, the distributed output-latch enable, and yield
 callers' measurement handling. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210)
 and [release review](docs/design/TIMING_LOOKUP_V2_1_0.md) for settings and validation limits.
+
+V2.1.9 audits V2.1.8 and keeps the write drivers fully on for as long as
+the wordline is on: V2.1.8 released them with the wordline enable, so the
+local wordline was still at 0.51 V of 1.1 V (8x4, FF -40 C) and at 0.90 V of
+0.9 V (512x4, SS) when they let go. The drivers now stay on until the replica
+wordline is observed off, the held write request with them, and the next
+write slot waits for the drivers to be observed off so the write data still
+passes its hold latch between two writes. Every write deck rejects a sample
+whose driver enable drops while its wordline is on. A per-device
+Monte-Carlo sweep at the worst PVT corners (SS 0.9 V / 125 C, FF 1.1 V /
+-40 C, SF 0.9 V / 125 C, FS 1.1 V / -40 C) checks the read and write
+operations; it found the read clocks of the 128- to 512-row classes too
+short under mismatch at SS (the data reached the output inside the checker's
+guard before the capture edge), so those classes grow (for example 256x4
+6.25 -> 6.75 ns, 512x4 with a mux 9 -> 10 ns). See the
+[write-hold record](docs/design/WRITE_HOLD_V2_1_9.md).
 
 V2.1.8 reviews the enable pulses for overlaps inside an access and across
 every access boundary, for 6T and 10T cells, and removes the ones it found:

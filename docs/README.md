@@ -1,4 +1,4 @@
-# OpenYield V2.1.8 documentation
+# OpenYield V2.1.9 documentation
 
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
@@ -47,6 +47,16 @@ idle → write probe (`select_every`) follow; every timing class is kept and
 re-evidenced. The [TIME control-path reference](design/TIME_CONTROL_PATH.md)
 holds the signal table, the history of every stage and the naming contract
 of the refactored `time_generate.py`.
+
+V2.1.9 keeps the write drivers on until the wordline is observed off
+([write-hold record](design/WRITE_HOLD_V2_1_9.md)): V2.1.8 released them with
+the wordline enable while the local wordline was still falling (0.51 V of
+1.1 V at 8x4 FF, 0.90 V at 512x4 SS). The held write request follows the
+same observer, the next write slot opens only after the drivers are observed
+off, and the testbench rejects a write whose driver enable drops while its
+wordline is on. A per-device Monte-Carlo sweep at the worst PVT corners
+re-derived the read clocks: from 128 rows up the classes grow so that the
+read output leads the deadline by 0.02 T plus 10 % of the access at SS.
 
 V2.1.8 reviews the enable pulses for overlaps inside an access and across
 every access boundary, 6T and 10T

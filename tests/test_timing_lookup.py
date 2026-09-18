@@ -30,9 +30,9 @@ class TimingLookupTests(unittest.TestCase):
 
     def test_boundaries_round_up_and_extrapolate_without_claiming_evidence(self):
         cases = [(1, 1, 4.5), (32, 4, 4.5), (33, 4, 4.75), (64, 16, 4.75),
-                 (65, 16, 5.25), (129, 4, 6.25), (257, 4, 9),
+                 (65, 16, 5.5), (129, 4, 6.75), (257, 4, 9.25),
                  (16, 17, 4.5), (48, 20, 4.75), (16, 512, 8),
-                 (513, 4, 13), (4, 513, 9.15)]
+                 (513, 4, 12.7), (4, 513, 9.15)]
         for rows, cols, ns in cases:
             with self.subTest(rows=rows, cols=cols):
                 cfg = load_config(rows, cols, 'TT')
@@ -61,15 +61,19 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertAlmostEqual(timing.t_period / 1e-9, ns)
                 self.assertEqual(timing.budget, budget)
 
-    def test_6t_budgets_keep_250ps_of_read_output_margin_at_every_class_bound(self):
+    def test_6t_budgets_keep_read_output_margin_at_every_class_bound_under_mismatch(self):
         """At SS 0.9 V / 125 C the shared V2.1.3 classes left 109 ps at the 32x16 6T read bound (4 ns) and
         206/203/175 ps at 64, 128 and 256 rows, and a column mux delays the output by 70 to 275 ps more:
         32x16, 128x8 and 256x4 mux reads failed their output checks nominally and the 16x16 mux sequence
-        failed two of three mismatch seeds. Both 6T ladders now keep the 10T rule of 250 ps at each bound,
-        so a mux never gets a shorter clock than the same array without one."""
+        failed two of three mismatch seeds, so V2.1.4 gave both 6T ladders the 10T rule of 250 ps at each
+        bound. V2.1.9: local mismatch moved the read output by up to 8 % of the nominal access (214 ps at
+        256 rows, 332 ps at 512); two of eight 256x4 seeds and one 512x4 mux seed delivered the data inside
+        the checker's 0.02 T guard. Every bound now keeps 0.02 T plus 10 % of the nominal access (128, 256
+        and 512 rows raised on both ladders), and a mux never gets a shorter clock than the same array
+        without one."""
         cases = [(8, 4, 4.5, 4.75), (16, 16, 4.5, 4.75), (32, 16, 4.5, 4.75), (33, 16, 4.75, 5),
-                 (64, 16, 4.75, 5), (128, 8, 5.25, 5.5), (256, 4, 6.25, 6.75), (512, 4, 9, 9),
-                 (16, 32, 4.5, 4.75), (8, 64, 5, 5), (8, 128, 6, 6), (8, 512, 8, 8), (513, 4, 13, 13)]
+                 (64, 16, 4.75, 5), (128, 8, 5.5, 5.75), (256, 4, 6.75, 7.25), (512, 4, 9.25, 10),
+                 (16, 32, 4.5, 4.75), (8, 64, 5, 5), (8, 128, 6, 6), (8, 512, 8, 8), (513, 4, 12.7, 13.8)]
         for rows, cols, plain_ns, mux_ns in cases:
             with self.subTest(rows=rows, cols=cols):
                 cfg = load_config(rows, cols, 'SS')
@@ -78,12 +82,13 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertAlmostEqual(plain.t_period / 1e-9, plain_ns)
                 self.assertAlmostEqual(muxed.t_period / 1e-9, mux_ns)
                 self.assertEqual((plain.budget, muxed.budget), ('shared', 'SRAM_6T_CELL/mux'))
-                self.assertEqual(muxed.table_version, 'v2.1.8-timing-7')
+                self.assertEqual(muxed.table_version, 'v2.1.9-timing-8')
                 self.assertEqual(muxed.extrapolated, rows > 512)
-                # V2.1.5: the variant floor makes this hold beyond the table too. The
-                # 6T-mux ladder ends 2700 -> 3600 ps against the shared 2500 -> 3600 ps,
-                # so without the floor a 513-row mux array asked for 12 ns and the same
-                # array without a mux for 13 ns.
+                # V2.1.5: the variant floor makes this hold beyond the table too (the
+                # V2.1.4 6T-mux ladder ended 2700 -> 3600 ps against the shared 2500 ->
+                # 3600 ps, so without the floor a 513-row mux array asked for 12 ns and
+                # the same array without a mux for 13 ns). Since V2.1.9 the ladders end
+                # 2900 -> 4000 and 2700 -> 3700 ps.
                 self.assertGreaterEqual(muxed.t_period, plain.t_period)
 
     def test_10t_budget_grows_with_height_above_the_shared_ladder(self):
@@ -92,10 +97,11 @@ class TimingLookupTests(unittest.TestCase):
         a flat 200 ps failed the 128x8 mux read at 5.5 ns and 32x16 failed a mismatch seed at 4.5 ns,
         so the row budget grows with height and keeps 250 ps at every class bound; at 512 rows the
         10T read-disturb bump must also decay within the storage tolerance, which the V2.1.5 10T
-        pull-down width reaches at 10 ns (14 ns with the V2.1.3 width)."""
+        pull-down width reaches at 10 ns (14 ns with the V2.1.3 width). V2.1.9 applies the mismatch
+        rule of the 6T ladders (0.02 T plus 10 % of the nominal access): 10.5 ns at 512 rows."""
         cases = [(8, 4, 5), (16, 16, 5), (32, 16, 5), (33, 16, 5.5), (16, 32, 5),
-                 (64, 16, 5.5), (128, 8, 6), (256, 4, 8), (512, 4, 10),
-                 (8, 64, 5.5), (8, 128, 6.5), (8, 512, 8.5), (513, 4, 13)]
+                 (64, 16, 5.5), (128, 8, 6), (256, 4, 8), (512, 4, 10.5),
+                 (8, 64, 5.5), (8, 128, 6.5), (8, 512, 8.5), (513, 4, 13.8)]
         for rows, cols, ns in cases:
             for mux in (True, False):
                 with self.subTest(rows=rows, cols=cols, mux=mux):
@@ -105,7 +111,7 @@ class TimingLookupTests(unittest.TestCase):
                     self.assertAlmostEqual(timing.t_period / 1e-9, ns)
                     self.assertEqual(timing.budget, 'SRAM_10T_CELL')
                     self.assertEqual(timing.extrapolated, rows > 512)
-                    self.assertEqual(timing.table_version, 'v2.1.8-timing-7')
+                    self.assertEqual(timing.table_version, 'v2.1.9-timing-8')
                     shared = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=mux))
                     self.assertEqual(shared.budget, 'SRAM_6T_CELL/mux' if mux else 'shared')
                     # Inside the table a 10T array always gets more time than the same 6T
@@ -169,7 +175,7 @@ class TimingLookupTests(unittest.TestCase):
             previous = os.getcwd()
             try:
                 os.chdir(temp)
-                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.8')
+                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.9')
             finally:
                 os.chdir(previous)
         cfg.global_config.timing = {'mode': 'fixed', 't_period': 10e-9}
@@ -321,11 +327,62 @@ class TimingLookupTests(unittest.TestCase):
 
     def test_precharge_during_access_rejects_even_correct_retained_data(self):
         data = pd.DataFrame({'VACCESS_ERROR_0': [0., 0.], 'VHOLD_ERROR_0': [0., 0.],
-                             'VRESTORE_ERROR_0': [0., 0.], 'VPRE_ACCESS_ERROR_0': [0., .4]})
+                             'VRESTORE_ERROR_0': [0., 0.], 'VPRE_ACCESS_ERROR_0': [0., .4],
+                             'VWEN_ACCESS_ERROR_0': [0., 0.]})
         np.testing.assert_array_equal(Sram6TCoreMcTestbench.access_validity(data, 'write', 1.),
                                       [True, False])
         self.assertFalse(Sram6TCoreMcTestbench.access_validity(
             data.drop(columns='VPRE_ACCESS_ERROR_0'), 'read', 1.).any())
+
+    def test_drivers_released_under_an_open_wordline_reject_even_correct_written_data(self):
+        """V2.1.9: the write drivers must stay fully on while the wordline is on.  V2.1.8 released
+        them with the local wordline at 0.51 V of 1.1 V (8x4 FF) and 0.90 V (512x4 SS) and still
+        wrote the right data, so the data measures alone cannot catch it: VWEN_ACCESS_ERROR is the
+        highest wordline level while the target driver's enable is below 0.9 VDD.  Only write
+        cycles carry it (a read's wordline is on with the drivers off by design)."""
+        data = pd.DataFrame({'VACCESS_ERROR_0': [0., 0., 0.], 'VHOLD_ERROR_0': [0., 0., 0.],
+                             'VRESTORE_ERROR_0': [0., 0., 0.], 'VPRE_ACCESS_ERROR_0': [0., 0., 0.],
+                             'VWEN_ACCESS_ERROR_0': [.002, .51, np.nan]})
+        np.testing.assert_array_equal(Sram6TCoreMcTestbench.access_validity(data, 'write', 1.1),
+                                      [True, False, False])
+        self.assertFalse(Sram6TCoreMcTestbench.access_validity(
+            data.drop(columns='VWEN_ACCESS_ERROR_0'), 'write', 1.1).any())
+        np.testing.assert_array_equal(Sram6TCoreMcTestbench.access_validity(data, 'read', 1.1),
+                                      [True, True, True])
+        import re
+
+        with tempfile.TemporaryDirectory() as temp:
+            for operation, cycles in (('write', [0]), ('read&write', [0, 2, 4, 6]), ('read', [])):
+                tb = Sram6TCoreMcTestbench(load_config(2, 2, 'TT'), choose_columnmux=False,
+                                           variation_mode='nominal', w_rc=True, sim_path=temp)
+                circuit = tb.create_testbench(operation, 1, 1)
+                simulator = circuit.simulator(simulator='xyce-serial')
+                tb.add_meas_and_print(simulator, tb.data_init(), operation)
+                lines = [l for l in str(simulator).upper().splitlines() if ' VWEN_ACCESS_ERROR_' in l]
+                self.assertEqual(sorted(int(re.search(r'VWEN_ACCESS_ERROR_(\d+)', l)[1]) for l in lines), cycles)
+                for line in lines:
+                    # The target driver's enable below 0.9 VDD selects the wordline level.
+                    self.assertIn(f'IF(V({tb.control_tap("w_en", tb.target_col)})<0.9,'.upper()
+                                  if not tb.w_rc else 'IF(V(XWRITEDRIVER_1:EN_END)<0.9,', line)
+
+    def test_slot_arm_latch_is_seeded_in_its_start_state(self):
+        """V2.1.9: the slot-arm latch is two cross-coupled NOR2.  Unseeded, the DC operating point
+        of 8x128 and 16x16 mux read decks failed (even with Newton line search) or took minutes.
+        At t = 0 the select is clamped off, the wordline is idle and both enables are off, so the
+        latch is set; every deck seeds exactly that state, like the select flip-flop's slave."""
+        import re
+
+        with tempfile.TemporaryDirectory() as temp:
+            for operation in ('read', 'write', 'read&write'):
+                tb = Sram6TCoreMcTestbench(load_config(2, 2, 'TT'), choose_columnmux=False,
+                                           variation_mode='nominal', w_rc=True, sim_path=temp)
+                circuit = tb.create_testbench(operation, 1, 1)
+                simulator = circuit.simulator(simulator='xyce-serial')
+                tb.add_meas_and_print(simulator, tb.data_init(), operation)
+                seeds = dict(re.findall(r'V\((XTIME_CONTROL:(?:SLOT_ARMED(?:_BAR)?|ENABLES_OFF_SETTLED))\)=(\S+)V',
+                                        str(simulator).upper()))
+                self.assertEqual(seeds, {'XTIME_CONTROL:SLOT_ARMED': '1.0', 'XTIME_CONTROL:SLOT_ARMED_BAR': '0',
+                                         'XTIME_CONTROL:ENABLES_OFF_SETTLED': '1.0'}, operation)
 
     def test_cli_period_metadata_and_repeated_runs_preserve_original_evidence(self):
         from sram_compiler.per_device_mc import run
@@ -340,7 +397,7 @@ class TimingLookupTests(unittest.TestCase):
             second, repeated = run.generate_deck(args)
             self.assertNotEqual(first.parent, second.parent)
             self.assertEqual(evidence.read_text(), 'FAILED original')
-            self.assertEqual(summary['compiler_version'], 'V2.1.8')
+            self.assertEqual(summary['compiler_version'], 'V2.1.9')
             self.assertAlmostEqual(summary['timing']['t_period'], 4e-9)
             self.assertEqual(summary['timing']['source'], 'fixed')
             args.run_xyce = True

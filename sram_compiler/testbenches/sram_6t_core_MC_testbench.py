@@ -544,6 +544,15 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                               f'IF(V({enable})>{.5*vdd:.12g},{pre_error},0))}} '
                               f'FROM={1e-9 + (cycle + .65) * period:.12g} '
                               f'TO={1e-9 + (cycle + 1.7) * period:.12g}')
+            if kind == 'write':
+                # V2.1.9: the drivers stay fully on while the wordline is on.  The
+                # target cell's wordline and the far end of its row are below
+                # 0.1 VDD whenever the target driver's enable is below 0.9 VDD.
+                wl_level = f'MAX(ABS(V({wl})),ABS(V({self.arr_inst_prefix}:WL{self.target_row}_far)))'
+                simulator.measure('TRAN', f'VWEN_ACCESS_ERROR_{cycle}',
+                                  f'MAX {{IF(V({enable})<{.9*vdd:.12g},{wl_level},0)}} '
+                                  f'FROM={1e-9 + (cycle + .65) * period:.12g} '
+                                  f'TO={1e-9 + (cycle + 1.7) * period:.12g}')
             if following is None:
                 continue
             # 0.6 T into the next selected cycle: every bitline restored to VDD
@@ -564,6 +573,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         entries = access_cycles(operation, select_every, cycles)
         names = [f'V{phase}_ERROR_{cycle}' for cycle, *_ in entries
                  for phase in ('ACCESS', 'HOLD', 'PRE_ACCESS')]
+        # V2.1.9: a write's drivers stay on while its wordline is on.
+        names += [f'VWEN_ACCESS_ERROR_{cycle}' for cycle, kind, *_ in entries if kind == 'write']
         limits = [.1 * vdd] * len(names)
         restore = [f'VRESTORE_ERROR_{cycle}' for cycle, kind, data, following, *_ in entries
                    if following is not None]
@@ -645,7 +656,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         probes += ['XTIME_CONTROL:access_clk_bar', 'XTIME_CONTROL:pre_off_ready', 'XTIME_CONTROL:write_slot', 'XTIME_CONTROL:write_window',
                    'XTIME_CONTROL:pre_gate', 'XTIME_CONTROL:cs_pre',
                    # V2.1.8: the selected slot and the enable observers.
-                   'XTIME_CONTROL:selected_slot', 'XTIME_CONTROL:s_en_bar', 'XTIME_CONTROL:enables_off']
+                   'XTIME_CONTROL:selected_slot', 'XTIME_CONTROL:s_en_bar', 'XTIME_CONTROL:enables_off',
+                   # V2.1.9: the busy wordline and the slot-arm latch.
+                   'XTIME_CONTROL:wordline_busy', 'XTIME_CONTROL:slot_armed']
         probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
         for name, taps in self._control_taps.items():
             probes += [name, taps[0], taps[-1], self.control_tap(name)]
@@ -699,6 +712,14 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # fights the DFF output inverter (~300 uA) until the clamp releases, i.e. inside
         # the EREAD / EWRITE window.
         init_cond['XTIME_CONTROL:Xdff_buf:qint'] = self.vdd @ u_V
+        if self.driver_sizes.replica_precharge_guard:
+            # V2.1.9 slot-arm latch (two cross-coupled NOR2): at t = 0 the select is
+            # clamped off, the wordline idle and both enables off, so it is set.
+            # Unseeded, the DC operating point of 8x128 and 16x16 mux read decks
+            # failed or took several minutes even with Newton line search.
+            init_cond['XTIME_CONTROL:slot_armed'] = self.vdd @ u_V
+            init_cond['XTIME_CONTROL:slot_armed_bar'] = 0 @ u_V
+            init_cond['XTIME_CONTROL:enables_off_settled'] = self.vdd @ u_V
         if self.operation in ('write', 'read&write'):
             # DIN_dff is already parked at zero by the write setup. Initialize
             # both hold-latch nodes and the register's complementary slave node

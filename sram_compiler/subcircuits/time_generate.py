@@ -14,10 +14,13 @@ order, which is also the order of the builders in :class:`TIME_CONTROL`):
     rbl_delay                 replica bitline through the replica delay chain
     we_hold                   write request held while a wordline is on
     pre_ready                 previous wordline observed off (replica wordline)
+    wordline_busy, _idle      a wordline enabled or not yet observed off (V2.1.9)
     cs_pre                    select of the clock-high enables, delayed on its rising edge
     write_slot, selected_slot the write drivers' clock-high slot, and the slot of a
-    write_window              selected cycle; wl_en | selected_slot
-    w_en                      write enable (the write slot, then the access)
+    slot_armed, write_window  selected cycle once the previous enables are off (V2.1.9);
+                              wordline_busy | selected_slot
+    w_en                      write enable (the write slot, then the access and its
+                              wordline tail)
     s_en                      sense enable (replica timed, reads only)
     s_en_bar, enables_off     sense enable off; sense and write enables both off (V2.1.8)
     sa_iso                    sense-amplifier input isolation, s_en | w_en
@@ -28,7 +31,9 @@ when the sense enable fires (the amplifier is isolated from the bitlines from
 then on), the precharge waits for the sense and write enables to be off, the
 write slot for the sense enable to be off, and the write enable ends with the
 wordline enable rather than with the deselect.  The sense enable and the output
-latch it enables overlap by design.
+latch it enables overlap by design.  Since V2.1.9 the write enable and the held
+write request end only when the wordline is observed off, and the next write
+slot opens only after the write enable has been observed off.
 
 Sizing policy (how many unit inverters each enable needs for its load) is
 separated from the topology in :class:`ControlSizing`; the loads themselves
@@ -51,7 +56,7 @@ from PySpice.Unit import u_Ohm, u_pF
 
 from sram_compiler.interconnect import add_tapped_line, resolve_interconnect
 from .base_subcircuit import BaseSubcircuit
-from .standard_cell import AND2, AND3, D_latch, PNAND3, PNOR2, Pinv
+from .standard_cell import AND2, AND3, D_latch, PNAND2, PNAND3, PNOR2, Pinv
 
 # FreePDK45 control logic: the unit inverter is 0.09 / 0.27 um at 50 nm.  Every
 # enable is sized in multiples of it; the NAND2 of the standard cells is
@@ -127,7 +132,8 @@ class TaperedBuffer(BaseSubcircuit):
 
 class HoldLatch(D_latch):
     """D_LATCH with its own subcircuit name: the address and write-request hold
-    latches of TIME_CONTROL (transparent while wl_en is low, opaque while a wordline is on)."""
+    latches of TIME_CONTROL (transparent while wl_en is low, opaque while a wordline is on;
+    the write-request latch also until the wordline is observed off, V2.1.9)."""
     NAME = "HOLD_LATCH"
 
 
@@ -404,9 +410,25 @@ class WriteSlotAnd(AND3):
     NAME = "WRITE_SLOT_AND"
 
 
-class SelectedSlotAnd(AND2):
-    """selected_slot = cs_pre & write_slot: the slot of a selected cycle."""
+class SelectedSlotAnd(AND3):
+    """selected_slot = cs_pre & write_slot & slot_armed: the slot of a selected cycle,
+    once the enables of the previous access have been observed off (V2.1.9)."""
     NAME = "SELECTED_SLOT_AND"
+
+
+class WordlineBusyNand(PNAND2):
+    """wordline_busy = !(wl_en_bar & wordline_off): a wordline enabled or not yet observed off."""
+    NAME = "WORDLINE_BUSY_NAND"
+
+
+class SlotArmNor(PNOR2):
+    """The two NOR2 of the slot-arm latch: set by the settled enables_off, reset by wordline_busy."""
+    NAME = "SLOT_ARM_NOR"
+
+
+class SlotArmDelay(UnitDelayChain):
+    """Settling of enables_off before it arms the next write slot: the write-data hold latch's window."""
+    NAME = "SLOT_ARM_DELAY"
 
 
 class WriteWindowNor(PNOR2):
@@ -583,7 +605,10 @@ def resolve_control_sizing(num_rows: int, num_cols: int, operation: str, effort_
     # stage was an inverter of `wl_en_scale` units).
     access_load = 1.25 * wl_en_scale + 2.5 if access_load is None else float(access_load)
     # wl_en_bar: two NAND2 inputs per hold latch (address bits + write request)
-    # plus the precharge NAND3, at a fan-out of ~5.
+    # plus the precharge NAND3, at a fan-out of ~5.  With the replica guard the
+    # write-request latch and the precharge gate read the wordline observer and
+    # wl_en_bar feeds the wordline-busy NAND2 instead (V2.1.9): the count is kept
+    # as an upper bound, so the address path is unchanged.
     wlb_scale = max(1, ceil((2 * (n_bits + 1) + 1) / 5.0))
     # s_en_bar: the wordline-request NAND2 input and the write-slot NAND3 input
     # (1.25 units each), at a fan-out of ~4 (V2.1.8).
@@ -714,6 +739,7 @@ class TIME_CONTROL(BaseSubcircuit):
         self._add_replica_delay()
         self._add_write_request_hold()
         self._add_wordline_off_guard()
+        self._add_wordline_busy()
         self._add_select_delay()
         self._add_write_slot()
         self._add_write_enable()
@@ -883,9 +909,14 @@ class TIME_CONTROL(BaseSubcircuit):
 
         `we` is registered on the edge that ends an access, before the request
         falls, so the raw register pulsed w_en at read-to-write boundaries.
+        With the replica guard the latch opens only once the wordline is also
+        observed off (`wordline_idle`, V2.1.9): a write followed by a read
+        otherwise dropped the write enable with the request, while the
+        wordline was still falling.
         """
+        enable = 'wordline_idle' if self.replica_precharge_guard else 'wl_en_bar'
         self.X('we_hold', self.hold_latch.NAME,
-               'VDD', 'VSS', 'we', 'wl_en_bar', 'we_hold', 'we_hold_bar')
+               'VDD', 'VSS', 'we', enable, 'we_hold', 'we_hold_bar')
 
     def _add_wordline_off_guard(self) -> None:
         """wordline_off: the previous wordline is off, as seen on the replica wordline.
@@ -912,6 +943,26 @@ class TIME_CONTROL(BaseSubcircuit):
         self.X('precharge_guard_delay', delay.NAME, 'VDD', 'VSS', 'rwl_pre_bar', 'rwl_pre_delayed')
         self.X('precharge_guard_ready', ready.NAME, 'VDD', 'VSS', 'rwl_pre_bar', 'rwl_pre_delayed', 'pre_ready')
         self.wordline_off = 'pre_ready'
+
+    def _add_wordline_busy(self) -> None:
+        """wordline_busy = !(wl_en_bar & wordline_off); wordline_idle = !wordline_busy (V2.1.9).
+
+        A wordline is busy from its enable until the replica wordline has been
+        observed off (with the settling stages).  The write drivers stay on and
+        the write request stays held while it is busy: before V2.1.9 both ended
+        with the wordline enable, so the drivers released while the wordline
+        was still falling (the local wordline at 0.51 V of 1.1 V at 8x4 FF
+        -40 C, at 0.90 V of 0.9 V at 512x4 SS).  Without the replica guard
+        nothing observes the wordline, and the drivers end with wl_en.
+        """
+        if not self.replica_precharge_guard:
+            return
+        nand = WordlineBusyNand(self.nmos_model, self.pmos_model, NAND_NMOS_WIDTH, NAND_PMOS_WIDTH, GATE_LENGTH)
+        inverter = self._unit_inverter('_wordline_idle')
+        self.subcircuit(nand)
+        self.subcircuit(inverter)
+        self.X('wordline_busy_nand', nand.NAME, 'VDD', 'VSS', 'wl_en_bar', self.wordline_off, 'wordline_busy')
+        self.X('inv_wordline_idle', inverter.NAME, 'VDD', 'VSS', 'wordline_busy', 'wordline_idle')
 
     def _add_select_delay(self) -> None:
         """cs_pre: the select of the clock-high enables (precharge and write drivers).
@@ -943,13 +994,26 @@ class TIME_CONTROL(BaseSubcircuit):
         previous access are off (V2.1.8); write_slot = wordline_off &
         pre_off_ready & !s_en opens as soon as the previous wordline, the
         physical precharge and the previous sense enable are observed off, in
-        the clock-high phase; selected_slot = cs_pre & write_slot is the slot
-        of a selected cycle; write_window = wl_en | selected_slot keeps the
-        drivers on until the wordline enable ends.  BL/BLB therefore sit at
-        their write rails before the wordline rises, and the drivers release
-        after the wordline enable in every case: before V2.1.8 the select gated
-        the write enable directly, so a deselect dropped the drivers with the
-        local wordline still at half VDD (write -> idle at 8x4, TT and SS).
+        the clock-high phase; selected_slot = cs_pre & write_slot & slot_armed
+        is the slot of a selected cycle; write_window = wordline_busy |
+        selected_slot keeps the drivers on until the wordline is observed off
+        (V2.1.9; wl_en until V2.1.8).  BL/BLB therefore sit at their write rails
+        before the wordline rises, and the drivers release only after the
+        wordline is off in every case: before V2.1.8 the select gated the write
+        enable directly, so a deselect dropped the drivers with the local
+        wordline still at half VDD (write -> idle at 8x4, TT and SS).
+
+        slot_armed is a NOR latch, set by enables_off (after four settling
+        stages) and reset by wordline_busy: between two writes the slot
+        reopens only after the drivers have been observed off, so the
+        write-data hold latch (transparent while w_en is low) takes the new
+        data.  Both the release and the slot follow the same wordline
+        observer; without the latch they would race and w_en could stay high
+        across the boundary, and without the settling stages the latch was
+        open for 58 ps before it closed again at 8x4 FF -40 C (106 ps in
+        V2.1.8).  The latch holds the slot once w_en is back on (enables_off
+        low), which a combinational `& enables_off` could not (the loop would
+        oscillate).
 
         Without the replica guard nothing observes the previous wordline:
         wordline_off is wl_en_bar, and wl_en | wl_en_bar would hold the drivers
@@ -966,23 +1030,30 @@ class TIME_CONTROL(BaseSubcircuit):
             return
         self.write_window = 'write_window'
         slot_and = WriteSlotAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
+        arm_delay = SlotArmDelay(self.nmos_model, self.pmos_model, stages=4)
+        arm_nor = SlotArmNor(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
+                             nmos_width=0.09e-6, pmos_width=0.54e-6, length=0.05e-6)
         selected = SelectedSlotAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model)
         window_nor = WriteWindowNor(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
                                     nmos_width=0.09e-6, pmos_width=0.54e-6, length=0.05e-6)
         window_inv = self._unit_inverter('_write_window')
-        for sub in (slot_and, selected, window_nor, window_inv):
+        for sub in (slot_and, arm_delay, arm_nor, selected, window_nor, window_inv):
             self.subcircuit(sub)
         self.X('write_slot', slot_and.NAME, 'VDD', 'VSS', self.wordline_off,
                'pre_off_ready' if self.precharge_off_guard else 'VDD', 's_en_bar', 'write_slot')
-        self.X('selected_slot', selected.NAME, 'VDD', 'VSS', 'cs_pre', 'write_slot', 'selected_slot')
-        self.X('write_window_nor', window_nor.NAME, 'VDD', 'VSS', 'wl_en', 'selected_slot', 'write_window_bar')
+        self.X('slot_arm_delay', arm_delay.NAME, 'VDD', 'VSS', 'enables_off', 'enables_off_settled')
+        self.X('slot_arm_set', arm_nor.NAME, 'VDD', 'VSS', 'enables_off_settled', 'slot_armed', 'slot_armed_bar')
+        self.X('slot_arm_reset', arm_nor.NAME, 'VDD', 'VSS', 'wordline_busy', 'slot_armed_bar', 'slot_armed')
+        self.X('selected_slot', selected.NAME, 'VDD', 'VSS', 'cs_pre', 'write_slot', 'slot_armed', 'selected_slot')
+        self.X('write_window_nor', window_nor.NAME, 'VDD', 'VSS', 'wordline_busy', 'selected_slot',
+               'write_window_bar')
         self.X('write_window_inv', window_inv.NAME, 'VDD', 'VSS', 'write_window_bar', 'write_window')
 
     def _add_write_enable(self) -> None:
         """w_en = we_hold & write_window, buffered above 32 unit loads (V2.0.2).
 
         The select reaches the drivers through the selected slot (clock-high)
-        and through the wordline enable (access), never directly (V2.1.8).
+        and through the busy wordline (access), never directly (V2.1.8).
         """
         gate = self._and_gate(WriteEnableAnd, ENABLE_INVERTER)
         self.subcircuit(gate)
@@ -1046,11 +1117,13 @@ class TIME_CONTROL(BaseSubcircuit):
 
         s_en_bar ends the wordline request of a read at the sense trigger and
         holds the write slot until the sense enable of a preceding read is
-        off; enables_off holds the precharge until both enables are off.  Both
+        off; enables_off holds the precharge until both enables are off and
+        arms the next write slot (V2.1.9).  Both
         observe the block's output nodes (the buffered enables), so a
         wordline, slot or precharge only follows what the periphery has seen.
-        The write enable is not part of the slot: the slot feeds the write
-        enable, and the loop would oscillate.
+        The write enable is not part of the slot's gate: the slot feeds the
+        write enable, and the loop would oscillate; it reaches the slot
+        through the slot-arm latch instead (V2.1.9).
         """
         inverter = self._unit_inverter('_s_en_bar', self.sizing.senb_scale)
         nor = EnablesOffNor(nmos_model=self.nmos_model, pmos_model=self.pmos_model,

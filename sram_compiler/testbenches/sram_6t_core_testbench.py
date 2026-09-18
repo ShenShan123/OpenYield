@@ -686,8 +686,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             return circuit
 
         # Write-data hold latch.  w_en spans the whole clock-low phase and is
-        # released ~150-300 ps after the rising clock edge that ends the cycle,
-        # while the data register DIN_dff already updates ~100-150 ps after that
+        # released after the rising clock edge that ends the cycle, once the
+        # wordline is observed off (V2.1.9: ~250 ps at 8x4 FF to ~1.1 ns at
+        # 256x4 SS), while the data register DIN_dff already updates ~100-150 ps after that
         # same edge.  Without a hold element the write drivers briefly drive the
         # *next* cycle's data into the still-selected row; with a row-scaled (4x)
         # write driver at 64 rows this flipped the freshly written cell back

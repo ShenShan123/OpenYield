@@ -7,11 +7,11 @@ budgets in ps. Select the next row and column anchors, take the larger budget,
 apply the configured margin (25% by default), double it and round up to 50 ps.
 No model fit, automatic calibration or simulation runs inside the resolver.
 
-The row classes are ≤32/64/128/256/512 with budgets 1800/1900/2100/2500/3600 ps
-(V2.1.4; 1600/1800/2000/2400/3600 ps before).
+The row classes are ≤32/64/128/256/512 with budgets 1800/1900/2200/2700/3700 ps
+(V2.1.9; 1800/1900/2100/2500/3600 ps from V2.1.4, 1600/1800/2000/2400/3600 ps before).
 Column classes are ≤4/8/16/32/64/128/256/512 with budgets
 1600/1600/1600/1800/2000/2400/2800/3200 ps. Thus 8x4 and 16x16 use 4.5 ns,
-48x20 uses 4.75 ns, and 512x4 uses 9 ns and 8x512 uses 8 ns. Beyond the final anchor the
+48x20 uses 4.75 ns, and 512x4 uses 9.25 ns and 8x512 uses 8 ns. Beyond the final anchor the
 geometric ladder continues, with `extrapolated: true` and no qualification claim.
 V2.1.3 adds one `variants` entry: 10T cells, with or without a column mux,
 take row budgets 2000/2200/2400/3200/5600 ps and column budgets 200 ps above
@@ -25,6 +25,11 @@ mux only, and adds a `SRAM_6T_CELL` variant for 6T with a column mux (rows
 V2.1.4 probe reads left 109 ps at the 32x16 6T bound and failed the 32x16,
 128x8 and 256x4 mux reads at the old classes; see the
 [6T budget record](design/TIMING_6T_BUDGET_V2_1_4.md).
+V2.1.9 re-derives the 128- to 512-row classes of all three ladders under local
+mismatch (shared 2200/2700/3700 ps, 6T-mux 2300/2900/4000 ps, 10T 512 rows
+4200 ps): every class bound keeps 0.02 T plus 10 % of the access between the
+nominal SS read output and the deadline; see the
+[write-hold record](design/WRITE_HOLD_V2_1_9.md), section 6.
 
 These are design budgets informed by the historical envelope below, with
 allowance for the current guard; they are **not measured phases or full PVT /
@@ -107,7 +112,7 @@ proposal (section 3.4). Everything marked *phase 2* is optional follow-up.
 | `clk` | testbench pulse source | period `T`, 50 % duty, capture edge at `1 ns + 0.2 T`, access (falling) edge at `1 ns + 0.7 T` | none today (10 ns) | **`T` per array** |
 | address, data, `csb`, `web` | testbench pulse sources | valid from `0.1 T` to `0.3 T` around the capture edge (setup = hold = `0.1 T`) | scales with `T` | follows `T` (setup must stay > DFF setup at the worst case, section 6) |
 | `wl_en` / `WL{row}` | `WORDLINE_ENABLE_BUFFER(access_clk_bar, s_en_bar)` (V2.1.8; `access_clk_bar` alone before, `wl_pdrive` before V2.1.7), wordline driver | write: whole clock-low phase, `T/2`; read: from `TCLK_WLEN` = 112-190 ps after the edge (287-290 ps for 512-column write decks: clock-buffer load) to the sense trigger (released 45-192 ps after `s_en` reaches the amplifier, V2.1.8) | edge time grows with rows / cols (buffer taper) | `T/2 >= low_wc * (1 + m)` |
-| `w_en` (V2.1.6) | `AND2(we_hold, wl_en \| (cs_pre & write_slot))` with `write_slot = pre_ready & pre_off_ready & !s_en` (V2.1.8; `AND3(we_hold, cs_pre, wl_en \| (pre_ready & pre_off_ready))` in V2.1.7); `cs_pre = cs & cs_delayed` since V2.1.7 | the write slot of the clock-high phase (from the previous wordline, the physical precharge and the previous sense enable observed off, and after the select delay at an idle -> write edge) through the access, ending with the wordline enable | bitline drive grows with rows (driver class) | `T/2 >= TWSLOT_wc * (1 + m)` |
+| `w_en` (V2.1.6) | `AND2(we_hold, wordline_busy \| (cs_pre & write_slot & slot_armed))` with `wordline_busy = !(wl_en_bar & pre_ready)` and `write_slot = pre_ready & pre_off_ready & !s_en` (V2.1.9; `wl_en` instead of `wordline_busy` and no `slot_armed` in V2.1.8; `AND3(we_hold, cs_pre, wl_en \| (pre_ready & pre_off_ready))` in V2.1.7); `cs_pre = cs & cs_delayed` since V2.1.7 | the write slot of the clock-high phase (from the previous wordline, the physical precharge, the previous sense enable and, between writes, the previous write enable observed off, and after the select delay at an idle -> write edge) through the access, ending when the wordline is observed off (V2.1.9; with the wordline enable before) | bitline drive grows with rows (driver class) | `T/2 >= TWSLOT_wc * (1 + m)` |
 | `PRE` | `NAND3(clk_buf, cs_pre, pre_ready & !we_hold & !(s_en \| w_en))` + `PRECHARGE_BUFFER` (V2.1.8; without the enables term before) | whole clock-high phase of a read cycle, `T/2`, after the replica wordline and both enables are observed off; inhibited in a write cycle (V2.1.6) | restore time 190-430 ps (rows, cols) | `T/2 >= high_wc * (1 + m)` |
 | `s_en` | `AND3(rbl_delay, gated_clk_bar, we_bar)`, `rbl_delay` = replica bitline fully discharged by one replica cell + 9-stage delay chain | self-timed: wordline + ~250 ps at TT / 25 C for every size, tracks rows and PVT by construction (the replica column carries `rows + 1` cells of load) | tracks automatically | unchanged (phase 2: `K`, `N`) |
 | `sa_iso` | `NOR2(s_en, w_en)` + inverter | `s_en \| w_en` | - | derived |

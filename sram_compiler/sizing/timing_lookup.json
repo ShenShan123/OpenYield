@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "version": "V2.1.8",
-  "lookup_version": "v2.1.8-timing-7",
+  "version": "V2.1.9",
+  "lookup_version": "v2.1.9-timing-8",
   "units": "integer picoseconds before margin",
   "status": "Design budgets; not full PVT/local-mismatch qualification",
-  "basis": "Rounded design budgets informed by the historical V2.0.3 SS/SF envelope and V2.1.0 waveform screening. The initial 1200 ps budget missed the SS 16x16 sequence read deadline, so the smallest budget is 1600 ps. Historical fits are not executed at runtime. See docs/design/TIMING_LOOKUP_V2_1_0.md for exact coverage and limits. The initial 512-row budget missed SS distributed read (3.341 ns clock-to-data), so the 512-row budget is 3600 ps. V2.1.3 adds a separate budget for 10T cells: the V2.1.2 follow-up (docs/design/TIMING_FOLLOWUP_V2_1_2.md) found the shared 1600 ps class failing 16x16 10T with a column mux nominally and 8x4 under mismatch at SS 0.9 V / 125 C, and the V2.1.3 evidence run found the 16x16 10T sequence without a mux failing the same read-output checks; the 10T read port and the mux pass gate cost about 170 ps and 140 ps of the access window. The first evidence pass at a flat 200 ps above the shared classes failed the 128x8 10T mux read at 5.5 ns (output 40 ps before the deadline) and left only 125 ps at the 32x16 bound at 4.5 ns, so the 10T row budget grows with height and keeps at least 250 ps at every class bound; the 512-row class additionally needs the 10T read-disturb bump on the storage node to decay within the 0.1 VDD tolerance, which failed at 11 ns. See docs/design/TIMING_10T_BUDGET_V2_1_3.md for the evidence run. V2.1.4 re-evidences both 6T ladders against the same rule after the TIME write-request hold latch (docs/design/TIMING_6T_BUDGET_V2_1_4.md): at SS 0.9 V / 125 C nominal the shared classes left 109 ps at the 32x16 6T read bound at 4 ns, 206 ps at 64x16 at 4.5 ns, 203 ps at 128x8 at 5 ns and 175 ps at 256x4 at 6 ns, so the shared row budgets become 1800/1900/2100/2500/3600 ps; 6T with a column mux failed the shared read-output checks nominally at 32x16 (38 ps before the deadline), 128x8 (53 ps) and 256x4 (29 ps after it) and two of three mismatch seeds at 16x16, so it has its own variant. V2.1.5 resizes the 10T pull-down stack to 287 nm (docs/design/TIMING_10T_BUDGET_V2_1_5.md): the 10T read-disturb bump that set the 512-row class is the read current through two stacked pull-downs, and the V2.1.3 width was the 6T single-pull-down width, so at SS 0.9 V / 125 C the 512-row storage node was still at 0.100 V at the 11 ns deadline against the 0.1 VDD tolerance. The wider stack leaves it at 0.056 V and also moves the read output about 400 ps earlier, so the 512-row 10T budget becomes 4000 ps (10 ns); the other 10T classes are unchanged and keep more margin than the 250 ps rule requires. V2.1.6 moves the write drivers into the precharge slot (docs/design/WRITE_SLOT_V2_1_6.md): in a write cycle PRE is inhibited and w_en turns the drivers on in the clock-high phase, after the previous wordline and the physical precharge are observed off, so BL/BLB sit at the write rails before the wordline rises and the write access no longer waits for the precharge-off guard nor for the bitline drive. Reads are unchanged within 10 ps on the wordline path; the clock-high work of a write cycle becomes the write slot (TWSLOT), which is far shorter than the restore it replaces, so every class is kept and re-evidenced on the V2.1.6 sources at its bound. V2.1.7 delays only the rising edge of the select that gates the precharge and the write enable (docs/design/SELECT_GATE_V2_1_7.md): at an idle -> write edge the write-data hold latch closed about 25 ps after new data had settled at FF 1.1 V / -40 C, and an unselected cycle raced the delayed select against the wordline-off guard. Steady-state reads and writes are unchanged; an idle -> read restore starts one gate later and an idle -> write slot opens after the select delay, so every class is kept and re-evidenced on the V2.1.7 sources at its bound.",
+  "basis": "Rounded design budgets informed by the historical V2.0.3 SS/SF envelope and V2.1.0 waveform screening. The initial 1200 ps budget missed the SS 16x16 sequence read deadline, so the smallest budget is 1600 ps. Historical fits are not executed at runtime. See docs/design/TIMING_LOOKUP_V2_1_0.md for exact coverage and limits. The initial 512-row budget missed SS distributed read (3.341 ns clock-to-data), so the 512-row budget is 3600 ps. V2.1.3 adds a separate budget for 10T cells: the V2.1.2 follow-up (docs/design/TIMING_FOLLOWUP_V2_1_2.md) found the shared 1600 ps class failing 16x16 10T with a column mux nominally and 8x4 under mismatch at SS 0.9 V / 125 C, and the V2.1.3 evidence run found the 16x16 10T sequence without a mux failing the same read-output checks; the 10T read port and the mux pass gate cost about 170 ps and 140 ps of the access window. The first evidence pass at a flat 200 ps above the shared classes failed the 128x8 10T mux read at 5.5 ns (output 40 ps before the deadline) and left only 125 ps at the 32x16 bound at 4.5 ns, so the 10T row budget grows with height and keeps at least 250 ps at every class bound; the 512-row class additionally needs the 10T read-disturb bump on the storage node to decay within the 0.1 VDD tolerance, which failed at 11 ns. See docs/design/TIMING_10T_BUDGET_V2_1_3.md for the evidence run. V2.1.4 re-evidences both 6T ladders against the same rule after the TIME write-request hold latch (docs/design/TIMING_6T_BUDGET_V2_1_4.md): at SS 0.9 V / 125 C nominal the shared classes left 109 ps at the 32x16 6T read bound at 4 ns, 206 ps at 64x16 at 4.5 ns, 203 ps at 128x8 at 5 ns and 175 ps at 256x4 at 6 ns, so the shared row budgets become 1800/1900/2100/2500/3600 ps; 6T with a column mux failed the shared read-output checks nominally at 32x16 (38 ps before the deadline), 128x8 (53 ps) and 256x4 (29 ps after it) and two of three mismatch seeds at 16x16, so it has its own variant. V2.1.5 resizes the 10T pull-down stack to 287 nm (docs/design/TIMING_10T_BUDGET_V2_1_5.md): the 10T read-disturb bump that set the 512-row class is the read current through two stacked pull-downs, and the V2.1.3 width was the 6T single-pull-down width, so at SS 0.9 V / 125 C the 512-row storage node was still at 0.100 V at the 11 ns deadline against the 0.1 VDD tolerance. The wider stack leaves it at 0.056 V and also moves the read output about 400 ps earlier, so the 512-row 10T budget becomes 4000 ps (10 ns); the other 10T classes are unchanged and keep more margin than the 250 ps rule requires. V2.1.6 moves the write drivers into the precharge slot (docs/design/WRITE_SLOT_V2_1_6.md): in a write cycle PRE is inhibited and w_en turns the drivers on in the clock-high phase, after the previous wordline and the physical precharge are observed off, so BL/BLB sit at the write rails before the wordline rises and the write access no longer waits for the precharge-off guard nor for the bitline drive. Reads are unchanged within 10 ps on the wordline path; the clock-high work of a write cycle becomes the write slot (TWSLOT), which is far shorter than the restore it replaces, so every class is kept and re-evidenced on the V2.1.6 sources at its bound. V2.1.7 delays only the rising edge of the select that gates the precharge and the write enable (docs/design/SELECT_GATE_V2_1_7.md): at an idle -> write edge the write-data hold latch closed about 25 ps after new data had settled at FF 1.1 V / -40 C, and an unselected cycle raced the delayed select against the wordline-off guard. Steady-state reads and writes are unchanged; an idle -> read restore starts one gate later and an idle -> write slot opens after the select delay, so every class is kept and re-evidenced on the V2.1.7 sources at its bound. V2.1.9 keeps the write drivers on until the wordline is observed off and re-derives the read classes under local mismatch (docs/design/WRITE_HOLD_V2_1_9.md). At SS 0.9 V / 125 C, per-device mismatch (5 % on vth0, u0 and voff of every MOS) moved the local read output against the nominal by up to 84 ps at 32 rows, 88 ps at 64, 160 ps at 128, 214 ps at 256 and 332 ps at 512 rows, up to 8 % of the nominal access (the single replica cell sets the sense trigger); two of eight 256x4 6T seeds and one of three 512x4 6T-mux seeds delivered the data inside the checker's 0.02 T guard before the 1.2 T deadline, and a 512x4 6T seed kept 158 ps at 9 ns. Rule: at every class bound the nominal local read output leads the deadline by at least 0.02 T plus 10 % of the nominal access time (clock fall to output), and by at least 250 ps. The shared rows become 1800/1900/2200/2700/3700 ps, the 6T-mux rows 1900/2000/2300/2900/4000 ps and the 10T rows 2000/2200/2400/3200/4200 ps; the classes below 128 rows already met the rule. The write classes follow the same budgets.",
   "policy": "T = ceil_to_50ps(2 * max(row.half_period_ps, column.half_period_ps) * (1 + margin)); default margin 0.25. Round dimensions up to anchors, extrapolate the final geometric ladder beyond them and flag the result. The shared classes apply to every architecture without a variant entry; a variant keyed by cell_type (and mux, when given) replaces both ladders for that architecture and may never fall below the shared budget. Physical wiring still shares the classes; custom RC still requires waveform checks.",
   "row_classes": [
     {
@@ -17,15 +17,15 @@
     },
     {
       "max_rows": 128,
-      "half_period_ps": 2100
+      "half_period_ps": 2200
     },
     {
       "max_rows": 256,
-      "half_period_ps": 2500
+      "half_period_ps": 2700
     },
     {
       "max_rows": 512,
-      "half_period_ps": 3600
+      "half_period_ps": 3700
     }
   ],
   "column_classes": [
@@ -65,7 +65,7 @@
   "variants": [
     {
       "cell_type": "SRAM_10T_CELL",
-      "basis": "Row classes 2000/2200/2400/3200/5600 ps and column classes 200 ps above the shared ladder, with or without a column mux. The 10T read port discharges the replica bitline about 1 ps per row slower than 6T and its sense path adds a near-constant 200 ps, so the row budget grows with height. Rule: at least 250 ps between the local read output and the 1.2 T deadline at the class bound, nominal SS 0.9 V / 125 C (the 4.5 ns class left 125 ps at 32x16 and failed one mismatch seed). The 512-row class was set by the storage node, not the output: the 10T read-disturb bump decays with the bitline, which a 512-row array discharges slowly. V2.1.5 widens the stacked 10T pull-down to 287 nm, which drops the bump from 0.196 V to 0.161 V and the 512-row storage node at the 11 ns deadline from 0.100 V to 0.056 V, so the 512-row class becomes 10 ns instead of 14 ns. 5 ns up to 32 rows / 16 columns, 5.5 ns to 64 rows, 6 ns to 128, 8 ns to 256, 10 ns to 512.",
+      "basis": "Row classes 2000/2200/2400/3200/4200 ps (V2.1.9; 2000/2200/2400/3200/5600 ps in V2.1.3) and column classes 200 ps above the shared ladder, with or without a column mux. The 10T read port discharges the replica bitline about 1 ps per row slower than 6T and its sense path adds a near-constant 200 ps, so the row budget grows with height. Rule: at least 250 ps between the local read output and the 1.2 T deadline at the class bound, nominal SS 0.9 V / 125 C (the 4.5 ns class left 125 ps at 32x16 and failed one mismatch seed). The 512-row class was set by the storage node, not the output: the 10T read-disturb bump decays with the bitline, which a 512-row array discharges slowly. V2.1.5 widens the stacked 10T pull-down to 287 nm, which drops the bump from 0.196 V to 0.161 V and the 512-row storage node at the 11 ns deadline from 0.100 V to 0.056 V, so the 512-row class becomes 10 ns instead of 14 ns. V2.1.9 applies the mismatch rule of the top-level basis: the 512x4 mux read keeps 420 ps nominal at 10 ns against 658 ps required, so the 512-row class becomes 10.5 ns; the 128x8 mux read keeps 412 ps against 379 ps. 5 ns up to 32 rows / 16 columns, 5.5 ns to 64 rows, 6 ns to 128, 8 ns to 256, 10.5 ns to 512.",
       "row_classes": [
         {
           "max_rows": 32,
@@ -85,7 +85,7 @@
         },
         {
           "max_rows": 512,
-          "half_period_ps": 4000
+          "half_period_ps": 4200
         }
       ],
       "column_classes": [
@@ -126,7 +126,7 @@
     {
       "cell_type": "SRAM_6T_CELL",
       "mux": true,
-      "basis": "Row classes 1900/2000/2200/2700/3600 ps and the shared column classes, 6T cells with a column mux only. The mux pass gate delays the local read output by about 70 ps at 32 rows, 95 ps at 64, 150 ps at 128, 200 ps at 256 and 275 ps at 512 rows (V2.1.4 probe reads, SS 0.9 V / 125 C nominal), so the shared ladder failed its read-output checks at 32x16 (4 ns), 128x8 (5 ns) and 256x4 (6 ns) and two of three mismatch seeds of the 16x16 sequence. Rule as for 10T: at least 250 ps between the local read output and the 1.2 T deadline at every class bound, nominal; sequences need about 50 ps more than reads, hence 4.75 ns up to 32 rows. The 512-row mux read keeps 257 ps at the shared 9 ns class. 4.75 ns up to 32 rows, 5 ns to 64, 5.5 ns to 128, 6.75 ns to 256, 9 ns to 512.",
+      "basis": "Row classes 1900/2000/2300/2900/4000 ps (V2.1.9; 1900/2000/2200/2700/3600 ps in V2.1.4) and the shared column classes, 6T cells with a column mux only. The mux pass gate delays the local read output by about 70 ps at 32 rows, 95 ps at 64, 150 ps at 128, 200 ps at 256 and 275 ps at 512 rows (V2.1.4 probe reads, SS 0.9 V / 125 C nominal), so the shared ladder failed its read-output checks at 32x16 (4 ns), 128x8 (5 ns) and 256x4 (6 ns) and two of three mismatch seeds of the 16x16 sequence. Rule as for 10T: at least 250 ps between the local read output and the 1.2 T deadline at every class bound, nominal; sequences need about 50 ps more than reads, hence 4.75 ns up to 32 rows. The 512-row mux read kept 257 ps at the shared 9 ns class in V2.1.4 and 202 ps nominal in V2.1.9, with one mismatch seed 66 ps before the deadline; V2.1.9 applies the mismatch rule of the top-level basis (nominal 272 ps at 128x8, 294 ps at 256x4 and 202 ps at 512x4 against 358, 448 and 625 ps required at the old clocks). 4.75 ns up to 32 rows, 5 ns to 64, 5.75 ns to 128, 7.25 ns to 256, 10 ns to 512.",
       "row_classes": [
         {
           "max_rows": 32,
@@ -138,15 +138,15 @@
         },
         {
           "max_rows": 128,
-          "half_period_ps": 2200
+          "half_period_ps": 2300
         },
         {
           "max_rows": 256,
-          "half_period_ps": 2700
+          "half_period_ps": 2900
         },
         {
           "max_rows": 512,
-          "half_period_ps": 3600
+          "half_period_ps": 4000
         }
       ],
       "column_classes": [

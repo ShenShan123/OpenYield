@@ -1,8 +1,9 @@
 # TIME_CONTROL control path: signals, stages and their history
 
 Reference for the `TIME_CONTROL` block in
-`sram_compiler/subcircuits/time_generate.py` (V2.1.8; the block was called
-`TIME` up to V2.1.6, section 6 maps the old names and the V2.1.8 changes). The module docstring
+`sram_compiler/subcircuits/time_generate.py` (V2.1.9; the block was called
+`TIME` up to V2.1.6, section 6 maps the old names, sections 7 and 8 the V2.1.8
+and V2.1.9 changes). The module docstring
 lists the signals; this document holds what the code comments used to carry:
 why each stage exists, the measurements that led to it, the sizing policy,
 and the naming contract a refactor must keep. Release numbers refer to
@@ -70,7 +71,8 @@ geometry with one tap per column. The testbench's write-data hold latch
 (enable `w_en_bar`) follows this register, so the driver input cannot change
 while the drivers are on. The latch closes when `w_en` rises, so new data has
 to be through it first; the select delay of section 2.11 guarantees that at
-an idle -> write edge (V2.1.7).
+an idle -> write edge (V2.1.7), the slot-arm latch of section 2.12 between two
+writes (V2.1.9).
 
 ### 2.3 Clock tree (`_add_clock_tree`)
 
@@ -147,6 +149,12 @@ so at a read-to-write boundary `w_en = request & we` pulsed to 0.38 to
 request is held while a wordline is on; `wl_en` falls only after the request,
 so `w_en` and `s_en` end with the request alone.
 
+V2.1.9: with the replica guard the enable is `wordline_idle` (section 2.10),
+so the request stays held until the wordline is observed off. With
+`wl_en_bar` the latch reopened when the wordline enable fell, and at a write ->
+read boundary the new (read) request dropped `w_en` while the wordline was
+still falling, like the write -> write release of section 2.13.
+
 ### 2.10 Wordline-off guard (`_add_wordline_off_guard`)
 
 `pre_ready`: the previous wordline is off, as seen on the far replica
@@ -158,6 +166,13 @@ a distributed wordline can still exceed 10 % VDD when the logic delay expires
 settling (`PRECHARGE_GUARD_DELAY` + `PRECHARGE_GUARD_AND`, V2.1.1; zero
 stages leave `rwl_pre_bar` itself). Without the replica guard the signal is
 `wl_en_bar`, which only says that the enable is off, not the wordline.
+
+V2.1.9 (`_add_wordline_busy`): `wordline_busy = !(wl_en_bar & pre_ready)`
+(`WORDLINE_BUSY_NAND`) is high from the wordline enable until the replica
+wordline has been observed off with its settling stages, and `wordline_idle`
+is its complement (a unit inverter). The write enable holds the drivers on
+while the wordline is busy (section 2.12) and the write-request latch opens
+only when it is idle (section 2.9). Without the replica guard neither exists.
 
 ### 2.11 Select delay (`_add_select_delay`, V2.1.6, V2.1.7)
 
@@ -205,12 +220,25 @@ In a write cycle the write drivers take the precharge slot:
   opens as soon as the previous wordline, the physical precharge and, since
   V2.1.8, the previous sense enable are observed off, in the clock-high
   phase (the precharge input is tied high without the precharge-off guard).
-  The write enable is not part of the slot: the slot feeds it, and the loop
-  would oscillate;
-* `selected_slot = cs_pre & write_slot` (`SELECTED_SLOT_AND`, V2.1.8) is the
-  slot of a selected cycle;
-* `write_window = wl_en | selected_slot` keeps the drivers on until the
-  wordline enable ends.
+  The write enable is not part of the slot's gate: the slot feeds it, and the
+  loop would oscillate;
+* `selected_slot = cs_pre & write_slot & slot_armed` (`SELECTED_SLOT_AND`,
+  V2.1.8, an AND3 with `slot_armed` since V2.1.9) is the slot of a selected
+  cycle;
+* `write_window = wordline_busy | selected_slot` keeps the drivers on until
+  the wordline is observed off (V2.1.9; until the wordline enable ended
+  before, section 2.13);
+* `slot_armed` (V2.1.9) is a NOR latch (`SLOT_ARM_NOR` x 2, instances
+  `Xslot_arm_set` / `Xslot_arm_reset`): set by `enables_off` through four
+  unit stages (`SLOT_ARM_DELAY`, `enables_off_settled`), reset by
+  `wordline_busy`. Between two writes the drivers' release and the next slot
+  follow the same wordline observer; the latch reopens the slot only after
+  the drivers have been observed off, so the write-data hold latch
+  (transparent while `w_en` is low) takes the new data, and it holds the slot
+  once `w_en` is back on, which a combinational `& enables_off` could not.
+  Without the four stages that window was 58 ps at 8x4 FF -40 C (V2.1.8:
+  106 ps with the drivers released at the wordline enable); with them it is
+  at least 113 ps there under mismatch and 421 ps at SS.
 
 Before V2.1.8 the boundary orders were set by path length alone (the next
 precharge 125 ps at FF / 460 ps at SS after the previous sense enable was
@@ -227,20 +255,26 @@ V2.1.7 the window of such a block is `wl_en` itself: the drivers start with
 the wordline enable, as before V2.1.6. The testbench always builds both
 guards.
 
-See `WRITE_SLOT_V2_1_6.md`, `SELECT_GATE_V2_1_7.md` and
-`ENABLE_OVERLAP_V2_1_8.md` for the measurements.
+See `WRITE_SLOT_V2_1_6.md`, `SELECT_GATE_V2_1_7.md`,
+`ENABLE_OVERLAP_V2_1_8.md` and `WRITE_HOLD_V2_1_9.md` for the measurements.
 
-### 2.13 Write enable (`_add_write_enable`, V2.1.8)
+### 2.13 Write enable (`_add_write_enable`, V2.1.8, V2.1.9)
 
 `w_en = WRITE_ENABLE_AND(we_hold, write_window)`, buffered by
 `WRITE_ENABLE_BUFFER` above 32 unit loads (24 with effort buffers). The
 select reaches the drivers through the selected slot (clock-high) and
-through the wordline enable (access), never directly: in V2.1.7 (`w_en =
+through the busy wordline (access), never directly: in V2.1.7 (`w_en =
 we_hold & cs_pre & write_window`) a deselect dropped the drivers with the
 local wordline still at 0.50 V (TT) / 0.43 V (SS) at a write -> idle
-boundary (F3 of the V2.1.8 record); the drivers now release after the
-wordline enable in every case, 30 ps after the local wordline is below
-0.1 VDD at 8x4 TT. History:
+boundary (F3 of the V2.1.8 record). V2.1.8 ended the drivers with the
+wordline enable, and with the held request at a write -> read boundary;
+the physical wordline outlives the enable by the row driver and the wire, so
+the drivers started to release (0.9 VDD) with the local wordline at 0.51 V of
+1.1 V at 8x4 FF -40 C, 0.27 V at 8x4 SS, about half VDD at 256x4 and 0.90 V
+(the wordline not yet falling) at 512x4 SS. Since V2.1.9 they stay fully on
+until the wordline is observed off (`wordline_busy`), 106 ps (8x4 FF under
+mismatch) to 483 ps (16x64 with a mux, SS) after the local wordline is below
+0.1 VDD. History:
 V2.0.1 scaled one inverter with columns/64 and rows/16, which left a fan-out
 of 40 to 60, a 130 to 180 ps edge from 64x16 to 16x512, and the driven
 bitline reached VDD/2 only 120 to 240 ps after `gated_clk_bar` (D18). Before
@@ -299,7 +333,8 @@ the precharge devices.
 !(s_en | w_en)` (`ENABLES_OFF_NOR`). `s_en_bar` ends the wordline request of
 a read at the sense trigger (section 2.7) and holds the write slot until the
 sense enable of a preceding read is off; `enables_off` holds the precharge
-until both enables are off (section 2.12). Both read the block's output
+until both enables are off and, since V2.1.9, sets the slot-arm latch
+(section 2.12). Both read the block's output
 nodes, the buffered enables, so a wordline, slot or precharge only follows
 what the periphery has seen. They are built last (after the enables they
 observe); the earlier builders reference them by name.
@@ -320,7 +355,7 @@ effort-based even chain with 2 um gate fingers).
 | `sa_iso` | `iso_load` (two pass gates per amplifier) | 32 (16) | 8 (3) | `SENSE_ISOLATION_BUFFER`, fall strength 2 with effort buffers |
 | `PRE` | `pre_load` (3 PMOS per column + replica + observer) | `ceil(load / 8)` (2 + `ceil(load / 4)`) | - | `PRECHARGE_BUFFER` |
 | `A_dff` | 5 (6) gate inputs per 8 rows | `ceil(units / 24)` (`/ 8`) | - | `ADDRESS_BUFFER` |
-| `wl_en_bar` | 2 latch inputs per address bit + write request + 1 | fan-out 5 | - | inverter scale |
+| `wl_en_bar` | 2 latch inputs per address bit + write request + 1 (with the replica guard the request latch reads `wordline_idle` and `wl_en_bar` the busy NAND2 instead since V2.1.9; the count is kept as an upper bound) | fan-out 5 | - | inverter scale |
 | `s_en_bar` (V2.1.8) | the wordline-request NAND2 input (1.25 units per unit of `wl_en` scale) + the write-slot NAND3 input | fan-out 4 (`senb_scale`) | - | inverter scale |
 | access request | `access_load` = 1.25 x `wl_en` scale + 2.5 (the NAND2 input since V2.1.8, the sense NAND3 input) | `max(6, ceil(load / 6))` | - | the guard's `PRECHARGE_ACCESS_AND` output |
 | `clk_buf` | flip-flop count | relative to 16x16 | - | `CLOCK_BUFFER` scale |
@@ -344,15 +379,17 @@ change must keep these names:
 * nodes `A_reg{i}`, `A_lat{i}`, `we_hold`, `we_hold_bar`, `wl_en_bar`,
   `access_clk_bar`, `pre_off_ready`, `pre_ready`, `rwl_pre_bar`, `pre_gate`,
   `cs_delayed`, `cs_pre`, `write_slot`, `selected_slot`, `write_window`,
-  `s_en_bar`, `enables_off`, `PRE_UNBUF`, `sa_iso_bar`, and the `*_unbuf`
-  nodes of buffered enables;
+  `s_en_bar`, `enables_off`, `wordline_busy`, `wordline_idle`, `slot_armed`,
+  `slot_armed_bar`, `enables_off_settled`, `PRE_UNBUF`, `sa_iso_bar`, and the
+  `*_unbuf` nodes of buffered enables;
 * the guard instance `Xaccess_guard` with its internal `pre_on`,
   `pre_on_filtered`, `pre_on_delayed`;
 * subcircuit names, which are also how the deck-comparison tools find
   blocks: `TIME_CONTROL`, `PRECHARGE_OFF_GUARD`, `WRITE_ENABLE_AND`,
   `SELECT_DELAY`, `SELECT_DELAY_AND`, `PRECHARGE_GATE_AND`, `WRITE_SLOT_AND`,
-  `SELECTED_SLOT_AND`, `ENABLES_OFF_NOR`, `WORDLINE_REQUEST_NAND` and the
-  others of section 6. Every
+  `SELECTED_SLOT_AND`, `ENABLES_OFF_NOR`, `WORDLINE_REQUEST_NAND`,
+  `WORDLINE_BUSY_NAND`, `SLOT_ARM_NOR`, `SLOT_ARM_DELAY` and the others of
+  section 6. Every
   subcircuit defined in `time_generate.py` is named after its class in upper
   snake case; `TaperedBuffer` takes its role name (`*_BUFFER`) and the
   standard cells keep theirs (`AND2`, `AND3`, `PNOR2`, `PNAND3`, `PINV*`).
@@ -409,3 +446,13 @@ changes are the select gate, the `w_en` input, the no-guard window and the
 | `WRITE_WINDOW_NOR` (`wl_en`, `write_slot` / `pre_ready` / `rwl_pre_bar`) | (`wl_en`, `selected_slot`); new `SelectedSlotAnd` / `SELECTED_SLOT_AND`, instance `Xselected_slot` (`cs_pre`, `write_slot`) |
 | `WRITE_ENABLE_AND` (AND3: `we_hold`, `cs_pre`, window) | AND2 (`we_hold`, window) |
 | - | `PINV_s_en_bar` (`Xinv_s_en_bar`: `s_en` -> `s_en_bar`), `EnablesOffNor` / `ENABLES_OFF_NOR` (`Xenables_off_nor`: `s_en`, `w_en` -> `enables_off`) |
+
+## 8. Changes V2.1.8 -> V2.1.9
+
+| V2.1.8 | V2.1.9 |
+|---|---|
+| - | `WordlineBusyNand` / `WORDLINE_BUSY_NAND`, instance `Xwordline_busy_nand` (`wl_en_bar`, `pre_ready` or `rwl_pre_bar` -> `wordline_busy`); `PINV_wordline_idle` (`Xinv_wordline_idle`: `wordline_busy` -> `wordline_idle`); replica guard only |
+| `Xwe_hold` enable `wl_en_bar` | `wordline_idle` with the replica guard (`wl_en_bar` without) |
+| `WRITE_WINDOW_NOR` (`wl_en`, `selected_slot`) | (`wordline_busy`, `selected_slot`) |
+| `SELECTED_SLOT_AND` (AND2: `cs_pre`, `write_slot`) | AND3 (`cs_pre`, `write_slot`, `slot_armed`) |
+| - | `SlotArmDelay` / `SLOT_ARM_DELAY` (four unit stages, `Xslot_arm_delay`: `enables_off` -> `enables_off_settled`); `SlotArmNor` / `SLOT_ARM_NOR` x 2 (`Xslot_arm_set`: `enables_off_settled`, `slot_armed` -> `slot_armed_bar`; `Xslot_arm_reset`: `wordline_busy`, `slot_armed_bar` -> `slot_armed`) |

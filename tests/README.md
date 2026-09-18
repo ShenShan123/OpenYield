@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.1.8
+# Compiler regression tests — V2.1.9
 
 V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
 
@@ -92,6 +92,23 @@ decks) and the renamed helper classes (`ReplicaDelayChain`, `DataRegister`,
 `ReplicaColumn`); `dev/tests/test_v210_waveform_checks.py` models the slot in
 its synthetic traces and rejects a bitline that is not at its rail when the
 wordline starts.
+
+V2.1.9 adds `test_write_drivers_stay_on_until_the_wordline_is_observed_off`
+(a unit-delay evaluation of the block's own gates across write -> write and
+write -> read boundaries: `w_en` and the held request stay on while the
+wordline is busy, and between two writes the drivers are released for at
+least the four settling stages plus the slot path before the slot reopens)
+and `test_drivers_released_under_an_open_wordline_reject_even_correct_written_data`
+(`VWEN_ACCESS_ERROR_<cycle>` in every write cycle and only there, and
+`access_validity` rejects a sample above 0.1 VDD or without the measure),
+and `test_slot_arm_latch_is_seeded_in_its_start_state` (every deck seeds the
+latch's t = 0 state; unseeded, mux read decks lost their DC operating point),
+and updates the wiring tests for the busy wordline, the `wordline_idle`
+request latch and the slot-arm latch; each new test fails with its part of
+the fix reverted. The clock tests follow the re-derived read classes
+(`test_6t_budgets_keep_read_output_margin_at_every_class_bound_under_mismatch`,
+formerly `..._keep_250ps_...`, and the 10T and boundary tests). `dev/tests/test_v210_waveform_checks.py` rejects a driver
+release under an open wordline and a dip of the enable inside the access.
 
 V2.1.8 adds
 `test_read_wordline_ends_at_the_sense_enable_and_the_clock_high_enables_wait_for_the_enables`

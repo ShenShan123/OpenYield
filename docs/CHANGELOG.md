@@ -7,6 +7,93 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.9 — 2026-09-18 — write drivers stay on until the wordline is off; read clocks re-derived under mismatch
+
+V2.1.9 audits V2.1.8 against one requirement: the write drivers are fully on
+for the whole time the wordline is asserted and are never turned off while it
+is ([record](design/WRITE_HOLD_V2_1_9.md)), then checks reads and writes at
+the worst PVT combinations under mismatch. V2.1.8 broke the requirement at
+every write boundary; the sweep found the read clocks of the 128- to
+512-row classes too short under mismatch. Driver sizes, cells and the read
+path are unchanged.
+
+- Found: `w_en = we_hold & (wl_en | selected_slot)` ended with the wordline
+  enable, and at a write -> read boundary with the held request (its latch
+  reopened on `wl_en_bar`), while the physical wordline outlives the enable
+  by the row driver and the wire. The drivers started to release (0.9 VDD)
+  with the local wordline at 0.51 V of 1.1 V (8x4 FF -40 C), 0.27 V (8x4
+  SS), about half VDD (256x4) and 0.90 V (512x4 SS, off 235 ps before the
+  wordline was at half VDD). The V2.1.8 record had made this tail a metric
+  and no check or runtime measure looked at it.
+- Busy wordline: `wordline_busy = !(wl_en_bar & wordline_off)`
+  (`WORDLINE_BUSY_NAND`) from the enable until the replica wordline is
+  observed off with its settling stages; `write_window = wordline_busy |
+  selected_slot`, and the write-request latch opens on `wordline_idle`. The
+  drivers now start to release 106 ps (8x4 FF) to 483 ps (16x64 mux SS) after
+  the local wordline is below 0.1 VDD (76 ps with zero settling stages, TT);
+  V2.1.8 did so up to 322 ps before it.
+- Slot-arm latch: the release and the next write slot follow the same
+  observer, so `selected_slot = cs_pre & write_slot & slot_armed`
+  (`SELECTED_SLOT_AND`, an AND3), `slot_armed` a NOR latch (`SLOT_ARM_NOR`)
+  set by `enables_off` through four unit stages (`SLOT_ARM_DELAY`) and reset
+  by `wordline_busy`. Between two writes the drivers drop and the write-data
+  hold latch takes the new data before the slot reopens: at least 113 ps at
+  8x4 FF -40 C under mismatch (58 ps without the stages; 106 ps in V2.1.8),
+  421 ps at SS.
+- Start state: the testbench seeds the slot-arm latch (`slot_armed`,
+  `slot_armed_bar`, `enables_off_settled`) with `.IC` at its t = 0 state; the
+  unseeded cross-coupled pair made the DC operating point of mux read decks
+  fail (8x128 at four ranks even with Newton line search) or take minutes.
+  One per-device 10T sample (16x16 mux read, FS 1.1 V / -40 C, seed 1) fails
+  its operating point with every solver on the V2.1.8 sources as well and
+  runs with gmin stepping.
+- Checks: every write cycle carries `VWEN_ACCESS_ERROR_<cycle>` (the highest
+  local or far wordline level while the target driver's enable is below
+  0.9 VDD), limited to 0.1 VDD by `access_validity`, so every run rejects
+  such a sample; the local checker adds `_write_enable_on_during_wordline`
+  per write cycle and column, the scorer `write_enable_covers_wordline`.
+  The testbench prints `XTIME_CONTROL:wordline_busy` and `slot_armed`.
+- Naming: new `WORDLINE_BUSY_NAND`, `PINV_wordline_idle`, `SLOT_ARM_DELAY`,
+  `SLOT_ARM_NOR`, nodes `wordline_busy`, `wordline_idle`, `slot_armed`,
+  `slot_armed_bar`, `enables_off_settled`
+  ([map](design/TIME_CONTROL_PATH.md), section 8).
+- Read clocks: at SS 0.9 V / 125 C per-device mismatch moved the local read
+  output by up to 214 ps at 256 rows and 332 ps at 512 rows (up to 8 % of
+  the access; the single replica cell sets the sense trigger), and two of
+  eight 256x4 6T seeds and one 512x4 6T-mux seed had the data inside the
+  checker's 0.02 T guard at the V2.1.8 clocks. New rule: at every class
+  bound the nominal read output leads the 1.2 T deadline by 0.02 T plus
+  10 % of the access time (and at least 250 ps). `timing_lookup.json`
+  `v2.1.9-timing-8`: shared rows 1800/1900/2200/2700/3700 ps (5.5, 6.75,
+  9.25 ns at 128, 256, 512 rows), 6T-mux rows 1900/2000/2300/2900/4000 ps
+  (5.75, 7.25, 10 ns), 10T rows 2000/2200/2400/3200/4200 ps (10.5 ns at
+  512 rows); the smaller classes and the columns are unchanged; a 513-row
+  6T array extrapolates to 12.7 ns instead of 13 ns (unqualified).
+- Evidence: the V2.1.8 matrix, a per-device Monte-Carlo sweep at SS 0.9 V /
+  125 C, FF 1.1 V / -40 C, SF 0.9 V / 125 C and FS 1.1 V / -40 C (6T and
+  10T, 8x4 to 512x4) and the class-bound reads, on the release sources
+  (313 of 313 cases, 638,438 of 638,438 checks, 218 of them Monte-Carlo
+  samples; two four-rank DC operating points retried with Newton line
+  search); a first pass on the first V2.1.9 sources found the latch and
+  read-clock items above. Every seed has the read data out at least 97 ps
+  before the checker's guard; the 10T 512x4 bound keeps 662 ps against the
+  rule's 669 ps at the new clock (reported, not raised).
+- Open: the write -> write slot now uses up to 73 % of the clock-high phase
+  at SS (`TWSLOT` 1136 -> 1625 ps at 8x4, 1191 -> 1727 ps at 16x16 with a
+  mux), within the documented period rule but above the qualification
+  scorer's `restore_budget` (0.8 x the class budget) at seven write decks
+  up to 128 rows; the scorer attributes that budget to
+  the precharge / write drivers, which cannot shorten the wordline tail.
+  Left for a decision (record, section 8).
+- Tests: `test_write_drivers_stay_on_until_the_wordline_is_observed_off`
+  (unit-delay evaluation of the block's gates across write -> write and
+  write -> read) and
+  `test_drivers_released_under_an_open_wordline_reject_even_correct_written_data`,
+  each shown to fail with its part of the fix reverted, and
+  `test_slot_arm_latch_is_seeded_in_its_start_state`; the clock tests follow
+  the new classes; 149 tracked tests pass; the local checker tests reject a
+  release under an open wordline and a dip of the enable (`dev/tests`).
+
 ## V2.1.8 — 2026-09-17 — no enable overlaps: sense-timed read wordline; precharge and write slot wait for the enables
 
 V2.1.8 reviews the enable pulses of `TIME_CONTROL` for overlaps inside an

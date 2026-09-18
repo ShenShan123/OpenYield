@@ -184,9 +184,11 @@ replica `(1, 9)` does not claim compliance with the read limit.
 
 ## Clock classes (V2.1.0)
 
-`timing_lookup.json` (`v2.1.8-timing-7`: every class re-evidenced on the
-V2.1.8 sense-timed read wordline and enable orderings, see
-`docs/design/ENABLE_OVERLAP_V2_1_8.md`, after the V2.1.7 select gate,
+`timing_lookup.json` (`v2.1.9-timing-8`: the 128- to 512-row read classes
+re-derived under local mismatch with the V2.1.9 write hold, see
+`docs/design/WRITE_HOLD_V2_1_9.md` section 6, after the
+V2.1.8 sense-timed read wordline and enable orderings,
+`docs/design/ENABLE_OVERLAP_V2_1_8.md`, the V2.1.7 select gate,
 `docs/design/SELECT_GATE_V2_1_7.md`, and the V2.1.6 write slot,
 `docs/design/WRITE_SLOT_V2_1_6.md`) uses the same row and column anchors as
 driver sizing.
@@ -201,12 +203,16 @@ T = ceil_to_50ps(2 * max(row_budget, column_budget) * (1 + margin))
 |---|---|---|
 | 32 | 1800 | 4.5 |
 | 64 | 1900 | 4.75 |
-| 128 | 2100 | 5.25 |
-| 256 | 2500 | 6.25 |
-| 512 | 3600 | 9.0 |
+| 128 | 2200 | 5.5 |
+| 256 | 2700 | 6.75 |
+| 512 | 3700 | 9.25 |
 
-The row budgets are the V2.1.4 values (V2.1.0 to V2.1.3:
-1600/1800/2000/2400/3600 ps). Column bounds ≤4/8/16/32/64/128/256/512
+The row budgets are the V2.1.9 values (V2.1.4 to V2.1.8:
+1800/1900/2100/2500/3600 ps; V2.1.0 to V2.1.3: 1600/1800/2000/2400/3600 ps).
+Rule since V2.1.9: at every class bound, SS 0.9 V / 125 C nominal, the local
+read output leads the 1.2 T deadline by at least 0.02 T plus 10 % of the
+access time (clock fall to output) and by at least 250 ps; local mismatch
+moved the output by up to 8 % of the access at 128 to 512 rows. Column bounds ≤4/8/16/32/64/128/256/512
 contribute budgets 1600/1600/1600/1800/2000/2400/2800/3200 ps. For example
 16x32 uses 4.5 ns and 48x20 uses 4.75 ns. Classes are shared across RC and
 PVT; the evidenced 10T and 6T column-mux variants below replace them for
@@ -278,10 +284,12 @@ need about 50 ps more than reads, hence 4.75 ns up to 32 rows:
 |---|---|---|
 | 32 | 1900 | 4.75 |
 | 64 | 2000 | 5.0 |
-| 128 | 2200 | 5.5 |
-| 256 | 2700 | 6.75 |
-| 512 | 3600 | 9.0 |
+| 128 | 2300 | 5.75 |
+| 256 | 2900 | 7.25 |
+| 512 | 4000 | 10.0 |
 
+(V2.1.9; 2200/2700/3600 ps from V2.1.4 to V2.1.8.) The 10T ladder is
+2000/2200/2400/3200/4200 ps since V2.1.9 (512 rows 10.5 ns).
 `ArrayTiming.budget` reads `SRAM_6T_CELL/mux` for these arrays. The boundary
 run, the mismatch seeds and the write-waveform gate are in the
 [6T budget record](../../docs/design/TIMING_6T_BUDGET_V2_1_4.md).
