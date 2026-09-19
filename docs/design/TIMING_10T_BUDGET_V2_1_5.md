@@ -11,7 +11,7 @@ and `voff` of every MOS. This is functional screening at SS 0.9 V / 125 °C
 (SF for writes, FF 1.1 V / −40 °C for the cold sequences), not PVT/mismatch or
 extracted-metal qualification; no record is promoted to `sizing_table.json`.
 
-It closes items 4, 5 and 7 of the [V2.1.3 open items](../plans/V2_1_3_OPEN_ITEMS.md).
+It closes items 4, 5 and 7 of the V2.1.3 open items (`docs/plans/V2_1_3_OPEN_ITEMS.md` at `945815a`).
 Measurement definitions ("Request→OUT", "deadline margin", PRE90→WL50 and
 WL10→PRE90) are as in the [V2.1.3 10T budget](TIMING_10T_BUDGET_V2_1_3.md),
 measured from the retained `.prn` traces with `dev/v213_sense_timing.py`; the
@@ -210,7 +210,7 @@ The three FF −40 °C seeds keep write-enable peaks at 6 mV and sense-enable at
 
 Ten seeds are a pilot, not a yield statement: 0 of 10 failures bounds the rate
 only to 26 % at 95 % confidence, and the statistical question belongs to the
-yield-estimator brief of the [qualification scope](../plans/V2_1_2_QUALIFICATION_SCOPE.md).
+yield-estimator brief of the qualification scope (`docs/plans/V2_1_2_QUALIFICATION_SCOPE.md` at `945815a`).
 
 Solver: one retry (`b_128x8_10t_mux_SS_read_pd_s2`, which then passed every
 check) and six runs with the non-fatal minimum-step warning; no DC

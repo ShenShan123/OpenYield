@@ -30,18 +30,6 @@ sys.path.append(project_root)
 from size_optimization.exp_utils import seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace, CompositeSRAMParameterSpace, OptimizationLogger, save_pareto_front, save_best_result, plot_merit_history, plot_pareto_frontier, update_pareto_front, save_optimization_history, estimate_scaled_total_area, get_composite_initial_params
 
 
-def format_initial_result(result):
-    """
-    Convert evaluate_sram result format to expected format
-    将evaluate_sram结果格式转换为期望格式
-    """
-    if result is None:
-        return None
-
-    formatted_result = {"hold_snm": {"success": True, "snm": result["hold_snm"]}, "read_snm": {"success": True, "snm": result["read_snm"]}, "write_snm": {"success": True, "snm": result["write_snm"]}, "read": {"success": True, "delay": result["read_delay"], "power": abs(result["read_power"])}, "write": {"success": True, "delay": result["write_delay"], "power": abs(result["write_power"])}}
-    return formatted_result
-
-
 # SA optimizer class
 # SA优化器类
 class SAOptimizer:

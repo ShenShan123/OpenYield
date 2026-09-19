@@ -154,7 +154,7 @@ on and off); 64x64 and 16x256; the interpolated sizes 3x3, 5x3, 6x6, 12x4,
 hold are checked in every deck (retention after release, no read disturb, quiet
 unselected wordlines, restored and equalized bitlines, neighbor-row retention
 across address-change hazards); the results are in the V2.0.9 changelog and
-under ignored `outputs/qualification/V2.0.9/`. A screen is not tail or yield
+the summaries in `docs/data/` (the raw screen was purged in the V2.1.10 cleanup). A screen is not tail or yield
 qualification: `sizing_table.json` remains empty, half-select waveform
 qualification remains a separate open requirement, and the extrapolated
 classes have screening evidence only.
@@ -327,8 +327,8 @@ frozen driver baseline. A longer clock alone cannot repair wordline/precharge
 overlap; release checks reject unsafe or missing events. Driver transistor
 classes and replica sense timing K=1/N=9 are unchanged. The
 [V2.1.1 report](../../docs/design/DISTRIBUTED_ONLY_V2_1_1.md) and
-[evaluation schedule](../../docs/plans/V2_1_1_TIMING_FOLLOWUP.md) record current
-distributed-only coverage; V2.1.0 waveform passes remain historical evidence.
+evaluation schedule (removed in V2.1.10, [open items](../../docs/README.md#open-items))
+record current distributed-only coverage; V2.1.0 waveform passes remain historical evidence.
 
 The V2.1.2 [follow-up](../../docs/design/TIMING_FOLLOWUP_V2_1_2.md) found the
 shared 4 ns class exhausted for 10T cells with a column mux at SS 0.9 V /

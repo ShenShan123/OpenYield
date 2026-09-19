@@ -5,7 +5,6 @@ from sram_compiler.subcircuits.wordline_driver import WordlineDriver
 from sram_compiler.subcircuits.sram_6t_core import Sram6TCell, Sram6TCore
 from sram_compiler.subcircuits.sram_10t_core import Sram10TCell, Sram10TCore
 from sram_compiler.subcircuits.decoder import DECODER_CASCADE
-from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Row, Dummy_Column
 from sram_compiler.subcircuits.replica_column import ReplicaColumn
 from sram_compiler.subcircuits.time_generate import TIME_CONTROL
 def read_mos_model_from_param_file(names,param_file):
@@ -782,123 +781,6 @@ class DecoderCascadeFactory:
         return DECODER_CASCADE(**config)
 
             
-class DummyColumnFactory:
-    def __init__(self, num_rows,
-                 pd_nmos_model, pu_pmos_model, pg_nmos_model,
-                 pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, length=50e-9,
-                 w_rc=False, disconnect=False,
-                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 interconnect=None,
-                 ):
-        
-        self.interconnect = interconnect
-        self.num_rows = num_rows
-        self.pd_nmos_model = pd_nmos_model
-        self.pu_pmos_model = pu_pmos_model
-        self.pg_nmos_model = pg_nmos_model
-        self.pd_width = pd_width
-        self.pu_width = pu_width
-        self.pg_width = pg_width
-        self.length = length
-        self.w_rc = w_rc
-        self.pi_res = pi_res
-        self.pi_cap = pi_cap
-        self.disconnect = disconnect
-
-
-    def _get_config(self):
-
-
-        pd_width = self.pd_width
-        pu_width = self.pu_width
-        pg_width = self.pg_width
-        length = self.length
-
-        pd_model = self.pd_nmos_model
-        pg_model = self.pg_nmos_model
-        pu_model = self.pu_pmos_model
-
-        return{
-            'num_rows': self.num_rows,
-            'pd_nmos_model': pd_model,
-            'pu_pmos_model': pu_model,
-            'pg_nmos_model': pg_model,
-            'pd_width': pd_width,
-            'pu_width': pu_width,
-            'pg_width': pg_width,
-            'length': length,
-            'w_rc': self.w_rc,
-            'pi_res': self.pi_res,
-            'pi_cap': self.pi_cap,
-            'disconnect': self.disconnect,
-            'interconnect': self.interconnect,
-        }
-        
-    def create(self):
-        config = self._get_config()
-        return Dummy_Column(**config)
-
-
-
-class DummyRowFactory:
-    def __init__(self, num_cols,
-                 pd_nmos_model, pu_pmos_model, pg_nmos_model,
-                 pd_width=0.205e-6, pu_width=0.09e-6, pg_width=0.135e-6, length=50e-9,
-                 w_rc=False, disconnect=False,
-
-                 pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 interconnect=None,
-                 ):
-        
-        self.interconnect = interconnect
-        self.num_cols = num_cols
-        self.pd_nmos_model = pd_nmos_model
-        self.pu_pmos_model = pu_pmos_model
-        self.pg_nmos_model = pg_nmos_model
-        self.pd_width = pd_width
-        self.pu_width = pu_width
-        self.pg_width = pg_width
-        self.length = length
-        self.w_rc = w_rc
-        self.pi_res = pi_res
-        self.pi_cap = pi_cap
-        self.disconnect = disconnect
-        
-
-    def _get_config(self):
-
-            # 固定模式：使用具体数值
-        pd_width = self.pd_width
-        pu_width = self.pu_width
-        pg_width = self.pg_width
-        length = self.length
-
-        pd_model = self.pd_nmos_model
-        pg_model = self.pg_nmos_model
-        pu_model = self.pu_pmos_model
-        
-        return{
-            'num_cols': self.num_cols,
-            'pd_nmos_model': pd_model,
-            'pu_pmos_model': pu_model,
-            'pg_nmos_model': pg_model,
-            'pd_width': pd_width,
-            'pu_width': pu_width,
-            'pg_width': pg_width,
-            'length': length,
-            'w_rc': self.w_rc,
-            'pi_res': self.pi_res,
-            'pi_cap': self.pi_cap,
-            'disconnect': self.disconnect,
-            'interconnect': self.interconnect,
-        }
-        
-    def create(self):
-        config = self._get_config()
-        return Dummy_Row(**config)     
-
-        
-        
 class ReplicaColumnFactory:
     def __init__(self, num_rows,num_cols,
                  pd_nmos_model, pu_pmos_model, pg_nmos_model,fd_nmos_model=None,

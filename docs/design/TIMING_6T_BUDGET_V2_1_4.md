@@ -6,7 +6,7 @@ in the [changelog](../CHANGELOG.md); every queue archives the exact sources it
 ran). Illustrative wires, V2.0.9 driver classes, nominal seed 20260913,
 maximum step 20 ps; per-device samples on one rank each with 5 % relative
 sigma on `vth0`, `u0` and `voff` of every MOS. This closes the 6T items of the
-[V2.1.3 open items](../plans/V2_1_3_OPEN_ITEMS.md) (1 to 3); the 10T items
+V2.1.3 open items (`docs/plans/V2_1_3_OPEN_ITEMS.md` at `945815a`) (1 to 3); the 10T items
 (4 and 5) are the next round. It is functional screening at SS 0.9 V / 125 °C
 (SF for writes, FF 1.1 V / −40 °C for the control race), not PVT/mismatch or
 extracted-metal qualification; no record is promoted to `sizing_table.json`.

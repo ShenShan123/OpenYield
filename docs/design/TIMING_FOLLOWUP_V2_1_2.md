@@ -3,7 +3,7 @@
 Executed September 14, 2026 on the V2.1.2 sources (base commit `61d01a7ee00284ff58d2b9d8d6dd535a0ca9411e`
 plus the uncommitted post-release cleanup and CLI repairs recorded in the
 [changelog](../CHANGELOG.md)) for Phases 4 and 5 of the
-[evaluation plan](../plans/V2_1_1_TIMING_FOLLOWUP.md). Illustrative wires,
+evaluation plan (`docs/plans/V2_1_1_TIMING_FOLLOWUP.md` at `945815a`). Illustrative wires,
 frozen V2.1.0 lookup clocks and V2.0.9 driver classes throughout; nominal seed
 20260913, maximum step 20 ps; at most eight simulator ranks at any time. This
 is functional screening, not PVT/mismatch or extracted-metal qualification;
@@ -142,4 +142,4 @@ the 16x16 SS sequence without stubs and the per-device FF cold sequence were
 inspected: register capture precedes write enable, precharge is off before
 the wordline, the driver pulls the bitline, Q meets the deadline, release
 precedes precharge and data holds through the window. Phase 6 scope is in the
-[qualification scope](../plans/V2_1_2_QUALIFICATION_SCOPE.md).
+qualification scope (`docs/plans/V2_1_2_QUALIFICATION_SCOPE.md` at `945815a`).

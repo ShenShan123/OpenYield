@@ -9,7 +9,7 @@ from sram_compiler.subcircuits.decoder import DECODER_CASCADE
 from sram_compiler.subcircuits.standard_cell import AND2, AND3, Pinv
 from sram_compiler.subcircuits.time_generate import DataRegister
 from sram_compiler.testbenches.parameter_factor import (
-    DecoderCascadeFactory, DummyColumnFactory, DummyRowFactory, TimeControlFactory,
+    DecoderCascadeFactory, TimeControlFactory,
 )
 
 
@@ -131,14 +131,6 @@ class DistributedFanoutTests(unittest.TestCase):
         register = next(sub for sub in time.subcircuits if sub.name == 'DATA_REGISTER')
         self.assertEqual(register.interconnect, config)
         self.assertEqual(len(line_elements(register, 'CLK_line', 'R')), 24)
-
-    def test_dummy_factories_preserve_the_same_wire_configuration(self):
-        config = resolve_interconnect(wire_config(3))
-        with contextlib.redirect_stdout(io.StringIO()):
-            column = DummyColumnFactory(4, 'N', 'P', 'N', interconnect=config).create()
-            row = DummyRowFactory(4, 'N', 'P', 'N', interconnect=config).create()
-        self.assertEqual(column.interconnect, config)
-        self.assertEqual(row.interconnect, config)
 
     def test_default_decoder_and_write_register_are_distributed(self):
         with contextlib.redirect_stdout(io.StringIO()):

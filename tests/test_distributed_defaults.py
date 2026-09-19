@@ -9,7 +9,6 @@ from sram_compiler.config_yaml.config import GlobalConfig
 from sram_compiler.interconnect import InterconnectConfig, load_interconnect, resolve_interconnect
 from sram_compiler.sizing.table import physical_context
 from sram_compiler.subcircuits import sram_cell_add_equivalent as equivalent
-from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Column, Dummy_Row
 from sram_compiler.subcircuits.replica_column import ReplicaColumn
 from sram_compiler.subcircuits.sram_6t_core import Sram6TCore
 from sram_compiler.subcircuits.sram_10t_core import Sram10TCore
@@ -68,21 +67,6 @@ class DistributedDefaultsTests(unittest.TestCase):
         for row, cell in enumerate(cells):
             self.assertEqual(cell[3:6], [f'RBL_tap{row}', f'RBLB_tap{row}', f'WL{row}'])
         self.assertNotIn('WL4', replica.NODES)
-
-    def test_dummy_arrays_have_wire_segments_between_consumers(self):
-        args = ('NMOS_VTG', 'PMOS_VTG', 'NMOS_VTG', .205e-6, .09e-6, .135e-6, 50e-9)
-        with redirect_stdout(io.StringIO()):
-            column = Dummy_Column(4, *args, w_rc=True)
-            row = Dummy_Row(4, *args, w_rc=True)
-        column_cells = [str(e).split() for e in column.elements if e.name.startswith('XDummy_CELL')]
-        row_cells = [str(e).split() for e in row.elements if e.name.startswith('XDummy_CELL')]
-        for index, cell in enumerate(column_cells):
-            self.assertEqual(cell[3:5], [f'BL_tap{index}', f'BLB_tap{index}'])
-        for index, cell in enumerate(row_cells):
-            self.assertEqual(cell[5], f'WL_tap{index}')
-        self.assertIn('Rwire_BL_', str(column))
-        self.assertIn('Rwire_WL_', str(row))
-        self.assertNotIn('RR_WL_', str(list(row.subcircuits)[0]))
 
     def test_omitted_cells_preserve_local_loads_without_explicit_wire_options(self):
         caps = {'caps': dict(c_wl=1e-16, c_bl=2e-16, c_blb=3e-16,

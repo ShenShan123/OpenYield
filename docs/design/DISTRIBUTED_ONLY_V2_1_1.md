@@ -301,7 +301,7 @@ preserve existing artifacts; fresh runs use new case directories and rejected
 invocations receive separate failure sidecars.
 
 The final-source small and large-array functional release gates are complete.
-The [evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md) governs the
+The evaluation schedule (`docs/plans/V2_1_1_TIMING_FOLLOWUP.md` at `945815a`) governs the
 next clock-class, physical-sensitivity and PVT/mismatch work. These diagnostic
 passes do not establish extracted-metal qualification, broad PVT/mismatch
 coverage or yield. Current writes drive every column of the selected row;

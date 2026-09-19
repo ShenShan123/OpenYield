@@ -4,7 +4,7 @@ Current release: **V2.1.2** uses distributed signal wiring only. The
 V2.0.9 transistor classes, V2.0.5 `rules_only` identity and qualification
 format remain unchanged; V2.1.0 fixed clock budgets remain unqualified for
 unmeasured routing/PVT combinations. The
-[current evaluation schedule](plans/V2_1_1_TIMING_FOLLOWUP.md) supersedes
+V2.1.1 evaluation schedule (now the [open items](README.md#open-items)) supersedes
 the campaign schedule below. Earlier star-model derivations, measured tables
 and proposal stages remain historical records, not current topology guidance.
 

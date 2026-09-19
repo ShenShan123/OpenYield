@@ -119,7 +119,7 @@ OpenYield/
 │   │   ├── sram_6t_core.py              # 6T SRAM bitcell and array generation
 │   │   ├── sram_10t_core.py             # 10T SRAM bitcell and array generation
 │   │   ├── sram_cell_add_equivalent.py  # Equivalent C/R model extraction and replacement for idle cells
-│   │   ├── dummy_row_or_column.py       # Dummy row / dummy column generation
+│   │   ├── dummy_row_or_column.py       # Dummy cell (replica-wordline load)
 │   │   ├── replica_column.py            # Replica column generation for timing control and reference paths
 │   │   ├── precharge_and_write_driver.py # Precharge circuit and write driver
 │   │   ├── mux_and_sa.py                # Column mux and sense amplifier

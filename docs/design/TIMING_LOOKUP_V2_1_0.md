@@ -3,7 +3,7 @@
 Historical V2.1.0 evidence record. The distributed-only implementation and
 subsequent retention/CLI repairs are released as **V2.1.1**; see the
 [current report](DISTRIBUTED_ONLY_V2_1_1.md) and
-[evaluation schedule](../plans/V2_1_1_TIMING_FOLLOWUP.md). Measurements,
+evaluation schedule (`docs/plans/V2_1_1_TIMING_FOLLOWUP.md` at `945815a`). Measurements,
 source identities and report-time queue states below keep their original
 labels and do not describe current qualification.
 

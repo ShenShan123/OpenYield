@@ -1,6 +1,6 @@
 # OpenYield V2.1.10 development tools
 
-V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
+V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); its raw decks and waveforms were purged in the V2.1.10 cleanup.
 
 V2.1.1 carries forward the full retention and finite CLI metric checks of the
 V2.1.0 follow-up review (see the V2.1.0 and V2.1.1 [changelog](CHANGELOG.md) entries),
@@ -10,8 +10,8 @@ local write-capture checks. See the
 and final sequence retention directly from waveforms.
 `dev/v210_followup_queue.py` runs the full-array follow-up serially with
 preserved attempts, source identities and bounded lifetimes; it accepts nominal
-cases and single-rank per-device cases with explicit seeds (V2.1.2). See the
-[schedule and resume commands](plans/V2_1_1_TIMING_FOLLOWUP.md).
+cases and single-rank per-device cases with explicit seeds (V2.1.2). The V2.1.1 schedule and its resume commands were in the working plan
+removed in V2.1.10 (`git show 945815a:docs/plans/V2_1_1_TIMING_FOLLOWUP.md`).
 
 V2.1.2 extends the runtime `utils.xyce.execute_xyce` timestep retry to `.TRAN`
 lines with a start time or a step ceiling above 20 ps; a deck already bounded
@@ -59,8 +59,7 @@ Keep reusable regression tests in Git alongside the implementation so every
 checkout can verify fixes. Only ad hoc experiments, machine-specific scripts,
 and tests of ignored local tools belong under `dev/`. Shared utility checks in
 `tests/test_utils.py` cover parsing, sample boundaries, headless plots, and
-compatibility imports. The former plotting script's hardcoded dataset remains
-local-only in `dev/plot_data_demo.py`.
+compatibility imports.
 
 ## Local-only tools
 
@@ -78,20 +77,19 @@ The following commands require the ignored `dev/` workspace:
 | `dev/sizing/wordline_model.py` | Compare distributed wire geometry and refinement |
 | `dev/sizing/execution.py` | Support campaign MPI execution and timeout cleanup |
 | `dev/sizing/provenance.py` | Verify local scoring sources against the tracked manifest |
-| `dev/summarize_qualification.py` | Aggregate campaign checkpoints with on-disk reruns and `retry_dcop` results (V2.0.9 evidence summary) |
-| `dev/v212_followup_report.py` | Summarize the V2.1.2 Phase 4/5 queues and fixed-clock diagnostics into `followup-summary.json` and a Markdown table; `--base`, `--queues`, `--diagnostics`, `--version` and `--plan` select another campaign root (V2.1.3 10T-mux budget) |
-| `dev/v212_followup_plots.py` | Write-capture plots of selected V2.1.2 follow-up cases; `--base` and `--select queue:case` plot another campaign's cases |
-| `dev/v213_sense_timing.py` | Request-to-sense-enable, request-to-output and deadline-margin measurements per read cycle from a validator case directory (the sense-timing columns of the V2.1.3 10T budget record) |
-| `dev/v214_boundary_enable.py` | WE, held request, access request and WL_EN edges and the W_EN/S_EN peaks at every clock edge that ends an access, with `--json` and a `--plot` of the worst read-to-write edge (the V2.1.4 write-enable spike evidence) |
-| `dev/v215_read_disturb.py` | Peak, deadline value and settling time of the read-disturb bump on the target storage node per read cycle, and the shortest clock the settling time allows (the V2.1.5 10T cell-resize evidence) |
-| `dev/v216_time_audit/` | TIME / replica-column audit tools (V2.1.6): `topo_check.py` (static connectivity and subcircuit-collision audit over a size matrix), `run_case.py` + `analyse.py` (one deck with extra TIME-internal probes and the Boolean-relation / event-table checker), `write_order.py` (bitline-rail versus wordline ordering per write cycle), `snapshot_decks.py` + `compare_snapshots.py` (netlist equivalence proof for refactors); see `docs/design/TIME_CONTROL_PATH.md` |
-| `dev/v217_boundary/` | V2.1.7 boundary review: `probe.py` (release testbench deck with extra control-block probes and the `--din idle_change` / `--web idle_read` stimulus overrides) + `analyze.py` (per-cycle enable edges, hold-latch timing, idle-cycle levels, relations of the clock-high enables), `noguard_block.py` (stand-alone guard-less block), `snapshot.py` + `compare_renamed.py` (rename proof against a V2.1.6 worktree) and `structural_diff.py` (per-scope netlist comparison); see `docs/design/SELECT_GATE_V2_1_7.md` |
-| `dev/v218_overlap/` | V2.1.8 enable-overlap review: `overlap.py` (per-cycle on-intervals of every enable at its far tap and of the local wordline, and every pair's gap inside the access and across the boundary to the next selected cycle, from a `probe.py` run), `summarize.py` / `compare.py` (worst gap per run, before -> after), `energy.py` / `energy_phases.py` (per-cycle energy of the shared campaign decks and per-phase supply energy from decks printing `I(VVDD)`), `launch_probes.sh` / `launch_quick.sh` (the 24-deck probe batch and the quick sanity batch); `probe.py --dc-stages N` for the earlier-trigger experiment; see `docs/design/ENABLE_OVERLAP_V2_1_8.md` |
+| `dev/v216_time_audit/` | TIME_CONTROL / replica-column netlist tools (V2.1.6): `topo_check.py` (static connectivity and subcircuit-collision audit over a size matrix), `snapshot_decks.py` + `compare_snapshots.py` (netlist equivalence proof for refactors); see `docs/design/TIME_CONTROL_PATH.md` |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash
 python3 -m unittest discover -s dev/tests -v
 ```
+
+The per-release review scripts of V2.0.9 to V2.1.8 (`summarize_qualification.py`,
+`review_score_v209.py`, `v212_followup_report.py`, `v212_followup_plots.py`,
+`v213_sense_timing.py`, `v214_boundary_enable.py`, `v215_read_disturb.py`,
+`v217_boundary/`, `v218_overlap/`, the V2.1.6 `run_case.py` / `analyse.py` /
+`write_order.py`) and `plot_data_demo.py` were removed in the V2.1.10 cleanup,
+with the raw outputs they read; the release records keep what they measured.
 
 The validator case key `select_every` (V2.1.6) selects one cycle in N of a
 single read/write deck, so the idle → write boundary of the write slot is
@@ -125,22 +123,21 @@ VDD) in `restore_budget` and the whole slot against the clock-high phase with
 the period margin in `write_slot_budget` (`phase_budget_checks`), and
 `local_review.py` files the slot and the held enable under `control_buffers`.
 The evidence tools are in `outputs/validation/V2.1.10-write-latch/`
-(`gen_cases.py`, `run_final.sh`, `assemble_record.py`, `slot_rail.py`: the
-slot's rail against the runtime restore check); the raised-class attempt
+(`gen_cases.py`, `run_final.sh`, `gen_fix.py` + `run_fix.sh` for DC
+operating-point retries, `assemble_record.py`, `extremes.py`, `compare_v219.py`
+for the before -> after against V2.1.9, `slot_rail.py`: the slot's rail against
+the runtime restore check); the raised-class attempt
 and the probes on the V2.1.9 sources are in
 `outputs/validation/V2.1.10-slot-budget/`.
 
 V2.1.8 releases a read wordline at the sense trigger, so the local checker,
 the validator and the qualification scorer search the wordline release from
 the wordline's rise (not from the edge that ends the access) and add the
-ordering checks listed in the changelog; `probe.py` prints
-`XTIME_CONTROL:s_en_bar`, `enables_off`, `selected_slot` on V2.1.8 trees.
+ordering checks listed in the changelog.
 
 V2.1.7 renames the control-block instance, so every probe path reads
 `XTIME_CONTROL:<node>` (the validator also prints `XTIME_CONTROL:cs_delayed`);
-`dev/v214_boundary_enable.py` and the `dev/v216_time_audit/` tools accept
-decks of either name, the other V2.1.0 to V2.1.5 scripts read archived `XTIME`
-decks only. `dev/v210_waveform_checks.py` adds `strict_idle_<k>_precharge_off`
+the `dev/v216_time_audit/` tools accept decks of either name. `dev/v210_waveform_checks.py` adds `strict_idle_<k>_precharge_off`
 / `_enables_off` (unselected cycles of `select_every` decks) and
 `strict_cycle_<k>_col_<c>_data_before_write_enable` with
 `_data_to_write_enable_ps`; a `select_every` write deck now changes its data
@@ -305,22 +302,22 @@ historical evidence remain in [DRIVER_SIZING_PROPOSAL.md](DRIVER_SIZING_PROPOSAL
 V2.0.7 adds the [distributed RC model](design/DISTRIBUTED_RC_MODEL.md).
 Local `Case` settings accept `interconnect`, `pi_res` (ohms) and `pi_cap`
 (farads); scorers read physical endpoints and actual sense inputs.
-The release diagnostic runner is `dev/validate_distributed_rc.py`; its V2.0.7
-results are under ignored `outputs/validation/V2.0.7/` and the V2.0.8 audit
-cases under `outputs/validation/V2.0.8/` (`--output` selects the directory).
+The release diagnostic runner is `dev/validate_distributed_rc.py`; `--output`
+selects its directory (the V2.0.7 and V2.0.8 runs were purged in the V2.1.10
+cleanup).
 V2.0.8 case files additionally accept `w_rc`, `cell_pin_rc`, `replica_k`,
 `wire_scale` (multiplies the illustrative per-pitch R and C), `pi_res_ohm`,
 `pi_cap_pf` and a per-case Xyce `timeout`. These diagnostics do not promote
 a sizing-table record. See the [validation scope](design/DISTRIBUTED_RC_VALIDATION.md).
 
-The [V2.0.9 review](design/DISTRIBUTED_RC_V210_REVIEW.md) retains its local
-cases and waveforms under `outputs/validation/V2.0.9-review/`. The diagnostic
+The [V2.0.9 review](design/DISTRIBUTED_RC_V210_REVIEW.md) kept its local
+cases and waveforms under `outputs/validation/V2.0.9-review/` until the V2.1.10
+cleanup. The diagnostic
 now defaults to `lookup`, matching the compiler; historical `fixed` cases
 require their historical checkout. Its optional case fields include `cycles`
 (4 or 8), `max_step`, `mpi_ranks`, `xyce_options` and `probe_cells: sampled`
 (all selected-row cells plus near/middle/far unselected cells). Sampling the
-probes does not replace any array transistor. `dev/review_score_v209.py`
-independently checks retained traces and records their hashes in `audit.json`.
+probes does not replace any array transistor.
 
 Historically, V2.0.11 extended the diagnostic to the then-default star topology
 with `"interconnect": "star"` in a case. At that revision, the compiler emitted
@@ -329,12 +326,10 @@ and traces retain their original scope; the current compiler requires release
 checks on every transient array. Write cases additionally check that precharge stays off
 for the whole write-enable window and that the write driver, not the initial
 condition, pulls the bitline down. The [V2.0.11 screen](design/WRITE_VALIDATION_V211.md)
-retains its cases under `outputs/validation/V2.0.11-write/`.
+kept its cases under `outputs/validation/V2.0.11-write/` until the V2.1.10 cleanup.
 
 The current validator rejects star cases. Five historical star-generation
-scripts were retired from active `dev/`; their exact contents remain in
-`outputs/validation/distributed-only-V2.1.0/incoming-source.tar.gz` and are
-listed in `retired-tools.json`. Use the new
-[distributed-only evaluation plan](plans/V2_1_1_TIMING_FOLLOWUP.md) for
-current runs. The reviewed `dev/sizing/` source manifest was refreshed;
+scripts were retired from active `dev/` in V2.1.1; the archive that kept them
+(`outputs/validation/distributed-only-V2.1.0/incoming-source.tar.gz`) was
+purged in the V2.1.10 cleanup. The reviewed `dev/sizing/` source manifest was refreshed;
 old evidence is incompatible with the new scoring identity.

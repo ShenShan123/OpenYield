@@ -1,117 +1,86 @@
 # OpenYield V2.1.10 documentation
 
-V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
-extends write-capture, retention and CLI validation. See the
-[current release report](design/DISTRIBUTED_ONLY_V2_1_1.md) and
-[evaluation schedule](plans/V2_1_1_TIMING_FOLLOWUP.md). The unchanged timing
-table was introduced in the [V2.1.0 review](design/TIMING_LOOKUP_V2_1_0.md).
+Design and validation records (`design/`), the supplied evidence (`data/`,
+`qualification/`, `issue_reports/`) and the release history live here; usage
+guides live beside the code they describe. Paths are relative to the
+repository root unless stated otherwise. Every release entry of the
+[changelog](CHANGELOG.md) names its record; earlier entries, snapshots and
+evidence keep their original version labels.
 
-V2.1.2 keeps that circuit and adds run traceability (CLI VDD/temperature,
-recorded Xyce installation, bounded-step retry for explicit `.TRAN` fields).
-Its audit of the supplied [first-500 write-failure inventory](issue_reports/write_failure_cases_first_500.md)
-is appended to that report; see the [changelog](CHANGELOG.md). Its Phase 4/5
-[timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md) screens class boundaries
-and a per-device pilot and records the 10T column-mux class limit.
+## Open items
 
-V2.1.3 adopts a separate timing budget for 10T cells (with or without a
-column mux) after its own [evidence run](design/TIMING_10T_BUDGET_V2_1_3.md):
-row classes 2000/2200/2400/3200/5600 ps and column classes 200 ps above the
-shared ladder, with at least 250 ps of read-output margin at every class
-bound; the ten-seed per-device pilot is recorded there too. 6T decks and the
-shared classes are unchanged. What it left open, with evidence and next
-steps, is in the [V2.1.3 open items](plans/V2_1_3_OPEN_ITEMS.md).
+The carried Phase 6 scope. The working plans that defined it
+(`V2_1_1_TIMING_FOLLOWUP.md`, `V2_1_2_QUALIFICATION_SCOPE.md`,
+`V2_1_3_OPEN_ITEMS.md`) were removed in the V2.1.10 cleanup and remain at
+`git show 945815a:docs/plans/<name>`.
 
-V2.1.4 closes the 6T open items there with its own
-[evidence run](design/TIMING_6T_BUDGET_V2_1_4.md): a write-request hold latch
-in TIME removes the FF −40 °C write-enable spike, the shared 6T row classes
-become 1800/1900/2100/2500/3600 ps and 6T with a column mux gets a variant
-(rows 1900/2000/2200/2700/3600 ps), both keeping 250 ps of read-output margin
-at every class bound.
+- **Extracted metal.** The `interconnect` mapping (`global.yaml`,
+  `INTERCONNECT_CONFIG` in `main_sram.py`, `--interconnect-config`) is the whole
+  wire model: `wl.layer` / `bl.layer`, `pitch_m`, `width_m`,
+  `sheet_resistance_ohm`, `capacitance_f_per_m` (coupling folded to ground),
+  `sections_per_half_pitch`, `cell_pin_rc`. The default 1 ohm / 0.1 fF per pitch
+  is illustrative and must not appear in a qualification record. Layout
+  distances must replace the fixed periphery (three pitches beyond each array
+  port), the control-line and decoder-trunk pitches and the local `w_rc` /
+  `pi_res` / `pi_cap` stubs. Not modelled: signal coupling between neighbouring
+  lines, metal-resistance temperature dependence, via resistance outside
+  `cell_pin_rc`, supply IR drop. A changed geometry re-runs the functional gates
+  at the frozen clocks and driver classes; the clock table changes only through
+  a new evidenced version.
+- **Half-select writes.** Every column of the selected row is written today, so
+  no cell is half-selected in a write. Needed: a per-column write enable from
+  the column select and a write mask; checks that half-selected cells retain
+  their data and every column still restores and releases; cases at mux ratios
+  2 and 4, SS / SF 0.9 V / 125 C and FF 1.1 V / -40 C with address hazards, then
+  per-device seeds. Read-modify-write is out of scope.
+- **Yield estimators.** `yield_estimation/model_lib/{MC,MNIS,AIS,ACS,HSCS}.py`
+  are not usable as shipped: machine-local paths and an import-time deletion,
+  dependencies absent from `environment.yml` (`torch`, `gpytorch`, `mpmath`,
+  `prettytable`), sampling through the `custom` variation mode and a delay
+  threshold instead of the release checks. Needed: configurable paths, a sample
+  mapped to a per-device seed (or an explicit vector in the per-device layout)
+  with the frozen timing and drivers, failure defined by the release checks
+  (numerical non-completion counted as incomplete), and MC against the
+  importance samplers on a small array at inflated sigma before any full-sigma
+  estimate.
 
-V2.1.5 closes the remaining 10T items with its own
-[10T round](design/TIMING_10T_BUDGET_V2_1_5.md) and merges the equivalent array
-model into the compiler as a simulation input
-([accuracy record](design/EQUIVALENT_MODEL_V2_1_5.md)). The 10T pull-down is
-widened to 287 nm because the read-disturb bump that set the 512-row class is
-the read current through two stacked pull-downs, which drops that class from
-14 ns to 10 ns and gains read-output margin at every height; the whole 10T
-boundary matrix and its mismatch seeds were rerun on the current TIME block.
-Only the carried Phase 6 scope is still open.
-
-V2.1.6 makes the write drivers take the precharge slot after an audit of the
-TIME block ([write-slot record](design/WRITE_SLOT_V2_1_6.md)): in a write
-cycle the precharge is inhibited and the write enable turns the drivers on in
-the clock-high phase, so BL/BLB are at their write rails before the wordline
-rises. The checks, the write decks (`TWSLOT`, write 1 then 0) and an
-idle → write probe (`select_every`) follow; every timing class is kept and
-re-evidenced. The [TIME control-path reference](design/TIME_CONTROL_PATH.md)
-holds the signal table, the history of every stage and the naming contract
-of the refactored `time_generate.py`.
-
-V2.1.9 keeps the write drivers on until the wordline is observed off
-([write-hold record](design/WRITE_HOLD_V2_1_9.md)): V2.1.8 released them with
-the wordline enable while the local wordline was still falling (0.51 V of
-1.1 V at 8x4 FF, 0.90 V at 512x4 SS). The held write request follows the
-same observer, the next write slot opens only after the drivers are observed
-off, and the testbench rejects a write whose driver enable drops while its
-wordline is on. A per-device Monte-Carlo sweep at the worst PVT corners
-re-derived the read clocks: from 128 rows up the classes grow so that the
-read output leads the deadline by 0.02 T plus 10 % of the access at SS.
-
-V2.1.10 holds the column write-data latches on the registered write
-([write-latch record](design/WRITE_LATCH_V2_1_10.md)): the data and the write
-request are DFF outputs of the rising edge, so between two writes the drivers
-stay on and only their data changes, once the previous wordline is observed
-off. V2.1.9's handshake (drivers off, settling, slot-arm latch, drivers on)
-had made the write -> write slot 1.6 to 1.8 ns at SS and missed the runtime
-restore check at the 32x16 and 32x32 bounds; the clocks are kept, except the
-10T 512-row class (10.75 ns). The qualification scorer can score write decks
-again and scores the slot against the clock-high phase.
-
-V2.1.8 reviews the enable pulses for overlaps inside an access and across
-every access boundary, 6T and 10T
-([enable-overlap record](design/ENABLE_OVERLAP_V2_1_8.md)): the read
-wordline ends at the sense trigger, the precharge waits for the sense and
-write enables of the previous access, the write slot for its sense enable,
-and the write enable ends with the wordline enable rather than the deselect;
-the column-mux select is static and cannot overlap. Every timing class is
-kept and re-evidenced.
-
-V2.1.7 reviews the write slot for boundary bugs
-([select-gate record](design/SELECT_GATE_V2_1_7.md)): the select of the
-clock-high enables is delayed on its rising edge only and gates the write
-enable too (the idle -> write data latch had 24 to 29 ps at FF -40 °C), a
-guard-less block no longer holds its drivers on, zero settling stages build a
-deck again, every builder honours the passed models, and the idle probes
-register new data at the idle -> write edge. The block is renamed
-`TIME_CONTROL` with its inner subcircuits; the control-path reference maps
-the old names.
-
-Working plans (`plans/`), design and validation records (`design/`) and the
-release history live here. The [qualification scope](plans/V2_1_2_QUALIFICATION_SCOPE.md)
-defines the extracted-metal inputs, the PVT/sample matrix and the separate
-half-select and yield briefs (plan Phase 6). Superseded pre-release snapshots were removed on
-2026-09-13; the [changelog](CHANGELOG.md) names them and their git-history
-paths. Usage guides live beside the code
-they describe. Commands and code paths in the documents are relative to the
-repository root unless stated otherwise.
-
-V2.0.11 audits the V2.0.10 release and adds the first star-topology waveform
-screen; V2.0.6 integrates the default per-device local mismatch package into the
-compiler and establishes this documentation layout. Earlier release entries, design
-snapshots, and qualification evidence retain their original version labels.
+## Documents
 
 | Document | Purpose |
 |---|---|
-| [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Full working proposal, implementation progress, and current qualification status |
-| [Automatic timing proposal](TIMING_AUTOCONFIG.md) | Original timing design and measured basis; implemented timing lives in `sram_compiler/sizing/timing.py` |
-| [Changelog](CHANGELOG.md) | Release history and validation results |
-| [Development guide](DEVELOPMENT.md) | Tracked regression tests and ignored local experiments/qualification runners |
-| [Original V2.0.4 design](design/DRIVER_SIZING_PROPOSAL_V2.0.4.md) | Preserved design snapshot, including its historical source paths |
+| [Changelog](CHANGELOG.md) | Release history, one entry per release with its record |
+| [Development guide](DEVELOPMENT.md) | Tracked regression tests and the ignored local tools |
+| [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Working proposal and qualification status of the driver classes |
+| [Automatic timing proposal](TIMING_AUTOCONFIG.md) | Timing design, measured basis and the per-signal phase table |
+| [TIME_CONTROL control path](design/TIME_CONTROL_PATH.md) | Every stage of the control block, its history and naming contract |
+| [Original V2.0.4 design](design/DRIVER_SIZING_PROPOSAL_V2.0.4.md) | Preserved design snapshot |
 
-The supplied evidence CSVs are kept unchanged in `docs/data/`:
+## Release records
+
+| Release | Record |
+|---|---|
+| V2.1.10 | [write-data latch on the registered write](design/WRITE_LATCH_V2_1_10.md) |
+| V2.1.9 | [write hold and read clocks under mismatch](design/WRITE_HOLD_V2_1_9.md) |
+| V2.1.8 | [enable overlaps](design/ENABLE_OVERLAP_V2_1_8.md) |
+| V2.1.7 | [select gate](design/SELECT_GATE_V2_1_7.md) |
+| V2.1.6 | [write slot](design/WRITE_SLOT_V2_1_6.md) |
+| V2.1.5 | [10T round](design/TIMING_10T_BUDGET_V2_1_5.md), [equivalent model](design/EQUIVALENT_MODEL_V2_1_5.md) |
+| V2.1.4 | [6T timing budget](design/TIMING_6T_BUDGET_V2_1_4.md) |
+| V2.1.3 | [10T timing budget](design/TIMING_10T_BUDGET_V2_1_3.md) |
+| V2.1.2 | [timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md), [first-500 write-failure inventory](issue_reports/write_failure_cases_first_500.md) |
+| V2.1.1 | [distributed-only wiring](design/DISTRIBUTED_ONLY_V2_1_1.md) |
+| V2.1.0 | [timing lookup](design/TIMING_LOOKUP_V2_1_0.md) |
+| V2.0.11 | [audit and write screen](design/WRITE_VALIDATION_V211.md) |
+| V2.0.10 | [distributed-RC review](design/DISTRIBUTED_RC_V210_REVIEW.md) |
+| V2.0.7 / V2.0.8 | [distributed RC model](design/DISTRIBUTED_RC_MODEL.md), [validation](design/DISTRIBUTED_RC_VALIDATION.md) |
+
+Raw simulation outputs of releases before V2.1.9 were purged from the ignored
+`outputs/` directory in the V2.1.10 cleanup; the records above, `data/` and
+`qualification/` keep their results.
+
+The supplied evidence CSVs are kept unchanged in `data/`:
 [driver sizing data](data/DRIVER_SIZING_data.csv) and
-[timing data](data/TIMING_AUTOCONFIG_data.csv). See the [data audit](data/README.md).
+[timing data](data/TIMING_AUTOCONFIG_data.csv) ([audit](data/README.md)).
 
 | Directory guide | Contents |
 |---|---|
@@ -119,36 +88,8 @@ The supplied evidence CSVs are kept unchanged in `docs/data/`:
 | [Shared utilities](../utils/README.md) | Measurement and waveform parsing, plots, SPICE models, and area estimates |
 | [Compiler regression tests](../tests/README.md) | Simulator-free checks that run without local development scripts |
 | [Per-device mismatch](../sram_compiler/per_device_mc/README.md) | Default local mismatch, CLI, and in-memory configuration |
-| [Driver sizing](../sram_compiler/sizing/README.md) | Fixed driver size classes (V2.0.9 lookup table), timing, and qualification workflows |
+| [Driver sizing](../sram_compiler/sizing/README.md) | Driver size classes, clock classes, and qualification workflows |
 | [Circuit review](../sram_compiler/CIRCUIT_REVIEW.md) | Circuit findings and verification evidence |
 | [Equivalent modeling](../sram_compiler/equivalent_modeling/README.md) | Equivalent circuit modes, usage, and accuracy boundaries |
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |
 | [Yield estimation](../yield_estimation/README.md) | Monte Carlo and importance-sampling algorithms |
-
-- [Distributed RC model/configuration guide](design/DISTRIBUTED_RC_MODEL.md) and
-  [validation record](design/DISTRIBUTED_RC_VALIDATION.md) (V2.0.7 implementation, V2.0.8 audit).
-- [V2.0.10 distributed-RC review](design/DISTRIBUTED_RC_V210_REVIEW.md): the
-  precharge settling guard, TIME load correction and the wire/timing limits.
-- [V2.0.11 audit and write screen](design/WRITE_VALIDATION_V211.md): failure
-  handling and measurement-window fixes, the star-topology write and read
-  waveform screen, and the open release-margin and yield-path items.
-- [V2.1.1 distributed-only wiring](design/DISTRIBUTED_ONLY_V2_1_1.md): removal
-  of star paths, peripheral/decoder/clock/select ladders, and fresh evaluation.
-- [V2.1.2 timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md): Phase 4 class
-  boundaries, wire refinement and stress, Phase 5 per-device pilot, and the
-  10T column-mux finding at the frozen 4 ns class.
-- [V2.1.3 10T timing budget](design/TIMING_10T_BUDGET_V2_1_3.md): why the
-  shared class and two candidate 10T ladders were rejected, the adopted 10T
-  ladder with its nominal boundary run, and the mismatch seeds at the class
-  bounds plus the ten-seed pilot.
-- [V2.1.4 6T timing budget](design/TIMING_6T_BUDGET_V2_1_4.md): the TIME
-  write-enable race and its hold latch, the probe reads that rejected the
-  shared 6T classes, the adopted shared and 6T-mux ladders with their
-  boundary run, mismatch seeds, pilot and write-waveform gate.
-- [V2.1.5 10T round](design/TIMING_10T_BUDGET_V2_1_5.md): why the read-disturb
-  bump is a pull-down sizing problem, the three cell candidates and why the
-  1.8x one was rejected, the new 512-row class, and the rerun boundary matrix
-  and seeds on the V2.1.4 TIME block.
-- [V2.1.5 equivalent model](design/EQUIVALENT_MODEL_V2_1_5.md): what the merge
-  into `sram_compiler/equivalent_modeling/` changed, and the measured delay,
-  power and runtime error of each mode against the full transistor array.

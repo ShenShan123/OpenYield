@@ -405,10 +405,6 @@ class ConfigLoader:
         """获取默认配置"""
         return {"sim_params": {"vdd": 1.0, "temperature": 27, "num_rows": 32, "num_cols": 1, "monte_carlo_runs": 1, "timeout": 120}, "pdk": {"path": "tran_models/models_TT.spice"}, "subcircuit": {"name": "SRAM_6T_Cell", "parameter_space": {"parameters": {"pmos_width": {"type": "continuous list", "names": ["pu"], "upper": [1.35e-7], "lower": [4.5e-8], "default": [9e-8]}, "nmos_width": {"type": "continuous list", "names": ["pd", "pg"], "upper": [3.075e-7, 2.025e-7], "lower": [1.025e-7, 6.75e-8], "default": [2.05e-7, 1.35e-7]}, "length": {"type": "continuous value", "names": "l", "upper": 1e-7, "lower": 3e-8, "default": 50e-9}, "nmos_model": {"type": "categorical list", "names": ["pd", "pg"], "choices": ["NMOS_VTL", "NMOS_VTG", "NMOS_VTH"], "default": ["NMOS_VTG", "NMOS_VTG"]}, "pmos_model": {"type": "categorical list", "names": ["pu"], "choices": ["PMOS_VTL", "PMOS_VTG", "PMOS_VTH"], "default": ["PMOS_VTG"]}}}}}
 
-    def get_global_params(self) -> Dict:
-        """获取全局参数"""
-        return {"sim_params": self.config.get("sim_params", {}), "pdk": self.config.get("pdk", {})}
-
     def get_subcircuit_config(self) -> Dict:
         """获取子电路配置"""
         return self.config.get("subcircuit", {})
@@ -1049,17 +1045,6 @@ def apply_params_to_sram_config(sram_config, params):
     if params.get("prc_p_model"):
         if params["prc_p_model"] in sram_config.precharge.pmos_model.choices:
             sram_config.precharge.pmos_model.value = params["prc_p_model"]
-
-
-def collect_peripheral_param_columns(params):
-    """
-    Extract peripheral parameter key-value pairs for CSV output.
-    提取外围电路参数的 key-value 对用于 CSV 输出。
-    Returns (fieldnames, row_dict).
-    """
-    fieldnames = list(PERIPHERAL_ALL_KEYS)
-    row_dict = {k: params.get(k, "") for k in PERIPHERAL_ALL_KEYS}
-    return fieldnames, row_dict
 
 
 @lru_cache(maxsize=64)

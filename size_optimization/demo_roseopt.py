@@ -51,26 +51,6 @@ device = torch.device("cpu")
 warnings.filterwarnings('ignore')
 
 
-def format_initial_result(result):
-    """
-    Convert evaluate_sram result format to expected format
-    将evaluate_sram结果格式转换为期望格式
-    """
-    if result is None:
-        return None
-    
-    formatted_result = {
-        'hold_snm': {'success': True, 'snm': result['hold_snm']},
-        'read_snm': {'success': True, 'snm': result['read_snm']},
-        'write_snm': {'success': True, 'snm': result['write_snm']},
-        'read': {'success': True, 'delay': result['read_delay'], 
-                 'power': abs(result['read_power'])},
-        'write': {'success': True, 'delay': result['write_delay'], 
-                  'power': abs(result['write_power'])}
-    }
-    return formatted_result
-
-
 class Normalizer:
     """
     Parameter normalizer for optimization
@@ -104,23 +84,6 @@ class Normalizer:
                 x = x_clipped
 
         return (x - self.low) / (self.high - self.low + 1e-6)
-
-    def denormalize(self, x_norm):
-        """
-        Convert normalized parameters (0-1) back to original range
-        将归一化参数（0-1）转换回原始范围
-        """
-        # Ensure normalized values are in 0-1 range
-        # 确保归一化值在0-1范围内
-        if isinstance(x_norm, np.ndarray):
-            x_norm_clipped = np.clip(x_norm, 0, 1)
-            if not np.array_equal(x_norm, x_norm_clipped):
-                x_norm = x_norm_clipped
-
-        # Perform denormalization
-        # 执行反归一化
-        return self.low + x_norm * (self.high - self.low)
-
 
 class SRAMCircuitEnv(gym.Env):
     """

@@ -34,26 +34,6 @@ from size_optimization.exp_utils import (
 )
 
 
-def format_initial_result(result):
-    """
-    Convert evaluate_sram result format to expected format
-    将evaluate_sram结果格式转换为期望格式
-    """
-    if result is None:
-        return None
-    
-    formatted_result = {
-        'hold_snm': {'success': True, 'snm': result['hold_snm']},
-        'read_snm': {'success': True, 'snm': result['read_snm']},
-        'write_snm': {'success': True, 'snm': result['write_snm']},
-        'read': {'success': True, 'delay': result['read_delay'], 
-                 'power': abs(result['read_power'])},
-        'write': {'success': True, 'delay': result['write_delay'], 
-                  'power': abs(result['write_power'])}
-    }
-    return formatted_result
-
-
 # PSO optimizer class
 # PSO优化器类
 class PSOOptimizer:
