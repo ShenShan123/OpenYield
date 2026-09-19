@@ -30,6 +30,12 @@ mismatch (shared 2200/2700/3700 ps, 6T-mux 2300/2900/4000 ps, 10T 512 rows
 4200 ps): every class bound keeps 0.02 T plus 10 % of the access between the
 nominal SS read output and the deadline; see the
 [write-hold record](design/WRITE_HOLD_V2_1_9.md), section 6.
+V2.1.10 moves the 10T 512-row class to 4300 ps (10.75 ns; the 512x4 read
+missed the rule by 7 ps at 10.5 ns) and keeps every other class: the column
+write-data latches now hold on the registered write, so the drivers stay on
+between two writes and the write -> write slot shrinks by about 0.5 ns at
+SS 0.9 V / 125 C, where V2.1.9's slot missed the runtime restore check at the
+32x16 and 32x32 bounds; see the [write-latch record](design/WRITE_LATCH_V2_1_10.md).
 
 These are design budgets informed by the historical envelope below, with
 allowance for the current guard; they are **not measured phases or full PVT /
@@ -112,12 +118,12 @@ proposal (section 3.4). Everything marked *phase 2* is optional follow-up.
 | `clk` | testbench pulse source | period `T`, 50 % duty, capture edge at `1 ns + 0.2 T`, access (falling) edge at `1 ns + 0.7 T` | none today (10 ns) | **`T` per array** |
 | address, data, `csb`, `web` | testbench pulse sources | valid from `0.1 T` to `0.3 T` around the capture edge (setup = hold = `0.1 T`) | scales with `T` | follows `T` (setup must stay > DFF setup at the worst case, section 6) |
 | `wl_en` / `WL{row}` | `WORDLINE_ENABLE_BUFFER(access_clk_bar, s_en_bar)` (V2.1.8; `access_clk_bar` alone before, `wl_pdrive` before V2.1.7), wordline driver | write: whole clock-low phase, `T/2`; read: from `TCLK_WLEN` = 112-190 ps after the edge (287-290 ps for 512-column write decks: clock-buffer load) to the sense trigger (released 45-192 ps after `s_en` reaches the amplifier, V2.1.8) | edge time grows with rows / cols (buffer taper) | `T/2 >= low_wc * (1 + m)` |
-| `w_en` (V2.1.6) | `AND2(we_hold, wordline_busy \| (cs_pre & write_slot & slot_armed))` with `wordline_busy = !(wl_en_bar & pre_ready)` and `write_slot = pre_ready & pre_off_ready & !s_en` (V2.1.9; `wl_en` instead of `wordline_busy` and no `slot_armed` in V2.1.8; `AND3(we_hold, cs_pre, wl_en \| (pre_ready & pre_off_ready))` in V2.1.7); `cs_pre = cs & cs_delayed` since V2.1.7 | the write slot of the clock-high phase (from the previous wordline, the physical precharge, the previous sense enable and, between writes, the previous write enable observed off, and after the select delay at an idle -> write edge) through the access, ending when the wordline is observed off (V2.1.9; with the wordline enable before) | bitline drive grows with rows (driver class) | `T/2 >= TWSLOT_wc * (1 + m)` |
+| `w_en` (V2.1.6) | `AND2(we_hold, held(wordline_busy & we_hold) \| (cs_pre & write_slot))` (the write's busy term through four unit stages, V2.1.10; `wordline_busy \| (cs_pre & write_slot)` in V2.1.9) with `wordline_busy = !(wl_en_bar & pre_ready)` and `write_slot = pre_ready & pre_off_ready & !s_en` (V2.1.10; V2.1.9 also required `slot_armed` in the slot; `wl_en` instead of `wordline_busy` in V2.1.8; `AND3(we_hold, cs_pre, wl_en \| (pre_ready & pre_off_ready))` in V2.1.7); `cs_pre = cs & cs_delayed` since V2.1.7 | the write slot of the clock-high phase (from the previous wordline, the physical precharge and the previous sense enable observed off, and after the select delay at an idle -> write edge) through the access, ending when the wordline is observed off (V2.1.9; with the wordline enable before); between two writes it stays on and only the data changes (V2.1.10; V2.1.9 waited for it to be observed off) | bitline drive grows with rows (driver class) | `T/2 >= TWSLOT_wc * (1 + m)` |
 | `PRE` | `NAND3(clk_buf, cs_pre, pre_ready & !we_hold & !(s_en \| w_en))` + `PRECHARGE_BUFFER` (V2.1.8; without the enables term before) | whole clock-high phase of a read cycle, `T/2`, after the replica wordline and both enables are observed off; inhibited in a write cycle (V2.1.6) | restore time 190-430 ps (rows, cols) | `T/2 >= high_wc * (1 + m)` |
 | `s_en` | `AND3(rbl_delay, gated_clk_bar, we_bar)`, `rbl_delay` = replica bitline fully discharged by one replica cell + 9-stage delay chain | self-timed: wordline + ~250 ps at TT / 25 C for every size, tracks rows and PVT by construction (the replica column carries `rows + 1` cells of load) | tracks automatically | unchanged (phase 2: `K`, `N`) |
 | `sa_iso` | `NOR2(s_en, w_en)` + inverter | `s_en \| w_en` | - | derived |
 | output latch `D_LATCH` | EN = `s_en` | opens with the amplifier | - | derived |
-| write-data hold latch | EN = `w_en_bar` | holds while the drivers are on | - | derived |
+| write-data hold latch | EN = `din_en = wordline_idle & ((we & cs) \| !w_en)` (V2.1.10; `w_en_bar` before) | holds while a wordline is open, and while the drivers are on unless the new cycle is a selected write: between two writes only the data changes | - | derived |
 | address hold latch | EN = `wl_en_bar` | holds while a wordline is on | - | derived |
 
 So "precharge, WL enable, SA enable, latch enable" reduce to: **the clock

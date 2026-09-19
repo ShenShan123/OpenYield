@@ -7,6 +7,62 @@ They are in the git history (`git show c3f6f44:CHANGELOG.md`) and in
 `sram_compiler/CIRCUIT_REVIEW.md` Parts II and III; the condensed numbers below are copied
 from them unchanged.
 
+## V2.1.10 — 2026-09-18 — write data held by the registered write; drivers stay on between writes
+
+V2.1.10 reviews V2.1.9 ([record](design/WRITE_LATCH_V2_1_10.md)). The write
+data and the write request are DFF outputs of the rising clock edge, so
+between two writes only the data changes; the drivers no longer turn off and
+on again.
+
+- Found: the scorer's `restore_budget` compares `TWSLOT` with 0.8 x the
+  *measured* read phase (its callers derive the timing from measurements),
+  not with a class budget as V2.1.9 stated, so no clock change could meet it;
+  `score_waveform` raised `TypeError` on every write deck since V2.1.6 (the
+  drive-rail loop rebound the waveform array); V2.1.9's write -> write slot
+  (drivers off, four settling stages, slot-arm latch, drivers on: 1.6 to
+  1.8 ns at SS 0.9 V / 125 C) left the driven bitline outside 0.02 VDD of its
+  rail at the runtime restore check at 32x16 and 32x32, with and without a mux
+  (`VRESTORE_ERROR` 76 and 124 mV at 4.5 ns), bounds V2.1.9 never ran as
+  write -> write decks; the 10T 512x4 read missed its rule by 7 ps.
+- Write-data latches: `din_en = wordline_idle & ((we & cs) | !w_en)`
+  (`din_hold`, three `DIN_HOLD_NAND` + `DIN_HOLD_BUFFER`, a new last port of
+  write-capable `TIME_CONTROL`; the testbench line `din_en` replaces
+  `w_en_bar`). Between two writes the new data passes once the previous
+  wordline is observed off, with the drivers on; before a read or idle cycle
+  the written data is held until the drivers are off; after a read or idle
+  cycle the latches are already open.
+- Write window: `held(wordline_busy & we_hold) | selected_slot`
+  (`BUSY_WRITE_NAND`, `BUSY_HOLD_DELAY`, `WRITE_WINDOW_NAND`; V2.1.9
+  `wordline_busy | selected_slot`). The busy wordline and the next slot follow
+  the same observer and the slot's path is longer, so under mismatch at SS / SF
+  the window collapsed between two writes (`w_en` down to 0.21 V of 0.9 V at
+  8x4 10T SS, 16 Monte-Carlo samples of the first evidence pass); the end of a
+  write's busy term is held for four unit stages, so the slot takes over first.
+  Holding a read's busy wordline too kept the window open for the next write
+  request (`w_en` pulsed to 0.30 V at 16x16 SS, second pass), so a read's busy
+  wordline is not in the window.
+- Removed: the slot-arm latch (`SLOT_ARM_NOR` x 2), its settling chain
+  (`SLOT_ARM_DELAY`), the `slot_armed` input of the selected slot (now
+  `SELECTED_SLOT_NAND`) and the latch's `.IC` seeding.
+- Clocks: `timing_lookup.json` `v2.1.10-timing-9` keeps the V2.1.9 classes and
+  moves the 10T 512-row class to 4300 ps (10.75 ns). A raised-class
+  alternative (2100 to 2200 ps up to 64 rows and columns) was stopped in
+  favour of the circuit fix.
+- Checks: the local checker scores a write followed by a write with
+  `release_before_new_data` and `write_enable_held_between_writes`; the
+  validator keeps such a write's drive window; the scorer's write entry is the
+  far bitline leaving its rail, `restore_budget` scores the drivers' swing and
+  `write_slot_budget` the whole slot against the clock-high phase.
+- Evidence: 340 of 340 cases, 753,452 checks, 262 per-device samples:
+  the V2.1.9 campaign plus 27 class-bound write -> write slots; every slot
+  meets the runtime restore check with at least 229 ps after 1.1 x its rail
+  time and is 115 to 517 ps shorter than in V2.1.9; five mux reads after a DC
+  operating-point retry (one with `GMIN=1e-10`). Per-device seeds are new
+  samples, not V2.1.9's.
+- Tests: 148 tracked, 64 local; the unit-delay model of the write window
+  covers write -> write, write -> read, write -> idle, read -> write and a
+  write's own wordline, and fails for the earlier holds.
+
 ## V2.1.9 — 2026-09-18 — write drivers stay on until the wordline is off; read clocks re-derived under mismatch
 
 V2.1.9 audits V2.1.8 against one requirement: the write drivers are fully on

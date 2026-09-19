@@ -229,7 +229,7 @@ class ArrayWireTests(unittest.TestCase):
     def test_array_spanning_control_lines_are_tapped_not_lumped(self):
         """A control line that spans the array must load its driver as a wire.
 
-        PRE, w_en, w_en_bar, s_en and sa_iso run the array width; wl_en runs its
+        PRE, w_en, din_en, s_en and sa_iso run the array width; wl_en runs its
         height. A lumped star node would hide the control skew between the near
         and far end, which is exactly what the distributed model exists to show.
         """
@@ -244,10 +244,11 @@ class ArrayWireTests(unittest.TestCase):
                                                variation_mode='nominal', sim_path=temp)
                     deck = str(tb.create_testbench(operation, rows - 1, cols - 1))
                     expected = ['PRE', 'w_en', 's_en', 'sa_iso', 'wl_en']
-                    # w_en_bar only exists where the write-data hold latches do.
-                    self.assertEqual('w_en_bar' in deck, operation == 'write')
+                    # din_en (the write-data latch enable, w_en_bar until V2.1.9)
+                    # only exists where the write-data hold latches do.
+                    self.assertEqual('din_en' in deck, operation == 'write')
                     if operation == 'write':
-                        expected.append('w_en_bar')
+                        expected.append('din_en')
                     for name in expected:
                         count = rows if name == 'wl_en' else cols
                         self.assertEqual(tb.control_tap(name, 0), f'{name}_line_tap0', name)
@@ -270,7 +271,7 @@ class ArrayWireTests(unittest.TestCase):
             tb = Sram6TCoreMcTestbench(load_config(4, 8, 'TT'), w_rc=True,
                                        variation_mode='nominal', sim_path=temp)
             deck = str(tb.create_testbench('write', 3, 7))
-            for name in ('PRE', 'w_en', 'w_en_bar', 's_en', 'sa_iso', 'wl_en'):
+            for name in ('PRE', 'w_en', 'din_en', 's_en', 'sa_iso', 'wl_en'):
                 self.assertEqual(tb.control_tap(name, 0), f'{name}_line_tap0')
                 self.assertEqual(tb.control_tap(name), f'{name}_line_far')
                 self.assertIn(f'{name}_line'.upper(), deck.upper())

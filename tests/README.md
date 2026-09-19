@@ -1,4 +1,4 @@
-# Compiler regression tests — V2.1.9
+# Compiler regression tests — V2.1.10
 
 V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
 
@@ -92,6 +92,21 @@ decks) and the renamed helper classes (`ReplicaDelayChain`, `DataRegister`,
 `ReplicaColumn`); `dev/tests/test_v210_waveform_checks.py` models the slot in
 its synthetic traces and rejects a bitline that is not at its rail when the
 wordline starts.
+
+V2.1.10 rewrites `test_write_drivers_stay_on_until_the_wordline_is_observed_off`
+for the write-data latch hold: across write -> write the drivers never turn
+off and the latches pass the new data only after the previous wordline is
+observed off, also when the slot arrives three gate delays after the
+wordline is observed off (the slow NAND3 path at SS, which collapsed the window
+under mismatch before the busy hold); across write -> read and write -> idle
+the drivers release and the latches keep the written data until they are off,
+then open; across read -> write the enable stays off until the slot (a held
+read wordline pulsed it in the second evidence pass), and at a write's own
+wordline the held busy term takes over from the slot. The wiring tests follow
+`din_hold` (last port, `DIN_HOLD_NAND` x 3 reading `we`, `cs`, `w_en` and
+`wordline_idle`), the `din_en` column line, the `SELECTED_SLOT_NAND` and the
+`WRITE_WINDOW_NAND` of the held write-busy term and the slot; `test_slot_arm_latch_is_seeded_in_its_start_state` is removed with the
+latch, and the clock tests take the 10T 512-row class at 10.75 ns.
 
 V2.1.9 adds `test_write_drivers_stay_on_until_the_wordline_is_observed_off`
 (a unit-delay evaluation of the block's own gates across write -> write and

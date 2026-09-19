@@ -548,6 +548,22 @@ decision, not changed in this release:** score only the drivers' swing (slot
 open to rail) against 0.8 x budget and the whole slot against the budget, or
 grow the classes up to 128 rows by about 10 %.
 
+*V2.1.10 follow-up ([write-latch record](WRITE_LATCH_V2_1_10.md)):* two
+statements above are wrong. The scorer's `restore_budget` never sees a class
+budget: both of its callers derive the timing from the measured nominal SS
+phases, so the budget is 0.8 x the read phase (`TCLK_WLEN + TREAD_TOTAL`), no
+clock change can meet it, and on these traces the slot exceeded it at every
+write deck up to 64 rows. And "every slot fits its class budget" held only
+for the decks in this table: at the 32x16 and 32x32 bounds, which this record
+never ran as write -> write decks, the slot put the driven bitline within
+0.02 VDD of its rail only after the runtime restore check (0.6 T into the
+cycle), so `access_validity` rejects those writes (`VRESTORE_ERROR` 76 mV at
+32x16, 124 mV at 32x32, both at 4.5 ns). V2.1.10 removes the slot-arm
+handshake instead of lengthening the clock: the write-data latches hold on the
+registered write, and the drivers stay on between two writes. The scorer also
+could not score any write deck since V2.1.6 (its drive-rail loop rebound the
+waveform array); fixed there.
+
 The per-cycle write energy (`EWRITE`, section 4) rises 2 to 7 %: most at 8x4
 FF (666 -> 711 fJ; the new gates, the settling chain and the longer driver-on
 time are a larger share of a small array), 2 % at 64x16 and 16x64 with a

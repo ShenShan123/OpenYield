@@ -1,4 +1,4 @@
-# OpenYield V2.1.9 documentation
+# OpenYield V2.1.10 documentation
 
 V2.1.1 removes star wiring, distributes the remaining signal fan-out, and
 extends write-capture, retention and CLI validation. See the
@@ -57,6 +57,16 @@ off, and the testbench rejects a write whose driver enable drops while its
 wordline is on. A per-device Monte-Carlo sweep at the worst PVT corners
 re-derived the read clocks: from 128 rows up the classes grow so that the
 read output leads the deadline by 0.02 T plus 10 % of the access at SS.
+
+V2.1.10 holds the column write-data latches on the registered write
+([write-latch record](design/WRITE_LATCH_V2_1_10.md)): the data and the write
+request are DFF outputs of the rising edge, so between two writes the drivers
+stay on and only their data changes, once the previous wordline is observed
+off. V2.1.9's handshake (drivers off, settling, slot-arm latch, drivers on)
+had made the write -> write slot 1.6 to 1.8 ns at SS and missed the runtime
+restore check at the 32x16 and 32x32 bounds; the clocks are kept, except the
+10T 512-row class (10.75 ns). The qualification scorer can score write decks
+again and scores the slot against the clock-high phase.
 
 V2.1.8 reviews the enable pulses for overlaps inside an access and across
 every access boundary, 6T and 10T

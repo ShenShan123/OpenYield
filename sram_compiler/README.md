@@ -1,4 +1,4 @@
-# SRAM Compiler and Test Platform User Guide — V2.1.9
+# SRAM Compiler and Test Platform User Guide — V2.1.10
 
 V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes-v210) covers settings, explicit overrides and evidence limits.
 
@@ -27,7 +27,7 @@ V2.0.9 sizes the precharge, write driver, wordline driver and decoder output fro
 fixed integer size classes in a [lookup table](sizing/README.md) (`sizing.mode: lookup`);
 the legacy `fixed` mode is removed.
 V2.0.11 models the control lines that span an array dimension (`PRE`, `w_en`,
-`w_en_bar`, `s_en`, `sa_iso` across the columns; `wl_en` down the rows) as
+`w_en_bar` (`din_en` since V2.1.10), `s_en`, `sa_iso` across the columns; `wl_en` down the rows) as
 tapped RC wires in distributed mode, so each precharge cell, write driver,
 sense amplifier and wordline driver connects at its own column or row. Star
 decks and every driver size class are unchanged. It also fixes the retry,
@@ -436,12 +436,17 @@ enable rather than with the deselect, so no two enables of different roles
 overlap (`docs/design/ENABLE_OVERLAP_V2_1_8.md`). Since V2.1.9 the write
 drivers stay on until the wordline is observed off (`w_en = we_hold &
 (wordline_busy | selected_slot)`, `wordline_busy = !(wl_en_bar &
-wordline_off)`; the held write request opens on `wordline_idle`), the next
-write slot opens only after the drivers are observed off (`slot_armed`), and
-every write cycle carries `VWEN_ACCESS_ERROR_<cycle>`, the highest wordline
-level while the target driver's enable is below 0.9 VDD, which
-`access_validity` limits to 0.1 VDD like the other access checks
-(`docs/design/WRITE_HOLD_V2_1_9.md`). The control block is
+wordline_off)`; the held write request opens on `wordline_idle`), and every
+write cycle carries `VWEN_ACCESS_ERROR_<cycle>`, the highest wordline level
+while the target driver's enable is below 0.9 VDD, which `access_validity`
+limits to 0.1 VDD like the other access checks
+(`docs/design/WRITE_HOLD_V2_1_9.md`). Since V2.1.10 the column write-data
+latches hold on the registered write (`din_en = wordline_idle & ((we & cs) |
+!w_en)`, the `din_en` line): between two writes the drivers stay on (`w_en =
+we_hold & (held(wordline_busy & we_hold) | selected_slot)`, the write's busy
+term held four unit stages so the next slot takes over) and only
+their data changes, once the previous wordline is observed off
+(`docs/design/WRITE_LATCH_V2_1_10.md`). The control block is
 `TIME_CONTROL` (instance `XTIME_CONTROL`; probe paths read
 `XTIME_CONTROL:<node>`); see
 [`docs/design/TIME_CONTROL_PATH.md`](../docs/design/TIME_CONTROL_PATH.md).

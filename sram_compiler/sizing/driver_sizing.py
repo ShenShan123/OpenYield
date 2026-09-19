@@ -372,7 +372,8 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     # The write-data hold latches scale with the write-driver input class
     # (V2.1.6: the write slot turns the drivers on ~300 ps after the capture
     # edge, and a unit latch driving an 8x driver input slewed for ~700 ps at
-    # 512 rows / SS), so w_en_bar drives two NAND2 inputs of that scale per column.
+    # 512 rows / SS), so their enable line (w_en_bar until V2.1.9, din_en since
+    # V2.1.10) drives two NAND2 inputs of that scale per column.
     latch_scale = max(1.0, scales["wd_in"])
     wenb_scale = max(1, ceil(2 * 0.45 * cols * latch_scale / 0.36 / 8.0))
     wl_load = (rows * scales["wl_nand"] * nand_units

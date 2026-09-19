@@ -1020,6 +1020,7 @@ class TimeControlFactory:
                  precharge_off_guard=False, precharge_off_guard_stages=4,
                  access_load=None,
                  precharge_off_tau=0.0,
+                 din_hold_load=None,
                  ):
 
         self.interconnect = interconnect
@@ -1048,6 +1049,7 @@ class TimeControlFactory:
         self.precharge_off_guard_stages = precharge_off_guard_stages
         self.access_load = access_load
         self.precharge_off_tau = precharge_off_tau
+        self.din_hold_load = din_hold_load
     def create(self):
         return TIME_CONTROL(
             nmos_model=self.nmos_model,
@@ -1075,6 +1077,7 @@ class TimeControlFactory:
             precharge_off_guard_stages=self.precharge_off_guard_stages,
             access_load=self.access_load,
             precharge_off_tau=self.precharge_off_tau,
+            din_hold_load=self.din_hold_load,
         )
     
 class Sram10TCellFactory:

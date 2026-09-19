@@ -129,6 +129,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             precharge_off_guard_stages=self.driver_sizes.precharge_off_guard_stages,
             access_load=loads.access_load,
             precharge_off_tau=self.driver_sizes.precharge_off_tau,
+            # The write-data latch-enable inverter (see create_write_periphery).
+            din_hold_load=4 * loads.wenb_scale,
         ).create()
         circuit.subcircuit(time_control)   # Add to main circuit
         
@@ -173,6 +175,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             # The replica precharge sits past the final real column. Observe
             # its transistor gate, including the optional local series stub.
             control_connections.append('XPRECHARGE_RBL:ENB_end' if self.w_rc else 'PRE_line_far')
+        if (operation == 'write' or operation == 'read&write') and self.driver_sizes.replica_precharge_guard:
+            control_connections.append('din_hold')
         
         # Instantiate the TIME_CONTROL block (instance XTIME_CONTROL)
         circuit.X(
@@ -381,16 +385,16 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
     
     # Control lines that span the array.  Each runs the length of one array
     # dimension in its periphery and drives one load per row or column, so with
-    # each is a tapped pi ladder. PRE, w_en, w_en_bar, s_en and sa_iso run the
+    # each is a tapped pi ladder. PRE, w_en, din_en, s_en and sa_iso run the
     # array width along the column periphery on the wordline pitch; wl_en runs
     # the array height along the wordline-driver column on the bitline pitch.
-    _COLUMN_CONTROLS = ('PRE', 'w_en', 'w_en_bar', 's_en', 'sa_iso')
+    _COLUMN_CONTROLS = ('PRE', 'w_en', 'din_en', 's_en', 'sa_iso')
     _ROW_CONTROLS = ('wl_en',)
 
     def _add_control_wires(self, circuit: Circuit, operation: str):
         """Each array-spanning control consumer attaches to its own wire tap."""
         self._control_taps = {}
-        skip = () if operation in ('write', 'read&write') else ('w_en_bar',)
+        skip = () if operation in ('write', 'read&write') else ('din_en',)
         for name in self._COLUMN_CONTROLS:
             if name not in skip:
                 self._control_taps[name] = add_tapped_line(
@@ -643,8 +647,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         return circuit
 
     def _wenb_scale(self):
-        """Width scale of the w_en_bar inverter: 2 NAND2 inputs (0.45 um times
-        the hold-latch scale) per column on a 0.36 um unit inverter, fan-out <= 8."""
+        """Width scale of the latch-enable (din_en) inverter: 2 NAND2 inputs (0.45 um
+        times the hold-latch scale) per column on a 0.36 um unit inverter, fan-out <= 8."""
         return self.driver_sizes.loads.wenb_scale
 
     def create_write_periphery(self, circuit: Circuit, operation: str = 'write'):#创造写外围电路
@@ -685,27 +689,31 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                           self.periphery_tap('BLB', col, 'write'))
             return circuit
 
-        # Write-data hold latch.  w_en spans the whole clock-low phase and is
-        # released after the rising clock edge that ends the cycle, once the
-        # wordline is observed off (V2.1.9: ~250 ps at 8x4 FF to ~1.1 ns at
-        # 256x4 SS), while the data register DIN_dff already updates ~100-150 ps after that
-        # same edge.  Without a hold element the write drivers briefly drive the
-        # *next* cycle's data into the still-selected row; with a row-scaled (4x)
-        # write driver at 64 rows this flipped the freshly written cell back
-        # (read&write 64x16: Q=1 at 12.9 ns, 0 at 13.4 ns).  The latch is
-        # transparent while w_en is low and holds while the drivers are enabled;
-        # it opens two gate delays after the drivers tristate, so the driver
-        # input can never change while the driver is on.
-        # w_en_bar drives two NAND2 inputs per column (the latch enables); size
+        # Write-data hold latch.  DIN_dff registers the data on the rising clock
+        # edge, which also ends the previous access: that wordline stays on until
+        # after the edge (~250 ps at 8x4 FF to ~1.1 ns at 256x4 SS), while DIN_dff
+        # already updates ~100-150 ps after it.  Without a hold element the write
+        # drivers briefly drive the *next* cycle's data into the still-selected
+        # row; with a row-scaled (4x) write driver at 64 rows this flipped the
+        # freshly written cell back (read&write 64x16: Q=1 at 12.9 ns, 0 at
+        # 13.4 ns).  The latch is transparent while no wordline is open, and while
+        # the drivers are on only for a selected write (din_en = !din_hold =
+        # wordline_idle & ((we & cs) | !w_en), V2.1.10): between two writes the
+        # drivers stay on and only their data changes, once the previous wordline
+        # is observed off.  Until
+        # V2.1.9 the enable was w_en_bar, so the drivers had to turn off and on
+        # again between writes; without the replica guard it still is.
+        # din_en drives two NAND2 inputs per column (the latch enables); size
         # it for that fan-out (~8 per unit), otherwise its edge is ~1 ns at 512
         # columns and the latch would still hold the previous data when the
         # next write starts at short clock periods.
         wenb_scale = self._wenb_scale()
         wen_inv = Pinv(nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
                        nmos_width=0.09e-6 * wenb_scale, pmos_width=0.27e-6 * wenb_scale,
-                       length=0.05e-6, num='_wen_bar')
+                       length=0.05e-6, num='_din_en')
         circuit.subcircuit(wen_inv)
-        circuit.X('WEN_BAR', wen_inv.NAME, self.power_node, self.gnd_node, 'w_en', 'w_en_bar')
+        hold = 'din_hold' if self.driver_sizes.replica_precharge_guard else 'w_en'
+        circuit.X('DIN_EN', wen_inv.NAME, self.power_node, self.gnd_node, hold, 'din_en')
         # The latch output drives the row-scaled write-driver input (wd_in
         # class); size it with that class so its data settles before the write
         # slot turns the drivers on (V2.1.6: a unit latch into an 8x input
@@ -720,7 +728,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             circuit.X(
                 f'DIN_HOLD_{col}', din_latch.NAME,
                 self.power_node, self.gnd_node,
-                f'DIN_dff{col}', self.control_tap('w_en_bar', col),
+                f'DIN_dff{col}', self.control_tap('din_en', col),
                 f'DIN_hold{col}', f'DIN_holdb{col}',
             )
             circuit.X(
@@ -729,7 +737,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 self.power_node,  # Power net
                 self.gnd_node,  # Ground net
                 self.control_tap('w_en', col),  # Write Enable signal
-                f'DIN_hold{col}',  # Data In, held while w_en is high
+                f'DIN_hold{col}',  # Data In, held while a wordline is open
                 self.periphery_tap('BL', col, 'write'),
                 self.periphery_tap('BLB', col, 'write'),
             )

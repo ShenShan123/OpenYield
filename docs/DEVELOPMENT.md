@@ -1,4 +1,4 @@
-# OpenYield V2.1.9 development tools
+# OpenYield V2.1.10 development tools
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); raw decks/waveforms remain under ignored `outputs/validation/V2.1.0/`.
 
@@ -108,6 +108,27 @@ runtime `VWEN_ACCESS_ERROR_*` through `access_validity`. The V2.1.9 evidence
 tools are in `outputs/validation/V2.1.9-write-hold/` (`gen_cases.py`,
 `run_final.sh`, `assemble_record.py`, which also takes the write -> write
 data-latch window from the traces of the single write decks).
+
+V2.1.10 keeps the drivers on between two writes and changes only their data,
+once the previous wordline is observed off. The local checker scores a write
+followed by a write with `_release_before_new_data` (the data at the latch
+output leaves its value by 0.05 VDD only after the local wordline is below
+0.1 VDD; metric `_release_to_new_data_ps`), `_WL_during_new_data` and
+`_write_enable_held_between_writes` (metric
+`_min_write_enable_between_writes_v`), and ends such a write's drive when its
+data leaves the latch; the validator keeps its drive window to the next entry.
+The qualification scorer no longer raises on write decks (its drive-rail loop
+had rebound the waveform array since V2.1.6), takes the far bitline leaving its
+rail as a write deck's entry event (`wl_off_before_new_data`,
+`write_enable_held_between_writes`), scores the drivers' swing (0.9 -> 0.1
+VDD) in `restore_budget` and the whole slot against the clock-high phase with
+the period margin in `write_slot_budget` (`phase_budget_checks`), and
+`local_review.py` files the slot and the held enable under `control_buffers`.
+The evidence tools are in `outputs/validation/V2.1.10-write-latch/`
+(`gen_cases.py`, `run_final.sh`, `assemble_record.py`, `slot_rail.py`: the
+slot's rail against the runtime restore check); the raised-class attempt
+and the probes on the V2.1.9 sources are in
+`outputs/validation/V2.1.10-slot-budget/`.
 
 V2.1.8 releases a read wordline at the sense trigger, so the local checker,
 the validator and the qualification scorer search the wordline release from

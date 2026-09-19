@@ -184,9 +184,11 @@ replica `(1, 9)` does not claim compliance with the read limit.
 
 ## Clock classes (V2.1.0)
 
-`timing_lookup.json` (`v2.1.9-timing-8`: the 128- to 512-row read classes
-re-derived under local mismatch with the V2.1.9 write hold, see
-`docs/design/WRITE_HOLD_V2_1_9.md` section 6, after the
+`timing_lookup.json` (`v2.1.10-timing-9`: the V2.1.9 classes with the 10T
+512-row class at 4300 ps, re-evidenced with the V2.1.10 write-data latch hold,
+see `docs/design/WRITE_LATCH_V2_1_10.md`; the 128- to 512-row read classes were
+re-derived under local mismatch in V2.1.9, `docs/design/WRITE_HOLD_V2_1_9.md`
+section 6, after the
 V2.1.8 sense-timed read wordline and enable orderings,
 `docs/design/ENABLE_OVERLAP_V2_1_8.md`, the V2.1.7 select gate,
 `docs/design/SELECT_GATE_V2_1_7.md`, and the V2.1.6 write slot,
@@ -289,7 +291,8 @@ need about 50 ps more than reads, hence 4.75 ns up to 32 rows:
 | 512 | 4000 | 10.0 |
 
 (V2.1.9; 2200/2700/3600 ps from V2.1.4 to V2.1.8.) The 10T ladder is
-2000/2200/2400/3200/4200 ps since V2.1.9 (512 rows 10.5 ns).
+2000/2200/2400/3200/4300 ps since V2.1.10 (512 rows 10.75 ns; 4200 ps in
+V2.1.9, where the 512x4 read missed its rule by 7 ps).
 `ArrayTiming.budget` reads `SRAM_6T_CELL/mux` for these arrays. The boundary
 run, the mismatch seeds and the write-waveform gate are in the
 [6T budget record](../../docs/design/TIMING_6T_BUDGET_V2_1_4.md).

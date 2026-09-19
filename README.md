@@ -1,4 +1,4 @@
-# OpenYield V2.1.9: SRAM yield analysis and optimization
+# OpenYield V2.1.10: SRAM yield analysis and optimization
 
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
@@ -13,6 +13,16 @@ candidates and PVT samples. It also fixes narrow-array RC precharge overlap,
 write-register initialization, the distributed output-latch enable, and yield
 callers' measurement handling. See the [timing guide](sram_compiler/sizing/README.md#clock-classes-v210)
 and [release review](docs/design/TIMING_LOOKUP_V2_1_0.md) for settings and validation limits.
+
+V2.1.10 holds the column write-data latches on the registered write: the
+write data and the write request are DFF outputs of the rising clock edge, so
+between two writes the drivers stay on and only their data changes, once the
+previous wordline is observed off. V2.1.9 turned the drivers off and on
+again between every two writes; that slot took 1.6 to 1.8 ns at SS and missed
+the runtime restore check at the 32x16 and 32x32 class bounds. The clocks are
+kept except the 10T 512-row class (10.75 ns), and the qualification scorer
+scores write decks again. See the
+[write-latch record](docs/design/WRITE_LATCH_V2_1_10.md).
 
 V2.1.9 audits V2.1.8 and keeps the write drivers fully on for as long as
 the wordline is on: V2.1.8 released them with the wordline enable, so the
@@ -112,7 +122,7 @@ transistor classes keep their historical identities.
 
 V2.0.11 fixes V2.0.10's failure handling, measurement windows and evidence
 retention, extends distributed wiring to the control lines that span an array
-dimension (`PRE`, `w_en`, `w_en_bar`, `s_en`, `sa_iso`, `wl_en`), and adds the
+dimension (`PRE`, `w_en`, `w_en_bar` (`din_en` since V2.1.10), `s_en`, `sa_iso`, `wl_en`), and adds the
 first star-topology write and read waveform screen. Star-topology decks and
 every driver size class are unchanged. See the
 [V2.0.11 audit and write screen](docs/design/WRITE_VALIDATION_V211.md) for the

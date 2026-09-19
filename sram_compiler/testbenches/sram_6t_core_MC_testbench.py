@@ -657,8 +657,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                    'XTIME_CONTROL:pre_gate', 'XTIME_CONTROL:cs_pre',
                    # V2.1.8: the selected slot and the enable observers.
                    'XTIME_CONTROL:selected_slot', 'XTIME_CONTROL:s_en_bar', 'XTIME_CONTROL:enables_off',
-                   # V2.1.9: the busy wordline and the slot-arm latch.
-                   'XTIME_CONTROL:wordline_busy', 'XTIME_CONTROL:slot_armed']
+                   # V2.1.9: the busy wordline; V2.1.10: the write-data latch hold.
+                   'XTIME_CONTROL:wordline_busy']
+        if 'din_en' in self._control_taps and self.driver_sizes.replica_precharge_guard:
+            probes.append('din_hold')
         probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
         for name, taps in self._control_taps.items():
             probes += [name, taps[0], taps[-1], self.control_tap(name)]
@@ -712,14 +714,6 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # fights the DFF output inverter (~300 uA) until the clamp releases, i.e. inside
         # the EREAD / EWRITE window.
         init_cond['XTIME_CONTROL:Xdff_buf:qint'] = self.vdd @ u_V
-        if self.driver_sizes.replica_precharge_guard:
-            # V2.1.9 slot-arm latch (two cross-coupled NOR2): at t = 0 the select is
-            # clamped off, the wordline idle and both enables off, so it is set.
-            # Unseeded, the DC operating point of 8x128 and 16x16 mux read decks
-            # failed or took several minutes even with Newton line search.
-            init_cond['XTIME_CONTROL:slot_armed'] = self.vdd @ u_V
-            init_cond['XTIME_CONTROL:slot_armed_bar'] = 0 @ u_V
-            init_cond['XTIME_CONTROL:enables_off_settled'] = self.vdd @ u_V
         if self.operation in ('write', 'read&write'):
             # DIN_dff is already parked at zero by the write setup. Initialize
             # both hold-latch nodes and the register's complementary slave node
