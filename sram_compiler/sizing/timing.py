@@ -11,6 +11,11 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class TimingConfig:
+    """Phase budgets, retaining the historical JSON field names.
+
+    In V2.2.0 low_read/low_write describe read/write ACCESS (clock-high),
+    and high describes RECOVERY (clock-low). The period covers both halves.
+    """
     t_period: float
     low_read: float
     low_write: float
@@ -234,9 +239,9 @@ def timing_from_measurements(read, writes, *, margin=0.25):
         raise ValueError("Timing calibration requires SS and SF write phases")
     low_read = positive(read, 'TCLK_WLEN') + positive(read, 'TREAD_TOTAL')
     low_write = max(positive(m, 'TCLK_WLEN') + positive(m, 'TWRITE_TOTAL') for m in writes)
-    # Clock-high work: the bitline restore before a read, the write slot
-    # (wordline-off guard, write enable and driver) before a write (V2.1.6).
-    high = max(max(positive(m, 'TRESTORE' if m is read else 'TWSLOT'),
+    # V2.2.0 restores after every operation in clock-low. Keep the legacy
+    # field names for serialized calibration records, but measure recovery.
+    high = max(max(positive(m, 'TRESTORE'),
                    positive(m, 'TCLK_DEC') if 'TCLK_DEC' in m else 0)
                for m in [read, *writes])
     if not isfinite(high) or max(low_read, low_write, high) <= 0:

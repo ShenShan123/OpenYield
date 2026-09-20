@@ -2,7 +2,26 @@
 
 This project is a open-source SRAM compiler for yield estimation and transistor sizing optimizations. The main functions include SRAM netlist generation with distributed RC loads, global and local process variations, and full DC/TRAN analyses. `REDAME.md` in both root and sub-folders are the tutorials for this projects. `docs/CHANGELOG.md`is per release (V2.x.x).`AGENTS.md` holds the detailed working conventions.
 
-Current release: **V2.1.10** (the column write-data latches hold on the registered write: `din_en = wordline_idle & ((we & cs) | !w_en)` (`din_hold` port of `TIME_CONTROL`, `din_en` line), so between two writes the drivers stay on and only the data changes once the previous wordline is observed off; V2.1.9's slot-arm handshake, which missed the runtime restore check at the 32x16 / 32x32 bounds, is removed; `w_en = we_hold & (held(wordline_busy & we_hold) | selected_slot)`: only a write's busy term is in the window, its end held four unit stages so the slot takes over first (holding a read's busy wordline pulsed `w_en` at the next write request), `selected_slot = cs_pre & write_slot`; `timing_lookup.json` `v2.1.10-timing-9` keeps the V2.1.9 classes except the 10T 512-row class, 4300 ps; the qualification scorer scores write decks again (the slot against the clock-high phase, the drivers' swing against 0.8 x the read phase); `docs/design/WRITE_LATCH_V2_1_10.md`). V2.1.9 kept the write drivers on until the wordline is observed off (`wordline_busy`, `VWEN_ACCESS_ERROR_<cycle>`) and re-derived the 128- to 512-row read clocks under mismatch (`docs/design/WRITE_HOLD_V2_1_9.md`). V2.1.8 removed the enable overlaps (`docs/design/ENABLE_OVERLAP_V2_1_8.md`). V2.1.7 added the rising-edge select gate and the `TIME_CONTROL` rename (`docs/design/TIME_CONTROL_PATH.md`). Driver sizes, the 6T/10T cells and the read path are unchanged. The remaining scope is the carried Phase 6 scope (extracted metal, half-select write, yield estimator), listed under open items in `docs/README.md`; the working plans were removed in the V2.1.10 cleanup (`git show 945815a:docs/plans/<name>`).
+Current release: **V2.2.0**. Request capture is on the rising clock edge;
+clock-high contains access and clock-low contains recovery/precharge, including
+after writes. Secondary address/request/data hold latches and the write-slot
+handover are removed. `w_en = we & (access_request | wordline_busy) & iso_ready`;
+a write's WL setup observes `wen_far` and its RC settling, and drivers release only after
+the physical WL is observed off. `read_done` isolates the read and releases WL;
+`s_en = read_done & wordline_idle & iso_ready`. Far PRE, replica WL, ISO, and write/sense enable
+observers enforce sequencing. New last TIME_CONTROL inputs are `iso_far`,
+`sen_far`, and `wen_far`;
+`din_hold` and its column wire no longer exist. Driver classes and bitcells are
+unchanged. Above 64 rows, two loaded setup stages cover decoder settling;
+`v2.2.0-timing-3` uses three times V2.1.10's 128–512-row budgets and twice
+its smaller row budgets. The other enlarged class is 512 columns (24 ns for 6T, 25.5 ns for 6T with a mux and 10T). The current
+record is `docs/design/PHASED_CONTROL_V2_2_0.md`; `TIME_CONTROL_PATH.md` preserves
+the V2.1.10 architecture. Reproducible functional SPICE checks live under
+`tests/spice/`; the ignored V2.1.x qualification tools use the old phase/probe
+contract. The assembled screen is `docs/data/PHASED_CONTROL_V2_2_0.json`.
+No partial or failed screen is qualification evidence. The remaining
+scope is extracted metal, half-select writes, yield estimation, and the
+precharged default startup bias, listed in `docs/README.md`.
 
 ## Purpose and architecture
 

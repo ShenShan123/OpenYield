@@ -1,5 +1,14 @@
 # Automatic timing configuration — V2.1.4 guide and historical proposal
 
+**V2.2.0 update:** access is now clock-high and recovery is clock-low. The
+current `v2.2.0-timing-3` budgets are twice the V2.1.10 values below, with
+threefold 128–512-row budgets and the wider 512-column class (24 ns for 6T, 25.5 ns for muxed 6T and 10T). Read
+sensing also waits for physical wordline release and isolation. The
+[current phase-control record](design/PHASED_CONTROL_V2_2_0.md) is authoritative
+for present timing, measurements, and validation; the following numeric history
+explains the previous architecture.
+
+
 V2.1.1 retains the timing table introduced in V2.1.0: **a fixed lookup table with
 row and column classes, like driver sizing**. `timing.mode: lookup` is now the
 default. `sram_compiler/sizing/timing_lookup.json` contains integer half-cycle
@@ -59,7 +68,7 @@ checks prevent a late crossing or a cell that flips back from passing. V2.1.1
 checks the whole post-deadline retention interval, and every supported
 distributed array checks local and far precharge release. The static-power window
 is now at the end of the first post-access restore phase. See the
-[sizing/timing guide](../sram_compiler/sizing/README.md#clock-classes-v210).
+[sizing/timing guide](../sram_compiler/sizing/README.md#clock-classes-v220).
 
 ---
 

@@ -186,15 +186,14 @@ class ArrayWireTests(unittest.TestCase):
                 time_block = next(s for s in circuit.subcircuits if s.name == 'TIME_CONTROL')
                 self.assertIn('rwl_pre_bar rwl_pre_delayed PRECHARGE_GUARD_DELAY', str(time_block))
                 self.assertIn('rwl_pre_bar rwl_pre_delayed pre_ready PRECHARGE_GUARD_AND', str(time_block))
-                self.assertIn('pre_ready we_hold_bar enables_off pre_gate PRECHARGE_GATE_AND', str(time_block))
-                self.assertIn('clk_buf cs_pre pre_gate PRE_UNBUF', str(time_block))
+                self.assertIn('clk_bar pre_ready enables_off PRE_UNBUF', str(time_block))
                 replica = next(s for s in circuit.subcircuits if 'replica_column' in s.name)
                 self.assertEqual(sum(e.name.startswith('XReplica_CELL') for e in replica.elements), 4)
                 rbl = [e for e in replica.elements if e.name.startswith('Rwire_RBL_')]
                 self.assertAlmostEqual(sum(float(e.resistance) for e in rbl), 4.)
                 rwl = [e for e in circuit.elements if e.name.startswith('Rwire_RWL_')]
                 self.assertAlmostEqual(sum(float(e.resistance) for e in rwl), 4.)
-                self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end TIME_CONTROL', str(circuit['XTIME_CONTROL']))
+                self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end XREPLICA_SENSEAMP:ISO_end XREPLICA_SENSEAMP:EN_end XREPLICA_WDRV_LOAD:EN_end TIME_CONTROL', str(circuit['XTIME_CONTROL']))
                 self.assertIn('RWL_tap3', str(circuit[f'X{replica.name}']))
                 self.assertTrue(tb.cell_probe('WL').endswith(':WL3_tap3'))
 
@@ -246,9 +245,7 @@ class ArrayWireTests(unittest.TestCase):
                     expected = ['PRE', 'w_en', 's_en', 'sa_iso', 'wl_en']
                     # din_en (the write-data latch enable, w_en_bar until V2.1.9)
                     # only exists where the write-data hold latches do.
-                    self.assertEqual('din_en' in deck, operation == 'write')
-                    if operation == 'write':
-                        expected.append('din_en')
+                    self.assertNotIn('din_en', deck)
                     for name in expected:
                         count = rows if name == 'wl_en' else cols
                         self.assertEqual(tb.control_tap(name, 0), f'{name}_line_tap0', name)
@@ -271,7 +268,7 @@ class ArrayWireTests(unittest.TestCase):
             tb = Sram6TCoreMcTestbench(load_config(4, 8, 'TT'), w_rc=True,
                                        variation_mode='nominal', sim_path=temp)
             deck = str(tb.create_testbench('write', 3, 7))
-            for name in ('PRE', 'w_en', 'din_en', 's_en', 'sa_iso', 'wl_en'):
+            for name in ('PRE', 'w_en', 's_en', 'sa_iso', 'wl_en'):
                 self.assertEqual(tb.control_tap(name, 0), f'{name}_line_tap0')
                 self.assertEqual(tb.control_tap(name), f'{name}_line_far')
                 self.assertIn(f'{name}_line'.upper(), deck.upper())
@@ -289,12 +286,12 @@ class ArrayWireTests(unittest.TestCase):
                 tb.add_meas_and_print(simulator, tb.data_init(), operation)
                 tb.add_analysis(simulator.circuit, operation, 1)
                 # V2.1.6: before a read the entry event is the precharge (VWL_PRE_*),
-                # before a write the write slot (VWL_WEN_*); the sequence alternates.
+                # before a write the write slot (VWL_PRE_*); the sequence alternates.
                 lines = [line.upper() for line in str(simulator).splitlines()
-                         if line.upper().startswith('.MEAS') and ('VWL_PRE_' in line.upper() or 'VWL_WEN_' in line.upper())]
+                         if line.upper().startswith('.MEAS') and ('VWL_PRE_' in line.upper() or 'VWL_PRE_' in line.upper())]
                 self.assertEqual(len(lines), 3 * cycles)
                 for cycle in range(cycles):
-                    kind = 'PRE' if operation == 'read' or (operation == 'read&write' and cycle % 2 == 0) else 'WEN'
+                    kind = 'PRE'
                     self.assertTrue(any(f'VWL_{kind}_FAR_{cycle} FIND V({tb.arr_inst_prefix}:WL3_FAR)'.upper() in line for line in lines))
                     self.assertTrue(any(f'VWL_{kind}_LOCAL_{cycle} FIND V({tb.cell_probe("WL")})'.upper() in line for line in lines))
                 self.assertTrue(all(('WHEN V(PRE)=0.9' if 'VWL_PRE' in line else 'WHEN V(XTIME_CONTROL:WRITE_SLOT)=0.5') in line
@@ -325,10 +322,10 @@ class ArrayWireTests(unittest.TestCase):
             tb.add_meas_and_print(simulator, tb.data_init(), 'read&write')
         self.assertEqual(tb.driver_sizes.precharge_guard_stages, 0)
         control = next(s for s in circuit.subcircuits if s.name == 'TIME_CONTROL')
-        self.assertEqual(control['Xwrite_slot'].node_names[2:6], ['rwl_pre_bar', 'pre_off_ready', 's_en_bar', 'write_slot'])
+        self.assertEqual(control['Xpre_unbuf'].node_names[2:5], ['clk_bar', 'rwl_pre_bar', 'enables_off'])
         deck = str(simulator).upper()
         for cycle in range(8):
-            kind = 'PRE' if cycle % 2 == 0 else 'WEN'
+            kind = 'PRE'
             self.assertIn(f'.MEAS TRAN VWL_{kind}_PEAK_{cycle} ', deck)
 
     def test_idle_probe_registers_new_write_data_at_the_selected_edge(self):
@@ -417,7 +414,7 @@ class ArrayWireTests(unittest.TestCase):
             with patch.object(run, 'parse_args', return_value=args), \
                     patch.object(run, 'generate_deck', return_value=(deck, dict(summary))), \
                     patch.object(run, 'run_xyce'):
-                Path(str(deck)+'.mt0').write_text('VWL_WEN_FAR_0 = .4\nVWL_WEN_LOCAL_0 = .01\nVWL_WEN_PEAK_0 = .4\n')
+                Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .4\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .4\n')
                 with self.assertRaisesRegex(RuntimeError, 'precharge'):
                     run.main()
                 # The rejected sample is the one that has to be investigated:
@@ -426,8 +423,8 @@ class ArrayWireTests(unittest.TestCase):
                 self.assertIs(audit['precharge_release_checked'], False)
                 self.assertIn('precharge', audit['precharge_release_error'])
                 self.assertEqual(audit['seed'], 1)
-                self.assertIn('VWL_WEN_FAR_0', Path(str(deck)+'.data.csv').read_text())
-                Path(str(deck)+'.mt0').write_text('VWL_WEN_FAR_0 = .01\nVWL_WEN_LOCAL_0 = .01\nVWL_WEN_PEAK_0 = .02\nVACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVWEN_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\nTWRITE_TOTAL = 2e-10\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
+                self.assertIn('VWL_PRE_FAR_0', Path(str(deck)+'.data.csv').read_text())
+                Path(str(deck)+'.mt0').write_text('VWL_PRE_FAR_0 = .01\nVWL_PRE_LOCAL_0 = .01\nVWL_PRE_PEAK_0 = .02\nVACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVWEN_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\nVBOUNDARY_ERROR_0 = 0\nVROLE_ERROR_0 = 0\nVISO_ERROR_0 = 0\nTWRITE_TOTAL = 2e-10\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
                 self.assertEqual(run.main(), 0)
                 self.assertIs(json.loads((Path(temp) / 'summary.json').read_text())
                               ['precharge_release_checked'], True)

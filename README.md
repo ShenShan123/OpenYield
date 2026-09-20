@@ -1,4 +1,4 @@
-# OpenYield V2.1.10: SRAM yield analysis and optimization
+# OpenYield V2.2.0: SRAM yield analysis and optimization
 
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
@@ -7,29 +7,37 @@ The circuit generator models parasitic capacitance/resistance, leakage coupling,
 
 The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
 
-## Current release: V2.1.10
+## Current release: V2.2.0
 
 The compiler generates full transistor arrays with distributed RC wires,
 per-device local mismatch by default, a replica-timed read path and a
-`TIME_CONTROL` block whose enables never overlap between roles. Clocks come
+`TIME_CONTROL` block that observes physical release and isolation before
+switching incompatible enables. Clocks come
 from a row/column lookup table and driver sizes from integer size classes;
 both stay frozen across cell candidates and PVT samples
-([timing](sram_compiler/sizing/README.md#clock-classes-v210),
+([timing](sram_compiler/sizing/README.md#clock-classes-v220),
 [sizing](sram_compiler/sizing/README.md)).
 
-V2.1.10 holds the column write-data latches on the registered write: the
-write data and the write request are DFF outputs of the rising clock edge, so
-between two writes the drivers stay on and only their data changes, once the
-previous wordline is observed off. V2.1.9 turned the drivers off and on again
-between every two writes; that slot missed the runtime restore check at the
-32x16 and 32x32 class bounds. The clocks are kept except the 10T 512-row
-class (10.75 ns), and the qualification scorer scores write decks again. See
-the [write-latch record](docs/design/WRITE_LATCH_V2_1_10.md) and, for every
-release, the [changelog](docs/CHANGELOG.md) and its design records.
+V2.2.0 separates rising-edge capture, clock-high access, and clock-low
+recovery. It removes the secondary address/request/data hold latches and the
+write-to-write slot handover. Writes release their wordline before releasing
+the drivers; reads isolate the sense inputs and release the wordline before
+sense regeneration. Physical guards enforce the ordering. Every cycle
+precharges in clock-low, including consecutive writes. Conservative clock
+budgets are twice V2.1.10's through 64 rows and three times its 128–512-row
+budgets. The 512-column class uses 24 ns
+for 6T and 25.5 ns for 6T with a mux and 10T. Driver size classes and bitcells
+are unchanged.
+See the [phase-control record](docs/design/PHASED_CONTROL_V2_2_0.md), the
+[reproducible SPICE checks](tests/spice/README.md), and the
+[changelog](docs/CHANGELOG.md).
 
 Validation is functional screening with illustrative wires (1 ohm / 0.1 fF per
 pitch), not extracted-metal or yield qualification; the remaining scope is
-listed under [open items](docs/README.md#open-items).
+listed under [open items](docs/README.md#open-items). The V2.2.0 screen is 242
+of 242 cases and 1,767,615 checks, assembled with its source, deck, waveform,
+scorer and retry hashes in
+[`docs/data/PHASED_CONTROL_V2_2_0.json`](docs/data/PHASED_CONTROL_V2_2_0.json).
 
 Documentation: [compiler guide](sram_compiler/README.md),
 [equivalent models](sram_compiler/equivalent_modeling/README.md),

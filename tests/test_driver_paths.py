@@ -17,7 +17,7 @@ from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTest
 
 
 class PathTests(unittest.TestCase):
-    def test_write_startup_initializes_hold_and_register_feedback_nodes(self):
+    def test_write_startup_initializes_buffer_and_register_feedback_nodes(self):
         import tempfile
         from pathlib import Path
         for operation in ('read', 'write', 'read&write'):
@@ -38,8 +38,8 @@ class PathTests(unittest.TestCase):
                             self.assertNotIn(f'DIN_HOLD{col}', initial)
                             self.assertNotIn('XDFF_BUF_DATA', initial)
                         else:
-                            self.assertIn(f'V(DIN_HOLD{col})=0', initial)
-                            self.assertIn(f'V(DIN_HOLDB{col})=0.9', initial)
+                            self.assertIn(f'V(DIN_BUF{col})=0', initial)
+                            self.assertNotIn('XDIN_HOLD', initial)
                             self.assertIn(f'V(XTIME_CONTROL:XDFF_BUF_DATA:XDFF_{col}:Z5)=0.9', initial)
 
     def test_wide_buffer_fingers_preserve_total_transistor_width(self):
@@ -194,7 +194,7 @@ class PathTests(unittest.TestCase):
                                       ('RBL_MUX' if mux else 'RBL_periph_tap2'))
                         self.assertIn(f' {sense_node} ', time_line)
                         pre_node = 'XPRECHARGE_RBL:ENB_end' if w_rc else 'PRE_line_far'
-                        self.assertIn(f' RWL_far {pre_node} TIME_CONTROL', time_line)
+                        self.assertIn(f' RWL_far {pre_node} ', time_line)
 
     def test_rc_precharge_waits_for_the_matched_physical_wordline(self):
         with redirect_stdout(io.StringIO()):
@@ -204,13 +204,11 @@ class PathTests(unittest.TestCase):
             circuit = tb.create_testbench('read', 7, 3)
         time = next(block for block in circuit.subcircuits if block.name == 'TIME_CONTROL')
         self.assertTrue(tb.driver_sizes.replica_precharge_guard)
-        self.assertEqual(time.NODES[-2:], ['rwl', 'pre_far'])
+        self.assertEqual(time.NODES[-5:], ['rwl', 'pre_far', 'iso_far', 'sen_far', 'wen_far'])
         # V2.1.6: the precharge is additionally inhibited by the held write request.
-        self.assertIn('pre_ready we_hold_bar enables_off pre_gate PRECHARGE_GATE_AND', str(time))
-        self.assertIn('VDD VSS cs cs_delayed cs_pre SELECT_DELAY_AND', str(time))
-        self.assertIn('clk_buf cs_pre pre_gate PRE_UNBUF', str(time))
+        self.assertIn('clk_bar pre_ready enables_off PRE_UNBUF', str(time))
         self.assertEqual(tb.driver_sizes.precharge_guard_stages, 4)
-        self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end TIME_CONTROL', str(circuit['XTIME_CONTROL']))
+        self.assertIn('RWL_far XPRECHARGE_RBL:ENB_end XREPLICA_SENSEAMP:ISO_end XREPLICA_SENSEAMP:EN_end XREPLICA_WDRV_LOAD:EN_end TIME_CONTROL', str(circuit['XTIME_CONTROL']))
         # An unmatched replica cannot represent the physical wordline load.
         cfg.global_config.sizing['replica'] = {'matched': False}
         with redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, 'matched replica'):

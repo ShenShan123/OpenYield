@@ -28,265 +28,6 @@ class PrechargeExclusionTests(unittest.TestCase):
         output.__enter__()
         self.addCleanup(output.__exit__, None, None, None)
 
-    def test_common_guard_qualifies_wl_write_and_sense_without_delaying_raw_release(self):
-        time = TimeControlFactory(num_rows=8, num_cols=4, operation='read&write',
-                           replica_precharge_guard=True, precharge_guard_stages=4,
-                           precharge_off_guard=True, precharge_off_guard_stages=4).create()
-        self.assertEqual(time.NODES[-3:], ['rwl', 'pre_far', 'din_hold'])
-        self.assertEqual(time['Xaccess_guard'].node_names,
-                         ['VDD', 'VSS', 'gated_clk_bar', 'pre_far', 'access_clk_bar', 'pre_off_ready'])
-        self.assertEqual(time['Xwl_en'].node_names[2:4], ['access_clk_bar', 's_en_bar'])
-        # V2.1.6 write slot: w_en = we_hold & (wordline_busy | (cs_pre & write_slot))
-        # with write_slot = pre_ready & pre_off_ready & !s_en (V2.1.8) turns the write
-        # drivers on in the clock-high phase, once the previous wordline, the physical
-        # precharge and the previous sense enable (V2.1.8) are observed off; PRE is
-        # inhibited by the held write request and by either enable.  Between two
-        # writes the drivers stay on (V2.1.10; V2.1.9 re-armed the slot only after
-        # the drivers were observed off).
-        self.assertEqual(time['Xw_en'].node_names[2:4], ['we_hold', 'write_window'])
-        self.assertEqual(time['Xwrite_slot'].node_names[2:6], ['pre_ready', 'pre_off_ready', 's_en_bar', 'write_slot'])
-        self.assertEqual(time['Xselected_slot_nand'].node_names[2:5], ['cs_pre', 'write_slot', 'selected_slot_bar'])
-        self.assertEqual(time['Xwrite_window_nand'].node_names[2:5],
-                         ['busy_write_held_bar', 'selected_slot_bar', 'write_window'])
-        self.assertEqual(time['Xpre_gate'].node_names[2:6], ['pre_ready', 'we_hold_bar', 'enables_off', 'pre_gate'])
-        self.assertEqual(time['Xpre_unbuf'].node_names[2:5], ['clk_buf', 'cs_pre', 'pre_gate'])
-        # V2.1.7: only the rising edge of the select is delayed (cs & delayed cs).
-        self.assertEqual(time['Xselect_delay'].node_names[2:4], ['cs', 'cs_delayed'])
-        self.assertEqual(time['Xselect_gate'].node_names[2:5], ['cs', 'cs_delayed', 'cs_pre'])
-        self.assertEqual(subcircuit(time, 'SELECT_DELAY').stages, 8)
-        self.assertEqual(time['Xs_en'].node_names[3], 'access_clk_bar')
-        guard = subcircuit(time, 'PRECHARGE_OFF_GUARD')
-        # The raw request directly inhibits the final gate. The delay never
-        # extends a write into the next clock-high phase.
-        self.assertEqual(guard['Xrequest_gate'].node_names[2:4],
-                         ['request', 'pre_off_ready'])
-        self.assertEqual(guard['Xobserve_pre'].node_names[2], 'pre_far')
-        self.assertEqual(subcircuit(guard, 'PRECHARGE_OFF_DELAY').stages, 4)
-        self.assertEqual(time['Xrwl_precharge_guard'].node_names[2], 'rwl')
-        self.assertEqual(time['Xprecharge_guard_delay'].node_names[2], 'rwl_pre_bar')
-        self.assertFalse(any(e.name[0].upper() == 'B' for e in guard.elements))
-
-    def test_access_gates_see_the_write_request_only_through_its_wordline_hold_latch(self):
-        """The `we` register updates on the edge that ends an access, before the request falls
-        (20 vs 38 ps at FF -40 C), so a raw `we` input pulsed w_en to 0.72 V while a read wordline
-        was still on. Every gate must see the request held while wl_en is high, buffered or not;
-        with the replica guard also until the wordline is observed off (V2.1.9: a write -> read
-        boundary otherwise dropped the drivers with the request, the wordline still falling).
-        V2.1.10: the write-data latch hold also reads the registered request, but only through
-        wordline_idle, so a request that changes while a wordline is on cannot reach it."""
-        for rows, cols, guard, replica in ((16, 4, False, False), (8, 128, True, False), (8, 4, True, True)):
-            with self.subTest(rows=rows, cols=cols, replica=replica):
-                time = TimeControlFactory(num_rows=rows, num_cols=cols, operation='read&write',
-                                          precharge_off_guard=guard, replica_precharge_guard=replica,
-                                          precharge_guard_stages=4 if replica else 0).create()
-                request = 'access_clk_bar' if guard else 'gated_clk_bar'
-                self.assertEqual(time['Xwe_hold'].node_names,
-                                 ['VDD', 'VSS', 'we', 'wordline_idle' if replica else 'wl_en_bar',
-                                  'we_hold', 'we_hold_bar'])
-                # The write slot needs the replica guard (see the no-guard test below).
-                window = 'write_window' if replica else 'wl_en'
-                self.assertEqual(time['Xw_en'].node_names[2:4], ['we_hold', window])
-                self.assertEqual(time['Xs_en'].node_names[2:5], ['rbl_delay', request, 'we_hold_bar'])
-                raw = {e.name for e in time.elements if {'we', 'we_bar'} & set(e.node_names)}
-                self.assertEqual(raw, {'Xdff_buf1', 'Xwe_hold'} | ({'Xselected_write_nand'} if replica else set()))
-                if replica:
-                    self.assertEqual(time['Xselected_write_nand'].node_names[2:5], ['we', 'cs', 'selected_write_bar'])
-                    self.assertEqual(time['Xdin_open_nand'].node_names[2:5], ['selected_write_bar', 'w_en', 'din_open'])
-                    self.assertEqual(time['Xdin_hold_nand'].node_names[2:5], ['wordline_idle', 'din_open', 'din_hold_unbuf'])
-                self.assertIn('w_en_unbuf' if cols == 128 else 'w_en', time['Xw_en'].node_names)
-
-    def test_select_delay_holds_back_only_the_rising_edge_of_both_clock_high_enables(self):
-        """The select is registered on the same edge as the write request and the write data.
-        Delayed on its rising edge it keeps the precharge off until the held request can inhibit
-        it (V2.1.6 start-up race) and w_en off until new data has passed the write-data hold latch,
-        which closes when w_en rises: with the raw select the latch closed only ~25 ps after new
-        data settled at an idle -> write edge at FF -40 C (V2.1.7).  The falling edge must follow
-        the select at once, or an unselected cycle races the delayed select against the
-        wordline-off guard (58 ps at 2x4 FF -40 C with a symmetric delay)."""
-        time = TimeControlFactory(num_rows=8, num_cols=4, operation='read&write',
-                                  replica_precharge_guard=True, precharge_guard_stages=4,
-                                  precharge_off_guard=True).create()
-        self.assertEqual(time['Xselect_delay'].node_names[2:4], ['cs', 'cs_delayed'])
-        self.assertEqual(subcircuit(time, 'SELECT_DELAY').stages, 8)
-        self.assertEqual(time['Xselect_gate'].node_names[2:5], ['cs', 'cs_delayed', 'cs_pre'])
-        self.assertIsInstance(subcircuit(time, time['Xselect_gate'].subcircuit_name), AND2)
-        # V2.1.8: the select reaches the write enable through the selected slot only.
-        readers = {e.name for e in time.elements if 'cs_pre' in e.node_names[2:-1]}
-        self.assertEqual(readers, {'Xselected_slot_nand', 'Xpre_unbuf'})
-        # Only the access-phase gated clocks, the select delay and the write-data latch
-        # hold read the raw select (Xdff_buf is its register).  The latch hold must not
-        # wait for the delayed select: at an idle -> write edge the new data passes the
-        # latch while cs_pre still holds the drivers off (V2.1.10).
-        raw = {e.name for e in time.elements if 'cs' in e.node_names[2:-1]} - {'Xdff_buf'}
-        self.assertEqual(raw, {'Xand2_gated_clk_bar', 'Xand2_gated_clk_buf', 'Xselect_delay', 'Xselect_gate',
-                               'Xselected_write_nand'})
-
-    def test_write_enable_follows_the_wordline_enable_without_the_replica_guard(self):
-        """Without the replica-wordline observer the wordline-off signal is wl_en_bar, and a window
-        wl_en | wl_en_bar is constantly high: V2.1.6 held w_en on through consecutive writes, so
-        the write-data hold latch never reopened for new data, and while the previous wordline was
-        still falling.  The precharge-off guard alone does not observe the wordline."""
-        for guard in (False, True):
-            with self.subTest(precharge_off_guard=guard):
-                time = TimeControlFactory(num_rows=8, num_cols=4, operation='write',
-                                          precharge_off_guard=guard).create()
-                self.assertEqual(time['Xw_en'].node_names[2:4], ['we_hold', 'wl_en'])
-                self.assertNotIn('write_window', {n for e in time.elements for n in e.node_names})
-                self.assertEqual(time['Xpre_gate'].node_names[2:6], ['wl_en_bar', 'we_hold_bar', 'enables_off', 'pre_gate'])
-        # With the observer (settling stages optional) the slot waits for the replica
-        # wordline and the previous sense enable; without the precharge-off guard its
-        # precharge input is tied high (V2.1.8).
-        for stages, off_guard, off, ready in ((0, False, 'rwl_pre_bar', 'VDD'), (4, False, 'pre_ready', 'VDD'),
-                                              (0, True, 'rwl_pre_bar', 'pre_off_ready')):
-            with self.subTest(stages=stages, precharge_off_guard=off_guard):
-                time = TimeControlFactory(num_rows=8, num_cols=4, operation='write', replica_precharge_guard=True,
-                                          precharge_guard_stages=stages, precharge_off_guard=off_guard).create()
-                self.assertEqual(time['Xwrite_slot'].node_names[2:6], [off, ready, 's_en_bar', 'write_slot'])
-                self.assertEqual(time['Xwordline_busy_nand'].node_names[2:5], ['wl_en_bar', off, 'wordline_busy'])
-                self.assertEqual(time['Xwrite_window_nand'].node_names[2:5],
-                                 ['busy_write_held_bar', 'selected_slot_bar', 'write_window'])
-                self.assertEqual(time['Xw_en'].node_names[2:4], ['we_hold', 'write_window'])
-
-    def test_read_wordline_ends_at_the_sense_enable_and_the_clock_high_enables_wait_for_the_enables(self):
-        """V2.1.8: a read wordline that stays on after the sense enable only discharges the
-        bitlines further (the amplifier is isolated from them once it fires) and lengthens the
-        restore; the wordline request therefore ends with the sense enable.  The precharge waits
-        for both enables and the write slot for the sense enable of the preceding read, so the
-        clock-high enables never overlap the previous access; the write enable is not part of the
-        slot (the slot feeds it: the loop would oscillate) and ends with the wordline enable, not
-        with the deselect (which dropped the drivers at half wordline)."""
-        for rows, cols, buffered in ((8, 4, False), (64, 64, True)):
-            with self.subTest(rows=rows, cols=cols):
-                time = TimeControlFactory(num_rows=rows, num_cols=cols, operation='read&write',
-                                          replica_precharge_guard=True, precharge_guard_stages=4,
-                                          precharge_off_guard=True, wen_load=400 if buffered else None,
-                                          sen_load=200 if buffered else None).create()
-                self.assertEqual(time['Xwl_en'].node_names[2:5], ['access_clk_bar', 's_en_bar', 'wl_en'])
-                buffer = subcircuit(time, 'WORDLINE_ENABLE_BUFFER')
-                self.assertEqual(buffer['Xbuf_nand1'].node_names[2:5], ['A', 'B', 'zb1_node'])
-                # The observers read the block's output nodes, never the unbuffered gate outputs.
-                self.assertEqual(time['Xinv_s_en_bar'].node_names[2:4], ['s_en', 's_en_bar'])
-                self.assertEqual(time['Xenables_off_nor'].node_names[2:5], ['s_en', 'w_en', 'enables_off'])
-                self.assertEqual(time['Xs_en'].node_names[-1], 's_en_unbuf' if buffered else 's_en')
-                self.assertEqual(time['Xpre_gate'].node_names[2:5], ['pre_ready', 'we_hold_bar', 'enables_off'])
-                self.assertEqual(time['Xwrite_slot'].node_names[2:5], ['pre_ready', 'pre_off_ready', 's_en_bar'])
-                self.assertNotIn('w_en', time['Xwrite_slot'].node_names)
-                self.assertNotIn('cs_pre', time['Xw_en'].node_names)
-                readers = {e.name for e in time.elements if 'w_en' in e.node_names[2:-1]}
-                # V2.1.10: the write-data latch hold reads the drivers' enable too (nothing
-                # in the block reads din_hold, so there is no loop).
-                self.assertEqual(readers, ({'Xenables_off_nor', 'Xsa_iso_nor'} if not buffered else {'Xenables_off_nor'})
-                                 | {'Xdin_open_nand'})
-
-    def test_write_drivers_stay_on_until_the_wordline_is_observed_off(self):
-        """V2.1.9: the drivers must be fully on for as long as the wordline is on.  V2.1.8 ended
-        w_en with the wordline enable (and, write -> read, with the held request), so the
-        drivers released with the local wordline at 0.51 V of 1.1 V (8x4 FF -40 C) and at
-        0.90 V of 0.9 V (512x4 SS); w_en also covers the busy wordline, from wl_en until the
-        replica wordline is observed off.  V2.1.10: the write data, the write request and the
-        select are registered on the rising edge that also ends the previous access, so
-        between two writes the drivers stay on and only their data changes: the write-data
-        latches (din_hold = !(wordline_idle & ((we & cs) | !w_en))) pass the new data once the
-        previous wordline is observed off, and before a read or an idle cycle they keep the
-        written data until the drivers are off.  V2.1.9 turned the drivers off and on again between every two
-        writes (a slot-arm latch), because its latches took new data only while w_en was low.
-        The busy wordline and the next slot follow the same observer, and the slot path is longer
-        (the NAND3 of write_slot and the selected-slot AND: 61 ps at SS 0.9 V / 125 C under
-        mismatch, where w_en dropped to 0.2 V between two writes); the busy term's end is held
-        for four unit stages so the slot always takes over first.  Unit-delay evaluation of the
-        block's own gates, with the slot arriving late.  Only a write's busy term is in the window:
-        with the busy wordline itself held the window was open at the end of a read when the
-        write-request latch passed the new request, and w_en pulsed to 0.30 V as the read's sense
-        enable fell at 16x16 SS.  The held request is the D latch on
-        wordline_idle, the din_hold buffer is non-inverting."""
-        time = TimeControlFactory(num_rows=8, num_cols=4, operation='read&write',
-                                  replica_precharge_guard=True, precharge_guard_stages=4,
-                                  precharge_off_guard=True).create()
-        functions = ((PNAND2, lambda a, b: not (a and b)), (PNOR2, lambda a, b: not (a or b)),
-                     (AND2, lambda a, b: a and b), (Pinv, lambda a: not a))
-        gates = []
-        for name in ('Xwordline_busy_nand', 'Xinv_wordline_idle', 'Xselected_write_nand', 'Xdin_open_nand',
-                     'Xdin_hold_nand', 'Xselected_slot_nand', 'Xselected_slot', 'Xbusy_write_nand',
-                     'Xwrite_window_nand', 'Xw_en'):
-            element = time[name]
-            gate = subcircuit(time, element.subcircuit_name)
-            function = next(f for cls, f in functions if isinstance(gate, cls))
-            gates.append((function, element.node_names[2:-1], element.node_names[-1]))
-        self.assertEqual(time['Xdin_hold_buf'].node_names[2:4], ['din_hold_unbuf', 'din_hold'])
-        gates.append((lambda a: a, ['din_hold_unbuf'], 'din_hold'))
-        self.assertEqual(time['Xbusy_write_nand'].node_names[2:5], ['wordline_busy', 'we_hold', 'busy_write_bar'])
-        chain = time['Xbusy_hold_delay']
-        self.assertEqual(chain.node_names[2:4], ['busy_write_bar', 'busy_write_held_bar'])
-        stages = subcircuit(time, chain.subcircuit_name).stages
-        self.assertEqual(stages, 4)
-        taps = ['busy_write_bar', *[f'hold_{k}' for k in range(1, stages)], 'busy_write_held_bar']
-        gates += [(lambda a: not a, [taps[k]], taps[k + 1]) for k in range(stages)]
-        self.assertEqual(time['Xwe_hold'].node_names[2:5], ['we', 'wordline_idle', 'we_hold'])
-        self.assertEqual(time.NODES[-1], 'din_hold')
-        for removed in ('Xslot_arm_set', 'Xslot_arm_reset', 'Xslot_arm_delay'):
-            self.assertNotIn(removed, {element.name for element in time.elements})
-
-        def run(state, steps, **inputs):
-            state.update(inputs)
-            state['wl_en'] = not state['wl_en_bar']
-            trace = []
-            for _ in range(steps):
-                new = {out: function(*(state[node] for node in ins)) for function, ins, out in gates}
-                if state['wordline_idle']:
-                    new['we_hold'] = state['we']
-                state.update(new)
-                trace.append((state['w_en'], state['din_hold']))
-            return trace
-
-        # A write access: the wordline enabled, the slot closed, request and data held.
-        access = dict(wl_en_bar=False, pre_ready=False, cs=True, cs_pre=True, write_slot=False, we=True,
-                      we_hold=True, wordline_busy=True, wordline_idle=False, selected_write_bar=False,
-                      din_open=True, din_hold_unbuf=True, din_hold=True, selected_slot_bar=True, selected_slot=False,
-                      busy_write_bar=False, write_window=True, w_en=True,
-                      hold_1=True, hold_2=False, hold_3=True, busy_write_held_bar=False)
-        for following in ('write', 'read', 'idle'):
-            with self.subTest(following=following):
-                state = dict(access)
-                self.assertTrue(all(w and hold for w, hold in run(state, 20)))
-                # The edge ends the wordline enable and registers the next request and
-                # select while the wordline is still falling: drivers on, data held.
-                selected = following != 'idle'
-                trace = run(state, 20, wl_en_bar=True, we=following != 'read', cs=selected, cs_pre=selected)
-                self.assertTrue(all(w and hold for w, hold in trace))
-                # The replica wordline is observed off; the slot condition follows three
-                # gate delays later (the slow NAND3 path of write_slot at SS).
-                trace = run(state, 3, pre_ready=True) + run(state, 30, write_slot=True)
-                if following == 'write':
-                    self.assertTrue(all(w for w, _ in trace), 'the drivers turned off between two writes')
-                    self.assertFalse(trace[-1][1], 'the new data never reached the drivers')
-                    # The new write's wordline: its enable makes the wordline busy at once, the
-                    # replica wordline is observed on (driver, wire, observer, four guard stages)
-                    # no earlier than seven stages later, and the slot then closes.
-                    trace = run(state, 7, wl_en_bar=True, pre_ready=True)
-                    trace = run(state, 7, wl_en_bar=False) + run(state, 3, pre_ready=False)
-                    trace += run(state, 20, write_slot=False)
-                    self.assertTrue(all(w for w, _ in trace), 'the drivers dropped as the slot closed')
-                else:
-                    released = [w for w, _ in trace].index(False)
-                    self.assertFalse(any(w for w, _ in trace[released:]))
-                    self.assertTrue(all(hold for w, hold in trace if w),
-                                    'the drivers took data of a cycle that writes nothing')
-                    # With the drivers off the latches open, so a following write's data
-                    # is at the drivers well before its slot.
-                    self.assertFalse(trace[-1][1])
-                    self.assertEqual(state['we_hold'], following == 'idle')
-
-        # A read access whose wordline (released at the sense trigger) is observed off just as
-        # the edge registers a write request; the write slot waits for the sense enable.
-        read = dict(access, we=False, we_hold=False, w_en=False, din_open=True, busy_write_bar=True,
-                    hold_1=False, hold_2=True, hold_3=False, busy_write_held_bar=True, write_window=False)
-        state = dict(read)
-        self.assertFalse(any(w for w, _ in run(state, 20)))
-        trace = run(state, 12, wl_en_bar=True, pre_ready=True, we=True)
-        self.assertFalse(any(w for w, _ in trace), 'the write enable rose before its slot, under the read')
-        trace = run(state, 20, write_slot=True)
-        self.assertTrue(trace[-1][0], 'the write slot never turned the drivers on')
-
     def test_passed_transistor_models_reach_every_control_device(self):
         """The observers, delay chains and every buffer follow the models passed to the block
         (V2.1.6 hard-coded or defaulted them for five block types)."""
@@ -317,10 +58,10 @@ class PrechargeExclusionTests(unittest.TestCase):
                                 tb.gen_model_sweep_generic(module_name=spec['name'], param_model_names=spec['model_params'])
                             circuit = tb.create_testbench('read&write', 3, 3)
                             expected = 'XPRECHARGE_RBL:ENB_end' if rc else 'PRE_line_far'
-                            # A write-capable block appends din_hold (V2.1.10) after pre_far.
-                            self.assertEqual(circuit['XTIME_CONTROL'].node_names[-2:], [expected, 'din_hold'])
+                            # Physical ISO/SEN/WEN feedback follows the far PRE input.
+                            self.assertEqual(circuit['XTIME_CONTROL'].node_names[-4:-2], [expected, 'XREPLICA_SENSEAMP:ISO_end' if rc else 'sa_iso_line_far'])
                             time = subcircuit(circuit, 'TIME_CONTROL')
-                            self.assertEqual(time.NODES[-2:], ['pre_far', 'din_hold'])
+                            self.assertEqual(time.NODES[-4:-2], ['pre_far', 'iso_far'])
                             self.assertTrue(tb.driver_sizes.precharge_off_guard)
                             self.assertEqual(time.precharge_off_guard_stages,
                                              tb.driver_sizes.precharge_off_guard_stages)
@@ -360,8 +101,8 @@ class PrechargeExclusionTests(unittest.TestCase):
 
     def test_optional_time_ports_preserve_direct_factory_callers(self):
         time = TimeControlFactory(num_rows=4, num_cols=4).create()
-        self.assertEqual(time.NODES[-1], 'sa_iso')
-        self.assertEqual(time['Xwl_en'].node_names[2], 'gated_clk_bar')
+        self.assertEqual(time.NODES[-3:], ['iso_far', 'sen_far', 'wen_far'])
+        self.assertEqual(time['Xwl_en'].node_names[2], 'wordline_request')
         for bad in (0, -2, 3, True, 4.0):
             with self.subTest(stages=bad), self.assertRaisesRegex(ValueError, 'positive even'):
                 TIME_CONTROL(precharge_off_guard=True, precharge_off_guard_stages=bad)
@@ -398,6 +139,7 @@ class PrechargeExclusionTests(unittest.TestCase):
         sizes = resolve_driver_sizes(cfg, physical_context=context)
         for stale in (
                 replace(sizes, precharge_off_guard=False),
+                replace(sizes, replica_precharge_guard=False),
                 replace(sizes, precharge_off_guard_stages=sizes.precharge_off_guard_stages + 2),
                 replace(sizes, precharge_off_tau=0),
                 replace(sizes, precharge_off_tau=sizes.precharge_off_tau * 2),
@@ -410,6 +152,33 @@ class PrechargeExclusionTests(unittest.TestCase):
         cfg.global_config.vdd = .9
         cfg.global_config.temperature = 125
         sizes.validate_for(cfg, 'SRAM_6T_CELL', False, context)
+
+    def test_precharge_safety_measures_refuse_a_logical_only_wordline_observer(self):
+        """Without the replica guard `wordline_off` is `wl_en_bar`, a logic node.
+
+        The measurement would then compare the precharge against a signal that
+        cannot report the distributed wordline tail, and report a safety margin
+        the controller never enforced.  Refusing beats reporting.
+        """
+        class Recorder:
+            def __init__(self):
+                self.names = []
+
+            def measure(self, analysis, name, *arguments):
+                self.names.append(name)
+
+        with tempfile.TemporaryDirectory() as temp:
+            cfg = load_config(8, 4, 'TT')
+            tb = Sram6TCoreMcTestbench(cfg, variation_mode='nominal', real_cell_mode=0, sim_path=temp)
+            tb.create_testbench('read&write', 3, 3)
+            recorder = Recorder()
+            tb._add_precharge_safety_measures(recorder, 'read&write')  # The guarded default is fine.
+            self.assertTrue(any(name.startswith('VWL_PRE_') for name in recorder.names))
+            for disabled in ('replica_precharge_guard', 'precharge_off_guard'):
+                with self.subTest(disabled=disabled):
+                    tb.driver_sizes = replace(tb.driver_sizes, **{disabled: False})
+                    with self.assertRaisesRegex(ValueError, 'guard'):
+                        tb._add_precharge_safety_measures(Recorder(), 'read&write')
 
 
 if __name__ == '__main__':

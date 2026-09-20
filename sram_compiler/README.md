@@ -1,6 +1,13 @@
-# SRAM Compiler and Test Platform User Guide — V2.1.10
+# SRAM Compiler and Test Platform User Guide — V2.2.0
 
-V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes-v210) covers settings, explicit overrides and evidence limits.
+V2.2.0 captures on the rising edge, accesses during clock-high, and recovers
+and precharges during clock-low. The clock budgets are twice V2.1.10's and
+secondary hold latches are removed. Read sensing waits for physical WL release
+and sense-input isolation; write drive covers the whole physical WL pulse.
+See the [current control and validation record](../docs/design/PHASED_CONTROL_V2_2_0.md).
+
+
+V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes-v220) covers settings, explicit overrides and evidence limits.
 
 V2.1.1 signal interconnect is distributed-only, including the bitline periphery,
 decoder, write-data clock and mux selects. Omitting `interconnect` uses the
@@ -27,7 +34,7 @@ V2.0.9 sizes the precharge, write driver, wordline driver and decoder output fro
 fixed integer size classes in a [lookup table](sizing/README.md) (`sizing.mode: lookup`);
 the legacy `fixed` mode is removed.
 V2.0.11 models the control lines that span an array dimension (`PRE`, `w_en`,
-`w_en_bar` (`din_en` since V2.1.10), `s_en`, `sa_iso` across the columns; `wl_en` down the rows) as
+the former `w_en_bar`/`din_en` line (removed in V2.2.0), `s_en`, `sa_iso` across the columns; `wl_en` down the rows) as
 tapped RC wires in distributed mode, so each precharge cell, write driver,
 sense amplifier and wordline driver connects at its own column or row. Star
 decks and every driver size class are unchanged. It also fixes the retry,
@@ -399,57 +406,29 @@ Delay = TWRITE_TOTAL     # wl_en rise -> target cell Q reaches 90% VDD
 Power = PSTC + PDYN
 ```
 
-`PAVG = EREAD / t_period` (or `EWRITE / t_period`), where the energy is integrated
-over exactly one clock period starting at the first access
-(`1 ns + 0.7 * t_period`, the falling clock edge): wordline access, sensing or
-writing, and the precharge that restores the bitlines. Precharge is requested
-during the clock-high phase and waits for the physical replica wordline to
-settle low. V2.1.1 also waits for far-end PRE release before asserting access.
-Restoration and access/precharge exclusion are checked at the frozen clock;
-their margins depend on geometry and PVT. Before V2.0.2, a roughly 300 ps
-self-timed precharge pulse let the floating bitlines droop, for example to
-0.74 V at FF / 125 C with the then-default 10 ns period. The sense amplifiers are isolated from
-the bitlines (`ISO` pin, driven by `s_en | w_en`) while they are fired and
-while the write drivers are on. Every transient testbench carries the full column
-periphery (precharge on all columns and on the replica column, column mux,
-sense amplifiers); the write testbenches add the write drivers, each fed
-through a data-hold latch that is transparent while `w_en` is low, so a write
-cycle is `write slot -> write -> precharge (in the next read cycle)` with the
-real bitline load and the write data cannot change while the drivers are
-enabled. Since V2.1.6 the write drivers take the precharge slot: in a write
-cycle PRE is inhibited and `w_en` turns the drivers on in the clock-high
-phase, once the previous wordline and the physical precharge are observed off,
-so BL/BLB sit at their write rails before the wordline rises; `w_en` deasserts
-when the wordline request ends. Write decks write 1 then 0 and measure the
-next write's slot as `TWSLOT` (its clock-high work) instead of `TRESTORE`;
-`select_every=N` selects one cycle in N to probe the idle → write boundary.
-Since V2.1.7 the select that gates the precharge and the write enable
-(`cs_pre`) is delayed on its rising edge only, so new write data passes the
-hold latch before `w_en` closes it at an idle → write edge and an unselected
-cycle stops both enables at once; a `select_every` write deck changes its data
-at the selected edges. Since V2.1.8 a read wordline is released at the sense
-trigger (`wl_en = buffer(access_clk_bar & !s_en)`; the amplifier is isolated
-from the bitlines from then on), the precharge waits for the sense and write
-enables of the previous access, the write slot for its sense enable, and
-`w_en = we_hold & (wl_en | (cs_pre & write_slot))` ends with the wordline
-enable rather than with the deselect, so no two enables of different roles
-overlap (`docs/design/ENABLE_OVERLAP_V2_1_8.md`). Since V2.1.9 the write
-drivers stay on until the wordline is observed off (`w_en = we_hold &
-(wordline_busy | selected_slot)`, `wordline_busy = !(wl_en_bar &
-wordline_off)`; the held write request opens on `wordline_idle`), and every
-write cycle carries `VWEN_ACCESS_ERROR_<cycle>`, the highest wordline level
-while the target driver's enable is below 0.9 VDD, which `access_validity`
-limits to 0.1 VDD like the other access checks
-(`docs/design/WRITE_HOLD_V2_1_9.md`). Since V2.1.10 the column write-data
-latches hold on the registered write (`din_en = wordline_idle & ((we & cs) |
-!w_en)`, the `din_en` line): between two writes the drivers stay on (`w_en =
-we_hold & (held(wordline_busy & we_hold) | selected_slot)`, the write's busy
-term held four unit stages so the next slot takes over) and only
-their data changes, once the previous wordline is observed off
-(`docs/design/WRITE_LATCH_V2_1_10.md`). The control block is
-`TIME_CONTROL` (instance `XTIME_CONTROL`; probe paths read
-`XTIME_CONTROL:<node>`); see
-[`docs/design/TIME_CONTROL_PATH.md`](../docs/design/TIME_CONTROL_PATH.md).
+`PAVG = EREAD / t_period` (or `EWRITE / t_period`) integrates one complete
+capture-to-capture period beginning at `1 ns + 0.2 * t_period`. Clock-high
+contains precharge release, decode, and access; clock-low contains wordline
+release, driver/sense release, and precharge after every operation. The input
+DFFs hold address, request, and write data throughout both phases; column data
+buffers replace the former hold latches.
+
+Physical PRE and replica-WL observers remain. Far sense/write-enable observers
+protect recovery and isolation release. A far ISO observer ensures sense
+inputs are isolated before either write drive or sense regeneration. Read WL
+release also precedes `s_en`; write drivers remain enabled until the physical
+WL is off. The intended driver/WL and sense/output-latch overlaps remain;
+incompatible roles are excluded. The current equations and transition checks
+are in [PHASED_CONTROL_V2_2_0.md](../docs/design/PHASED_CONTROL_V2_2_0.md).
+
+`TCLK_WLEN` is measured from the rising capture edge, `TRESTORE` from the
+falling edge for both reads and writes. `TWSLOT` remains a write-rail diagnostic
+inside access. Data is checked at `1 ns + (cycle + 0.7) T`, then retained until
+the next capture. `VBOUNDARY_ERROR`, `VROLE_ERROR`, and `VISO_ERROR` reject
+unfinished recovery and incompatible enables even when final data is correct.
+`select_every=N` probes idle transitions; `next_row` probes address changes in
+single-operation decks. The integration cases additionally exercise arbitrary
+read/write pairs with changing rows and complementary column data.
 
 The segment measures (`TDECODER`, `TPRCH`, `TWLDRV`, `TSWING`, `TSA`, `TS_EN`,
 `TWDRV`, `TWRITE_Q`, ...) are still written to `.mt0` / `.data.csv` for inspection,
@@ -729,14 +708,14 @@ After a `read` or `write` run the flow prints an estimate of the minimum clock
 period from the measured phases:
 
 ```text
-[INFO] clock-low phase  (clk->wl_en TCLK_WLEN + access TREAD_TOTAL | TWRITE_TOTAL)
-[INFO] clock-high phase (bitline restore TRESTORE, decode TCLK_DEC)
+[INFO] clock-high access/decode
+[INFO] clock-low recovery
 [INFO] CLK(min) estimate in this size and PVT (50 % duty, +10 %)
 ```
 
-`T_min = 2 * max(clock-low, clock-high) * 1.1`. It was validated against
-period sweeps in V2.0.2 (e.g. 8x4 6T read: estimate 0.90 ns, the deck passes
-at 0.9 ns and fails at 0.8 ns; at TT / 125 C the same array needs ~1.7 ns).
-Periods from 0.6 ns to 100 ns were simulated; note that `PSTC` / `PDYN` are
-only a quiescent / dynamic split for `t_period >= 5 ns` (a warning is
-printed otherwise, because the start-up precharge overlaps the PSTC window).
+`T_min = 2 * max(clock-low, clock-high) * 1.1` is a diagnostic estimate,
+not a qualified minimum period. Check physical access, release, isolation,
+restoration, and the next capture at each proposed clock/PVT point. Historical
+V2.0.2 period sweeps do not validate the V2.2.0 phase schedule. `PSTC` is sampled
+late in clock-low recovery; the static/dynamic split is meaningful only when
+recovery has completed inside that window.

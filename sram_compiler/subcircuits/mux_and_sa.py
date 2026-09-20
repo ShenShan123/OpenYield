@@ -98,8 +98,9 @@ class SenseAmp(BaseSubcircuit):
     # only worked as long as w_en rose before the wordline (V2.0.1: 60 ps
     # margin at 2x128; with the V2.0.2 buffers the order flipped and the
     # 2x128 write deadlocked with BL at 0.27 V and BLB at 0.9 V).  The
-    # testbench drives ISO with s_en | w_en, so the amplifier is isolated
-    # while the write drivers are on and behaves exactly as before in a read.
+    # V2.2.0 raises ISO before write drive or read regeneration. The controller
+    # observes its far terminal before enabling either, and holds isolation
+    # until both enables release. Read regeneration also waits for WL off.
     NODES = ('VDD', 'VSS', 'EN', 'ISO', 'IN', 'INB', 'Q', 'QB')
 
     def __init__(self, nmos_model, pmos_model, 

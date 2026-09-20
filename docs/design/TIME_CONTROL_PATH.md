@@ -1,5 +1,9 @@
 # TIME_CONTROL control path: signals, stages and their history
 
+This is the preserved V2.1.10 architecture. V2.2.0 replaces its cross-cycle
+hold/slot logic with [separate access and recovery phases](PHASED_CONTROL_V2_2_0.md).
+
+
 Reference for the `TIME_CONTROL` block in
 `sram_compiler/subcircuits/time_generate.py` (V2.1.10; the block was called
 `TIME` up to V2.1.6, section 6 maps the old names, sections 7, 8 and 9 the

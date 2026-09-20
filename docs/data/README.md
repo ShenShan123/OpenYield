@@ -1,5 +1,14 @@
 # Supplied characterisation data
 
+`PHASED_CONTROL_V2_2_0.json` is the assembled V2.2.0 functional screen: one
+record per case with its clock, corner, seed, solver, deck, waveform, scorer
+and review hashes, the worst margin of every ordering check, and the source,
+deck-reproduction and equivalence proofs behind them. It is written by the
+ignored assembler, which refuses to write an incomplete or failing screen, and
+it is described in [the phase-control record](../design/PHASED_CONTROL_V2_2_0.md).
+Like the CSVs below, keep it as written; corrections belong in the documents
+that cite it.
+
 These two CSVs are the only numeric record of the V2.0.2–V2.0.4 timing and
 driver-sizing campaigns; their raw decks and waveforms were not retained. They
 moved here from the repository root on 2026-09-13 (after the V2.1.2 release)

@@ -1,4 +1,12 @@
-# Compiler regression tests — V2.1.10
+# Compiler regression tests — V2.2.0
+
+V2.2.0 replaces the old hold-latch/slot topology expectations with the phased
+controller contract. Regressions cover new pin routing in numeric and sweep
+decks, release guards, boundary/role/isolation rejection, recovery after writes,
+and stale control-architecture snapshots. The versioned V2.1.x descriptions
+below are historical. Actual SPICE transition checks are an explicit opt-in
+under [`spice/`](spice/README.md); unittest discovery does not launch them.
+
 
 V2.1.0 adds timing lookup boundaries, extrapolation, invalid tables, baseline reuse, numeric/sweep clocks, access/retention rejection, preserved CLI attempts and timestep retries. Yield contract tests cover all 15 four-value call sites and nonfinite failure indicators.
 

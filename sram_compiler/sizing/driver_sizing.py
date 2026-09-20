@@ -19,6 +19,7 @@ from typing import Any
 
 _RULES = json.loads(Path(__file__).with_name('sizing_rules.json').read_text())
 RULE_VERSION = _RULES['rule_version']
+CONTROL_ARCHITECTURE = 'v2.2.0-high-access'
 DEFAULT_LOOKUP = Path(__file__).with_name('sizing_lookup.json')
 _MODES = ("lookup", "rules_only", "auto")
 _PERIPHERALS = (
@@ -84,6 +85,9 @@ class DriverSizes:
     precharge_off_guard: bool = True
     precharge_off_guard_stages: int = PRECHARGE_OFF_GUARD_STAGES
     precharge_off_tau: float = 0.0
+    control_architecture: str = ""
+    enable_off_tau: float = 0.0
+    isolation_tau: float = 0.0
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -91,6 +95,8 @@ class DriverSizes:
 
     def validate_for(self, sram_config, cell_type, mux, context=None):
         """Allow cell candidates, but reject changed geometry or periphery."""
+        if self.control_architecture != CONTROL_ARCHITECTURE:
+            raise ValueError("Frozen driver sizes belong to a different control architecture")
         cfg = sram_config.global_config
         if (cfg.num_rows, cfg.num_cols, cell_type, mux) != (
             self.rows, self.cols, self.cell_type, self.mux
@@ -104,11 +110,14 @@ class DriverSizes:
         # not silently add an observer or common gate to an older load budget.
         expected_access = 1.25 * max(1, ceil(self.loads.wl_load / (24.0 if self.effort_buffers else 32.0))) + 2.5
         if (self.precharge_off_guard is not True
+                or self.replica_precharge_guard is not True
                 or type(self.precharge_off_guard_stages) is not int
                 or self.precharge_off_guard_stages != PRECHARGE_OFF_GUARD_STAGES
                 or not isfinite(self.precharge_off_tau) or self.precharge_off_tau <= 0
+                or not isfinite(self.enable_off_tau) or self.enable_off_tau <= 0
+                or not isfinite(self.isolation_tau) or self.isolation_tau <= 0
                 or self.loads.access_load != expected_access):
-            raise ValueError('Frozen driver sizes require the current precharge-off guard and access load')
+            raise ValueError('Frozen driver sizes require the current wordline-off guards and access load')
         if context is not None and _digest(context) != self.physical_key:
             raise ValueError('Frozen driver sizes belong to a different physical context')
         if context is not None:
@@ -122,6 +131,12 @@ class DriverSizes:
             expected_tau = _precharge_off_tau(self.cols, self.loads.pre_load, context)
             if abs(self.precharge_off_tau - expected_tau) > 1e-10 * expected_tau:
                 raise ValueError('Frozen precharge-off guard requires the baseline wire settling time')
+            expected_enable_tau = _enable_off_tau(self.cols, self.loads, context)
+            if abs(self.enable_off_tau - expected_enable_tau) > 1e-10 * expected_enable_tau:
+                raise ValueError('Frozen enable-off guard requires the baseline wire settling time')
+            expected_iso_tau = _control_settling_tau(self.cols, self.loads.iso_load + .5, context)
+            if abs(self.isolation_tau - expected_iso_tau) > 1e-10 * expected_iso_tau:
+                raise ValueError('Frozen isolation guard requires the baseline wire settling time')
         if self.source == 'table' and context is not None:
             from .table import record_key
             if self.qualified_context_key != record_key(self.key, context):
@@ -147,6 +162,25 @@ def _precharge_off_tau(cols, pre_load, context):
                  * float(context.get('pi_cap', _RULES['peripheral_rc_cap_f']))
                  if context.get('w_rc', False) else 0.0)
     return resistance * capacitance + local_tau
+
+
+def _enable_off_tau(cols, loads, context):
+    """Freeze recovery settling from the slower distributed enable line.
+
+    Sense EN has two local RC sections. Four local time constants also cover
+    their falling tail after the far observer switches near mid-rail.
+    """
+    load = max(loads.wen_load, loads.sen_load) + .875  # half-unit far NOR input
+    return _control_settling_tau(cols, load, context)
+
+
+def _control_settling_tau(cols, load, context):
+    """Wire plus a conservative allowance for two local RC sections."""
+    tau = _precharge_off_tau(cols, load, context)
+    if context.get('w_rc', False):
+        tau += 3 * float(context.get('pi_res', 100.0)) * float(
+            context.get('pi_cap', _RULES['peripheral_rc_cap_f']))
+    return tau
 
 
 def _circuit_inputs(config):
@@ -369,11 +403,10 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     sa = sram_config.senseamp
     sa_n_units = round(_positive('SA NMOS width', sa.nmos_width.value) / 0.36e-6, 12)
     sa_iso_units = round(2 * (4 / 3) * _positive('SA PMOS width', sa.pmos_width.value) / 0.36e-6, 12)
-    # The write-data hold latches scale with the write-driver input class
-    # (V2.1.6: the write slot turns the drivers on ~300 ps after the capture
-    # edge, and a unit latch driving an 8x driver input slewed for ~700 ps at
-    # 512 rows / SS), so their enable line (w_en_bar until V2.1.9, din_en since
-    # V2.1.10) drives two NAND2 inputs of that scale per column.
+    # Retain the V2.1.10 write-enable buffer capacity as a conservative floor.
+    # The latch-enable inverter is gone in V2.2.0; its former allowance more
+    # than covers the new write-ready observer. wenb_scale is legacy metadata,
+    # not an instantiated enable line. Peripheral driver classes stay fixed.
     latch_scale = max(1.0, scales["wd_in"])
     wenb_scale = max(1, ceil(2 * 0.45 * cols * latch_scale / 0.36 / 8.0))
     wl_load = (rows * scales["wl_nand"] * nand_units
@@ -422,13 +455,15 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         'precharge_guard_stages': guard_stages,
         'precharge_off_guard': True, 'precharge_off_guard_stages': PRECHARGE_OFF_GUARD_STAGES,
         'precharge_off_tau': _precharge_off_tau(cols, loads.pre_load, context),
+        'enable_off_tau': _enable_off_tau(cols, loads, context),
+        'isolation_tau': _control_settling_tau(cols, loads.iso_load + .5, context),
         'replica_nmos_models': tuple(cell.nmos_model.value),
         'replica_nmos_widths': tuple(cell.nmos_width.value),
         'replica_pmos_model': cell.pmos_model.value,
         'replica_pmos_width': cell.pmos_width.value, 'replica_length': cell.length.value,
     }
     baseline = {
-        "version": RULE_VERSION, "cell_type": cell_type,
+        "version": RULE_VERSION, "control_architecture": CONTROL_ARCHITECTURE, "cell_type": cell_type,
         "cell": _circuit_inputs(getattr(sram_config, cell_type.lower())),
         "periphery": periphery, "pdk": pdk, "rows": rows, "cols": cols, "mux": mux,
         "mode": mode, "parasitic_factor": p, "wd_floor_margin": margin,
@@ -448,6 +483,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
                               "row_class": row_class, "column_class": col_class}
     result = DriverSizes(
         rows=rows, cols=cols, cell_type=cell_type, mux=mux, **scales, loads=loads,
+        control_architecture=CONTROL_ARCHITECTURE,
         source="lookup" if mode == "lookup" else "rule",
         size_class=size_class, extrapolated=extrapolated,
         key=_digest(baseline), peripheral_key=_digest(periphery), pdk_key=_digest(pdk),

@@ -1,5 +1,13 @@
 # V2.1.4 driver sizing and timing: fixed classes
 
+V2.2.0 uses clock-high access and clock-low recovery. Current clock budgets
+are twice the V2.1.10 budgets described in the historical sections below,
+except the longer 128–512-row and 512-column classes;
+peripheral transistor classes are unchanged. A control-architecture identity
+prevents injection or qualification reuse of V2.1.10 baselines. See the
+[current timing contract and screen](../../docs/design/PHASED_CONTROL_V2_2_0.md).
+
+
 V2.1.1 adds a far-PRE access-start guard: WL, write and sense enable wait for
 physical precharge release. The immutable baseline records its observer and
 common-gate loads, four settling stages and `precharge_off_tau`, derived from
@@ -117,8 +125,10 @@ metadata = sizes.to_dict()  # JSON-serializable classes, loads, hashes and the e
 
 `DriverSizes` and its nested `DriverLoads` are frozen dataclasses. Reuse allows
 changed cell values and run PVT, but rejects changed geometry, cell type, mux,
-peripheral parameters, PDK contents or physical RC context. The fingerprint
-includes the lookup file hash and the selected classes.
+peripheral parameters, PDK contents, physical RC context, a different control
+architecture, or a snapshot taken without the replica and precharge-off
+wordline guards. The fingerprint includes the lookup file hash and the
+selected classes.
 
 ## Settings
 
@@ -182,18 +192,16 @@ access limits are reported separately by the qualification scorer; the default
 replica `(1, 9)` does not claim compliance with the read limit.
 
 
-## Clock classes (V2.1.0)
+## Clock classes (V2.2.0)
 
-`timing_lookup.json` (`v2.1.10-timing-9`: the V2.1.9 classes with the 10T
-512-row class at 4300 ps, re-evidenced with the V2.1.10 write-data latch hold,
-see `docs/design/WRITE_LATCH_V2_1_10.md`; the 128- to 512-row read classes were
-re-derived under local mismatch in V2.1.9, `docs/design/WRITE_HOLD_V2_1_9.md`
-section 6, after the
-V2.1.8 sense-timed read wordline and enable orderings,
-`docs/design/ENABLE_OVERLAP_V2_1_8.md`, the V2.1.7 select gate,
-`docs/design/SELECT_GATE_V2_1_7.md`, and the V2.1.6 write slot,
-`docs/design/WRITE_SLOT_V2_1_6.md`) uses the same row and column anchors as
-driver sizing.
+`timing_lookup.json` (`v2.2.0-timing-3`) keeps the row/column anchors and
+doubles most V2.1.10 budgets for the new capture/access/recovery schedule.
+The 128-, 256-, and 512-row budgets are three times V2.1.10 to accommodate
+the decoder-settling guard.
+At 512 columns, the half-cycle budgets are 9600 ps for 6T and 10200 ps for
+muxed 6T and 10T: default periods of 24 and 25.5 ns. The initial 16 ns read
+missed its far output deadline; the larger class gives sensing more time.
+See `docs/design/PHASED_CONTROL_V2_2_0.md` for executed evidence and limits.
 Each entry contains an integer `half_period_ps` budget; choose the next anchor
 at or above each dimension, then compute:
 
@@ -203,13 +211,13 @@ T = ceil_to_50ps(2 * max(row_budget, column_budget) * (1 + margin))
 
 | Row bound | Half-cycle budget (ps) | Period with 25% margin (ns) |
 |---|---|---|
-| 32 | 1800 | 4.5 |
-| 64 | 1900 | 4.75 |
-| 128 | 2200 | 5.5 |
-| 256 | 2700 | 6.75 |
-| 512 | 3700 | 9.25 |
+| 32 | 3600 | 9 |
+| 64 | 3800 | 9.5 |
+| 128 | 6600 | 16.5 |
+| 256 | 8100 | 20.25 |
+| 512 | 11100 | 27.75 |
 
-The row budgets are the V2.1.9 values (V2.1.4 to V2.1.8:
+Historical basis before V2.2.0: the row budgets were the V2.1.9 values (V2.1.4 to V2.1.8:
 1800/1900/2100/2500/3600 ps; V2.1.0 to V2.1.3: 1600/1800/2000/2400/3600 ps).
 Rule since V2.1.9: at every class bound, SS 0.9 V / 125 C nominal, the local
 read output leads the 1.2 T deadline by at least 0.02 T plus 10 % of the

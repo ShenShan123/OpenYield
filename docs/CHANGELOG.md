@@ -6,6 +6,56 @@ before V2.1.10 were condensed in the V2.1.10 cleanup; the full text is at
 `git show c3f6f44:CHANGELOG.md` and in `sram_compiler/CIRCUIT_REVIEW.md` Parts II
 and III.
 
+## V2.2.0 — 2026-09-20 — clock-high access and clock-low recovery
+
+[Design and validation record](design/PHASED_CONTROL_V2_2_0.md). Requests remain
+captured on the rising edge. Access moves to clock-high; clock-low releases the
+array and precharges after every operation, including consecutive writes.
+
+- Removed the secondary address, write-request and column-data hold latches,
+  write-slot logic and cross-cycle busy/slot handover. Registered write data
+  drives a buffer per column. A 16x16 control/data path uses 1076 MOS versus
+  1384 in V2.1.10; the physical safety observers remain.
+- Read completion isolates the sense inputs and releases WL before enabling
+  sense regeneration. Write preparation observes the far physical WEN and its
+  settling before opening WL; drivers remain enabled until physical WL release.
+  PRE and ISO release observe both root and far write/sense enables. New final
+  TIME_CONTROL inputs are `iso_far`, `sen_far`, and `wen_far`; `din_hold` and
+  the `din_en` wire are removed.
+- `v2.2.0-timing-3` doubles most V2.1.10 phase budgets; the 512-column
+  class uses 24 ns for 6T and 25.5 ns for muxed 6T and 10T after the initial
+  16 ns read missed its far output deadline. The 128–512-row classes use
+  three times V2.1.10 budgets. Two loaded setup stages prevent first-read
+  decoder transients from reaching unselected wordlines. Both access and recovery must
+  finish before the next capture. Driver classes, 6T/10T cells, and the matched
+  replica column are retained; the replica times reads, not write completion.
+- Runtime access, restore, power and delay windows follow the new phases.
+  Capture-boundary, incompatible-enable and isolation checks reject invalid
+  accesses even when final data is correct. Frozen sizing identities include
+  the control architecture and physical settling scales, and reject a missing
+  replica precharge guard; without it `wordline_off` is the logical
+  `wl_en_bar`, so the precharge safety measures refuse to be emitted rather
+  than report a margin the controller does not enforce.
+- Tracked opt-in Xyce tests under `tests/spice/` cover all four read/write
+  transitions, idle cycles, changed rows/data, PVT, mismatch, and array bounds.
+  Their scorer checks physical terminal waveforms, interpolated non-overlap,
+  data/retention, sensing, restoration, and output completeness. See the design
+  record for the executed results and finite screening limits; historical
+  V2.1.x qualification tools use the old phase contract. The checker also
+  reports the worst margin of each ordering check, including the enables-off
+  to precharge gap that the superseded root-only observer reduced to 20.55 ps
+  at 8x256 SS while every exclusion still passed; its worst value over the
+  screen is 83.1 ps at `2x2_6t_FF_read_write`.
+- Evidence: 242 of 242 cases, 1,767,615 checks, no failure and no missing or
+  superseded case, in [`docs/data/PHASED_CONTROL_V2_2_0.json`](data/PHASED_CONTROL_V2_2_0.json).
+  The screen ran with a pinned controller overlay and explicit clocks, so the
+  tracked sources are separately shown to regenerate all 242 simulated decks
+  byte for byte, with every recorded numerical-retry change replayed. Failed,
+  partial, superseded and numerical attempts are preserved and excluded. This
+  is functional screening: extracted metal, half-selected writes, yield
+  estimation, the precharged default startup bias, and an independent review
+  of the assembled record remain open.
+
 ## V2.1.10 — 2026-09-19 — write data held by the registered write; drivers stay on between writes
 
 V2.1.10 reviews V2.1.9 ([record](design/WRITE_LATCH_V2_1_10.md)). The write

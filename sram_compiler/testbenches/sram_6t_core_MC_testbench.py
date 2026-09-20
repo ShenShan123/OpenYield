@@ -55,9 +55,9 @@ def cycle_plan(operation, select_every=1, cycles=None):
 def access_cycles(operation, select_every=1, cycles=None):
     """(cycle, kind, data, next_cycle, next_kind, next_data) per checked access.
 
-    An access is checked when its deadline (1.2 T after its capture edge) lies
-    inside the transient.  The next_* fields describe the following selected
-    cycle when its entry phase (0.7 T after its edge) is simulated, else None.
+    Check accesses with their complete recovery phase inside the transient
+    (1 ns + (cycle + 1.2) T). Data is due at cycle + 0.7 T. The next_*
+    fields identify a following selected access inside the simulated span.
     """
     span, plan = cycle_plan(operation, select_every, cycles)
     entries = []
@@ -108,8 +108,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                             convergence problem above (delays within 0.5 %, ~1.8x the
                             time steps); it is applied automatically as a one-time
                             retry when Xyce reports "Time step too small".
-                   next_row: row address captured at the clock edge that ends the
-                            access ('read' / 'write' only).  None = the address stays
+                   next_row: row address captured at the next rising clock edge,
+                            after low-phase recovery ('read' / 'write' only).
+                            None = the address stays
                             at target_row; another row exercises the address-change
                             hold path (old wordline off before the new decoder output
                             rises).  The wordline and the cell (next_row, target_col)
@@ -275,8 +276,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             #预充延迟（TPRCH）的测量，由预充断言到V（BL）的时间定义=0.9*VDD
             simulator.measure(
                 'TRAN', 'TPRCH',
-                f'TRIG V(PRE)={self.half_vdd} FALL=1 ' +
-                f'TARG V({local_bl})={float(self.vdd) * 0.9} RISE=1')  # modified for Xyce
+                f'TRIG V(PRE)={self.half_vdd} FALL=1 TD={1e-9 + .65 * float(self.t_period):.12g} ' +
+                f'TARG V({local_bl})={float(self.vdd) * 0.9} RISE=1 TD={1e-9 + .65 * float(self.t_period):.12g}')  # modified for Xyce
 
             # Decoder delay (TDECODER): address capture -> decoder output
             self._add_decoder_measure(simulator)
@@ -291,10 +292,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # Add measurements for read delay (TREAD),读延迟
             # which is defined as the time from the WL rise to BL swing to VDD/2
             # Mux/input RC can cross the differential threshold during initial
-            # condition release. Measure only the first clock-low access;
+            # condition release. Measure only the first clock-high access;
             # otherwise TBL can be a few ps and TSWING several ns negative.
-            access_start = 1e-9 + .65 * float(self.t_period)
-            access_stop = 1e-9 + 1.2 * float(self.t_period)
+            access_start = 1e-9 + .2 * float(self.t_period)
+            access_stop = 1e-9 + .7 * float(self.t_period)
             access_window = f'TD={access_start:.12g} TO={access_stop:.12g}'
             simulator.measure(
                 'TRAN', 'TWL',
@@ -319,12 +320,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'TARG V(OUT)={self.half_vdd} FALL=1')
 
             # s_en rise time (20% -> 80%), both crossings on the same (first) rising
-            # edge, measured only from the start of the clock-low (access) phase:
+            # edge, measured only from the start of the clock-high (access) phase:
             # when the first precharge fires (~3.3 ns) all bitlines rise together and
             # couple through the sense-amp pass gates into s_en, a bump that reaches
             # 0.2-0.3 V with 32-128 sense amplifiers and would otherwise be taken as
             # the 20 % crossing (TS_EN then read ~5.3 ns).
-            t_acc0 = float(1.0 @ u_ns) + 0.5 * float(self.t_period)
+            t_acc0 = float(1.0 @ u_ns) + 0.2 * float(self.t_period)
             simulator.measure(
                 'TRAN', 'Ts_en',
                 f'TRIG V(S_EN)={float(self.vdd) * 0.2} RISE=1 TD={t_acc0} ' +
@@ -479,7 +480,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # pattern (DIN has a period of 4*t_period), starting at the first
             # access so the start-up transient is excluded; ends well before
             # the .TRAN end (1 ns + 8.7*t_period, see _analysis_stop).
-            t_from = float(1.0 @ u_ns) + 0.7 * float(self.t_period)
+            t_from = float(1.0 @ u_ns) + 0.2 * float(self.t_period)
             simulator.measure(
                 'TRAN', 'PAVG',
                 f'AVG {{-V(VDD)*I(VVDD)}} FROM={t_from} ' +
@@ -509,9 +510,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         return ceil((1e-9 + cycles * float(self.t_period)) / step - 1e-6) * step
 
     def _add_access_checks(self, simulator, operation, q, qb):
-        """Check data at the frozen deadline, retention, and the bitline state
-        before the next access: restored to VDD before a read, at the write
-        rails before a write (V2.1.6 write slot).
+        """Check data by clock fall, retention until the next capture, and recovery.
 
         Xyce TRIG/TARG delays can report a crossing after the clock deadline;
         a TO option does not bound that target in Xyce 7.4. Check the actual
@@ -524,6 +523,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                else self.control_tap('PRE', self.target_col))
         enable = (f'{self.wdrv_inst_prefix}_{self.target_col}:EN_end' if self.w_rc
                   else self.control_tap('w_en', self.target_col))
+        sense = (f'{self.sa_inst_prefix}_{self.target_col // self.mux_in}:EN_end' if self.w_rc
+                 else self.control_tap('s_en', (self.target_col // self.mux_in) * self.mux_in))
+        isolation = (f'{self.sa_inst_prefix}_{self.target_col // self.mux_in}:ISO_end' if self.w_rc
+                     else self.control_tap('sa_iso', (self.target_col // self.mux_in) * self.mux_in))
         bitlines = [f'{self.arr_inst_prefix}:BL{self.target_col}_far',
                     f'{self.arr_inst_prefix}:BLB{self.target_col}_far',
                     f'{self.replica_inst_prefix}:RBL_far']
@@ -532,18 +535,18 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             if kind == 'read':
                 error = f'MAX({error},ABS(V(OUT)-{expected * vdd:.12g}))'
             simulator.measure('TRAN', f'VACCESS_ERROR_{cycle}',
-                              f'FIND {{{error}}} AT={1e-9 + (cycle + 1.2) * period:.12g}')
+                              f'FIND {{{error}}} AT={1e-9 + (cycle + .7) * period:.12g}')
             simulator.measure('TRAN', f'VHOLD_ERROR_{cycle}',
-                              f'MAX {{{error}}} FROM={1e-9 + (cycle + 1.2) * period:.12g} '
-                              f'TO={1e-9 + (cycle + 1.7) * period:.12g}')
+                              f'MAX {{{error}}} FROM={1e-9 + (cycle + .7) * period:.12g} '
+                              f'TO={1e-9 + (cycle + 1.2) * period:.12g}')
             # PRE is active low. A correct final datum does not excuse opening
             # the cell or write driver before local precharge has released.
             pre_error = f'ABS(V({pre})-{vdd:.12g})'
             simulator.measure('TRAN', f'VPRE_ACCESS_ERROR_{cycle}',
                               f'MAX {{MAX(IF(V({wl})>{.1*vdd:.12g},{pre_error},0),'
                               f'IF(V({enable})>{.5*vdd:.12g},{pre_error},0))}} '
-                              f'FROM={1e-9 + (cycle + .65) * period:.12g} '
-                              f'TO={1e-9 + (cycle + 1.7) * period:.12g}')
+                              f'FROM={1e-9 + (cycle + .2) * period:.12g} '
+                              f'TO={1e-9 + (cycle + 1.2) * period:.12g}')
             if kind == 'write':
                 # V2.1.9: the drivers stay fully on while the wordline is on.  The
                 # target cell's wordline and the far end of its row are below
@@ -551,28 +554,38 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 wl_level = f'MAX(ABS(V({wl})),ABS(V({self.arr_inst_prefix}:WL{self.target_row}_far)))'
                 simulator.measure('TRAN', f'VWEN_ACCESS_ERROR_{cycle}',
                                   f'MAX {{IF(V({enable})<{.9*vdd:.12g},{wl_level},0)}} '
-                                  f'FROM={1e-9 + (cycle + .65) * period:.12g} '
-                                  f'TO={1e-9 + (cycle + 1.7) * period:.12g}')
+                                  f'FROM={1e-9 + (cycle + .2) * period:.12g} '
+                                  f'TO={1e-9 + (cycle + 1.2) * period:.12g}')
+            roles = f'MAX(IF(V({sense})>{.1*vdd:.12g},ABS(V({wl})),0),IF(V({enable})>{.1*vdd:.12g},ABS(V({sense})),0))'
+            iso_error = f'IF(MAX(V({sense}),V({enable}))>{.1*vdd:.12g},ABS(V({isolation})-{vdd:.12g}),0)'
+            for phase, expression in (('ROLE', roles), ('ISO', iso_error)):
+                simulator.measure('TRAN', f'V{phase}_ERROR_{cycle}',
+                                  f'MAX {{{expression}}} FROM={1e-9 + (cycle + .2) * period:.12g} '
+                                  f'TO={1e-9 + (cycle + 1.2) * period:.12g}')
+            boundary = f'MAX(ABS(V({wl})),MAX(ABS(V({enable})),MAX(ABS(V({sense})),ABS(V({isolation})))))'
+            for node in ('XTIME_CONTROL:wordline_busy', 'XTIME_CONTROL:iso_ready',
+                         'XTIME_CONTROL:access_request', 'XTIME_CONTROL:access_settled',
+                         'XTIME_CONTROL:read_done', 'rbl_delay'):
+                boundary = f'MAX({boundary},ABS(V({node})))'
+            boundary = f'MAX({boundary},ABS(V(XTIME_CONTROL:enables_off)-{vdd:.12g}))'
+            simulator.measure('TRAN', f'VBOUNDARY_ERROR_{cycle}',
+                              f'FIND {{{boundary}}} AT={1e-9 + (cycle + .2) * period:.12g}')
             if following is None:
                 continue
-            # 0.6 T into the next selected cycle: every bitline restored to VDD
-            # before a read; the target column and the replica (which writes a
-            # 0) at their write rails before a write.
-            if next_kind == 'read':
-                targets = [vdd, vdd, vdd]
-            else:
-                targets = [next_data * vdd, (1 - next_data) * vdd, 0.]
+            # End of this cycle's recovery: every bitline is precharged,
+            # including after a write. Check before the next capture edge.
+            targets = [vdd, vdd, vdd]
             restore_error = f'ABS(V({bitlines[0]})-{targets[0]:.12g})'
             for node, target in zip(bitlines[1:], targets[1:]):
                 restore_error = f'MAX({restore_error},ABS(V({node})-{target:.12g}))'
             simulator.measure('TRAN', f'VRESTORE_ERROR_{cycle}',
-                              f'FIND {{{restore_error}}} AT={1e-9 + (following + .6) * period:.12g}')
+                              f'FIND {{{restore_error}}} AT={1e-9 + (cycle + 1.1) * period:.12g}')
 
     @staticmethod
     def access_validity(measurements, operation, vdd, select_every=1, cycles=None):
         entries = access_cycles(operation, select_every, cycles)
         names = [f'V{phase}_ERROR_{cycle}' for cycle, *_ in entries
-                 for phase in ('ACCESS', 'HOLD', 'PRE_ACCESS')]
+                 for phase in ('ACCESS', 'HOLD', 'PRE_ACCESS', 'BOUNDARY', 'ROLE', 'ISO')]
         # V2.1.9: a write's drivers stay on while its wordline is on.
         names += [f'VWEN_ACCESS_ERROR_{cycle}' for cycle, kind, *_ in entries if kind == 'write']
         limits = [.1 * vdd] * len(names)
@@ -584,43 +597,33 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         return np.isfinite(values).all(axis=1) & (np.abs(values) <= limits).all(axis=1)
 
     def _add_precharge_safety_measures(self, simulator, operation):
-        """Check release at the next entry event, including every sequence access.
+        """Physical WL must be off throughout each clock-low precharge.
 
-        Before a read the entry event is the precharge (PRE falling, V2.0.2);
-        before a write it is the write slot opening (`XTIME_CONTROL:write_slot` rising,
-        V2.1.6), which precedes the physical write-driver enables.  Both wait
-        for the replica wordline observer, whose mid-rail switching can let a
-        slow distributed wordline tail outlast the logic even when data and
-        delay measures pass.  A cycle-local window prevents a missing entry
-        edge from borrowing the following cycle's event.
+        Check the observed entry edge and any subsequent capacitive rebound,
+        with every measurement bounded by this cycle's recovery interval.
 
-        The window opens shortly before the clock edge that starts the entry
-        phase; neither PRE nor the slot can assert before that edge, so the
-        lead-in only guards against edge placement.
+        Without the replica guard `wordline_off` falls back to the logical
+        `wl_en_bar`, so PRE no longer waits for the physical wordline and this
+        measurement would compare the precharge against a signal that cannot
+        report the distributed tail.  Refuse to emit it rather than report a
+        safety margin the controller does not enforce.
         """
         period = float(self.t_period)
         vdd = float(self.vdd)
         analysis_stop = float(self._analysis_stop(operation))
         sizes = self.driver_sizes
-        # The write_slot node exists with both guards; the settling stages of
-        # the replica guard are a sizing option and may be zero (V2.1.7).
         if not (sizes.precharge_off_guard and sizes.replica_precharge_guard):
-            raise ValueError('The write-slot safety measures need the replica and precharge-off guards')
+            raise ValueError('The precharge safety measures need the replica and precharge-off guards')
         probes = {'FAR': f'{self.arr_inst_prefix}:WL{self.target_row}_far',
                   'LOCAL': self.cell_probe('WL')}
         peak = f'MAX(ABS(V({probes["FAR"]})),ABS(V({probes["LOCAL"]})))'
         for cycle, kind, data, following, next_kind, next_data in access_cycles(operation, self.select_every):
             if following is None:
                 continue
-            start = 1e-9 + (cycle + 1.16) * period
+            start = 1e-9 + (cycle + .7) * period
             # Never claim a rebound interval beyond the simulated transient.
-            stop = min(1e-9 + (following + .7) * period, analysis_stop)
-            if next_kind == 'read':
-                name, event, active = 'PRE', f'V(PRE)={.9 * vdd:.12g} FALL=1', f'V(PRE)<{.9 * vdd:.12g}'
-            else:
-                name = 'WEN'
-                event = f'V(XTIME_CONTROL:write_slot)={.5 * vdd:.12g} RISE=1'
-                active = f'V(XTIME_CONTROL:write_slot)>{.5 * vdd:.12g}'
+            stop = min(1e-9 + (cycle + 1.2) * period, analysis_stop)
+            name, event, active = 'PRE', f'V(PRE)={.9 * vdd:.12g} FALL=1', f'V(PRE)<{.9 * vdd:.12g}'
             for location, node in probes.items():
                 simulator.measure('TRAN', f'VWL_{name}_{location}_{cycle}',
                                   f'FIND V({node}) WHEN {event} TD={start:.12g} TO={stop:.12g}')
@@ -636,7 +639,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     @staticmethod
     def validate_distributed_precharge(measurements, operation, vdd, select_every=1, cycles=None):
         """Refuse unsafe/incomplete samples while preserving their raw measures."""
-        names = [f'VWL_{"PRE" if next_kind == "read" else "WEN"}_{location}_{cycle}'
+        names = [f'VWL_PRE_{location}_{cycle}'
                  for cycle, kind, data, following, next_kind, next_data
                  in access_cycles(operation, select_every, cycles)
                  if following is not None
@@ -645,22 +648,22 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         valid = np.isfinite(values).all(axis=1) & (np.abs(values) <= .1 * vdd).all(axis=1)
         if measurements.empty or not valid.all():
             failed = list(measurements.index[~valid])
-            raise RuntimeError('SRAM precharge or write slot overlaps an active wordline or its '
+            raise RuntimeError('SRAM precharge overlaps an active wordline or its '
                                f'entry measurement is missing in samples {failed}. '
-                               'Inspect VWL_PRE_* / VWL_WEN_* and the waveforms; this wire/timing '
+                               'Inspect VWL_PRE_* and the waveforms; this wire/timing '
                                'configuration cannot supply valid SRAM metrics.')
 
     def _add_interconnect_print(self, simulator):
         """Export physical wire endpoints and sense inputs for waveform scoring."""
         probes = ['RWL', 'RWL_far', self.sense_input_probe('IN'), self.sense_input_probe('INB')]
-        probes += ['XTIME_CONTROL:access_clk_bar', 'XTIME_CONTROL:pre_off_ready', 'XTIME_CONTROL:write_slot', 'XTIME_CONTROL:write_window',
-                   'XTIME_CONTROL:pre_gate', 'XTIME_CONTROL:cs_pre',
-                   # V2.1.8: the selected slot and the enable observers.
-                   'XTIME_CONTROL:selected_slot', 'XTIME_CONTROL:s_en_bar', 'XTIME_CONTROL:enables_off',
-                   # V2.1.9: the busy wordline; V2.1.10: the write-data latch hold.
-                   'XTIME_CONTROL:wordline_busy']
-        if 'din_en' in self._control_taps and self.driver_sizes.replica_precharge_guard:
-            probes.append('din_hold')
+        probes += ['XTIME_CONTROL:access_request', 'XTIME_CONTROL:pre_off_ready',
+                   'XTIME_CONTROL:wordline_request', 'XTIME_CONTROL:access_settled',
+                   'XTIME_CONTROL:write_window',
+                   'XTIME_CONTROL:s_en_bar', 'XTIME_CONTROL:enables_off',
+                   'XTIME_CONTROL:wordline_busy', 'XTIME_CONTROL:wordline_idle',
+                   'XTIME_CONTROL:read_done', 'XTIME_CONTROL:iso_ready',
+                   'XTIME_CONTROL:local_enables_off', 'XTIME_CONTROL:far_enables_off',
+                   'XTIME_CONTROL:far_enables_ready']
         probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
         for name, taps in self._control_taps.items():
             probes += [name, taps[0], taps[-1], self.control_tap(name)]
@@ -670,7 +673,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             probes += ['CLK_BUF', 'XTIME_CONTROL:Xdff_buf_data:CLK_line_far']
             for col in sorted({0, self.target_col, self.num_cols - 1}):
                 probes += [f'XTIME_CONTROL:Xdff_buf_data:CLK_line_tap{col}',
-                           f'DIN{col}', f'DIN_dff{col}', f'DIN_hold{col}', f'DIN_holdb{col}']
+                           f'DIN{col}', f'DIN_dff{col}', f'DIN_buf{col}']
         for col in [0, self.target_col, self.num_cols - 1, None]:
             for pin in ('BL', 'BLB'):
                 probes += [self.periphery_tap(pin, col, role)
@@ -715,36 +718,24 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # the EREAD / EWRITE window.
         init_cond['XTIME_CONTROL:Xdff_buf:qint'] = self.vdd @ u_V
         if self.operation in ('write', 'read&write'):
-            # DIN_dff is already parked at zero by the write setup. Initialize
-            # both hold-latch nodes and the register's complementary slave node
-            # consistently, rather than asking DC Newton to choose the states
-            # of hundreds of coupled feedback loops. This recovers the archived
-            # 16x256 TT local-mismatch sample that failed the operating point.
+            # Initialize the data buffer and the register feedback nodes
+            # consistently instead of letting DC Newton choose their state.
             for col in range(self.num_cols):
-                init_cond[f'DIN_hold{col}'] = 0 @ u_V
-                init_cond[f'DIN_holdb{col}'] = self.vdd @ u_V
+                init_cond[f'DIN_buf{col}'] = 0 @ u_V
                 # At clk=0 the master is transparent with DIN=0; the slave
                 # holds zero. Initialize every feedback node consistently.
                 prefix = f'XTIME_CONTROL:Xdff_buf_data:Xdff_{col}'
                 for node in ('D_b', 'z1', 'z3', 'z4', 'z5', 'QB'):
                     init_cond[f'{prefix}:{node}'] = self.vdd @ u_V
                 init_cond[f'{prefix}:z2'] = 0 @ u_V
-                for node, value in (('DB', self.vdd), ('INT1', self.vdd), ('INT2', 0)):
-                    init_cond[f'XDIN_HOLD_{col}:{node}'] = value @ u_V
         return init_cond
 
     def _print_min_period(self, stats_csv_path, operation):
-        """Estimate the minimum clock period from the measured delays and print it.
+        """Diagnostic 50%-duty estimate from access/decode and recovery.
 
-        Both clock phases must fit their work, so with a 50 % duty cycle
-
-            T_min = 2 * max(TCLK_WLEN + TREAD_TOTAL | TWRITE_TOTAL,   # clock-low: access
-                            TRESTORE, TCLK_DEC)                       # clock-high: precharge / decode
-
-        plus a 10 % margin.  The previous estimate, 2 * (access delay + 0.1 ns),
-        ignored the clock-to-wl_en delay and the whole precharge phase and
-        predicted 0.4-0.9 ns for arrays that need ~1.5 ns (see CHANGELOG V2.0.2).
-        For mc_runs > 1 the mean + one standard deviation of every term is used.
+        This measured estimate is not the lookup qualification rule. It uses
+        mean + one standard deviation and 10% margin, and excludes access tail
+        risk not represented by these scalar measurements.
         """
         import pandas as pd
         stats_df = pd.read_csv(stats_csv_path, index_col=0)
@@ -760,34 +751,27 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
         access = worst('TREAD_TOTAL' if operation == 'read' else 'TWRITE_TOTAL')
         t_wlen = worst('TCLK_WLEN')
-        # Clock-high work: the bitline restore before a read, the write slot
-        # (wordline-off guard, write enable and driver) before a write.
-        t_restore = worst('TRESTORE' if operation == 'read' else 'TWSLOT')
+        # Every operation restores in clock-low, including writes.
+        t_restore = worst('TRESTORE')
         t_dec = worst('TCLK_DEC')
         if access is None or t_wlen is None or t_restore is None:
             print("[WARNING] minimum-period estimate skipped: TCLK_WLEN / TRESTORE / "
                   "access delay missing in the statistics")
             return None
-        half_low = t_wlen + access
-        half_high = max(t_restore, t_dec or 0.0)
+        half_high = max(t_wlen + access, t_dec or 0.0)
+        half_low = t_restore
         t_min = 2.0 * max(half_low, half_high) * 1.1
-        print(f"[INFO] clock-low phase  (clk->wl_en {t_wlen:.3e} + access {access:.3e}) : {half_low:.3e} s")
-        print(f"[INFO] clock-high phase ({'bitline restore' if operation == 'read' else 'write slot'} {t_restore:.3e}, decode "
-              f"{(t_dec if t_dec is not None else float('nan')):.3e}) : {half_high:.3e} s")
+        print(f"[INFO] clock-high access/decode : {half_high:.3e} s")
+        print(f"[INFO] clock-low recovery      : {half_low:.3e} s")
         print(f"[INFO] CLK(min) estimate in this size and PVT (50 % duty, +10 %) : {t_min:.3e} s")
         return t_min
 
     def _add_period_measures(self, simulator, operation, bitline):
-        """Measures for the minimum clock period (see _print_min_period).
+        """TCLK_WLEN: rising capture edge to wordline enable.
 
-        TCLK_WLEN : falling clock edge -> wl_en rise (control path before the access).
-        TCLK_DEC  : first capture edge -> decoder output of the target row (the
-                    address path that must settle in the clock-high phase).
-        TRESTORE  : read decks: capture edge of the next selected cycle ->
-                    `bitline` back at 0.9 VDD (wordline-off guard + precharge).
-        TWSLOT    : write decks: the same edge -> `bitline` driven to 0.1 VDD by
-                    the next write's slot (wordline-off guard + write enable +
-                    driver), the clock-high work of a write cycle (V2.1.6).
+        TCLK_DEC: capture to decode. TRESTORE: falling edge to restored bitline,
+        for both reads and writes. TWSLOT remains a write diagnostic: next
+        rising edge to low write rail; it is part of clock-high access now.
         """
         node = f'{self.arr_inst_prefix}:{bitline}_far'
         vdd = float(self.vdd)
@@ -797,21 +781,23 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         t_edge = 1e-9 + (following + .2) * float(self.t_period)   # edge starting the next selected cycle
         simulator.measure(
             'TRAN', 'TCLK_WLEN',
-            f'TRIG V(clk)={self.half_vdd} FALL=1 ' +
+            f'TRIG V(clk)={self.half_vdd} RISE=1 ' +
             f'TARG V(wl_en)={self.half_vdd} RISE=1')
         if self.target_row != 0:
             simulator.measure(
                 'TRAN', 'TCLK_DEC',
                 f'TRIG V(clk)={self.half_vdd} RISE=1 ' +
                 f'TARG V(DEC_WL{self.target_row})={self.half_vdd} RISE=1')
-        # TD= is needed on both events: the start-up precharge also crosses 0.9 VDD.
-        td = t_edge - 1e-10
-        if operation == 'read':
-            simulator.measure(
-                'TRAN', 'TRESTORE',
-                f'TRIG V(clk)={self.half_vdd} RISE=1 TD={td:.4e} ' +
-                f'TARG V({node})={0.9 * vdd:.3f} RISE=1 TD={td:.4e}')
-        else:
+        # Recovery always precharges, after reads and writes alike.
+        # BL is low after reading 0; BLB is low after the first write of 1.
+        restore_node = node if operation == 'read' else f'{self.arr_inst_prefix}:BLB{self.target_col}_far'
+        td = 1e-9 + .65 * float(self.t_period)
+        simulator.measure(
+            'TRAN', 'TRESTORE',
+            f'TRIG V(clk)={self.half_vdd} FALL=1 TD={td:.4e} ' +
+            f'TARG V({restore_node})={0.9 * vdd:.3f} RISE=1 TD={td:.4e}')
+        if operation == 'write':
+            td = t_edge - 1e-10
             simulator.measure(
                 'TRAN', 'TWSLOT',
                 f'TRIG V(clk)={self.half_vdd} RISE=1 TD={td:.4e} ' +
@@ -833,8 +819,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def _add_static_power_measures(self, simulator):
         """PSTC over a quiescent window and PDYN = PAVG - PSTC.
 
-        The window 1 ns + [1.6, 1.65]*t_period is at the end of the first
-        post-access restore, before the next access at 1 ns + 1.7*T. Startup
+        The window 1 ns + [1.1, 1.15]*t_period is at the end of clock-low
+        recovery, before the next capture at 1 ns + 1.2*T. Startup
         precharge is outside this window even for the short lookup clocks.
         """
         t_period = float(self.t_period)
@@ -843,8 +829,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # inside the same full cycle as PAVG and excludes startup charging.
         simulator.measure(
             'TRAN', 'PSTC',
-            f'AVG {{-V(VDD)*I(VVDD)}} FROM={t0 + 1.6 * t_period} ' +
-            f'TO={t0 + 1.65 * t_period}'
+            f'AVG {{-V(VDD)*I(VVDD)}} FROM={t0 + 1.1 * t_period} ' +
+            f'TO={t0 + 1.15 * t_period}'
         )
         simulator.measure(
             'TRAN', 'PDYN',
@@ -854,9 +840,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def _add_power_measures(self, simulator, energy_name):
         """Energy of one full clock period, PAVG, PSTC and PDYN.
 
-        The window starts at the first access (the clock falls at 1 ns + 0.7*T)
-        and ends one period later, so it contains exactly one steady-state
-        cycle: wordline access, sensing / writing, the self-timed precharge that
+        The window starts at first capture (clock rise begins at 1 ns + 0.2*T)
+        and ends one period later, so it contains one selected capture-to-capture
+        cycle: wordline access, sensing / writing, the low-phase precharge that
         restores the bitlines, and the idle time up to the next access.  The
         previous 2 ns .. 2 ns + T window instead contained the start-up
         precharge that charges every bitline from its 0 V initial condition
@@ -864,7 +850,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         access off 1 ns before the wordline falls.
         """
         t_period = float(self.t_period)
-        t_from = float(1.0 @ u_ns) + 0.7 * t_period
+        t_from = float(1.0 @ u_ns) + 0.2 * t_period
         simulator.measure(
             'TRAN', energy_name,
             f'INTEG {{-V(VDD)*I(VVDD)}} FROM={t_from} TO={t_from + t_period}'

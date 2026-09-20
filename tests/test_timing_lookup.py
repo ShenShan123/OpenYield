@@ -30,14 +30,14 @@ class TimingLookupTests(unittest.TestCase):
 
     def test_boundaries_round_up_and_extrapolate_without_claiming_evidence(self):
         cases = [(1, 1, 4.5), (32, 4, 4.5), (33, 4, 4.75), (64, 16, 4.75),
-                 (65, 16, 5.5), (129, 4, 6.75), (257, 4, 9.25),
-                 (16, 17, 4.5), (48, 20, 4.75), (16, 512, 8),
-                 (513, 4, 12.7), (4, 513, 9.15)]
+                 (65, 16, 8.25), (129, 4, 10.125), (257, 4, 13.875),
+                 (16, 17, 4.5), (48, 20, 4.75), (16, 512, 12),
+                 (513, 4, 19.025), (4, 513, 20.575)]
         for rows, cols, ns in cases:
             with self.subTest(rows=rows, cols=cols):
                 cfg = load_config(rows, cols, 'TT')
                 timing = resolve_timing(cfg, resolve_driver_sizes(cfg))
-                self.assertAlmostEqual(timing.t_period / 1e-9, ns)
+                self.assertAlmostEqual(timing.t_period / 1e-9, 2 * ns)
                 self.assertEqual(timing.extrapolated, max(rows, cols) > 512)
                 self.assertFalse(timing.qualified)
                 self.assertEqual(timing.source, 'lookup')
@@ -58,7 +58,7 @@ class TimingLookupTests(unittest.TestCase):
                 sizes = resolve_driver_sizes(cfg, cell_type=cell, mux=mux,
                                              physical_context=physical_context(rc))
                 timing = resolve_timing(cfg, sizes)
-                self.assertAlmostEqual(timing.t_period / 1e-9, ns)
+                self.assertAlmostEqual(timing.t_period / 1e-9, 2 * ns)
                 self.assertEqual(timing.budget, budget)
 
     def test_6t_budgets_keep_read_output_margin_at_every_class_bound_under_mismatch(self):
@@ -72,17 +72,17 @@ class TimingLookupTests(unittest.TestCase):
         and 512 rows raised on both ladders), and a mux never gets a shorter clock than the same array
         without one."""
         cases = [(8, 4, 4.5, 4.75), (16, 16, 4.5, 4.75), (32, 16, 4.5, 4.75), (33, 16, 4.75, 5),
-                 (64, 16, 4.75, 5), (128, 8, 5.5, 5.75), (256, 4, 6.75, 7.25), (512, 4, 9.25, 10),
-                 (16, 32, 4.5, 4.75), (8, 64, 5, 5), (8, 128, 6, 6), (8, 512, 8, 8), (513, 4, 12.7, 13.8)]
+                 (64, 16, 4.75, 5), (128, 8, 8.25, 8.625), (256, 4, 10.125, 10.875), (512, 4, 13.875, 15),
+                 (16, 32, 4.5, 4.75), (8, 64, 5, 5), (8, 128, 6, 6), (8, 512, 12, 12.75), (513, 4, 19.025, 20.7)]
         for rows, cols, plain_ns, mux_ns in cases:
             with self.subTest(rows=rows, cols=cols):
                 cfg = load_config(rows, cols, 'SS')
                 plain = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=False))
                 muxed = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=True))
-                self.assertAlmostEqual(plain.t_period / 1e-9, plain_ns)
-                self.assertAlmostEqual(muxed.t_period / 1e-9, mux_ns)
+                self.assertAlmostEqual(plain.t_period / 1e-9, 2 * plain_ns)
+                self.assertAlmostEqual(muxed.t_period / 1e-9, 2 * mux_ns)
                 self.assertEqual((plain.budget, muxed.budget), ('shared', 'SRAM_6T_CELL/mux'))
-                self.assertEqual(muxed.table_version, 'v2.1.10-timing-9')
+                self.assertEqual(muxed.table_version, 'v2.2.0-timing-3')
                 self.assertEqual(muxed.extrapolated, rows > 512)
                 # V2.1.5: the variant floor makes this hold beyond the table too (the
                 # V2.1.4 6T-mux ladder ended 2700 -> 3600 ps against the shared 2500 ->
@@ -101,25 +101,25 @@ class TimingLookupTests(unittest.TestCase):
         rule of the 6T ladders (0.02 T plus 10 % of the nominal access): 10.5 ns at 512 rows, and
         V2.1.10 10.75 ns, where the longer clock's access keeps the rule that 10.5 ns missed by 7 ps."""
         cases = [(8, 4, 5), (16, 16, 5), (32, 16, 5), (33, 16, 5.5), (16, 32, 5),
-                 (64, 16, 5.5), (128, 8, 6), (256, 4, 8), (512, 4, 10.75),
-                 (8, 64, 5.5), (8, 128, 6.5), (8, 512, 8.5), (513, 4, 14.45)]
+                 (64, 16, 5.5), (128, 8, 9), (256, 4, 12), (512, 4, 16.125),
+                 (8, 64, 5.5), (8, 128, 6.5), (8, 512, 12.75), (513, 4, 21.675)]
         for rows, cols, ns in cases:
             for mux in (True, False):
                 with self.subTest(rows=rows, cols=cols, mux=mux):
                     cfg = load_config(rows, cols, 'SS')
                     sizes = resolve_driver_sizes(cfg, cell_type='SRAM_10T_CELL', mux=mux)
                     timing = resolve_timing(cfg, sizes)
-                    self.assertAlmostEqual(timing.t_period / 1e-9, ns)
+                    self.assertAlmostEqual(timing.t_period / 1e-9, 2 * ns)
                     self.assertEqual(timing.budget, 'SRAM_10T_CELL')
                     self.assertEqual(timing.extrapolated, rows > 512)
-                    self.assertEqual(timing.table_version, 'v2.1.10-timing-9')
+                    self.assertEqual(timing.table_version, 'v2.2.0-timing-3')
                     shared = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=mux))
                     self.assertEqual(shared.budget, 'SRAM_6T_CELL/mux' if mux else 'shared')
                     # Inside the table a 10T array always gets more time than the same 6T
                     # array. Beyond it each ladder extrapolates its own final ratio, and the
                     # 10T ratio is now the flatter one, so the variant floor (never below the
                     # shared budget) is what keeps 10T from clocking faster than 6T there.
-                    if timing.extrapolated:
+                    if timing.extrapolated or (cols == 512 and mux):
                         self.assertGreaterEqual(timing.t_period, shared.t_period)
                     else:
                         self.assertGreater(timing.t_period, shared.t_period)
@@ -168,15 +168,15 @@ class TimingLookupTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'lookup.json'
             table = load_timing_lookup()
-            table['row_classes'][0]['half_period_ps'] = 1700
+            table['row_classes'][0]['half_period_ps'] = 3400
             path.write_text(json.dumps(table))
             cfg.global_config.timing = {'mode': 'lookup', 'lookup': str(path), 'margin': .5}
             custom = resolve_timing(cfg, sizes)
-            self.assertAlmostEqual(custom.t_period / 1e-9, 5.1)
+            self.assertAlmostEqual(custom.t_period / 1e-9, 10.2)
             previous = os.getcwd()
             try:
                 os.chdir(temp)
-                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.1.10')
+                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.2.0')
             finally:
                 os.chdir(previous)
         cfg.global_config.timing = {'mode': 'fixed', 't_period': 10e-9}
@@ -231,12 +231,12 @@ class TimingLookupTests(unittest.TestCase):
             path.write_text(json.dumps(dict(base, variants=[dict(variant, mux=True)])))
             for mux, ns, budget in ((True, 5., 'SRAM_10T_CELL/mux'), (False, 4.5, 'shared')):
                 timing = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_10T_CELL', mux=mux))
-                self.assertAlmostEqual(timing.t_period / 1e-9, ns)
+                self.assertAlmostEqual(timing.t_period / 1e-9, 2 * ns)
                 self.assertEqual(timing.budget, budget)
             path.write_text(json.dumps(dict(base, variants=[])))
             for cell in ('SRAM_10T_CELL', 'SRAM_6T_CELL'):
                 sizes = resolve_driver_sizes(cfg, cell_type=cell, mux=True)
-                self.assertAlmostEqual(resolve_timing(cfg, sizes).t_period / 1e-9, 4.5)
+                self.assertAlmostEqual(resolve_timing(cfg, sizes).t_period / 1e-9, 9.0)
 
     def test_numeric_and_swept_decks_share_clock_and_check_actual_rc_terminal(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -252,7 +252,7 @@ class TimingLookupTests(unittest.TestCase):
                 tb.add_meas_and_print(simulator, tb.data_init(), 'write')
                 tb.add_analysis(simulator.circuit, 'write', 1)
                 deck = str(simulator).upper()
-                self.assertAlmostEqual(float(tb.t_period) / 1e-9, 4.5)
+                self.assertAlmostEqual(float(tb.t_period) / 1e-9, 9.0)
                 self.assertEqual(tb.driver_sizes.precharge_guard_stages, 4)
                 local_wl = tb.cell_probe('WL').upper()
                 self.assertIn(f'V({local_wl})', deck)
@@ -260,7 +260,7 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertIn('VACCESS_ERROR_0', deck)
                 self.assertIn('VHOLD_ERROR_0', deck)
                 line = next(l for l in deck.splitlines() if ' VACCESS_ERROR_0 ' in l)
-                self.assertIn('AT=6.4E-09', line)
+                self.assertIn('AT=7.3E-09', line)
 
     def test_retention_covers_deadline_through_next_access_including_last_cycle(self):
         import re
@@ -320,6 +320,7 @@ class TimingLookupTests(unittest.TestCase):
                              'VHOLD_ERROR_0': [0., 0., 0., .3],
                              'VPRE_ACCESS_ERROR_0': [0., 0., 0., 0.],
                              'VRESTORE_ERROR_0': [0., 0., 0., 0.]})
+        data[['VBOUNDARY_ERROR_0', 'VROLE_ERROR_0', 'VISO_ERROR_0']] = 0.
         np.testing.assert_array_equal(Sram6TCoreMcTestbench.access_validity(data, 'read', 1.),
                                       [True, False, False, False])
         self.assertFalse(Sram6TCoreMcTestbench.access_validity(data, 'read&write', 1.).any())
@@ -330,6 +331,7 @@ class TimingLookupTests(unittest.TestCase):
         data = pd.DataFrame({'VACCESS_ERROR_0': [0., 0.], 'VHOLD_ERROR_0': [0., 0.],
                              'VRESTORE_ERROR_0': [0., 0.], 'VPRE_ACCESS_ERROR_0': [0., .4],
                              'VWEN_ACCESS_ERROR_0': [0., 0.]})
+        data[['VBOUNDARY_ERROR_0', 'VROLE_ERROR_0', 'VISO_ERROR_0']] = 0.
         np.testing.assert_array_equal(Sram6TCoreMcTestbench.access_validity(data, 'write', 1.),
                                       [True, False])
         self.assertFalse(Sram6TCoreMcTestbench.access_validity(
@@ -344,10 +346,12 @@ class TimingLookupTests(unittest.TestCase):
         data = pd.DataFrame({'VACCESS_ERROR_0': [0., 0., 0.], 'VHOLD_ERROR_0': [0., 0., 0.],
                              'VRESTORE_ERROR_0': [0., 0., 0.], 'VPRE_ACCESS_ERROR_0': [0., 0., 0.],
                              'VWEN_ACCESS_ERROR_0': [.002, .51, np.nan]})
+        data[['VBOUNDARY_ERROR_0', 'VROLE_ERROR_0', 'VISO_ERROR_0']] = 0.
         np.testing.assert_array_equal(Sram6TCoreMcTestbench.access_validity(data, 'write', 1.1),
                                       [True, False, False])
         self.assertFalse(Sram6TCoreMcTestbench.access_validity(
             data.drop(columns='VWEN_ACCESS_ERROR_0'), 'write', 1.1).any())
+        data[['VBOUNDARY_ERROR_0', 'VROLE_ERROR_0', 'VISO_ERROR_0']] = 0.
         np.testing.assert_array_equal(Sram6TCoreMcTestbench.access_validity(data, 'read', 1.1),
                                       [True, True, True])
         import re
@@ -379,7 +383,7 @@ class TimingLookupTests(unittest.TestCase):
             second, repeated = run.generate_deck(args)
             self.assertNotEqual(first.parent, second.parent)
             self.assertEqual(evidence.read_text(), 'FAILED original')
-            self.assertEqual(summary['compiler_version'], 'V2.1.10')
+            self.assertEqual(summary['compiler_version'], 'V2.2.0')
             self.assertAlmostEqual(summary['timing']['t_period'], 4e-9)
             self.assertEqual(summary['timing']['source'], 'fixed')
             args.run_xyce = True
@@ -451,7 +455,7 @@ class TimingLookupTests(unittest.TestCase):
             deck, summary = run.generate_deck(args)
             Path(str(deck) + '.mt0').write_text(
                 'VWL_PRE_FAR_0 = 0\nVWL_PRE_LOCAL_0 = 0\nVWL_PRE_PEAK_0 = 0\n'
-                'VACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\n'
+                'VACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\nVBOUNDARY_ERROR_0 = 0\nVROLE_ERROR_0 = 0\nVISO_ERROR_0 = 0\n'
                 'TREAD_TOTAL = FAILED\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
             with patch.object(run, 'parse_args', return_value=args), \
                     patch.object(run, 'generate_deck', return_value=(deck, summary)), \
@@ -473,7 +477,7 @@ class TimingLookupTests(unittest.TestCase):
             deck, summary = run.generate_deck(args)
             Path(str(deck) + '.mt0').write_text(
                 'VWL_PRE_FAR_0 = 0\nVWL_PRE_LOCAL_0 = 0\nVWL_PRE_PEAK_0 = 0\n'
-                'VACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\n'
+                'VACCESS_ERROR_0 = 0\nVHOLD_ERROR_0 = 0\nVPRE_ACCESS_ERROR_0 = 0\nVRESTORE_ERROR_0 = 0\nVBOUNDARY_ERROR_0 = 0\nVROLE_ERROR_0 = 0\nVISO_ERROR_0 = 0\n'
                 'TREAD_TOTAL = 1.5e-10\nPAVG = 1e-6\nPSTC = 1e-7\nPDYN = 9e-7\n')
             with patch.object(run, 'parse_args', return_value=args), \
                     patch.object(run, 'generate_deck', return_value=(deck, summary)), \
