@@ -1,11 +1,11 @@
 # Supplied characterisation data
 
-`PHASED_CONTROL_V2_2_0.json` is the assembled V2.2.0 functional screen: one
+`PHASED_CONTROL_V2_2_1.json` is the assembled V2.2.1 functional screen: one
 record per case with its clock, corner, seed, solver, deck, waveform, scorer
 and review hashes, the worst margin of every ordering check, and the source,
 deck-reproduction and equivalence proofs behind them. It is written by the
 ignored assembler, which refuses to write an incomplete or failing screen, and
-it is described in [the phase-control record](../design/PHASED_CONTROL_V2_2_0.md).
+it is described in [the phase-control record](../design/PHASED_CONTROL_V2_2_1.md).
 Like the CSVs below, keep it as written; corrections belong in the documents
 that cite it.
 

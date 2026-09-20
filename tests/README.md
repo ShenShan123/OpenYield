@@ -1,6 +1,6 @@
-# Compiler regression tests — V2.2.0
+# Compiler regression tests — V2.2.1
 
-V2.2.0 replaces the old hold-latch/slot topology expectations with the phased
+V2.2.1 replaces the old hold-latch/slot topology expectations with the phased
 controller contract. Regressions cover new pin routing in numeric and sweep
 decks, release guards, boundary/role/isolation rejection, recovery after writes,
 and stale control-architecture snapshots. The versioned V2.1.x descriptions

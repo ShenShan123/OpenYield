@@ -3870,7 +3870,7 @@ L 926.64 642.96
    </g>
   </g>
   <g id="text_48">
-   <text style="font-size: 12px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif" transform="translate(260.81625 15.791297)">V2.2.0: all four access transitions, with recovery before each capture</text>
+   <text style="font-size: 12px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif" transform="translate(260.81625 15.791297)">V2.2.1: all four access transitions, with recovery before each capture</text>
    <text style="font-size: 12px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif" transform="translate(282.848438 30.194578)">16×8 6T, SS, 0.9 V, 125 °C; blue shading = clock-high access</text>
   </g>
  </g>

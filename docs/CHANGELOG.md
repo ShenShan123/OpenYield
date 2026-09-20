@@ -6,9 +6,9 @@ before V2.1.10 were condensed in the V2.1.10 cleanup; the full text is at
 `git show c3f6f44:CHANGELOG.md` and in `sram_compiler/CIRCUIT_REVIEW.md` Parts II
 and III.
 
-## V2.2.0 — 2026-09-20 — clock-high access and clock-low recovery
+## V2.2.1 — 2026-09-20 — clock-high access and clock-low recovery
 
-[Design and validation record](design/PHASED_CONTROL_V2_2_0.md). Requests remain
+[Design and validation record](design/PHASED_CONTROL_V2_2_1.md). Requests remain
 captured on the rising edge. Access moves to clock-high; clock-low releases the
 array and precharges after every operation, including consecutive writes.
 
@@ -46,8 +46,14 @@ array and precharges after every operation, including consecutive writes.
   to precharge gap that the superseded root-only observer reduced to 20.55 ps
   at 8x256 SS while every exclusion still passed; its worst value over the
   screen is 83.1 ps at `2x2_6t_FF_read_write`.
+- Numbered V2.2.1. Identities the evidence hashes keep their screened V2.2.0
+  label — `v2.2.0-timing-3`, the sizing digest's `v2.2.0-high-access`, the
+  clock table's `version`, and the `version` in all 242 traces — because
+  renaming them would invalidate the proofs that cite them. Only
+  `sram_compiler/version.py` moves among the screened sources; the compiler
+  version never reaches a generated deck.
 - Evidence: 242 of 242 cases, 1,767,615 checks, no failure and no missing or
-  superseded case, in [`docs/data/PHASED_CONTROL_V2_2_0.json`](data/PHASED_CONTROL_V2_2_0.json).
+  superseded case, in [`docs/data/PHASED_CONTROL_V2_2_1.json`](data/PHASED_CONTROL_V2_2_1.json).
   The screen ran with a pinned controller overlay and explicit clocks, so the
   tracked sources are separately shown to regenerate all 242 simulated decks
   byte for byte, with every recorded numerical-retry change replayed. Failed,

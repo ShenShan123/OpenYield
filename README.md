@@ -1,4 +1,4 @@
-# OpenYield V2.2.0: SRAM yield analysis and optimization
+# OpenYield V2.2.1: SRAM yield analysis and optimization
 
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
@@ -7,7 +7,7 @@ The circuit generator models parasitic capacitance/resistance, leakage coupling,
 
 The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
 
-## Current release: V2.2.0
+## Current release: V2.2.1
 
 The compiler generates full transistor arrays with distributed RC wires,
 per-device local mismatch by default, a replica-timed read path and a
@@ -18,7 +18,7 @@ both stay frozen across cell candidates and PVT samples
 ([timing](sram_compiler/sizing/README.md#clock-classes-v220),
 [sizing](sram_compiler/sizing/README.md)).
 
-V2.2.0 separates rising-edge capture, clock-high access, and clock-low
+V2.2.1 separates rising-edge capture, clock-high access, and clock-low
 recovery. It removes the secondary address/request/data hold latches and the
 write-to-write slot handover. Writes release their wordline before releasing
 the drivers; reads isolate the sense inputs and release the wordline before
@@ -28,16 +28,16 @@ budgets are twice V2.1.10's through 64 rows and three times its 128–512-row
 budgets. The 512-column class uses 24 ns
 for 6T and 25.5 ns for 6T with a mux and 10T. Driver size classes and bitcells
 are unchanged.
-See the [phase-control record](docs/design/PHASED_CONTROL_V2_2_0.md), the
+See the [phase-control record](docs/design/PHASED_CONTROL_V2_2_1.md), the
 [reproducible SPICE checks](tests/spice/README.md), and the
 [changelog](docs/CHANGELOG.md).
 
 Validation is functional screening with illustrative wires (1 ohm / 0.1 fF per
 pitch), not extracted-metal or yield qualification; the remaining scope is
-listed under [open items](docs/README.md#open-items). The V2.2.0 screen is 242
+listed under [open items](docs/README.md#open-items). The V2.2.1 screen is 242
 of 242 cases and 1,767,615 checks, assembled with its source, deck, waveform,
 scorer and retry hashes in
-[`docs/data/PHASED_CONTROL_V2_2_0.json`](docs/data/PHASED_CONTROL_V2_2_0.json).
+[`docs/data/PHASED_CONTROL_V2_2_1.json`](docs/data/PHASED_CONTROL_V2_2_1.json).
 
 Documentation: [compiler guide](sram_compiler/README.md),
 [equivalent models](sram_compiler/equivalent_modeling/README.md),

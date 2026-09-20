@@ -1,4 +1,4 @@
-# OpenYield V2.2.0 documentation
+# OpenYield V2.2.1 documentation
 
 Design and validation records (`design/`), the supplied evidence (`data/`,
 `qualification/`, `issue_reports/`) and the release history live here; usage
@@ -37,9 +37,9 @@ The carried Phase 6 scope. The working plans that defined it
   bitline and sense outputs to 0 V at t=0, which is not the clock-low state the
   controller recovers to. One FF 10T mux case (`8x4_10t_mux_FF_read_pd`) could
   only be solved from the precharged bias, and is recorded as an exception in
-  [the phase-control record](design/PHASED_CONTROL_V2_2_0.md). Making the
+  [the phase-control record](design/PHASED_CONTROL_V2_2_1.md). Making the
   precharged bias the default changes every deck, so it needs its own full
-  re-run rather than a patch to the V2.2.0 evidence.
+  re-run rather than a patch to the V2.2.1 evidence.
 - **Yield estimators.** `yield_estimation/model_lib/{MC,MNIS,AIS,ACS,HSCS}.py`
   are not usable as shipped: machine-local paths and an import-time deletion,
   dependencies absent from `environment.yml` (`torch`, `gpytorch`, `mpmath`,
@@ -59,7 +59,7 @@ The carried Phase 6 scope. The working plans that defined it
 | [Development guide](DEVELOPMENT.md) | Tracked regression tests and the ignored local tools |
 | [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Working proposal and qualification status of the driver classes |
 | [Automatic timing proposal](TIMING_AUTOCONFIG.md) | Timing design, measured basis and the per-signal phase table |
-| [V2.2.0 control path](design/PHASED_CONTROL_V2_2_0.md) | Current phase ordering, timing contract, and validation |
+| [V2.2.1 control path](design/PHASED_CONTROL_V2_2_1.md) | Current phase ordering, timing contract, and validation |
 | [V2.1.10 control path](design/TIME_CONTROL_PATH.md) | Preserved previous architecture and naming contract |
 | [Original V2.0.4 design](design/DRIVER_SIZING_PROPOSAL_V2.0.4.md) | Preserved design snapshot |
 
@@ -67,7 +67,7 @@ The carried Phase 6 scope. The working plans that defined it
 
 | Release | Record |
 |---|---|
-| V2.2.0 | [capture/access/recovery phase control](design/PHASED_CONTROL_V2_2_0.md) |
+| V2.2.1 | [capture/access/recovery phase control](design/PHASED_CONTROL_V2_2_1.md) |
 | V2.1.10 | [write-data latch on the registered write](design/WRITE_LATCH_V2_1_10.md) |
 | V2.1.9 | [write hold and read clocks under mismatch](design/WRITE_HOLD_V2_1_9.md) |
 | V2.1.8 | [enable overlaps](design/ENABLE_OVERLAP_V2_1_8.md) |

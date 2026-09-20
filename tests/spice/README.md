@@ -1,6 +1,6 @@
 # Phased SRAM access integration checks
 
-These opt-in tests exercise real Xyce waveforms for V2.2.0. They are separate
+These opt-in tests exercise real Xyce waveforms for V2.2.1. They are separate
 from `python3 -m unittest discover -s tests`, which does not launch this screen.
 Run from the repository root with the normal OpenYield Python dependencies and
 Xyce 7.4 available.

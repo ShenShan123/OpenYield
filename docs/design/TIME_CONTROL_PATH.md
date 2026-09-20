@@ -1,7 +1,7 @@
 # TIME_CONTROL control path: signals, stages and their history
 
-This is the preserved V2.1.10 architecture. V2.2.0 replaces its cross-cycle
-hold/slot logic with [separate access and recovery phases](PHASED_CONTROL_V2_2_0.md).
+This is the preserved V2.1.10 architecture. V2.2.1 replaces its cross-cycle
+hold/slot logic with [separate access and recovery phases](PHASED_CONTROL_V2_2_1.md).
 
 
 Reference for the `TIME_CONTROL` block in

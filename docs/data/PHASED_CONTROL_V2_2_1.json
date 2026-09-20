@@ -1,5 +1,6 @@
 {
-  "release": "V2.2.0",
+  "release": "V2.2.1",
+  "screened_as": "V2.2.0",
   "status": "passed",
   "classification": "functional screening; not yield or extracted-metal qualification",
   "base_commit": "5587d16527f30f243398682500f034d35f8f700c",
@@ -1334,6 +1335,11 @@
         "path": "sram_compiler/testbenches/sram_6t_core_MC_testbench.py",
         "reason": "Restored the refusal to emit precharge safety measures without the replica and precharge-off guards",
         "tracked_sha256": "e7be8864fad951a41ee2083ad938f916f5bfda5c7826fffb8bd1ecee10803e67"
+      },
+      {
+        "path": "sram_compiler/version.py",
+        "reason": "Release renumbered to V2.2.1; the compiler version never appears in a generated deck",
+        "tracked_sha256": "327ce3f4a40ce90579b2f35fd304f2c34094f94f5dd1674bba1bc29823175c73"
       }
     ],
     "tracked_source_sha256": {
@@ -1382,7 +1388,7 @@
       "sram_compiler/testbenches/snm.py": "c48344e615a427f6355d9706924c834f5a583bf17ee638d91b52bfa73b6b5b54",
       "sram_compiler/testbenches/sram_6t_core_MC_testbench.py": "e7be8864fad951a41ee2083ad938f916f5bfda5c7826fffb8bd1ecee10803e67",
       "sram_compiler/testbenches/sram_6t_core_testbench.py": "10d5898df8b23b8ee668f9c787b5dc22591fcd6d12ed400cea54daffa9f91969",
-      "sram_compiler/version.py": "66b590f2ab83d4147e384caeca103eff3f157be1ad34a6c17e4f7125ac3947f9",
+      "sram_compiler/version.py": "327ce3f4a40ce90579b2f35fd304f2c34094f94f5dd1674bba1bc29823175c73",
       "tests/spice/__init__.py": "20e969d16e15e69113278f1f431598f855ec982f6905939ab704f3eee863e838",
       "tests/spice/execution.py": "57a925546684de045673ed2561c9fbeea190081227aa6d67eac0b635a61ebdc1",
       "tests/spice/phased_access.py": "526234c2c3242f90f1a7de252d10b5231a353071e021151d63e5601317389af7",
@@ -13042,7 +13048,7 @@
     "sram_compiler/testbenches/snm.py": "c48344e615a427f6355d9706924c834f5a583bf17ee638d91b52bfa73b6b5b54",
     "sram_compiler/testbenches/sram_6t_core_MC_testbench.py": "e7be8864fad951a41ee2083ad938f916f5bfda5c7826fffb8bd1ecee10803e67",
     "sram_compiler/testbenches/sram_6t_core_testbench.py": "10d5898df8b23b8ee668f9c787b5dc22591fcd6d12ed400cea54daffa9f91969",
-    "sram_compiler/version.py": "66b590f2ab83d4147e384caeca103eff3f157be1ad34a6c17e4f7125ac3947f9",
+    "sram_compiler/version.py": "327ce3f4a40ce90579b2f35fd304f2c34094f94f5dd1674bba1bc29823175c73",
     "tests/spice/__init__.py": "20e969d16e15e69113278f1f431598f855ec982f6905939ab704f3eee863e838",
     "tests/spice/execution.py": "57a925546684de045673ed2561c9fbeea190081227aa6d67eac0b635a61ebdc1",
     "tests/spice/phased_access.py": "526234c2c3242f90f1a7de252d10b5231a353071e021151d63e5601317389af7",

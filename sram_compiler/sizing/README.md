@@ -1,11 +1,11 @@
 # V2.1.4 driver sizing and timing: fixed classes
 
-V2.2.0 uses clock-high access and clock-low recovery. Current clock budgets
+V2.2.1 uses clock-high access and clock-low recovery. Current clock budgets
 are twice the V2.1.10 budgets described in the historical sections below,
 except the longer 128–512-row and 512-column classes;
 peripheral transistor classes are unchanged. A control-architecture identity
 prevents injection or qualification reuse of V2.1.10 baselines. See the
-[current timing contract and screen](../../docs/design/PHASED_CONTROL_V2_2_0.md).
+[current timing contract and screen](../../docs/design/PHASED_CONTROL_V2_2_1.md).
 
 
 V2.1.1 adds a far-PRE access-start guard: WL, write and sense enable wait for
@@ -192,7 +192,7 @@ access limits are reported separately by the qualification scorer; the default
 replica `(1, 9)` does not claim compliance with the read limit.
 
 
-## Clock classes (V2.2.0)
+## Clock classes (V2.2.1)
 
 `timing_lookup.json` (`v2.2.0-timing-3`) keeps the row/column anchors and
 doubles most V2.1.10 budgets for the new capture/access/recovery schedule.
@@ -201,7 +201,7 @@ the decoder-settling guard.
 At 512 columns, the half-cycle budgets are 9600 ps for 6T and 10200 ps for
 muxed 6T and 10T: default periods of 24 and 25.5 ns. The initial 16 ns read
 missed its far output deadline; the larger class gives sensing more time.
-See `docs/design/PHASED_CONTROL_V2_2_0.md` for executed evidence and limits.
+See `docs/design/PHASED_CONTROL_V2_2_1.md` for executed evidence and limits.
 Each entry contains an integer `half_period_ps` budget; choose the next anchor
 at or above each dimension, then compute:
 
@@ -217,7 +217,7 @@ T = ceil_to_50ps(2 * max(row_budget, column_budget) * (1 + margin))
 | 256 | 8100 | 20.25 |
 | 512 | 11100 | 27.75 |
 
-Historical basis before V2.2.0: the row budgets were the V2.1.9 values (V2.1.4 to V2.1.8:
+Historical basis before V2.2.1: the row budgets were the V2.1.9 values (V2.1.4 to V2.1.8:
 1800/1900/2100/2500/3600 ps; V2.1.0 to V2.1.3: 1600/1800/2000/2400/3600 ps).
 Rule since V2.1.9: at every class bound, SS 0.9 V / 125 C nominal, the local
 read output leads the 1.2 T deadline by at least 0.02 T plus 10 % of the

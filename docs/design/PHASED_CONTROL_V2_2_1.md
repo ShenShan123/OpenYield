@@ -1,10 +1,10 @@
-# V2.2.0: capture, access, and recovery in separate phases
+# V2.2.1: capture, access, and recovery in separate phases
 
 **Completed functional screen. The assembled record is**
-[`docs/data/PHASED_CONTROL_V2_2_0.json`](../data/PHASED_CONTROL_V2_2_0.json)**.
+[`docs/data/PHASED_CONTROL_V2_2_1.json`](../data/PHASED_CONTROL_V2_2_1.json)**.
 It is not yield, extracted-metal or half-select qualification.**
 
-V2.2.0 captures the request on the rising clock edge, accesses the array during
+V2.2.1 captures the request on the rising clock edge, accesses the array during
 clock-high, and releases and precharges it during clock-low. A longer period
 pays for this separation. The 6T/10T cells, matched replica column, distributed
 wires, and peripheral driver size classes are retained.
@@ -118,7 +118,7 @@ and exercises all four transitions. It is one passing case, not the outcome
 of the entire pending screen. Enable, ISO and PRE traces are physical terminals
 at the last column; WL is the maximum over all probed row endpoints.
 
-![Eight accesses with recovery between captures](PHASED_CONTROL_V2_2_0.svg)
+![Eight accesses with recovery between captures](PHASED_CONTROL_V2_2_1.svg)
 
 The remaining feedback has a forced release path: clock fall makes `A=0`,
 which forces the WL request and `read_done` low; physical WL release clears
@@ -142,7 +142,7 @@ must use the new port list. Diagnostic complementary outputs remain available.
 Instantiated MOS counts, using the same V2.1.10 peripheral loads and 6T/no-mux
 settings with local RC, are:
 
-| Array | V2.1.10 TIME_CONTROL | V2.2.0 TIME_CONTROL | Removed from controller |
+| Array | V2.1.10 TIME_CONTROL | V2.2.1 TIME_CONTROL | Removed from controller |
 |---|---:|---:|---:|
 | 8x4 | 706 | 706 | 0 |
 | 16x16 | 1030 | 1012 | 18 |
@@ -193,7 +193,7 @@ high access phase. `TPRCH` measures a post-access restore rather than borrowing
 the startup charge crossing. Power integrates one complete capture-to-capture
 period; static power is sampled late in recovery. Historical `TimingConfig`
 JSON names `low_read`, `low_write`, and `high` are retained for compatibility;
-they represent read access, write access, and recovery respectively in V2.2.0.
+they represent read access, write access, and recovery respectively in V2.2.1.
 
 A control-architecture identity is included in sizing fingerprints. Reusing a
 V2.1.10 frozen sizing object is rejected; old qualification records are not
@@ -351,7 +351,7 @@ not use PySpice's binary reader or equivalent extraction.
 The 64 local development-tool tests also pass after adapting two timing
 fixtures: current calibration requires post-write `TRESTORE`, while the
 historical V2.1.9 slot test retains explicit historical phase budgets. These
-local unit tests do not qualify the legacy waveform scorer for V2.2.0.
+local unit tests do not qualify the legacy waveform scorer for V2.2.1.
 
 One completed small-array scenario needs a documented startup exception:
 `8x4_10t_mux_FF_read_pd`, FF 1.1 V / −40 °C, native seed `202609263`.
@@ -370,7 +370,7 @@ remains an unconverged attempt, not passing evidence.
 The precharged peripheral bias is the physical clock-low state, so making it
 the default startup condition is the better long-term answer. It is not done
 here: it changes every generated deck, and the screen those decks produced is
-complete. Changing the default belongs with its own full re-run, so V2.2.0
+complete. Changing the default belongs with its own full re-run, so V2.2.1
 keeps the single recorded exception above and carries the default change as
 open scope.
 
@@ -387,7 +387,7 @@ size, including a new combination of row and column classes, or a custom RC/PVT
 point, or altered decoder sizing/models, needs its own waveform validation at a fixed baseline clock. The phase
 change and longer clocks also change access
 latency, energy, and static/dynamic power accounting; older performance numbers
-must not be presented as measurements of V2.2.0.
+must not be presented as measurements of V2.2.1.
 
 ## Review corrections and remaining scope
 
@@ -396,6 +396,22 @@ explicit clocks, so the corrected controller, timing table, case manifest and
 checker lived outside the tracked sources while it ran. They are now the
 tracked sources, and the deck reproduction above is what proves the promotion
 was faithful rather than approximately right.
+
+The release is numbered V2.2.1. Identities that the evidence hashes keep the
+V2.2.0 label they were screened under, because renaming them would invalidate
+the proofs that cite them: the clock table's `v2.2.0-timing-3` and its
+`"version": "V2.2.0"`, the frozen sizing digest's `v2.2.0-high-access`, the
+`"version": "V2.2.0"` recorded in all 242 traces, and the provenance comments
+inside the screened sources. Two of those comments,
+`sram_compiler/subcircuits/time_generate.py` line 12 and the clock table's
+`basis`, cite this record under its pre-renumber name
+`PHASED_CONTROL_V2_2_0.md`; correcting the path would change a hash that
+`decoder-guard-netlist-equivalence.json` and
+`final-clock-policy-equivalence.json` pin, so it waits for the next release
+that re-runs them. `sram_compiler/version.py` is the one screened
+source that moves; the compiler version never appears in a generated deck, and
+the deck reproduction above was re-run against the moved value. The ignored
+campaign directory keeps its `V2.2.0-phased` name.
 
 Three corrections came out of reviewing that promotion:
 

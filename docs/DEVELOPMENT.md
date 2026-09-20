@@ -1,12 +1,12 @@
-# OpenYield V2.2.0 development tools
+# OpenYield V2.2.1 development tools
 
-V2.2.0's opt-in transistor-level transition checks are tracked under
+V2.2.1's opt-in transistor-level transition checks are tracked under
 [`tests/spice/`](../tests/spice/README.md). They use full cells, record solver,
 model, seed and source identities, and preserve failed runs. The historical
 `dev/v210_*` and `dev/sizing/qualification.py` tools below encode the V2.1.x
 clock phases and probe names: use their archived sources for old evidence,
-not to qualify V2.2.0. No sizing-table qualification record is promoted by the
-V2.2.0 functional screen.
+not to qualify V2.2.1. No sizing-table qualification record is promoted by the
+V2.2.1 functional screen.
 
 
 V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); its raw decks and waveforms were purged in the V2.1.10 cleanup.
