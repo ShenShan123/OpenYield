@@ -6,7 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
-from tests.spice.phased_waveforms import score, threshold_overlap
+from tests.spice.phased_waveforms import (
+    PROBE_EVERY_CELL_UPTO, SENSE_MARGIN_FRACTION, probed_rows, score, threshold_overlap)
 
 
 class PhasedWaveformTests(unittest.TestCase):
@@ -463,6 +464,156 @@ class PhasedWaveformTests(unittest.TestCase):
             path.write_text(json.dumps(metadata))
             with self.assertRaisesRegex(ValueError, 'cell probes'):
                 score(directory)
+
+
+class ProbeAndBarTests(unittest.TestCase):
+    """V2.2.3: what the screen looks at, and what it demands of a read."""
+
+    def test_the_runner_and_the_checker_derive_the_same_probed_rows(self):
+        """They are separate modules and the checker fails closed on a missing probe, so a
+        rule copied into both would silently reduce coverage the day one copy changed."""
+        import inspect
+
+        from tests.spice import phased_access
+
+        source = inspect.getsource(phased_access.prepare)
+        self.assertIn('probed_rows(rows, cols, case, tb.target_row)', source)
+        self.assertNotIn('rows // 2', source)
+
+    def test_large_arrays_probe_the_neighbours_of_every_addressed_row(self):
+        """Through V2.2.2 a 512x4 trace probed 4 of 512 rows: first, middle, last and target.
+        A wordline or bitline excursion disturbs the rows next to the accessed one first, and
+        those were exactly the rows nobody looked at."""
+        self.assertEqual(probed_rows(8, 4, {}, 7), set(range(8)))
+        self.assertEqual(probed_rows(32, 32, {}, 31), set(range(32)))
+        self.assertEqual(probed_rows(512, 4, {}, 511), {0, 128, 256, 384, 510, 511})
+        addressed = probed_rows(256, 256, {'pattern': [{'row': 0}, {'row': 200}]}, 255)
+        for row in (0, 1, 199, 200, 201, 254, 255):
+            self.assertIn(row, addressed)
+        self.assertEqual(probed_rows(128, 128, {'next_row': 64}, 127),
+                         {0, 32, 63, 64, 65, 96, 126, 127})
+        self.assertEqual(PROBE_EVERY_CELL_UPTO, 1024)
+
+    def test_the_sense_bar_scales_with_the_rail_it_is_measured_against(self):
+        """V2.2.2 fixed it at 0.25 V, which is 28 % of a 0.9 V rail but only 23 % of a 1.1 V
+        one, so the fast corner was screened to a weaker bar than the slow corner. The fraction
+        is the 0.9 V bar, so no point that passed before is relaxed."""
+        self.assertAlmostEqual(SENSE_MARGIN_FRACTION * .9, .25, places=2)
+        self.assertGreaterEqual(SENSE_MARGIN_FRACTION * .9, .25)
+        for vdd, differential, expected in ((.9, .26, True), (.9, .24, False),
+                                            (1.1, .29, False), (1.1, .32, True)):
+            with self.subTest(vdd=vdd, differential=differential):
+                self.assertEqual(differential >= SENSE_MARGIN_FRACTION * vdd, expected)
+
+    def test_the_runtime_deadline_and_the_screen_deadline_are_one_number(self):
+        """The V2.2.1 8x512 escape was a read on the wrong rail at the checker's k + 0.68 T
+        that the compiler's own cards accepted at k + 0.7 T. One constant, imported by both."""
+        from sram_compiler.testbenches.sram_6t_core_MC_testbench import ACCESS_DEADLINE
+        from tests.spice import phased_waveforms
+
+        self.assertEqual(ACCESS_DEADLINE, .68)
+        self.assertIs(phased_waveforms.ACCESS_DEADLINE, ACCESS_DEADLINE)
+        self.assertNotIn('.68', inspect_source(phased_waveforms.score))
+
+
+class ScreenManifestTests(unittest.TestCase):
+    """The case list is a tracked artifact: it must stay runnable and keep its coverage."""
+
+    @classmethod
+    def setUpClass(cls):
+        root = Path(__file__).resolve().parent / 'spice'
+        cls.cases = json.loads((root / 'v223_cases.json').read_text())
+        cls.negative = json.loads((root / 'v223_negative_cases.json').read_text())
+
+    def periods(self, case):
+        import contextlib
+        import io
+
+        from sram_compiler.per_device_mc.run import load_config
+        from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
+        with contextlib.redirect_stdout(io.StringIO()):
+            cfg = load_config(case.get('rows', 8), case.get('cols', 4), case.get('corner', 'SS'))
+            sizes = resolve_driver_sizes(cfg, cell_type=case.get('cell', 'SRAM_6T_CELL'),
+                                         mux=case.get('mux', False))
+            return resolve_timing(cfg, sizes).t_period
+
+    def test_every_case_names_one_directory_and_resolves_inside_the_envelope(self):
+        """The runner makes a directory per case and refuses to reuse one, and a case it
+        cannot build wastes whatever the queue already spent."""
+        names = [case['name'] for case in self.cases + self.negative]
+        self.assertEqual(len(names), len(set(names)))
+        for case in self.cases + self.negative:
+            with self.subTest(case=case['name']):
+                self.assertEqual(Path(case['name']).name, case['name'])
+                self.assertIn(case.get('operation', 'read&write'), ('read', 'write', 'read&write'))
+                self.assertGreater(self.periods(case), 0)
+
+    def test_arbitrary_patterns_match_the_array_they_run_on(self):
+        """apply_pattern rejects a bad pattern only once the deck is already built."""
+        for case in self.cases:
+            pattern = case.get('pattern')
+            if pattern is None:
+                continue
+            rows, cols = case.get('rows', 8), case.get('cols', 4)
+            with self.subTest(case=case['name']):
+                self.assertEqual(len(pattern), 8)
+                for entry in pattern:
+                    self.assertIn(entry['op'], ('read', 'write', 'idle'))
+                    self.assertTrue(0 <= entry['row'] < rows)
+                    self.assertEqual(len(entry['data']), cols)
+                    self.assertFalse(set(entry['data']) - {'0', '1'})
+
+    def test_the_manifest_covers_the_gaps_the_V2_2_2_screen_left(self):
+        """Each assertion here is a coverage hole the V2.2.2 record named. They are properties
+        of the manifest, so deleting a case to save runtime has to be a deliberate act."""
+        def size(case):
+            return case.get('rows', 8), case.get('cols', 4)
+
+        # Arrays large in both dimensions: V2.2.2 had none above 32x32.
+        joint = [case for case in self.cases if min(size(case)) >= 64]
+        self.assertTrue({(256, 256), (128, 128)} <= {size(case) for case in joint})
+        self.assertTrue(any(case.get('variation') == 'per-device' for case in joint))
+
+        # Process corner separated from voltage and temperature.
+        points = {}
+        for case in self.cases:
+            points.setdefault(case.get('corner', 'SS'), set()).add(
+                (case.get('vdd', .9), case.get('temperature', 125)))
+        for corner in ('SS', 'SF', 'FF', 'FS'):
+            self.assertGreaterEqual(len(points[corner]), 2, corner)
+
+        # The nominal corner above the 8x4 toy array.
+        self.assertTrue(any(case.get('corner') == 'TT' and size(case) != (8, 4)
+                            for case in self.cases))
+
+        # Complementary column data above eight columns.
+        self.assertTrue(any(case.get('cols', 4) >= 64 and '01' * 2 in entry['data']
+                            for case in self.cases for entry in case.get('pattern', ())))
+
+        # More than one mismatch draw at the tall and wide arrays.
+        draws = {}
+        for case in self.cases:
+            if case.get('variation') == 'per-device':
+                draws[size(case)] = draws.get(size(case), 0) + 1
+        for shape in ((256, 4), (512, 4)):
+            self.assertGreaterEqual(draws.get(shape, 0), 2, shape)
+
+    def test_every_negative_control_is_too_short_to_pass(self):
+        """A negative control that the contract would accept proves nothing. V2.2.2 had one,
+        at one size, and eight of its twelve reported margins never failed anywhere."""
+        self.assertGreater(len(self.negative), 1)
+        shapes = set()
+        for case in self.negative:
+            with self.subTest(case=case['name']):
+                self.assertIn('period', case)
+                self.assertLess(case['period'], self.periods(case))
+                shapes.add((case.get('rows', 8), case.get('cols', 4)))
+        self.assertGreaterEqual(len(shapes), 4)
+
+
+def inspect_source(function):
+    import inspect
+    return inspect.getsource(function)
 
 
 if __name__ == '__main__':

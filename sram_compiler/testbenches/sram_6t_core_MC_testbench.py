@@ -19,6 +19,13 @@ import numpy as np
 from PySpice.Spice.Netlist import Circuit, SubCircuitFactory
 from math import ceil, log2
 
+# Fraction of the period by which a read's data must be on its rail and a
+# written cell settled, counted from the capture edge of that cycle. The
+# independent waveform screen (tests/spice/phased_waveforms.py) uses the same
+# number, so a runtime pass and a screen pass mean the same thing.
+ACCESS_DEADLINE = 0.68
+
+
 def cycle_plan(operation, select_every=1, cycles=None):
     """Clock cycles of a transient deck: (transient length in periods, [(kind, data), ...]).
 
@@ -56,7 +63,7 @@ def access_cycles(operation, select_every=1, cycles=None):
     """(cycle, kind, data, next_cycle, next_kind, next_data) per checked access.
 
     Check accesses with their complete recovery phase inside the transient
-    (1 ns + (cycle + 1.2) T). Data is due at cycle + 0.7 T. The next_*
+    (1 ns + (cycle + 1.2) T). Data is due at cycle + ACCESS_DEADLINE T. The next_*
     fields identify a following selected access inside the simulated span.
     """
     span, plan = cycle_plan(operation, select_every, cycles)
@@ -518,10 +525,16 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             error = f'MAX(ABS(V({q})-{expected * vdd:.12g}),ABS(V({qb})-{(1-expected) * vdd:.12g}))'
             if kind == 'read':
                 error = f'MAX({error},ABS(V(OUT)-{expected * vdd:.12g}))'
+            # V2.2.3: the data deadline is the waveform checker's k + 0.68 T,
+            # not the looser k + 0.7 T these cards used through V2.2.2. The
+            # 0.02 T difference is 180 ps at a 9 ns clock and 555 ps at
+            # 27.75 ns, and it is the gap that let a V2.2.1 8x512 read pass
+            # these measures while still on the wrong rail at the checker's
+            # deadline. Runtime and screen now accept exactly the same traces.
             simulator.measure('TRAN', f'VACCESS_ERROR_{cycle}',
-                              f'FIND {{{error}}} AT={1e-9 + (cycle + .7) * period:.12g}')
+                              f'FIND {{{error}}} AT={1e-9 + (cycle + ACCESS_DEADLINE) * period:.12g}')
             simulator.measure('TRAN', f'VHOLD_ERROR_{cycle}',
-                              f'MAX {{{error}}} FROM={1e-9 + (cycle + .7) * period:.12g} '
+                              f'MAX {{{error}}} FROM={1e-9 + (cycle + ACCESS_DEADLINE) * period:.12g} '
                               f'TO={1e-9 + (cycle + 1.2) * period:.12g}')
             # PRE is active low. A correct final datum does not excuse opening
             # the cell or write driver before local precharge has released.

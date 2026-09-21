@@ -6,6 +6,57 @@ before V2.1.10 were condensed in the V2.1.10 cleanup; the full text is at
 `git show c3f6f44:CHANGELOG.md` and in `sram_compiler/CIRCUIT_REVIEW.md` Parts II
 and III.
 
+## V2.2.3 — 2026-09-20 — supported envelope, joint-dimension clocks, one access deadline
+
+[Design record](design/PHASED_CONTROL_V2_2_3.md). **No V2.2.3 screen has been
+run; the V2.2.2 evidence certifies the V2.2.2 tree and not this one**, because
+the clock policy, the runtime data deadline and the waveform checker are all
+hashed sources of the screen. V2.2.3 closes the coverage and contract defects
+the V2.2.2 review recorded, except the stopped clock, which stays open. The
+controller, the cells, the replica column, the wires and the driver classes are
+unchanged.
+
+- Supported envelope: 512 rows by 256 columns, declared in
+  `timing_lookup.json` as `supported_envelope`, required by the loader at the
+  last anchor of every ladder, and enforced by `resolve_timing` in every timing
+  mode including `fixed`. A larger array is rejected instead of extrapolating
+  the ladder, so no resolvable size is extrapolated and the resolver's variant
+  floor, which only mattered under extrapolation, is removed. The 512-column
+  class is deleted from the shared ladder and both variants; the fifteen 8x512
+  cases of the V2.2.2 screen stay in that record as historical evidence and can
+  no longer be regenerated from the table.
+- An array large in both dimensions pays for both:
+  `half = max(row, column) + min(row_excess, column_excess)`, each excess being
+  that ladder's budget above its own first class. A dimension inside its first
+  class has no excess, so every array size the V2.2.2 screen covered keeps a
+  bit-identical period; 128x128 goes 16.5 -> 20.5 ns, 256x256 20.25 -> 26.25 ns
+  and the envelope corner 512x256 27.75 -> 33.75 ns. Through V2.2.2 the rule
+  was a maximum, so a 256x256 array took a 256x4 clock while carrying a tall
+  bitline and a wide wordline at once, and no screened case could expose it.
+- One access deadline: `ACCESS_DEADLINE = 0.68` in the testbench, imported by
+  the waveform checker, so the generated `VACCESS_ERROR` / `VHOLD_ERROR` cards
+  and the screen accept the same traces. The cards used `k + 0.7 T` through
+  V2.2.2, 0.02 T looser (180 ps at 9 ns, 555 ps at 27.75 ns) and the exact gap
+  behind the V2.2.1 8x512 escape. This tightens what `main_sram.py` accepts.
+- Checker: the sense bar becomes 0.28 of VDD instead of a fixed 0.25 V, which
+  was 28 % of a 0.9 V rail but 23 % of a 1.1 V one; arrays too large to probe
+  whole now probe the quarter points, every addressed row and each addressed
+  row's immediate neighbours, through one `probed_rows` the runner and the
+  checker share; `min_storage_polarity_margin_v` is documented as a reversal
+  bound against a fixed boundary that is not the 10T cell's trip point.
+- Screen manifest: `tests/spice/v223_cases.json` replaces `v220_cases.json`
+  with 285 cases (the 239 in-envelope V2.2.2 cases plus 46), and
+  `tests/spice/v223_negative_cases.json` tracks 6 negative controls that were
+  previously an ignored queue. New coverage: joint-dimension arrays to 256x256
+  (65,536 cells against 4,096), a second voltage and temperature for every
+  skewed corner, TT at six production sizes, extra mismatch draws at 256 and
+  512 rows, checkerboard column data at 64 to 256 columns, and controls at six
+  array sizes. Estimated cost about 560 solver-hours.
+- Tracked tests: 180 (10 new), covering the envelope rejection in both timing
+  modes, the joint rule against every screened period, the variant floor over
+  the whole envelope, the shared deadline, the VDD-scaled bar, the shared probe
+  rule, and the manifest's coverage properties.
+
 ## V2.2.2 — 2026-09-20 — production review: precharged startup, reported margins, re-screen
 
 [Design and validation record](design/PHASED_CONTROL_V2_2_2.md). The V2.2.1

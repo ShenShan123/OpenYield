@@ -1,9 +1,15 @@
-# SRAM Compiler and Test Platform User Guide — V2.2.2
+# SRAM Compiler and Test Platform User Guide — V2.2.3
 
 V2.2.1 captures on the rising edge, accesses during clock-high, and recovers
 and precharges during clock-low. The clock budgets are twice V2.1.10's and
 secondary hold latches are removed. Read sensing waits for physical WL release
 and sense-input isolation; write drive covers the whole physical WL pulse.
+V2.2.3 declares the supported array envelope, 512 rows by 256 columns, and
+rejects anything larger in every timing mode; gives an array that is large in
+both dimensions the larger dimension's budget plus the smaller dimension's
+excess over its own first class, leaving every size the V2.2.2 screen covered
+at exactly its screened period; and makes the generated `.MEASURE` data
+deadline and the waveform screen's deadline one number.
 V2.2.2 starts every generated deck from the precharged clock-low state and
 reports access/recovery margins in the waveform checks.
 See the [current record](../docs/design/PHASED_CONTROL_V2_2_2.md), what
@@ -12,10 +18,12 @@ and the
 [V2.2.1 control and validation record](../docs/design/PHASED_CONTROL_V2_2_1.md).
 The measured cycle waveform, with the phase bar and the causal chain, is in the
 [root README](../README.md#how-the-macro-behaves-in-one-cycle) and in full in
-the `subcircuits/time_generate.py` module docstring.
+the `subcircuits/time_generate.py` module docstring. The current contract is
+[the V2.2.3 record](../docs/design/PHASED_CONTROL_V2_2_3.md), whose screen has
+not been run.
 
 
-V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes-v221-re-screened-in-v222) covers settings, explicit overrides and evidence limits.
+V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes) covers settings, explicit overrides and evidence limits.
 
 V2.1.1 signal interconnect is distributed-only, including the bitline periphery,
 decoder, write-data clock and mux selects. Omitting `interconnect` uses the
@@ -432,12 +440,13 @@ measured timing diagram is in the `time_generate.py` module docstring.
 
 `TCLK_WLEN` is measured from the rising capture edge, `TRESTORE` from the
 falling edge for both reads and writes. `TWSLOT` remains a write-rail diagnostic
-inside access. Data is checked at `1 ns + (cycle + 0.7) T`, then retained until
-the next capture. That runtime deadline is 0.02 T looser than the
-`k + 0.68 T` used by the waveform screen (180 ps at a 9 ns clock, 555 ps at
-27.75 ns), so a passing `.mt0` is the weaker of the two verdicts: the V2.2.1
-8x512 read that was still on the wrong rail at 0.68 T passed these measures.
-Treat a runtime pass as necessary, not sufficient, and read the waveform. `VBOUNDARY_ERROR`, `VROLE_ERROR`, and `VISO_ERROR` reject
+inside access. Data is checked at `1 ns + (cycle + ACCESS_DEADLINE) T`, then
+retained until the next capture, where `ACCESS_DEADLINE` is 0.68. Through
+V2.2.2 these cards used `k + 0.7 T`, 0.02 T looser than the waveform screen
+(180 ps at a 9 ns clock, 555 ps at 27.75 ns), which is how a V2.2.1 8x512 read
+still on the wrong rail at 0.68 T passed them. Since V2.2.3 the checker imports
+the same constant, so both accept the same traces; a runtime pass still covers
+one target cell and column, so read the waveform for everything else. `VBOUNDARY_ERROR`, `VROLE_ERROR`, and `VISO_ERROR` reject
 unfinished recovery and incompatible enables even when final data is correct.
 `select_every=N` probes idle transitions; `next_row` probes address changes in
 single-operation decks. The integration cases additionally exercise arbitrary

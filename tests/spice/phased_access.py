@@ -1,4 +1,4 @@
-"""Reproducible V2.2.0 SPICE integration screen. Explicit opt-in; full cells only."""
+"""Reproducible V2.2.3 SPICE integration screen. Explicit opt-in; full cells only."""
 from pathlib import Path
 import contextlib
 import hashlib
@@ -14,7 +14,7 @@ from sram_compiler.sizing.timing import TimingConfig
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 from sram_compiler.version import VERSION
 from tests.spice.execution import execution_command, execute_local_ensemble, execute
-from tests.spice.phased_waveforms import score
+from tests.spice.phased_waveforms import probed_rows, score
 from utils.xyce import execute_xyce
 
 
@@ -114,13 +114,13 @@ def prepare(case, directory):
     if operation != 'write':
         probes.add('OUT')
     nodes = {name: {} for name in ('cells', 'wl', 'pre', 'wen', 'sen', 'iso', 'data', 'sense', 'sense_state')}
-    checked_rows = {0, rows // 2, rows - 1, tb.target_row, case.get('next_row')}
-    checked_rows.update(entry['row'] for entry in case.get('pattern', ()))
+    # The checker derives the same set; probing anything less fails closed.
+    checked_rows = probed_rows(rows, cols, case, tb.target_row)
     for row in range(rows):
         for col in range(cols):
-            # Every cell for small arrays; complete selected/sentinel rows for
-            # larger arrays, plus every physical WL endpoint in either case.
-            if rows * cols <= 1024 or row in checked_rows:
+            # Every cell for small arrays; complete addressed, neighbour and
+            # sentinel rows for larger ones, plus every physical WL endpoint.
+            if row in checked_rows:
                 q, qb = (f'{tb.cell_inst_prefix}_{row}_{col}:{pin}' for pin in ('Q', 'QB'))
                 nodes['cells'][f'{row},{col}'] = [q, qb]
                 probes.update((q, qb))
@@ -222,7 +222,7 @@ def main():
     import shutil
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--cases', type=Path, default=Path(__file__).with_name('v220_cases.json'))
+    parser.add_argument('--cases', type=Path, default=Path(__file__).with_name('v223_cases.json'))
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--xyce', default=shutil.which('Xyce'))
     parser.add_argument('--workers', type=int, default=4)

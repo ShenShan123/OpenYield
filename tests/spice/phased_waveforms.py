@@ -4,6 +4,20 @@ V2.2.2 also reports how much of each phase budget a passing trace used: the
 read output's lead over the checker deadline, the wordline dwell after a
 written cell has flipped, and the bitline restore and precharge-on slack
 before the next capture.
+
+V2.2.3 takes the access deadline from the compiler itself, so a runtime
+`.MEASURE` pass and a screen pass accept the same traces; scales the sense
+bar with VDD instead of fixing it at 0.25 V; and probes more sentinel rows
+on arrays too large to probe whole, including the rows adjacent to every
+accessed row.
+
+`min_storage_polarity_margin_v` is a reversal bound, not a stability metric:
+it is the distance of the worst storage node from a fixed 0.5 VDD boundary,
+and that boundary is not the trip point of every cell. The 10T cell is a
+Schmitt-trigger cell read through the same access transistors as the 6T, so
+it disturbs its storage node further at a correspondingly higher trip point;
+comparing the two topologies by this number is not meaningful. What bounds
+recovery is the 0.1 VDD rail-error check after the access deadline.
 """
 from pathlib import Path
 import hashlib
@@ -11,9 +25,39 @@ import json
 
 import numpy as np
 
-from sram_compiler.testbenches.sram_6t_core_MC_testbench import cycle_plan
+from sram_compiler.testbenches.sram_6t_core_MC_testbench import ACCESS_DEADLINE, cycle_plan
 
 SCORER_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+
+# A trace probes every cell up to this many; above it only the rows below.
+PROBE_EVERY_CELL_UPTO = 1024
+# The bitline differential a read must present at the isolation sampling
+# instant, as a fraction of VDD. V2.2.2 used a fixed 0.25 V, which is 28 % of
+# a 0.9 V rail and 23 % of a 1.1 V one; the fraction is the 0.9 V bar, so no
+# screened point is relaxed. It is a screening floor: the sense amplifier's
+# own input offset under local mismatch is not measured by this screen.
+SENSE_MARGIN_FRACTION = 0.28
+
+
+def probed_rows(rows, cols, case, target_row):
+    """Rows whose cells are probed and checked for retention and disturb.
+
+    Small arrays probe every cell. Above that, probe the array's quarter
+    points and last row, every row an operation addresses, and each addressed
+    row's immediate neighbours, which are the rows a wordline or bitline
+    excursion would disturb first. The runner and the checker must agree on
+    this set, so both call it rather than repeating the rule.
+    """
+    if rows * cols <= PROBE_EVERY_CELL_UPTO:
+        return set(range(rows))
+    addressed = {target_row}
+    if case.get('next_row') is not None:
+        addressed.add(case['next_row'])
+    addressed.update(entry['row'] for entry in case.get('pattern', ()))
+    chosen = {0, rows // 4, rows // 2, (3 * rows) // 4, rows - 1} | addressed
+    chosen.update(neighbour for row in addressed
+                  for neighbour in (row - 1, row + 1) if 0 <= neighbour < rows)
+    return chosen
 
 
 def threshold_overlap(time, conditions, start, stop=None):
@@ -114,12 +158,7 @@ def score(directory, report_name="result.json"):
     for role in required_roles:
         if set(nodes[role]) != {str(col) for col in range(cols)}:
             raise ValueError(f'Incomplete {role} probe map')
-    checked_rows = {0, rows // 2, rows - 1, metadata['row']}
-    if case.get('next_row') is not None:
-        checked_rows.add(case['next_row'])
-    checked_rows.update(entry['row'] for entry in case.get('pattern', ()))
-    if rows * cols <= 1024:
-        checked_rows = set(range(rows))
+    checked_rows = probed_rows(rows, cols, case, metadata['row'])
     required_cells = {f'{row},{col}' for row in checked_rows for col in range(cols)}
     if not required_cells <= set(nodes['cells']):
         raise ValueError('Missing accessed or retention-sentinel cell probes')
@@ -268,7 +307,7 @@ def score(directory, report_name="result.json"):
             else:
                 checks[f'{prefix}_cell{key}_logical_retention'] = retain_polarity(
                     q, qb, retained[key], start, stop)
-        sense_start = 1e-9 + (cycle + .68) * period
+        sense_start = 1e-9 + (cycle + ACCESS_DEADLINE) * period
         if kind == 'read' and sense_start < stop:
             mux = 2 if case.get('mux', False) else 1
             for col in range(0, metadata['cols'], mux):
@@ -374,7 +413,7 @@ def score(directory, report_name="result.json"):
                     sample_time = sampled[0] if len(sampled) else firing[0]
                     margin = abs(at(left, sample_time) - at(right, sample_time))
                     sense_margins.append(margin)
-                    checks[f'{prefix}_c{col}_sense_margin'] = bool(margin >= .25)
+                    checks[f'{prefix}_c{col}_sense_margin'] = bool(margin >= SENSE_MARGIN_FRACTION * vdd)
                     wl_off = edges(nodes['wl'][str(row)][-1], .1 * vdd, start, stop, False)
                     if len(wl_off) == 1:
                         sense_slack.append(float((firing[0] - wl_off[0]) * 1e12))
@@ -400,7 +439,7 @@ def score(directory, report_name="result.json"):
                         write_dwell.append(float((min(wl_off) - max(flips)) * 1e12))
                 expected[key] = value
         # Every probed cell, including untouched rows, must retain its state.
-        hold = window(base + .68 * period, stop)
+        hold = window(base + ACCESS_DEADLINE * period, stop)
         for key, (q, qb) in nodes['cells'].items():
             value = expected[key]
             error = max(np.max(np.abs(signal(q)[hold] - value * vdd)),
@@ -413,15 +452,15 @@ def score(directory, report_name="result.json"):
             # on their rail this long before the checker deadline (negative if
             # OUT settles after it). The sense nodes are precharged again once
             # isolation releases, so they are only followed to the deadline.
-            deadline = base + .68 * period
+            deadline = base + ACCESS_DEADLINE * period
             settled = [band_entry('OUT', value, start, stop)]
             mux = 2 if case.get('mux', False) else 1
             for col in range(0, metadata['cols'], mux):
                 selected_col = col + (metadata['cols'] - 1) % mux
                 value = expected[f'{row},{selected_col}']
                 q, qb = nodes['sense_state'][str(col)]
-                error = max(abs(at(q, base + .68 * period) - value * vdd),
-                            abs(at(qb, base + .68 * period) - (1 - value) * vdd))
+                error = max(abs(at(q, base + ACCESS_DEADLINE * period) - value * vdd),
+                            abs(at(qb, base + ACCESS_DEADLINE * period) - (1 - value) * vdd))
                 checks[f'{prefix}_sense_group{col // mux}_data'] = bool(error <= .1 * vdd)
                 settled += [band_entry(q, value, start, deadline), band_entry(qb, 1 - value, start, deadline)]
             output_margin.append(float((deadline - max(settled)) * 1e12))

@@ -19,7 +19,7 @@ from sram_compiler.config_yaml.sweep_config import SWEEP_CONFIGS
 from sram_compiler.sizing import load_timing_lookup, resolve_driver_sizes, resolve_timing
 from sram_compiler.sizing.table import physical_context
 from sram_compiler.sizing.timing import TimingConfig
-from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from sram_compiler.testbenches.sram_6t_core_MC_testbench import ACCESS_DEADLINE, Sram6TCoreMcTestbench
 
 
 class TimingLookupTests(unittest.TestCase):
@@ -28,28 +28,75 @@ class TimingLookupTests(unittest.TestCase):
         self.output.__enter__()
         self.addCleanup(self.output.__exit__, None, None, None)
 
-    def test_boundaries_round_up_and_extrapolate_without_claiming_evidence(self):
-        cases = [(1, 1, 4.5), (32, 4, 4.5), (33, 4, 4.75), (64, 16, 4.75),
+    def test_boundaries_round_up_inside_the_envelope_and_never_extrapolate(self):
+        """V2.2.3 fixes the envelope at 512 rows by 256 columns, so every resolvable size
+        lands on a tabulated anchor and nothing is extrapolated."""
+        cases = [(1, 2, 4.5), (32, 4, 4.5), (33, 4, 4.75), (64, 16, 4.75),
                  (65, 16, 8.25), (129, 4, 10.125), (257, 4, 13.875),
-                 (16, 17, 4.5), (48, 20, 4.75), (16, 512, 12),
-                 (513, 4, 19.025), (4, 513, 20.575)]
+                 (16, 18, 4.5), (8, 256, 7), (256, 4, 10.125)]
         for rows, cols, ns in cases:
             with self.subTest(rows=rows, cols=cols):
                 cfg = load_config(rows, cols, 'TT')
                 timing = resolve_timing(cfg, resolve_driver_sizes(cfg))
                 self.assertAlmostEqual(timing.t_period / 1e-9, 2 * ns)
-                self.assertEqual(timing.extrapolated, max(rows, cols) > 512)
+                self.assertFalse(timing.extrapolated)
                 self.assertFalse(timing.qualified)
                 self.assertEqual(timing.source, 'lookup')
                 self.assertEqual(len(timing.table_sha256), 64)
 
+    def test_an_array_outside_the_supported_envelope_is_rejected_in_every_timing_mode(self):
+        """Through V2.2.2 a size beyond the last anchor extrapolated the ladder geometrically
+        and carried a flag nobody had to read. The envelope is a property of the array, not of
+        its clock, so a fixed period does not buy a way past it either."""
+        for rows, cols in ((513, 4), (1024, 4), (8, 512), (8, 1024), (512, 258), (2048, 2048)):
+            for options in ({'mode': 'lookup'}, {'mode': 'fixed', 't_period': 40e-9}):
+                with self.subTest(rows=rows, cols=cols, mode=options['mode']):
+                    cfg = load_config(rows, cols, 'SS')
+                    sizes = resolve_driver_sizes(cfg)
+                    cfg.global_config.timing = dict(options)
+                    with self.assertRaises(ValueError) as raised:
+                        resolve_timing(cfg, sizes)
+                    self.assertIn('outside the supported array envelope', str(raised.exception))
+        # The envelope corner itself resolves.
+        cfg = load_config(512, 256, 'SS')
+        self.assertAlmostEqual(
+            resolve_timing(cfg, resolve_driver_sizes(cfg)).t_period / 1e-9, 33.75)
+
+    def test_an_array_large_in_both_dimensions_pays_for_both(self):
+        """Through V2.2.2 the period was max(row budget, column budget), so a 256x256 array was
+        given a 256x4 clock while carrying a tall bitline and a wide wordline at once, and no
+        screened case had both dimensions large enough to expose it. V2.2.3 adds the smaller
+        dimension's excess over its own first class. A dimension inside its first class has no
+        excess, which is why every size the V2.2.2 screen covered keeps its screened period."""
+        unchanged = [(2, 2, 9), (8, 4, 9), (16, 8, 9), (32, 32, 9), (64, 16, 9.5),
+                     (128, 8, 16.5), (256, 4, 20.25), (512, 4, 27.75),
+                     (8, 64, 10), (8, 128, 12), (8, 256, 14)]
+        for rows, cols, ns in unchanged:
+            with self.subTest(screened=f'{rows}x{cols}'):
+                cfg = load_config(rows, cols, 'SS')
+                self.assertAlmostEqual(
+                    resolve_timing(cfg, resolve_driver_sizes(cfg)).t_period / 1e-9, ns)
+        joint = [(48, 20, 10), (64, 64, 10.5), (64, 128, 12.5), (128, 64, 18.5),
+                 (128, 128, 20.5), (256, 128, 24.25), (256, 256, 26.25), (512, 256, 33.75)]
+        for rows, cols, ns in joint:
+            with self.subTest(joint=f'{rows}x{cols}'):
+                cfg = load_config(rows, cols, 'SS')
+                timing = resolve_timing(cfg, resolve_driver_sizes(cfg))
+                self.assertAlmostEqual(timing.t_period / 1e-9, ns)
+                # Never shorter than either dimension on its own.
+                for other in (load_config(rows, 4, 'SS'), load_config(8, cols, 'SS')):
+                    self.assertGreaterEqual(
+                        timing.t_period,
+                        resolve_timing(other, resolve_driver_sizes(other)).t_period - 1e-18)
+
     def test_period_is_shared_across_pvt_and_physical_modes_except_the_evidenced_variants(self):
         """10T cells (V2.1.3) and 6T cells with a mux (V2.1.4) have their own evidenced budgets;
-        PVT and RC never change a class."""
-        expected = {('SRAM_6T_CELL', False): (4.75, 'shared'),
-                    ('SRAM_6T_CELL', True): (5, 'SRAM_6T_CELL/mux'),
-                    ('SRAM_10T_CELL', False): (5.5, 'SRAM_10T_CELL'),
-                    ('SRAM_10T_CELL', True): (5.5, 'SRAM_10T_CELL')}
+        PVT and RC never change a class. 48x20 is above the first class in both dimensions, so
+        since V2.2.3 it also carries the smaller dimension's excess (4.75 -> 5 ns shared)."""
+        expected = {('SRAM_6T_CELL', False): (5, 'shared'),
+                    ('SRAM_6T_CELL', True): (5.25, 'SRAM_6T_CELL/mux'),
+                    ('SRAM_10T_CELL', False): (6, 'SRAM_10T_CELL'),
+                    ('SRAM_10T_CELL', True): (6, 'SRAM_10T_CELL')}
         for (cell, mux), (ns, budget) in expected.items():
             for rc in (False, True):
                 cfg = load_config(48, 20, 'SF')
@@ -73,7 +120,7 @@ class TimingLookupTests(unittest.TestCase):
         without one."""
         cases = [(8, 4, 4.5, 4.75), (16, 16, 4.5, 4.75), (32, 16, 4.5, 4.75), (33, 16, 4.75, 5),
                  (64, 16, 4.75, 5), (128, 8, 8.25, 8.625), (256, 4, 10.125, 10.875), (512, 4, 13.875, 15),
-                 (16, 32, 4.5, 4.75), (8, 64, 5, 5), (8, 128, 6, 6), (8, 512, 12, 12.75), (513, 4, 19.025, 20.7)]
+                 (16, 32, 4.5, 4.75), (8, 64, 5, 5), (8, 128, 6, 6), (8, 256, 7, 7)]
         for rows, cols, plain_ns, mux_ns in cases:
             with self.subTest(rows=rows, cols=cols):
                 cfg = load_config(rows, cols, 'SS')
@@ -82,8 +129,8 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertAlmostEqual(plain.t_period / 1e-9, 2 * plain_ns)
                 self.assertAlmostEqual(muxed.t_period / 1e-9, 2 * mux_ns)
                 self.assertEqual((plain.budget, muxed.budget), ('shared', 'SRAM_6T_CELL/mux'))
-                self.assertEqual(muxed.table_version, 'v2.2.0-timing-3')
-                self.assertEqual(muxed.extrapolated, rows > 512)
+                self.assertEqual(muxed.table_version, 'v2.2.3-timing-1')
+                self.assertFalse(muxed.extrapolated)
                 # V2.1.5: the variant floor makes this hold beyond the table too (the
                 # V2.1.4 6T-mux ladder ended 2700 -> 3600 ps against the shared 2500 ->
                 # 3600 ps, so without the floor a 513-row mux array asked for 12 ns and
@@ -102,7 +149,7 @@ class TimingLookupTests(unittest.TestCase):
         V2.1.10 10.75 ns, where the longer clock's access keeps the rule that 10.5 ns missed by 7 ps."""
         cases = [(8, 4, 5), (16, 16, 5), (32, 16, 5), (33, 16, 5.5), (16, 32, 5),
                  (64, 16, 5.5), (128, 8, 9), (256, 4, 12), (512, 4, 16.125),
-                 (8, 64, 5.5), (8, 128, 6.5), (8, 512, 12.75), (513, 4, 21.675)]
+                 (8, 64, 5.5), (8, 128, 6.5), (8, 256, 7.5)]
         for rows, cols, ns in cases:
             for mux in (True, False):
                 with self.subTest(rows=rows, cols=cols, mux=mux):
@@ -111,8 +158,8 @@ class TimingLookupTests(unittest.TestCase):
                     timing = resolve_timing(cfg, sizes)
                     self.assertAlmostEqual(timing.t_period / 1e-9, 2 * ns)
                     self.assertEqual(timing.budget, 'SRAM_10T_CELL')
-                    self.assertEqual(timing.extrapolated, rows > 512)
-                    self.assertEqual(timing.table_version, 'v2.2.0-timing-3')
+                    self.assertFalse(timing.extrapolated)
+                    self.assertEqual(timing.table_version, 'v2.2.3-timing-1')
                     shared = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=mux))
                     self.assertEqual(shared.budget, 'SRAM_6T_CELL/mux' if mux else 'shared')
                     # Inside the table a 10T array always gets more time than the same 6T
@@ -125,22 +172,26 @@ class TimingLookupTests(unittest.TestCase):
                         self.assertGreater(timing.t_period, shared.t_period)
 
     def test_a_variant_never_asks_for_less_time_than_the_shared_ladder_it_left(self):
-        """The table policy says a variant may only add to the shared budget. It is validated at
-        the anchors, but a variant whose final ratio is flatter than the shared one would fall
-        below it under extrapolation: with the V2.1.5 10T ladder ending 3200 -> 4000 ps against
-        the shared 2500 -> 3600 ps, a 513-row 10T array resolved to 12.5 ns while the same 6T
-        array resolved to 13 ns. The resolver floors every variant class at the shared one."""
-        for rows, cols in ((513, 4), (1024, 4), (4096, 4), (8, 1024), (2048, 2048)):
+        """The table policy says a variant may only add to the shared budget, and the loader
+        validates that at the anchors. Through V2.2.2 extrapolation could still take a variant
+        below the shared ladder (the V2.1.5 10T ladder ended 3200 -> 4000 ps against the shared
+        2500 -> 3600 ps, so a 513-row 10T array resolved to 12.5 ns and the same 6T array to
+        13 ns) and the resolver carried a floor for it. V2.2.3 rejects sizes beyond the last
+        anchor instead, so the anchors are the whole story; hold the invariant over the whole
+        envelope, including the joint sizes where the two ladders combine."""
+        sizes = [(rows, cols) for rows in (1, 2, 8, 32, 33, 64, 65, 128, 129, 256, 257, 512)
+                 for cols in (2, 4, 16, 32, 48, 64, 128, 256)]
+        for rows, cols in sizes:
             cfg = load_config(rows, cols, 'SS')
+            shared = resolve_timing(cfg, resolve_driver_sizes(
+                cfg, cell_type='SRAM_6T_CELL', mux=False))
             for cell in ('SRAM_10T_CELL', 'SRAM_6T_CELL'):
                 for mux in (True, False):
                     with self.subTest(rows=rows, cols=cols, cell=cell, mux=mux):
                         variant = resolve_timing(cfg, resolve_driver_sizes(
                             cfg, cell_type=cell, mux=mux))
-                        shared = resolve_timing(cfg, resolve_driver_sizes(
-                            cfg, cell_type='SRAM_6T_CELL', mux=False))
                         self.assertGreaterEqual(variant.t_period, shared.t_period)
-                        self.assertTrue(variant.extrapolated)
+                        self.assertFalse(variant.extrapolated)
 
     def test_injected_baseline_survives_candidates_and_rejects_changed_contract(self):
         cfg = load_config(8, 4, 'TT')
@@ -176,7 +227,7 @@ class TimingLookupTests(unittest.TestCase):
             previous = os.getcwd()
             try:
                 os.chdir(temp)
-                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.2.2')
+                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.2.3')
             finally:
                 os.chdir(previous)
         cfg.global_config.timing = {'mode': 'fixed', 't_period': 10e-9}
@@ -260,7 +311,8 @@ class TimingLookupTests(unittest.TestCase):
                 self.assertIn('VACCESS_ERROR_0', deck)
                 self.assertIn('VHOLD_ERROR_0', deck)
                 line = next(l for l in deck.splitlines() if ' VACCESS_ERROR_0 ' in l)
-                self.assertIn('AT=7.3E-09', line)
+                # V2.2.3: 1 ns + 0.68 * 9 ns, the deadline the waveform screen uses.
+                self.assertIn('AT=7.12E-09', line)
 
     def test_retention_covers_deadline_through_next_access_including_last_cycle(self):
         import re
@@ -279,7 +331,8 @@ class TimingLookupTests(unittest.TestCase):
                 start = float(re.search(r'FROM=(\S+)', hold)[1])
                 stop = float(re.search(r'TO=(\S+)', hold)[1])
                 self.assertLessEqual(start, deadline)
-                self.assertAlmostEqual(stop - deadline, .5 * float(tb.t_period), delta=1e-18)
+                self.assertAlmostEqual(stop - deadline,
+                                       (1.2 - ACCESS_DEADLINE) * float(tb.t_period), delta=1e-18)
                 self.assertLessEqual(stop, float(tb._analysis_stop('read&write')) + 1e-18)
 
     def test_transient_stop_lies_on_the_output_grid_for_every_lookup_clock(self):
@@ -295,8 +348,8 @@ class TimingLookupTests(unittest.TestCase):
         # 12.25 ns diagnostic clock, whose 107.575 ns stop needs more digits than the usual .4e.
         cases = [('SRAM_6T_CELL', 8, 4, False, None), ('SRAM_6T_CELL', 8, 8, True, None),
                  ('SRAM_6T_CELL', 65, 16, False, None), ('SRAM_6T_CELL', 129, 4, False, None),
-                 ('SRAM_6T_CELL', 129, 4, True, None), ('SRAM_6T_CELL', 513, 4, True, None),
-                 ('SRAM_10T_CELL', 4, 513, False, None), ('SRAM_6T_CELL', 8, 4, False, 12.25e-9)]
+                 ('SRAM_6T_CELL', 129, 4, True, None), ('SRAM_6T_CELL', 64, 64, True, None),
+                 ('SRAM_10T_CELL', 256, 256, False, None), ('SRAM_6T_CELL', 8, 4, False, 12.25e-9)]
         with tempfile.TemporaryDirectory() as temp:
             for cell, rows, cols, mux, fixed in cases:
                 tb = Sram6TCoreMcTestbench(load_config(rows, cols, 'SS'), sram_cell_type=cell,
@@ -383,7 +436,7 @@ class TimingLookupTests(unittest.TestCase):
             second, repeated = run.generate_deck(args)
             self.assertNotEqual(first.parent, second.parent)
             self.assertEqual(evidence.read_text(), 'FAILED original')
-            self.assertEqual(summary['compiler_version'], 'V2.2.2')
+            self.assertEqual(summary['compiler_version'], 'V2.2.3')
             self.assertAlmostEqual(summary['timing']['t_period'], 4e-9)
             self.assertEqual(summary['timing']['source'], 'fixed')
             args.run_xyce = True

@@ -1,0 +1,45 @@
+[
+ {
+  "name": "negative_8x4_SS_2ns",
+  "rows": 8,
+  "cols": 4,
+  "period": 2e-09,
+  "timeout": 1800
+ },
+ {
+  "name": "negative_32x32_SS_5ns",
+  "rows": 32,
+  "cols": 32,
+  "period": 5e-09,
+  "timeout": 5051
+ },
+ {
+  "name": "negative_64x64_SS_6ns",
+  "rows": 64,
+  "cols": 64,
+  "period": 6e-09,
+  "mpi_ranks": 4,
+  "timeout": 24246
+ },
+ {
+  "name": "negative_128x8_SS_8ns",
+  "rows": 128,
+  "cols": 8,
+  "period": 8e-09,
+  "timeout": 8082
+ },
+ {
+  "name": "negative_8x256_SS_8ns",
+  "rows": 8,
+  "cols": 256,
+  "period": 8e-09,
+  "timeout": 16164
+ },
+ {
+  "name": "negative_512x4_SS_14ns",
+  "rows": 512,
+  "cols": 4,
+  "period": 1.4e-08,
+  "timeout": 28287
+ }
+]

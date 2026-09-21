@@ -1,4 +1,4 @@
-# OpenYield V2.2.2 documentation
+# OpenYield V2.2.3 documentation
 
 Design and validation records (`design/`), the supplied evidence (`data/`,
 `qualification/`, `issue_reports/`) and the release history live here; usage
@@ -33,20 +33,27 @@ The carried Phase 6 scope. The working plans that defined it
   their data and every column still restores and releases; cases at mux ratios
   2 and 4, SS / SF 0.9 V / 125 C and FF 1.1 V / -40 C with address hazards, then
   per-device seeds. Read-modify-write is out of scope.
-- **Screen coverage carried from V2.2.2.** The functional screen passes every
-  case it runs, and
-  [what the screen does not cover](design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover)
-  enumerates what it does not. The items that need work rather than wording:
-  an array that is in a high row class and a high column class at once (no
-  screened case has both, and the clock policy takes the maximum of the two
-  budgets, not their sum); a row class above 512, where the sense margin trend
-  0.90 / 0.86 / 0.80 / 0.67 / 0.47 V at 32 / 64 / 128 / 256 / 512 rows reaches
-  the 0.25 V bar; process corners screened at one voltage and temperature each,
-  so SF is never screened cold and FS never hot; TT screened only at 8x4;
-  complementary column data only at 8 columns; and the runtime `.MEASURE` read
-  deadline of `k + 0.7 T`, which is 0.02 T looser than the checker's
-  `k + 0.68 T` and still ships, so `main_sram.py` can accept a deck the screen
-  would reject.
+- **The V2.2.3 screen.** V2.2.3 changed the clock policy, the runtime data
+  deadline and the waveform checker, all hashed sources of the screen, so
+  `data/PHASED_CONTROL_V2_2_2.json` certifies the V2.2.2 tree and not the
+  current one. The 285-case manifest and the six tracked negative controls that
+  close the V2.2.2 coverage gaps are ready to run
+  ([how](design/PHASED_CONTROL_V2_2_3.md#running-the-screen), about 560
+  solver-hours); nothing in V2.2.3 is qualification until they have been run
+  and assembled.
+- **A stopped or gated clock.** Precharge is a clock-low function
+  (`PRE = !(clk_bar & wordline_off & enables_off)`), so a clock stopped high
+  parks the array with floating bitlines and open sense pass gates and a clock
+  stopped low parks it precharged. The contract assumes a free-running 50 %
+  duty cycle and says nothing about the clock stopping. Needed: a defined idle
+  state, a guard that reaches it however the clock stops, and multi-cycle stall
+  cases in both states.
+- **Sense amplifier offset.** The screen's sense bar is 0.28 of VDD, a
+  screening floor rather than a measured quantity: the amplifier's own input
+  offset under local mismatch is not measured anywhere. The 512-row sense
+  margin of 0.467 V against that bar is the end of a steep trend
+  (0.90 / 0.86 / 0.80 / 0.67 / 0.47 V at 32 / 64 / 128 / 256 / 512 rows), which
+  the 512-row envelope bounds rather than relieves.
 - **Yield estimators.** `yield_estimation/model_lib/{MC,MNIS,AIS,ACS,HSCS}.py`
   are not usable as shipped: machine-local paths and an import-time deletion,
   dependencies absent from `environment.yml` (`torch`, `gpytorch`, `mpmath`,
@@ -66,7 +73,8 @@ The carried Phase 6 scope. The working plans that defined it
 | [Development guide](DEVELOPMENT.md) | Tracked regression tests and the ignored local tools |
 | [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Working proposal and qualification status of the driver classes |
 | [Automatic timing proposal](TIMING_AUTOCONFIG.md) | Timing design, measured basis and the per-signal phase table |
-| [V2.2.2 review and screen](design/PHASED_CONTROL_V2_2_2.md) | Current review findings, margins, and validation |
+| [V2.2.3 envelope and clocks](design/PHASED_CONTROL_V2_2_3.md) | Current contract: array envelope, joint-dimension clocks, shared access deadline, pending screen |
+| [V2.2.2 review and screen](design/PHASED_CONTROL_V2_2_2.md) | Executed screen, reported margins, and the coverage it does not reach |
 | [V2.2.1 control path](design/PHASED_CONTROL_V2_2_1.md) | Phase ordering and timing contract |
 | [V2.1.10 control path](design/TIME_CONTROL_PATH.md) | Preserved previous architecture and naming contract |
 | [Original V2.0.4 design](design/DRIVER_SIZING_PROPOSAL_V2.0.4.md) | Preserved design snapshot |
@@ -75,6 +83,7 @@ The carried Phase 6 scope. The working plans that defined it
 
 | Release | Record |
 |---|---|
+| V2.2.3 | [envelope, joint-dimension clocks, one access deadline](design/PHASED_CONTROL_V2_2_3.md) |
 | V2.2.2 | [production review, precharged startup, margins](design/PHASED_CONTROL_V2_2_2.md) |
 | V2.2.1 | [capture/access/recovery phase control](design/PHASED_CONTROL_V2_2_1.md) |
 | V2.1.10 | [write-data latch on the registered write](design/WRITE_LATCH_V2_1_10.md) |

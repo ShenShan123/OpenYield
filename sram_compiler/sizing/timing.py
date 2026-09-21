@@ -125,6 +125,7 @@ def load_timing_lookup(path=None):
                     or any(entry[bound] != base[bound] or entry['half_period_ps'] < base['half_period_ps']
                            for entry, base in zip(variant[group], shared))):
                 raise ValueError('Timing lookup variants must keep the shared anchors and never relax a budget')
+    _validate_envelope(table)
     table['sha256'] = hashlib.sha256(raw).hexdigest()
     return table
 
@@ -151,6 +152,25 @@ def _validate_ladders(table):
             raise ValueError('The final timing budget must grow for geometric extrapolation')
 
 
+def _validate_envelope(table):
+    """The supported array envelope, which the ladders must reach but not exceed.
+
+    A size beyond it is rejected rather than extrapolated: the geometric
+    continuation carries no evidence, and V2.2.3 fixes the envelope at the
+    largest array the compiler is built for (512 rows by 256 columns).
+    """
+    envelope = table.get('supported_envelope')
+    if not isinstance(envelope, dict) or envelope.keys() != set(_BOUNDS.values()):
+        raise ValueError('Timing lookup needs a supported_envelope with max_rows and max_cols')
+    for group, bound in _BOUNDS.items():
+        limit = envelope[bound]
+        if type(limit) is not int or limit <= 0:
+            raise ValueError('Supported envelope bounds must be positive integers')
+        for ladders in [table] + table.get('variants', []):
+            if ladders[group][-1][bound] != limit:
+                raise ValueError(f'The last {group} anchor must equal the supported envelope')
+
+
 def _budget_ladders(table, cell_type, mux):
     """The variant ladders for this architecture, or the shared ladders."""
     for variant in table.get('variants', []):
@@ -164,15 +184,22 @@ def _budget_ladders(table, cell_type, mux):
 def resolve_timing(config, driver_sizes, context=None):
     """Select one period by array class, without simulation or PVT/cell refitting.
 
-    Like driver sizing, unseen dimensions round up and sizes beyond the last
-    class extrapolate the ladder. Use integer ps until conversion to seconds.
-    A table variant keyed by cell type and optionally mux (V2.1.3: 10T cells
-    with or without a column mux; V2.1.4: 6T cells with a column mux) replaces
-    the shared ladders for that architecture only.
+    Unseen dimensions round up to the next anchor; a dimension beyond the
+    supported envelope is rejected, in every timing mode, because the array
+    itself is out of scope and not only its clock. Use integer ps until
+    conversion to seconds. A table variant keyed by cell type and optionally
+    mux (V2.1.3: 10T cells with or without a column mux; V2.1.4: 6T cells with
+    a column mux) replaces the shared ladders for that architecture only.
     Exact qualified driver records retain their measured timing.
     """
     driver_sizes.validate_for(config, driver_sizes.cell_type, driver_sizes.mux, context)
     options = _timing_options(config)
+    table = load_timing_lookup(options.get('lookup'))
+    envelope = table['supported_envelope']
+    if driver_sizes.rows > envelope['max_rows'] or driver_sizes.cols > envelope['max_cols']:
+        raise ValueError(
+            f"{driver_sizes.rows}x{driver_sizes.cols} is outside the supported array envelope "
+            f"of {envelope['max_rows']} rows by {envelope['max_cols']} columns")
     if options.get('mode', 'lookup') == 'fixed':
         period = options.get('t_period')
         if isinstance(period, bool):
@@ -191,28 +218,23 @@ def resolve_timing(config, driver_sizes, context=None):
         if timing is None:
             raise ValueError('Qualified timing record is stale or unavailable for this physical context')
         return timing
-    from .driver_sizing import interpolate_class
-    table = load_timing_lookup(options.get('lookup'))
     margin = options.get('margin', .25)
     if isinstance(margin, bool) or not isinstance(margin, (float, int)) or not isfinite(margin) or margin < 0:
         raise ValueError('Timing margin must be finite and nonnegative')
+    from .driver_sizing import interpolate_class
     ladders, budget = _budget_ladders(table, driver_sizes.cell_type, driver_sizes.mux)
     row = interpolate_class(ladders['row_classes'], 'max_rows', ('half_period_ps',), driver_sizes.rows)
     col = interpolate_class(ladders['column_classes'], 'max_cols', ('half_period_ps',), driver_sizes.cols)
-    if ladders is not table:
-        # "A variant may never fall below the shared budget" holds at every
-        # size, not only at the tabulated anchors: beyond the last anchor each
-        # ladder extrapolates its own final ratio, and a variant whose ratio is
-        # flatter than the shared one would otherwise ask for less time than
-        # the architecture it was separated from (V2.1.5: the 10T ladder ends
-        # 3200 -> 4000 ps, the shared one 2500 -> 3600 ps).
-        for entry, group, bound, size in ((row, 'row_classes', 'max_rows', driver_sizes.rows),
-                                          (col, 'column_classes', 'max_cols', driver_sizes.cols)):
-            shared = interpolate_class(table[group], bound, ('half_period_ps',), size)
-            if shared['half_period_ps'] > entry['half_period_ps']:
-                entry['half_period_ps'] = shared['half_period_ps']
-                entry['extrapolated'] = entry['extrapolated'] or shared['extrapolated']
-    half_ps = max(row['half_period_ps'], col['half_period_ps'])
+    # V2.2.3: bitline height and wordline width cost time separately, so an
+    # array large in both dimensions pays for both. A dimension's excess is its
+    # budget above the budget of its own first class, which is what the
+    # smallest array of this architecture already pays. The larger of the two
+    # budgets carries that base once and the smaller excess is added on top.
+    # A dimension inside its first class has no excess, so every size screened
+    # before V2.2.3 keeps exactly the maximum-rule period it was screened at.
+    joint_ps = min(row['half_period_ps'] - ladders['row_classes'][0]['half_period_ps'],
+                   col['half_period_ps'] - ladders['column_classes'][0]['half_period_ps'])
+    half_ps = max(row['half_period_ps'], col['half_period_ps']) + joint_ps
     period = ceil(2 * half_ps * (1 + margin) / 50) * 50e-12
     return ArrayTiming(period, half_ps * 1e-12, half_ps * 1e-12, half_ps * 1e-12,
                        margin=margin, source='lookup', driver_key=driver_sizes.key,

@@ -13,6 +13,12 @@ deck-reproduction and equivalence proofs, described in
 Like the CSVs below, keep it as written; corrections belong in the documents
 that cite it.
 
+`PHASED_CONTROL_V2_2_2.json` certifies the tree at commit `c6ea3aa`, not the
+current one: V2.2.3 changed the clock policy, the runtime data deadline and the
+waveform checker, which are hashed sources of the screen, so its recorded
+source hashes no longer equal the tree. There is no V2.2.3 record yet; see
+[the V2.2.3 design record](../design/PHASED_CONTROL_V2_2_3.md).
+
 Read the V2.2.2 record's `coverage` block before quoting a minimum from it. The
 254 records are 131 SS, 49 FF, 32 SF, 30 FS and 12 TT; each corner appears at
 exactly one voltage and temperature; 172 of 254 cases are at 16x8 or smaller;

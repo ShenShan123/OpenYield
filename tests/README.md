@@ -1,4 +1,11 @@
-# Compiler regression tests — V2.2.2
+# Compiler regression tests — V2.2.3
+
+V2.2.3 adds ten tests for the supported array envelope (rejected in lookup and
+fixed timing modes alike), the joint-dimension clock rule against every period
+the V2.2.2 screen was run at, the variant floor over the whole envelope, the
+single `ACCESS_DEADLINE` shared by the runtime cards and the waveform checker,
+the VDD-scaled sense bar, the `probed_rows` rule the runner and checker share,
+and the screen manifest's coverage properties.
 
 V2.2.2 adds `test_generated_decks_start_from_the_precharged_clock_low_state`
 (every deck's `.IC` starts bitlines, RBL/RBLB and the sense nodes at VDD) and

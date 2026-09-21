@@ -2,9 +2,19 @@
 
 This project is a open-source SRAM compiler for yield estimation and transistor sizing optimizations. The main functions include SRAM netlist generation with distributed RC loads, global and local process variations, and full DC/TRAN analyses. `REDAME.md` in both root and sub-folders are the tutorials for this projects. `docs/CHANGELOG.md`is per release (V2.x.x).`AGENTS.md` holds the detailed working conventions.
 
-Current release: **V2.2.2** (production review of V2.2.1: precharged startup
+Current release: **V2.2.3** (supported array envelope of 512 rows by 256
+columns enforced by `resolve_timing` in every timing mode; the 512-column class
+removed; `half = max(row, column) + min(row_excess, column_excess)` so an array
+large in both dimensions pays for both, leaving every V2.2.2-screened period
+identical; `ACCESS_DEADLINE = 0.68` shared by the runtime `.MEASURE` cards and
+the waveform checker; VDD-scaled sense bar; wider sentinel rows through the
+shared `probed_rows`; `tests/spice/v223_cases.json` (285 cases) and
+`tests/spice/v223_negative_cases.json` replace `v220_cases.json`.
+**The V2.2.3 screen has not been run**, so `docs/data/PHASED_CONTROL_V2_2_2.json`
+certifies the V2.2.2 tree only; see `docs/design/PHASED_CONTROL_V2_2_3.md`.)
+V2.2.2 was the production review of V2.2.1: precharged startup
 bias in every deck, reported access/recovery margins, measured timing diagram
-in `time_generate.py`, re-screen with per-device cases at larger arrays).
+in `time_generate.py`, re-screen with per-device cases at larger arrays.
 Request capture is on the rising clock edge;
 clock-high contains access and clock-low contains recovery/precharge, including
 after writes. Secondary address/request/data hold latches and the write-slot
@@ -17,10 +27,11 @@ observers enforce sequencing. New last TIME_CONTROL inputs are `iso_far`,
 `din_hold` and its column wire no longer exist. Driver classes and bitcells are
 unchanged. Above 64 rows, two loaded setup stages cover decoder settling;
 `v2.2.0-timing-3` uses three times V2.1.10's 128–512-row budgets and twice
-its smaller row budgets. The other enlarged class is 512 columns (24 ns for 6T, 25.5 ns for 6T with a mux and 10T). The current
-record is `docs/design/PHASED_CONTROL_V2_2_2.md` (review, margins, screen) with
-`PHASED_CONTROL_V2_2_1.md` (phase contract); `TIME_CONTROL_PATH.md` preserves
-the V2.1.10 architecture. Reproducible functional SPICE checks live under
+its smaller row budgets. The 512-column class was removed in V2.2.3 as outside the envelope. The current
+record is `docs/design/PHASED_CONTROL_V2_2_3.md` (envelope, joint clocks,
+shared deadline, pending screen) with `PHASED_CONTROL_V2_2_2.md` (review,
+margins, executed screen and its coverage gaps) and `PHASED_CONTROL_V2_2_1.md`
+(phase contract); `TIME_CONTROL_PATH.md` preserves the V2.1.10 architecture. Reproducible functional SPICE checks live under
 `tests/spice/`; the ignored V2.1.x qualification tools use the old phase/probe
 contract. The assembled screen is `docs/data/PHASED_CONTROL_V2_2_2.json`.
 No partial or failed screen is qualification evidence. The remaining

@@ -1,4 +1,4 @@
-# OpenYield V2.2.2: SRAM yield analysis and optimization
+# OpenYield V2.2.3: SRAM yield analysis and optimization
 
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
@@ -7,7 +7,7 @@ The circuit generator models parasitic capacitance/resistance, leakage coupling,
 
 The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
 
-## Current release: V2.2.2
+## Current release: V2.2.3
 
 The compiler generates full transistor arrays with distributed RC wires,
 per-device local mismatch by default, a replica-timed read path and a
@@ -15,11 +15,20 @@ per-device local mismatch by default, a replica-timed read path and a
 switching incompatible enables. Clocks come
 from a row/column lookup table and driver sizes from integer size classes;
 both stay frozen across cell candidates and PVT samples
-([timing](sram_compiler/sizing/README.md#clock-classes-v221-re-screened-in-v222),
+([timing](sram_compiler/sizing/README.md#clock-classes),
 [sizing](sram_compiler/sizing/README.md)).
 
-V2.2.2 is the production review of the phased controller introduced in
-V2.2.1: every deck now starts from the precharged clock-low state, the
+**Supported array envelope: up to 512 rows by 256 columns.** A larger array is
+rejected rather than given an extrapolated clock. An array that is large in
+both dimensions now pays for both: the period is the larger dimension's budget
+plus the smaller dimension's excess over its own first class, so 128x128 takes
+20.5 ns where V2.2.2 gave it a 128x8 clock of 16.5 ns. Every array size the
+V2.2.2 screen covered keeps exactly the period it was screened at. The
+compiler's own `.MEASURE` data deadline and the waveform screen's deadline are
+now one number, `k + 0.68 T`.
+
+V2.2.2 was the production review of the phased controller introduced in
+V2.2.1: every deck starts from the precharged clock-low state, the
 waveform checker reports access and recovery margins, the controller source
 carries a measured timing diagram, and the screen was re-run with additional
 per-device mismatch cases at the larger arrays. V2.2.1 separates rising-edge
@@ -32,27 +41,32 @@ budgets are twice V2.1.10's through 64 rows and three times its 128–512-row
 budgets. The 512-column class uses 24 ns
 for 6T and 25.5 ns for 6T with a mux and 10T. Driver size classes and bitcells
 are unchanged.
-See the [V2.2.2 record](docs/design/PHASED_CONTROL_V2_2_2.md), the
+See the [V2.2.3 record](docs/design/PHASED_CONTROL_V2_2_3.md), the
+[V2.2.2 review and screen](docs/design/PHASED_CONTROL_V2_2_2.md), the
 [V2.2.1 phase-control record](docs/design/PHASED_CONTROL_V2_2_1.md), the
 [reproducible SPICE checks](tests/spice/README.md), and the
 [changelog](docs/CHANGELOG.md).
 
 Validation is functional screening with illustrative wires (1 ohm / 0.1 fF per
 pitch), not extracted-metal or yield qualification; the remaining scope is
-listed under [open items](docs/README.md#open-items). The V2.2.2 screen is
-254 of 254 cases and 2,164,669 checks, assembled with its
-source, deck, waveform and scorer hashes in
-[`docs/data/PHASED_CONTROL_V2_2_2.json`](docs/data/PHASED_CONTROL_V2_2_2.json).
+listed under [open items](docs/README.md#open-items).
 
-Check what that screen covers before trusting a size it does not run. Every row
-and column class bound is screened, but each only against a small value of the
-other dimension, so no evidenced array exceeds 4096 cells and none is in a high
-row class and a high column class at the same time; each process corner is
-screened at a single voltage and temperature, and the nominal TT 1.0 V / 25 C
-point only at 8x4; the sense margin falls from 0.90 V at 32 rows to 0.47 V at
-512 rows against a 0.25 V bar, which makes 512 rows the practical end of the row
-ladder. The full list, with the numbers behind it, is
-[what the screen does not cover](docs/design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover).
+**The V2.2.3 screen has not been run yet.** The last executed screen is
+V2.2.2's, 254 of 254 cases and 2,164,669 checks, assembled with its source,
+deck, waveform and scorer hashes in
+[`docs/data/PHASED_CONTROL_V2_2_2.json`](docs/data/PHASED_CONTROL_V2_2_2.json).
+It certifies the V2.2.2 tree: V2.2.3 changes the clock policy, the runtime data
+deadline and the waveform checker, which are all hashed sources of the screen,
+so that record does not carry over. V2.2.3 ships a 285-case manifest and six
+tracked negative controls that close the coverage gaps the V2.2.2 review found
+([how to run it](docs/design/PHASED_CONTROL_V2_2_3.md#running-the-screen), about
+560 solver-hours); until it has been run and assembled, nothing in V2.2.3 may be
+cited as qualification.
+
+What the V2.2.2 screen did and did not cover, with the numbers behind it, is
+[what the screen does not cover](docs/design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover);
+[the V2.2.3 record](docs/design/PHASED_CONTROL_V2_2_3.md) maps each item to
+what now closes it.
 
 Documentation: [compiler guide](sram_compiler/README.md),
 [equivalent models](sram_compiler/equivalent_modeling/README.md),

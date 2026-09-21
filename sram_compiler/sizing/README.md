@@ -192,7 +192,19 @@ access limits are reported separately by the qualification scorer; the default
 replica `(1, 9)` does not claim compliance with the read limit.
 
 
-## Clock classes (V2.2.1, re-screened in V2.2.2)
+## Clock classes
+
+Phase schedule from V2.2.1, re-screened in V2.2.2; supported envelope and the
+joint-dimension rule added in V2.2.3. This heading is a stable link target.
+
+**Supported array envelope: 512 rows by 256 columns.** `timing_lookup.json`
+declares it as `supported_envelope`, the loader requires the last anchor of
+every ladder to equal it, and `resolve_timing` rejects a larger array in every
+timing mode, `fixed` included, because the array is out of scope and not only
+its clock. Nothing inside the envelope is extrapolated, so `extrapolated` is
+always false. The 512-column class was removed in V2.2.3 as outside the
+envelope: the fifteen 8x512 cases of the V2.2.2 screen stay in that record as
+historical evidence but can no longer be regenerated from this table.
 
 `timing_lookup.json` (`v2.2.0-timing-3`) keeps the row/column anchors and
 doubles most V2.1.10 budgets for the new capture/access/recovery schedule.
@@ -206,19 +218,29 @@ Each entry contains an integer `half_period_ps` budget; choose the next anchor
 at or above each dimension, then compute:
 
 ```text
-T = ceil_to_50ps(2 * max(row_budget, column_budget) * (1 + margin))
+row_excess = row_budget    - row_classes[0].half_period_ps
+col_excess = column_budget - column_classes[0].half_period_ps
+T = ceil_to_50ps(2 * (max(row_budget, column_budget)
+                      + min(row_excess, col_excess)) * (1 + margin))
 ```
 
-That is a **maximum, not a sum**, and no screened case has both dimensions in a
-high class: 512 rows are screened only with 4 columns, 512 columns only with 8
-rows, and 32x32 is the largest array that is in a high class on both axes. A
-128x128 or 256x256 array therefore receives the same period as 128x8 or 256x4
-while carrying a tall bitline and a wide wordline at once, with no waveform
-evidence behind it. Screen such a size before trusting its clock.
+Through V2.2.2 this was a **maximum, not a sum**, and no screened case had both
+dimensions in a high class: 512 rows only with 4 columns, 512 columns only with
+8 rows, and 32x32 the largest array in a high class on both axes. A 256x256
+array was therefore handed a 256x4 clock while carrying a tall bitline and a
+wide wordline at once. Since V2.2.3 the smaller dimension's excess over its own
+first class is added on top, so an array large in both dimensions pays for
+both. A dimension inside its first class has no excess, which is why every size
+the V2.2.2 screen covered keeps exactly the period it was screened at:
 
-The row ladder is also close to its end for a different reason. The worst
-bitline differential at the isolation sampling instant, over the SS cases of
-the V2.2.2 screen at each row count, against the checker's fixed 0.25 V bar:
+| Joint (6T) | 48x20 | 64x64 | 128x64 | 128x128 | 256x128 | 256x256 | 512x256 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Was (ns) | 9.5 | 10 | 16.5 | 16.5 | 20.25 | 20.25 | 27.75 |
+| Now (ns) | 10 | 10.5 | 18.5 | 20.5 | 24.25 | 26.25 | 33.75 |
+
+The row ladder ends at 512 for a second reason. The worst bitline differential
+at the isolation sampling instant, over the SS cases of the V2.2.2 screen at
+each row count, against the checker's bar:
 
 | Rows | 2-32 | 64 | 128 | 256 | 512 |
 |---|---:|---:|---:|---:|---:|
@@ -226,8 +248,8 @@ the V2.2.2 screen at each row count, against the checker's fixed 0.25 V bar:
 
 The decrement per row doubling grows (58, 130, 202 mV) while the period triples
 from 9 to 27.75 ns, so a longer cycle does not buy the differential back: the
-limiter is the replica-to-array ratio. A 1024-row class needs sense evidence
-before it is given a budget.
+limiter is the replica-to-array ratio. 512 rows being the declared maximum is
+what bounds that trend; it is not headroom.
 
 | Row bound | Half-cycle budget (ps) | Period with 25% margin (ns) |
 |---|---|---|
@@ -243,8 +265,8 @@ Rule since V2.1.9: at every class bound, SS 0.9 V / 125 C nominal, the local
 read output leads the 1.2 T deadline by at least 0.02 T plus 10 % of the
 access time (clock fall to output) and by at least 250 ps; local mismatch
 moved the output by up to 8 % of the access at 128 to 512 rows. Column bounds ≤4/8/16/32/64/128/256/512
-contribute budgets 1600/1600/1600/1800/2000/2400/2800/3200 ps. For example
-16x32 uses 4.5 ns and 48x20 uses 4.75 ns. Classes are shared across RC and
+contribute budgets 1600/1600/1600/1800/2000/2400/2800 ps. For example
+16x32 uses 4.5 ns and 48x20 uses 5 ns (4.75 ns before the V2.2.3 joint rule). Classes are shared across RC and
 PVT; the evidenced 10T and 6T column-mux variants below replace them for
 those architectures.
 Extrapolation uses the final geometric ratio and is flagged; it is unqualified.
