@@ -2,7 +2,9 @@
 
 **Completed functional screen. The assembled record is**
 [`docs/data/PHASED_CONTROL_V2_2_2.json`](../data/PHASED_CONTROL_V2_2_2.json)**.
-It is not yield, extracted-metal or half-select qualification.**
+It is not yield, extracted-metal or half-select qualification.** The coverage
+the screen does not reach is enumerated in
+[what the screen does not cover](#what-the-screen-does-not-cover).
 
 V2.2.2 is the production review of the V2.2.1 phased controller
 ([record](PHASED_CONTROL_V2_2_1.md)): every control gate and observer chain
@@ -181,14 +183,165 @@ NumPy 1.26.4, PySpice 1.5. The tracked test suites pass (170 tracked, 64
 local development-tool tests, 6 optimizer tests), with `compileall` and
 `git diff --check`.
 
+## What the screen does not cover
+
+The screen passes every case it runs. This section records what it does not
+run. It was re-derived from the assembled record after the release, so that a
+complete screen is not read as a complete qualification, and so that the next
+person to extend the ladder knows which number moves first. Every figure below
+comes from [`docs/data/PHASED_CONTROL_V2_2_2.json`](../data/PHASED_CONTROL_V2_2_2.json).
+
+**1. No screened array is large in both dimensions.** Every row-class and
+every column-class bound of `timing_lookup.json` is screened, but each one only
+against a small value of the other dimension: 512 rows only with 4 columns, 512
+columns only with 8 rows, and 32x32 is the largest array that sits in a high
+class on both axes. Every screened size satisfies `rows * cols <= 4096`, so the
+largest macro with waveform evidence is 4 kb. The clock policy is
+`T = ceil_to_50ps(2 * max(row_budget, column_budget) * (1 + margin))` — a
+maximum, not a sum — so a 128x128 or a 256x256 array is given the same period
+as 128x8 or 256x4 while carrying a tall bitline and a wide wordline at once.
+The compiler will still emit those decks, and the `max()` rule has no evidence
+at any point where both terms are large.
+
+**2. The sense margin falls with row count; 512 rows is the practical end of
+the ladder.** The worst bitline differential at the isolation sampling instant,
+over the SS cases of all four architectures at each row count, against the fixed
+0.25 V bar, with the shared 6T class period for scale:
+
+| Rows | 2-32 | 64 | 128 | 256 | 512 |
+|---|---:|---:|---:|---:|---:|
+| Worst sense margin (V) | 0.904 | 0.857 | 0.799 | 0.669 | 0.467 |
+| Shared 6T row-class period (ns) | 9 | 9.5 | 16.5 | 20.25 | 27.75 |
+
+The decrement per row doubling is itself growing (58, 130 and 202 mV over the
+last three doublings) while the period triples, so the limiter is the
+replica-to-array ratio, not the clock budget: a longer cycle does not buy the
+differential back. Extrapolating the last decrement puts a 1024-row class near
+0.27 V, and the observed acceleration puts it below the bar. The margin table
+above reports 0.467 V as a worst value; it is the trend, not the value, that
+bounds the ladder, and a 1024-row class needs sense evidence before a clock.
+
+**3. Process corner is confounded with voltage and temperature.** Each corner
+is screened at exactly one operating point: FF and FS only at 1.1 V / -40 C,
+SS and SF only at 0.9 V / 125 C, TT only at 1.0 V / 25 C. There is no
+fast-process low-voltage point, no slow cold point and no hot fast point. SF,
+the write-ability corner, is screened only hot, where writing is easiest; FS,
+the read-stability corner, is screened only cold at 1.1 V, where the cell is
+strongest. The screen therefore bounds the delay extremes (SS 0.9 V / 125 C
+slowest, FF 1.1 V / -40 C fastest) but not the stability extremes.
+
+**4. Corner coverage collapses above 16x8, and the nominal corner is never
+screened at a production size.** 131 of 254 cases are SS, and 172 of 254 are at
+16x8 or smaller. Above 16x8 there are seven non-SS cases in total: 64x16 FF,
+32x32 SF, 32x32 FS, 128x8 SF, 8x128 FS and 8x512 SF twice. TT at 1.0 V / 25 C —
+the default of `global.yaml`, and so the condition a user runs first — exists
+only at 8x4. Every array size a user would actually build is therefore screened
+at essentially one PVT point, and it is not the one the compiler runs by
+default.
+
+**5. The screen is weighted towards arrays too small to exercise the wires.**
+152 of 254 cases (60 %) are 2x2 or 8x4, and 52 of the 72 per-device cases are
+8x4. Local mismatch at 256 rows, 512 rows, 256 columns and 512 columns is one
+seeded sample each. At 512x4 that single draw already cost 13 % of the nominal
+sense margin (0.540 V nominal, 0.467 V with mismatch); one sample bounds no
+tail, and the margin table's worst sense value is such a sample.
+
+**6. The compiler's own runtime acceptance is looser than this checker.** The
+generated `.MEASURE` cards check read data at `1 ns + (cycle + 0.7) T`
+(`sram_6t_core_MC_testbench.py`), while the screen's checker uses
+`k + 0.68 T`. The gap is 0.02 T: 180 ps at a 9 ns clock and 555 ps at 27.75 ns.
+The V2.2.1 escape described above — an 8x512 read still on the wrong rail at
+0.68 T and correct by 0.7 T — is exactly that gap. V2.2.2 closed the detection
+side by reporting `min_read_output_margin_ps`, but the shipped measures still
+accept the looser deadline, so a deck that this screen would reject can pass
+`main_sram.py`. Tightening the runtime cards changes the acceptance of every
+existing flow and is deliberately not done here; until it is, the runtime
+`.mt0` verdict is the weaker of the two.
+
+**7. Column data dependence is screened only at 8 columns.** The complementary
+column words `10101010` and `01010101` appear only in the 16x8 pattern cases.
+Every other case, including every 64-, 128-, 256- and 512-column case, writes
+the same value to every column of the selected row. Adjacent-bitline data
+dependence and full-width simultaneous switching above 8 columns are unscreened,
+and line-to-line coupling is not modelled at all (the wire model folds coupling
+to ground), so the two gaps compound.
+
+**8. There is no defined behaviour for a stopped or gated clock.** PRE is
+`!(clk_bar & wordline_off & enables_off)`, so precharge is a clock-low-only
+function. Holding the clock high parks the array with the bitlines and RBL
+floating and the sense pass gates open; holding it low parks it precharged and
+is the safe idle state. The screen's idle coverage is 8 cases with a single
+idle cycle between accesses (`select_every: 2`), so a multi-cycle stall is
+unscreened in either state. The 50 % duty-cycle assumption recorded under
+Limits is about phase length; this is about the clock stopping at all.
+
+**9. Cell probing is sparse above 1024 cells.** When `rows * cols > 1024` the
+checker probes cells only on `{0, rows // 2, rows - 1, target, next_row}`: at
+512x4 that is 4 of 512 rows, 16 of 2048 cells. Every row's wordline endpoints
+are still probed, so a spurious wordline on an unprobed row is caught, but a
+purely electrical disturb on one is not.
+
+**10. Two reported margins are not the quantities their names suggest.** The
+0.25 V sense bar is a fixed voltage rather than a VDD fraction (28 % of the rail
+at 0.9 V, 23 % at 1.1 V) and it is not tied to the sense amplifier that has to
+resolve the differential: the amplifier's own input offset under per-device
+mismatch is never measured anywhere in this screen. `min_storage_polarity_margin_v`
+measures distance to 0.5 VDD, which is not the trip point of the 10T cell:
+`sram_10t_core.py` is a Schmitt-trigger cell — stacked pull-downs NL1/NL2 and
+NR1/NR2 with NFL/NFR feedback — read differentially through the same BL/BLB
+access transistors as the 6T, so a larger storage-node excursion at a higher
+trip point is the expected behaviour. Reported against a fixed boundary the 10T
+therefore looks worse than the 6T (0.260 V against 0.291 V); that ordering is an
+artifact of the metric, not a stability deficit.
+
+**11. One negative control bounds only part of the checker.** The single 2 ns
+8x4 SS case fails 212 of 1,442 checks, and those do include the data families
+(cell retention, logical retention, `output`, sense-group data) and two of the
+twelve reported margins (`min_enable_off_before_precharge_ps` and
+`min_read_output_margin_ps`). The other ten margins — including every
+recovery margin, the sense margin and all four smallest ordering margins — have
+never been observed to fail, so their sensitivity is asserted rather than
+demonstrated. A related construction detail: the non-negativity checks are
+emitted only when their metric is derivable (`if values:`), so a case whose
+crossing search finds nothing contributes no check rather than a failure. In
+this screen no such case occurred — all 254 records carry every metric their
+operation admits — but the construction fails open.
+
+### What was confirmed
+
+The provenance claim holds exactly: the 63 source hashes recorded in the
+campaign metadata equal the tracked tree at the release commit, with no file in
+one set and not the other, so no deck-reproduction proof is needed. 254 of 254
+cases passed, the per-record check counts sum to the reported 2,164,669, and no
+record carries a numerical retry or a preserved failed attempt.
+
+The claim that the four smallest ordering margins are bounded by the fast corner
+of the smallest arrays is consistent with the data: at every corner those
+margins grow monotonically with array size, and the 64x16 FF case added in this
+screen continues the trend upwards. One margin is the exception.
+`min_driver_release_after_wl_ps` turns around along the column axis: at SS it
+rises from 344 ps at 8x4 to 460 ps at 8x128 and then falls to 426 ps at 8x512,
+and at SF it is lower at 8x512 (357 ps) than at 32x32 (385 ps). It is the only
+reported margin that shrinks as the array widens, so it is the one to watch if
+the column ladder is ever extended past 512.
+
 ## Limits
+
+What the screen runs, and what it leaves untouched, is enumerated in
+[what the screen does not cover](#what-the-screen-does-not-cover) above; the
+items below are the boundaries of the whole flow rather than of this campaign.
 
 All evidence uses full cells (equivalent mode 0), the supplied FreePDK45
 models and illustrative distributed metal (1 ohm / 0.1 fF per pitch).
 Statistical screening cannot establish a zero failure probability; the
 per-device cases are single seeded samples per configuration. An untested
 size, a custom RC or PVT point, or altered decoder sizing needs its own
-waveform validation at the frozen clocks. Extracted metal, half-selected
-writes and yield estimation remain open (`docs/README.md`). The clock
-contract assumes the 50 % duty cycle of the stimulus: a shorter high phase
-shortens the access budget and a shorter low phase the recovery budget.
+waveform validation at the frozen clocks; an array that is in a high row class
+and a high column class at the same time is such a size, because the clock
+policy takes the maximum of the two budgets and no screened case has both.
+Extracted metal, half-selected writes and yield estimation remain open
+(`docs/README.md`). The clock contract assumes the 50 % duty cycle of the
+stimulus: a shorter high phase shortens the access budget and a shorter low
+phase the recovery budget. It also assumes the clock keeps running, because
+precharge is a clock-low function: a clock stopped high parks the array with
+floating bitlines, and a clock stopped low parks it precharged.

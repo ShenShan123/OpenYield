@@ -15,7 +15,7 @@ per-device local mismatch by default, a replica-timed read path and a
 switching incompatible enables. Clocks come
 from a row/column lookup table and driver sizes from integer size classes;
 both stay frozen across cell candidates and PVT samples
-([timing](sram_compiler/sizing/README.md#clock-classes-v220),
+([timing](sram_compiler/sizing/README.md#clock-classes-v221-re-screened-in-v222),
 [sizing](sram_compiler/sizing/README.md)).
 
 V2.2.2 is the production review of the phased controller introduced in
@@ -44,6 +44,16 @@ listed under [open items](docs/README.md#open-items). The V2.2.2 screen is
 source, deck, waveform and scorer hashes in
 [`docs/data/PHASED_CONTROL_V2_2_2.json`](docs/data/PHASED_CONTROL_V2_2_2.json).
 
+Check what that screen covers before trusting a size it does not run. Every row
+and column class bound is screened, but each only against a small value of the
+other dimension, so no evidenced array exceeds 4096 cells and none is in a high
+row class and a high column class at the same time; each process corner is
+screened at a single voltage and temperature, and the nominal TT 1.0 V / 25 C
+point only at 8x4; the sense margin falls from 0.90 V at 32 rows to 0.47 V at
+512 rows against a 0.25 V bar, which makes 512 rows the practical end of the row
+ladder. The full list, with the numbers behind it, is
+[what the screen does not cover](docs/design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover).
+
 Documentation: [compiler guide](sram_compiler/README.md),
 [equivalent models](sram_compiler/equivalent_modeling/README.md),
 [sizing optimization](size_optimization/README.md),
@@ -51,6 +61,107 @@ Documentation: [compiler guide](sram_compiler/README.md),
 [utilities](utils/README.md), the [documentation index](docs/README.md) and the
 [development guide](docs/DEVELOPMENT.md). Reusable compiler tests live in
 `tests/`; local development and qualification scripts live under ignored `dev/`.
+
+## How the macro behaves in one cycle
+
+Address, chip select, write enable and write data are captured once, on the
+rising edge of `clk`. The clock-high phase is the **access**: precharge
+releases, the decoder settles, the wordline opens, and a write drives the
+bitlines or a read develops and latches its output. The clock-low phase is the
+**recovery**: the wordline releases, the write drivers and the sense amplifier
+release, the sense inputs un-isolate and the bitlines precharge again. Both
+phases finish inside one period, so every cycle ends in the same recovered
+state (wordline, `w_en`, `s_en`, `sa_iso` and `rbl_delay` low, bitlines high,
+`PRE` on) and read/write pairs need no handover between cycles. That is why a
+clock period must cover access *and* recovery, which is what
+`sram_compiler/sizing/timing_lookup.json` budgets.
+
+Ordering is enforced by *observing physical terminals*, not by counting gate
+delays: the controller waits for the far precharge gate to be off, the far
+isolation terminal to be high and the far replica wordline to be low before it
+allows the next incompatible signal. `far` below means the terminal at the last
+column or the last row, past every real RC load.
+
+The diagrams are measured 0.5 VDD crossings of an 8x4 6T array at SS, 0.9 V,
+125 C with a 9 ns clock; one character is 150 ps. The order is the contract,
+the spacing is one array at one corner.
+
+```text
+  WRITE cycle (we = 1)
+                  capture                       clock fall         next capture
+                  |---- access (clock high) ----|--- recovery (clock low) ----|
+  ns              0     1      2      3     4      5      6     7      8      9
+                  |     |      |      |     |      |      |     |      |      |
+  clk             /-----------------------------\_______________________________
+  cs, we          _/------------------------------------------------------------
+  PRE_far (low=on)_/--------------------------------------\_____________________
+  pre_off_ready   ___/------------------------------------\_____________________
+  access_request  ____/---------------------------\_____________________________
+  sa_iso_far      _____/---------------------------------\______________________
+  iso_ready       ________/-------------------------------\_____________________
+  w_en_far        ________/----------------------------\________________________
+  access_settled  ____________/----------------------\__________________________
+  wl_en           _____________/-------------------\____________________________
+  WL_far          ______________/-------------------\___________________________
+  wordline_busy   _____________/----------------------\_________________________
+  enables_off     ---------\_____________________________/----------------------
+  BLB_far (data 1)---------\______________________________/---------------------
+                   1 2 3   4  5   6      7          8  9 10 11 12 13
+```
+
+```text
+  READ cycle (we = 0)
+                  capture                       clock fall         next capture
+                  |---- access (clock high) ----|--- recovery (clock low) ----|
+  ns              0     1      2      3     4      5      6     7      8      9
+                  |     |      |      |     |      |      |     |      |      |
+  clk             /-----------------------------\_______________________________
+  cs (we=0)       _/------------------------------------------------------------
+  PRE_far (low=on)_/----------------------------------\_________________________
+  pre_off_ready   ___/---------------------------------\________________________
+  access_request  ____/---------------------------\_____________________________
+  access_settled  _______/---------------------------\__________________________
+  wl_en           ________/------\______________________________________________
+  WL_far          _________/------\_____________________________________________
+  RBL             ----------\_________________________/-------------------------
+  rbl_delay       _____________/-------------------------\______________________
+  read_done       ______________/-----------------\_____________________________
+  sa_iso_far      _______________/--------------------\_________________________
+  wordline_busy   ________/---------\___________________________________________
+  iso_ready       _________________/------------------\_________________________
+  s_en_far        ___________________/-------------\____________________________
+  OUT (reads 1)   ___________________/------------------------------------------
+  enables_off     -------------------\_______________/--------------------------
+  BLB_far         ----------\_________________________/-------------------------
+                   1 2 3     7    14 15 16 17 18      8      19 20 21 12 13
+```
+
+| Number | Write | Read |
+|---|---|---|
+| 1-3 | capture deasserts `PRE`; the far PRE gate is observed off and settles (`pre_off_ready`); `access_request` rises | same |
+| 4-6 | `write_prepare` isolates the sense inputs, the far ISO terminal is observed high (`iso_ready`), `w_en` turns the drivers on | - |
+| 7 | the far write enable starts the setup chain, `access_settled` rises and the wordline opens | the setup chain starts at `access_request` and the wordline opens |
+| 14-18 | - | cell and replica discharge their bitlines, `rbl_delay` trips, `read_done` isolates the developed differential and releases the wordline, then `s_en` regenerates into the output latch |
+| 8 | the falling edge clears the request and the wordline releases | the falling edge clears the request and `read_done` |
+| 9-10 | the far replica wordline is observed low, so the write window closes and `w_en` releases *after* the physical wordline | 19: `s_en` releases and the latch holds `OUT` |
+| 11-13 | both far enables are observed off, `sa_iso` releases and `PRE` turns on, and the bitlines restore before the next capture | same (20-21) |
+
+Required overlaps: write drivers with the wordline, and `s_en` with the open
+output latch. Forbidden overlaps, each enforced by an observed terminal:
+precharge with the wordline, the drivers or the sense footer; `w_en` with
+`s_en`; a read wordline with `s_en`; any enable before its input isolation.
+
+A measured eight-access trace of a 16x8 6T array under per-device mismatch at
+SS, 0.9 V, 125 C — write, write, read, read, write, read, write, read across
+two rows — is part of the release record:
+
+![Eight accesses with recovery between captures](docs/design/PHASED_CONTROL_V2_2_2.svg)
+
+The full port and node glossary, the complete causal chain and the boundary
+rules are the module docstring of
+[`sram_compiler/subcircuits/time_generate.py`](sram_compiler/subcircuits/time_generate.py);
+the contract and its evidence are the
+[V2.2.2 record](docs/design/PHASED_CONTROL_V2_2_2.md).
 
 ## Key Features
 

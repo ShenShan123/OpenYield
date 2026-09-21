@@ -209,6 +209,26 @@ at or above each dimension, then compute:
 T = ceil_to_50ps(2 * max(row_budget, column_budget) * (1 + margin))
 ```
 
+That is a **maximum, not a sum**, and no screened case has both dimensions in a
+high class: 512 rows are screened only with 4 columns, 512 columns only with 8
+rows, and 32x32 is the largest array that is in a high class on both axes. A
+128x128 or 256x256 array therefore receives the same period as 128x8 or 256x4
+while carrying a tall bitline and a wide wordline at once, with no waveform
+evidence behind it. Screen such a size before trusting its clock.
+
+The row ladder is also close to its end for a different reason. The worst
+bitline differential at the isolation sampling instant, over the SS cases of
+the V2.2.2 screen at each row count, against the checker's fixed 0.25 V bar:
+
+| Rows | 2-32 | 64 | 128 | 256 | 512 |
+|---|---:|---:|---:|---:|---:|
+| Worst sense margin (V) | 0.904 | 0.857 | 0.799 | 0.669 | 0.467 |
+
+The decrement per row doubling grows (58, 130, 202 mV) while the period triples
+from 9 to 27.75 ns, so a longer cycle does not buy the differential back: the
+limiter is the replica-to-array ratio. A 1024-row class needs sense evidence
+before it is given a budget.
+
 | Row bound | Half-cycle budget (ps) | Period with 25% margin (ns) |
 |---|---|---|
 | 32 | 3600 | 9 |

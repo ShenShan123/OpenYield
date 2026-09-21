@@ -102,3 +102,11 @@ testbench.add_analysis(circuit, "read", 2)  # Enables Xyce stochastic sampling.
 See the [compiler guide](../README.md) and [sizing guide](../sizing/README.md)
 for testbench and qualification details. Generated decks alone do not establish
 waveform correctness or timing qualification.
+
+Mismatch coverage in the tracked evidence is thin above the small arrays: the
+V2.2.2 screen runs 72 per-device cases, 52 of them at 8x4, and exactly one
+seeded sample each at 256 rows, 512 rows, 256 columns and 512 columns. At 512x4
+that single draw cost 13 % of the nominal sense margin (0.540 V to 0.467 V), so
+one sample bounds no tail. Raise `--mc-runs` on the size you actually intend to
+build; see
+[what the screen does not cover](../../docs/design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover).

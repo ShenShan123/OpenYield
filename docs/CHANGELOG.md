@@ -44,6 +44,22 @@ were fixed and the whole screen was re-run from the tracked tree.
   2 ns negative control fails under the same checker. Tracked tests: 170
   (one new startup test, one new margin test), 64 local, 6 optimizer.
   Extracted metal, half-selected writes and yield estimation remain open.
+- Post-release documentation pass over the same evidence, no code change: the
+  record gains
+  [what the screen does not cover](design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover),
+  eleven coverage gaps re-derived from the assembled JSON. The ones that need
+  work: no screened array is in a high row class and a high column class at
+  once while the clock policy takes the maximum of the two budgets; the sense
+  margin falls 0.90 / 0.86 / 0.80 / 0.67 / 0.47 V at 32 / 64 / 128 / 256 / 512
+  rows against a 0.25 V bar, so 512 rows ends the row ladder; each corner is
+  screened at one voltage and temperature and TT only at 8x4; complementary
+  column data only at 8 columns; no defined behaviour for a stopped clock; and
+  the shipped `.MEASURE` read deadline `k + 0.7 T` is 0.02 T looser than the
+  checker's `k + 0.68 T`. Confirmed in the same pass: the 63 recorded source
+  hashes equal the tracked tree, the per-record check counts sum to 2,164,669,
+  and no record carries a retry or a preserved failed attempt. The root README
+  gains the measured cycle waveform with its phase bar and causal chain, and
+  every affected README carries the coverage it is responsible for.
 
 ## V2.2.1 — 2026-09-20 — clock-high access and clock-low recovery
 

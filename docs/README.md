@@ -33,6 +33,20 @@ The carried Phase 6 scope. The working plans that defined it
   their data and every column still restores and releases; cases at mux ratios
   2 and 4, SS / SF 0.9 V / 125 C and FF 1.1 V / -40 C with address hazards, then
   per-device seeds. Read-modify-write is out of scope.
+- **Screen coverage carried from V2.2.2.** The functional screen passes every
+  case it runs, and
+  [what the screen does not cover](design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover)
+  enumerates what it does not. The items that need work rather than wording:
+  an array that is in a high row class and a high column class at once (no
+  screened case has both, and the clock policy takes the maximum of the two
+  budgets, not their sum); a row class above 512, where the sense margin trend
+  0.90 / 0.86 / 0.80 / 0.67 / 0.47 V at 32 / 64 / 128 / 256 / 512 rows reaches
+  the 0.25 V bar; process corners screened at one voltage and temperature each,
+  so SF is never screened cold and FS never hot; TT screened only at 8x4;
+  complementary column data only at 8 columns; and the runtime `.MEASURE` read
+  deadline of `k + 0.7 T`, which is 0.02 T looser than the checker's
+  `k + 0.68 T` and still ships, so `main_sram.py` can accept a deck the screen
+  would reject.
 - **Yield estimators.** `yield_estimation/model_lib/{MC,MNIS,AIS,ACS,HSCS}.py`
   are not usable as shipped: machine-local paths and an import-time deletion,
   dependencies absent from `environment.yml` (`torch`, `gpytorch`, `mpmath`,

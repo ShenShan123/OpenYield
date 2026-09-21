@@ -13,6 +13,15 @@ deck-reproduction and equivalence proofs, described in
 Like the CSVs below, keep it as written; corrections belong in the documents
 that cite it.
 
+Read the V2.2.2 record's `coverage` block before quoting a minimum from it. The
+254 records are 131 SS, 49 FF, 32 SF, 30 FS and 12 TT; each corner appears at
+exactly one voltage and temperature; 172 of 254 cases are at 16x8 or smaller;
+and every array satisfies `rows * cols <= 4096`. The `minimum_metrics` block is
+therefore the worst value over that population, not over the compiler's input
+space, and several of its minima are single per-device draws. The population's
+gaps are enumerated in
+[what the screen does not cover](../design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover).
+
 These two CSVs are the only numeric record of the V2.0.2–V2.0.4 timing and
 driver-sizing campaigns; their raw decks and waveforms were not retained. They
 moved here from the repository root on 2026-09-13 (after the V2.1.2 release)

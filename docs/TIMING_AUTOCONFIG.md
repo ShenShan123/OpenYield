@@ -68,7 +68,7 @@ checks prevent a late crossing or a cell that flips back from passing. V2.1.1
 checks the whole post-deadline retention interval, and every supported
 distributed array checks local and far precharge release. The static-power window
 is now at the end of the first post-access restore phase. See the
-[sizing/timing guide](../sram_compiler/sizing/README.md#clock-classes-v220).
+[sizing/timing guide](../sram_compiler/sizing/README.md#clock-classes-v221-re-screened-in-v222).
 
 ---
 
