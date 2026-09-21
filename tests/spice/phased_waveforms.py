@@ -1,4 +1,10 @@
-"""Independent physical waveform checks for the V2.2.0 phase contract."""
+"""Independent physical waveform checks for the V2.2.x phase contract.
+
+V2.2.2 also reports how much of each phase budget a passing trace used: the
+read output's lead over the checker deadline, the wordline dwell after a
+written cell has flipped, and the bitline restore and precharge-on slack
+before the next capture.
+"""
 from pathlib import Path
 import hashlib
 import json
@@ -64,6 +70,21 @@ def score(directory, report_name="result.json"):
         if not selected.any():
             raise ValueError('Empty check interval')
         return selected
+
+    def band_entry(node, high, start, stop):
+        """Time from which `node` stays within 0.1 VDD of its expected rail until `stop`."""
+        values = signal(node)
+        outside = (time >= start) & (time <= stop) & (np.abs(values - high * vdd) > .1 * vdd)
+        indexes = np.flatnonzero(outside)
+        if not len(indexes):
+            return start
+        last = indexes[-1]
+        if last + 1 >= len(time):
+            return time[last]
+        level = (high - .1) * vdd if high else .1 * vdd
+        slope = values[last + 1] - values[last]
+        fraction = 1. if slope == 0 else np.clip((level - values[last]) / slope, 0., 1.)
+        return time[last] + fraction * (time[last + 1] - time[last])
 
     def edges(node, level, start, stop, rising):
         values = signal(node)
@@ -132,7 +153,7 @@ def score(directory, report_name="result.json"):
     cycles = 8 if metadata['operation'] == 'read&write' else len(plan)
     sense_margins, capture_slack, driver_slack = [], [], []
     sense_slack, isolation_slack, drive_setup, storage_margins = [], [], [], []
-    recovery_slack = []
+    recovery_slack, output_margin, write_dwell, restore_slack, precharge_slack = [], [], [], [], []
     wordline_peak = np.maximum.reduce([signal(node) for row in nodes['wl'].values() for node in row])
     array = next(iter(nodes['cells'].values()))[0].split(':')[0]
 
@@ -362,10 +383,22 @@ def score(directory, report_name="result.json"):
                 isolation_slack.append(float((firing[0] - isolated[0]) * 1e12))
 
         if kind == 'write':
+            # Write margin: the earliest physical WL endpoint leaves 0.1 VDD
+            # this long after the last written cell crossed mid-rail.
+            wl_off = [crossing for node in nodes['wl'][str(row)]
+                      for crossing in edges(node, .1 * vdd, start, stop, False)]
             for key in expected:
                 cell_row, col = map(int, key.split(','))
-                if cell_row == row:
-                    expected[key] = int(datum[col]) if isinstance(datum, str) else datum
+                if cell_row != row:
+                    continue
+                value = int(datum[col]) if isinstance(datum, str) else datum
+                if expected[key] != value and wl_off and key in nodes['cells']:
+                    q, qb = nodes['cells'][key]
+                    flips = [crossing for node, rising in ((q, value == 1), (qb, value == 0))
+                             for crossing in edges(node, .5 * vdd, start, stop, rising)]
+                    if flips:
+                        write_dwell.append(float((min(wl_off) - max(flips)) * 1e12))
+                expected[key] = value
         # Every probed cell, including untouched rows, must retain its state.
         hold = window(base + .68 * period, stop)
         for key, (q, qb) in nodes['cells'].items():
@@ -376,6 +409,12 @@ def score(directory, report_name="result.json"):
         if kind == 'read':
             value = expected[f'{row},{metadata["cols"] - 1}']
             checks[f'{prefix}_output'] = bool(np.max(np.abs(signal('OUT')[hold] - value * vdd)) <= .1 * vdd)
+            # Access margin: the latched output and every sense group settle
+            # on their rail this long before the checker deadline (negative if
+            # OUT settles after it). The sense nodes are precharged again once
+            # isolation releases, so they are only followed to the deadline.
+            deadline = base + .68 * period
+            settled = [band_entry('OUT', value, start, stop)]
             mux = 2 if case.get('mux', False) else 1
             for col in range(0, metadata['cols'], mux):
                 selected_col = col + (metadata['cols'] - 1) % mux
@@ -384,6 +423,8 @@ def score(directory, report_name="result.json"):
                 error = max(abs(at(q, base + .68 * period) - value * vdd),
                             abs(at(qb, base + .68 * period) - (1 - value) * vdd))
                 checks[f'{prefix}_sense_group{col // mux}_data'] = bool(error <= .1 * vdd)
+                settled += [band_entry(q, value, start, deadline), band_entry(qb, 1 - value, start, deadline)]
+            output_margin.append(float((deadline - max(settled)) * 1e12))
         if base + 1.1 * period <= time[-1]:
             for col in range(metadata['cols']):
                 for pin in ('BL', 'BLB'):
@@ -391,6 +432,20 @@ def score(directory, report_name="result.json"):
                         abs(at(f'{array}:{pin}{col}_far', base + 1.1 * period) - vdd) <= .02 * vdd)
             checks[f'{prefix}_replica_reset'] = bool(at('RBL', base + 1.1 * period) >= .98 * vdd
                                                    and at('RBL_DELAY', base + 1.1 * period) <= .1 * vdd)
+        if kind != 'idle' and base + 1.2 * period <= time[-1] + 1e-14:
+            # Recovery margin: the last far bitline or RBL back above 0.9 VDD,
+            # and the last far precharge terminal turning on, before capture.
+            next_capture = base + 1.2 * period
+            lines = [f'{array}:{pin}{col}_far' for col in range(metadata['cols']) for pin in ('BL', 'BLB')]
+            restored = [crossing for node in lines + ['RBL']
+                        for crossing in edges(node, .9 * vdd, base + .7 * period, next_capture, True)]
+            if restored:
+                restore_slack.append(float((next_capture - max(restored)) * 1e12))
+            precharge_on = [crossing for col in range(metadata['cols'])
+                            for crossing in edges(nodes['pre'][str(col)], .9 * vdd, base + .7 * period,
+                                                  next_capture, False)]
+            if precharge_on:
+                precharge_slack.append(float((next_capture - max(precharge_on)) * 1e12))
 
     for name, values in (
         ('min_sense_margin_v', sense_margins),
@@ -401,6 +456,10 @@ def score(directory, report_name="result.json"):
         ('min_driver_on_before_wl_ps', drive_setup),
         ('min_enable_off_before_precharge_ps', recovery_slack),
         ('min_storage_polarity_margin_v', storage_margins),
+        ('min_read_output_margin_ps', output_margin),
+        ('min_write_wl_after_flip_ps', write_dwell),
+        ('min_restore_before_capture_ps', restore_slack),
+        ('min_precharge_on_before_capture_ps', precharge_slack),
     ):
         if values:
             metrics[name] = min(values)

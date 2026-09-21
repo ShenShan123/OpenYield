@@ -1,4 +1,10 @@
-# Compiler regression tests — V2.2.1
+# Compiler regression tests — V2.2.2
+
+V2.2.2 adds `test_generated_decks_start_from_the_precharged_clock_low_state`
+(every deck's `.IC` starts bitlines, RBL/RBLB and the sense nodes at VDD) and
+`test_access_and_recovery_margins_are_reported_and_cannot_be_negative`
+(read output, write wordline dwell, restore and precharge-on margins; a late
+output fails both the data and the margin check).
 
 V2.2.1 replaces the old hold-latch/slot topology expectations with the phased
 controller contract. Regressions cover new pin routing in numeric and sweep

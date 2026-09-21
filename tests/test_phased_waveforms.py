@@ -91,6 +91,54 @@ class PhasedWaveformTests(unittest.TestCase):
             self.assertLess(result['metrics']['min_enable_off_before_precharge_ps'], 0.)
             self.assertIn('min_enable_off_before_precharge_ps_nonnegative', result['failures'])
 
+    def test_access_and_recovery_margins_are_reported_and_cannot_be_negative(self):
+        """A passing screen must show how much of each phase budget it used.
+
+        V2.2.1 reported only ordering margins; the 8x512 read that met the
+        runtime k + 0.7 check while OUT was still on the wrong rail at the
+        checker's k + 0.68 deadline is invisible without the output margin.
+        """
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            self.fixture(directory)
+            result = score(directory)
+            self.assertTrue(result['passed'], result['failures'])
+            # Q crosses mid-rail at 4.475 ns and WL_FAR leaves 0.1 VDD at 7.695 ns;
+            # BLB0_far / RBL cross 0.9 VDD at 8.995 ns and PRE turns on at
+            # 8.955 ns, before the 11.8 ns capture.
+            self.assertAlmostEqual(result['metrics']['min_write_wl_after_flip_ps'], 3220, delta=10)
+            self.assertAlmostEqual(result['metrics']['min_restore_before_capture_ps'], 2805, delta=10)
+            self.assertAlmostEqual(result['metrics']['min_precharge_on_before_capture_ps'], 2845, delta=10)
+            self.assertNotIn('min_read_output_margin_ps', result['metrics'])
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            self.read_fixture(directory)
+            result = score(directory)
+            self.assertTrue(result['passed'], result['failures'])
+            # OUT leaves its wrong rail at 5.495 ns, before the 7.12 ns deadline.
+            self.assertAlmostEqual(result['metrics']['min_read_output_margin_ps'], 1625, delta=10)
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            def late_output(time, signals):
+                signals['OUT'][np.abs(time - 7.3e-9) < .06e-9] = 1.
+            self.read_fixture(directory, corrupt=late_output)
+            result = score(directory)
+            self.assertFalse(result['passed'])
+            self.assertLess(result['metrics']['min_read_output_margin_ps'], 0.)
+            self.assertIn('min_read_output_margin_ps_nonnegative', result['failures'])
+            self.assertIn('cycle0_read_output', result['failures'])
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            def late_flip(time, signals):
+                late = (time >= 4.5e-9) & (time < 7.8e-9)
+                signals['XARRAY:XCELL_0_0:Q'][late] = 0.
+                signals['XARRAY:XCELL_0_0:QB'][late] = 1.
+            self.fixture(directory, late_flip)
+            result = score(directory)
+            self.assertFalse(result['passed'])
+            self.assertLess(result['metrics']['min_write_wl_after_flip_ps'], 0.)
+            self.assertIn('min_write_wl_after_flip_ps_nonnegative', result['failures'])
+
     def test_correct_final_data_does_not_excuse_overlap_or_unfinished_recovery(self):
         hazards = [
             ('PRE_LOCAL', 0., 6., 'pre_exclusion'),

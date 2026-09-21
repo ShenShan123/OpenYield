@@ -5,7 +5,7 @@ are twice the V2.1.10 budgets described in the historical sections below,
 except the longer 128–512-row and 512-column classes;
 peripheral transistor classes are unchanged. A control-architecture identity
 prevents injection or qualification reuse of V2.1.10 baselines. See the
-[current timing contract and screen](../../docs/design/PHASED_CONTROL_V2_2_1.md).
+[current timing contract and screen](../../docs/design/PHASED_CONTROL_V2_2_2.md).
 
 
 V2.1.1 adds a far-PRE access-start guard: WL, write and sense enable wait for
@@ -192,7 +192,7 @@ access limits are reported separately by the qualification scorer; the default
 replica `(1, 9)` does not claim compliance with the read limit.
 
 
-## Clock classes (V2.2.1)
+## Clock classes (V2.2.1, re-screened in V2.2.2)
 
 `timing_lookup.json` (`v2.2.0-timing-3`) keeps the row/column anchors and
 doubles most V2.1.10 budgets for the new capture/access/recovery schedule.
@@ -201,7 +201,7 @@ the decoder-settling guard.
 At 512 columns, the half-cycle budgets are 9600 ps for 6T and 10200 ps for
 muxed 6T and 10T: default periods of 24 and 25.5 ns. The initial 16 ns read
 missed its far output deadline; the larger class gives sensing more time.
-See `docs/design/PHASED_CONTROL_V2_2_1.md` for executed evidence and limits.
+See `docs/design/PHASED_CONTROL_V2_2_2.md` for executed evidence and limits.
 Each entry contains an integer `half_period_ps` budget; choose the next anchor
 at or above each dimension, then compute:
 

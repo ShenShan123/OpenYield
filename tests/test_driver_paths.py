@@ -42,6 +42,42 @@ class PathTests(unittest.TestCase):
                             self.assertNotIn('XDIN_HOLD', initial)
                             self.assertIn(f'V(XTIME_CONTROL:XDFF_BUF_DATA:XDFF_{col}:Z5)=0.9', initial)
 
+    def test_generated_decks_start_from_the_precharged_clock_low_state(self):
+        """Every bitline pair, RBL/RBLB and the sense nodes start at VDD (V2.2.2).
+
+        With the clock low at t = 0 the controller keeps PRE active and the
+        sense pass gates open, so forcing BL, RBL or SA_Q to 0 V described a
+        state the circuit is never in; Xyce 7.4 could not solve one per-device
+        FF 10T mux read from it (`8x4_10t_mux_FF_read_pd`, V2.2.1 record).
+        """
+        import tempfile
+        for operation in ('read', 'write', 'read&write'):
+            for mux in (False, True):
+                with self.subTest(operation=operation, mux=mux), tempfile.TemporaryDirectory() as temp, redirect_stdout(io.StringIO()):
+                    tb = Sram6TCoreMcTestbench(load_config(4, 4, 'TT'), variation_mode='nominal',
+                                              choose_columnmux=mux, sim_path=temp)
+                    tb.set_vdd(.9)
+                    circuit = tb.create_testbench(operation, 3, 3)
+                    simulator = circuit.simulator(simulator='xyce-serial', temperature=25)
+                    tb.add_meas_and_print(simulator, tb.data_init(), operation)
+                    initial = ' '.join(line for line in str(simulator).splitlines() if line.lower().startswith('.ic')).upper()
+                    for col in range(4):
+                        self.assertIn(f'V(BL{col})=0.9V', initial)
+                        self.assertIn(f'V(BLB{col})=0.9V', initial)
+                        self.assertNotIn(f'V(BL{col})=0V', initial)
+                    self.assertIn('V(RBL)=0.9V', initial)
+                    self.assertIn('V(RBLB)=0.9V', initial)
+                    self.assertNotIn('V(RBL)=0V', initial)
+                    for group in range(4 // (2 if mux else 1)):
+                        if operation == 'write':
+                            self.assertNotIn(f'V(SA_Q{group})', initial)
+                        else:
+                            self.assertIn(f'V(SA_Q{group})=0.9V', initial)
+                            self.assertIn(f'V(SA_QB{group})=0.9V', initial)
+                    if operation == 'read':
+                        # The target cell stores 0, so a completed read is OUT falling.
+                        self.assertIn('V(OUT)=0.9V', initial)
+
     def test_wide_buffer_fingers_preserve_total_transistor_width(self):
         with redirect_stdout(io.StringIO()):
             inv = Pinv('NMOS_VTG', 'PMOS_VTG', 20e-6, 30e-6, 50e-9, max_finger_width=2e-6)

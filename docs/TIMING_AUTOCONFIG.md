@@ -4,7 +4,7 @@
 current `v2.2.0-timing-3` budgets are twice the V2.1.10 values below, with
 threefold 128–512-row budgets and the wider 512-column class (24 ns for 6T, 25.5 ns for muxed 6T and 10T). Read
 sensing also waits for physical wordline release and isolation. The
-[current phase-control record](design/PHASED_CONTROL_V2_2_1.md) is authoritative
+[current record](design/PHASED_CONTROL_V2_2_2.md) is authoritative
 for present timing, measurements, and validation; the following numeric history
 explains the previous architecture.
 

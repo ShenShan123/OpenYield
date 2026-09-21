@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "version": "V2.2.0",
+  "version": "V2.2.2",
   "lookup_version": "v2.2.0-timing-3",
   "units": "integer picoseconds before margin",
   "status": "Design budgets; not full PVT/local-mismatch qualification",
-  "basis": "V2.2.0 separates clock-high access from clock-low recovery. Most budgets are twice V2.1.10. The 128-, 256-, and 512-row budgets are three times V2.1.10 to cover the decoder-settling guard. At 512 columns, budgets are 9600 ps for 6T and 10200 ps for muxed 6T and 10T after an early sense-output deadline miss. See docs/design/PHASED_CONTROL_V2_2_0.md for executed screening and limits.",
+  "basis": "V2.2.0 separates clock-high access from clock-low recovery. Most budgets are twice V2.1.10. The 128-, 256-, and 512-row budgets are three times V2.1.10 to cover the decoder-settling guard. At 512 columns, budgets are 9600 ps for 6T and 10200 ps for muxed 6T and 10T after an early sense-output deadline miss. Budgets unchanged since the V2.2.0 screen; see docs/design/PHASED_CONTROL_V2_2_2.md for the executed screening and limits.",
   "policy": "T = ceil_to_50ps(2 * max(row.half_period_ps, column.half_period_ps) * (1 + margin)); default margin 0.25. Round dimensions up to anchors, extrapolate the final geometric ladder beyond them and flag the result. The shared classes apply to every architecture without a variant entry; a variant keyed by cell_type (and mux, when given) replaces both ladders for that architecture and may never fall below the shared budget. Physical wiring still shares the classes; custom RC still requires waveform checks.",
   "row_classes": [
     {

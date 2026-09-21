@@ -1,6 +1,6 @@
 # Phased SRAM access integration checks
 
-These opt-in tests exercise real Xyce waveforms for V2.2.1. They are separate
+These opt-in tests exercise real Xyce waveforms for V2.2.2. They are separate
 from `python3 -m unittest discover -s tests`, which does not launch this screen.
 Run from the repository root with the normal OpenYield Python dependencies and
 Xyce 7.4 available.
@@ -49,6 +49,15 @@ WL off before sense, isolation before enable, driver on before WL, both
 physical enables off before precharge turns on, and stored polarity. The
 enable-off margin is the one the superseded root-only observer reduced to
 20.55 ps at 8x256 SS; a yes/no exclusion alone would not have shown that.
+
+V2.2.2 adds four budget margins: `min_read_output_margin_ps` (the latched
+output and every sense group settled before the `k + 0.68 T` checker
+deadline; negative if OUT settles after it), `min_write_wl_after_flip_ps`
+(the earliest physical wordline endpoint leaves 0.1 VDD this long after the
+last written cell crossed mid-rail), `min_restore_before_capture_ps` (the
+last far bitline or RBL back above 0.9 VDD before the next capture) and
+`min_precharge_on_before_capture_ps`. The manifest also carries twelve
+per-device read&write cases at 32x32 to 8x512 across all four corners.
 
 The arbitrary-pattern cases replace only the external PWL sources. Their data
 expectations come from the pattern, not the compiler's fixed WRWR measurement

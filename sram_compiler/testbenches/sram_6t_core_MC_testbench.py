@@ -256,15 +256,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
         # The read operation
         elif operation == 'read':
-            # .ic conditions
-            for col in range(self.num_cols):
-                # Initial V(BL) for all columns
-                init_cond[f'BL{col}'] = 0 @ u_V
-            for sa in range(self.num_cols // self.mux_in):
-                # One sense amp per mux group
-                init_cond[f'SA_Q{sa}'] = 0 @ u_V
-                init_cond[f'SA_QB{sa}'] = self.vdd @ u_V
-            init_cond['RBL'] = 0 @ u_V
+            # .ic conditions: the precharged clock-low state (V2.2.2).
+            self._init_precharged_columns(init_cond, sense=True)
             # Preset the output latch to VDD: the target cell stores 0, so a completed
             # read is the *falling* edge of OUT (used by TSA / TREAD_TOTAL below).
             init_cond['OUT'] = self.vdd @ u_V
@@ -369,13 +362,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
         # The write operation
         elif operation == 'write':
-            # .ic conditions
+            # .ic conditions: the precharged clock-low state (V2.2.2).
+            self._init_precharged_columns(init_cond, sense=False)
             for col in range(self.num_cols):
-                # Initial V(BL) and V(BLB) for all columns
-                init_cond[f'BL{col}'] = 0 @ u_V
-                init_cond[f'BLB{col}'] = self.vdd @ u_V
                 init_cond[f'DIN_dff{col}'] = 0 @ u_V
-            init_cond['RBL'] = 0 @ u_V
             self._init_control_path(init_cond)
 
             simulator.initial_condition(**init_cond)
@@ -429,16 +419,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             self._add_next_row_print(simulator)
 
         elif operation == 'read&write':
-            # .ic conditions
+            # .ic conditions: the precharged clock-low state (V2.2.2).
+            self._init_precharged_columns(init_cond, sense=True)
             for col in range(self.num_cols):
-                # Initial V(BL) and V(BLB) for all columns
-                init_cond[f'BL{col}'] = 0 @ u_V
-                init_cond[f'BLB{col}'] = self.vdd @ u_V
                 init_cond[f'DIN_dff{col}'] = 0 @ u_V
-            for sa in range(self.num_cols // self.mux_in):
-                init_cond[f'SA_Q{sa}'] = 0 @ u_V
-                init_cond[f'SA_QB{sa}'] = self.vdd @ u_V
-            init_cond['RBL'] = 0 @ u_V
             init_cond['OUT'] = 0 @ u_V
             self._init_control_path(init_cond)
 
@@ -702,6 +686,30 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             qb = self.cell_inst_prefix + f'_{row}_{col}{self.heir_delimiter}QB'
             signals += f' V({q}) V({qb})'
         simulator.circuit.raw_spice += f'.PRINT TRAN FORMAT=NOINDEX {signals}\n'
+
+    def _init_precharged_columns(self, init_cond, sense):
+        """Start every bitline pair, the replica bitline and the sense nodes at VDD.
+
+        At t = 0 the clock is low, so the controller holds PRE active and the
+        sense-amplifier pass gates open: the physical state is every bitline,
+        RBL and both sense nodes at VDD.  Until V2.2.1 the decks forced BL and
+        RBL to 0 V (and SA_Q to 0 V) against the active precharge, an
+        inconsistent operating point that Xyce 7.4 could not solve for one
+        per-device FF 10T mux read (`8x4_10t_mux_FF_read_pd`, V2.2.1 record).
+        The precharged bias is the state clock-low recovery returns to, so
+        no measurement window changes; the startup charge crossing disappears.
+        """
+        for col in range(self.num_cols):
+            init_cond[f'BL{col}'] = self.vdd @ u_V
+            init_cond[f'BLB{col}'] = self.vdd @ u_V
+        init_cond['RBL'] = self.vdd @ u_V
+        init_cond['RBLB'] = self.vdd @ u_V
+        if sense:
+            for sa in range(self.num_cols // self.mux_in):
+                # One sense amp per mux group; both nodes follow the precharged inputs.
+                init_cond[f'SA_Q{sa}'] = self.vdd @ u_V
+                init_cond[f'SA_QB{sa}'] = self.vdd @ u_V
+        return init_cond
 
     def _init_control_path(self, init_cond):
         """Deterministic start-up state of the control path (shared by read / write)."""

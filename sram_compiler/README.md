@@ -1,10 +1,13 @@
-# SRAM Compiler and Test Platform User Guide — V2.2.1
+# SRAM Compiler and Test Platform User Guide — V2.2.2
 
 V2.2.1 captures on the rising edge, accesses during clock-high, and recovers
 and precharges during clock-low. The clock budgets are twice V2.1.10's and
 secondary hold latches are removed. Read sensing waits for physical WL release
 and sense-input isolation; write drive covers the whole physical WL pulse.
-See the [current control and validation record](../docs/design/PHASED_CONTROL_V2_2_1.md).
+V2.2.2 starts every generated deck from the precharged clock-low state and
+reports access/recovery margins in the waveform checks.
+See the [current record](../docs/design/PHASED_CONTROL_V2_2_2.md) and the
+[V2.2.1 control and validation record](../docs/design/PHASED_CONTROL_V2_2_1.md).
 
 
 V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes-v220) covers settings, explicit overrides and evidence limits.
@@ -419,7 +422,8 @@ inputs are isolated before either write drive or sense regeneration. Read WL
 release also precedes `s_en`; write drivers remain enabled until the physical
 WL is off. The intended driver/WL and sense/output-latch overlaps remain;
 incompatible roles are excluded. The current equations and transition checks
-are in [PHASED_CONTROL_V2_2_1.md](../docs/design/PHASED_CONTROL_V2_2_1.md).
+are in [PHASED_CONTROL_V2_2_1.md](../docs/design/PHASED_CONTROL_V2_2_1.md); the
+measured timing diagram is in the `time_generate.py` module docstring.
 
 `TCLK_WLEN` is measured from the rising capture edge, `TRESTORE` from the
 falling edge for both reads and writes. `TWSLOT` remains a write-rail diagnostic

@@ -1,15 +1,123 @@
-"""V2.2.0 TIME_CONTROL: rising-edge capture, clock-high access, clock-low recovery.
+"""TIME_CONTROL (V2.2.x): rising-edge capture, clock-high access, clock-low recovery.
 
-Address, data, select and write request are captured once per cycle. Access
-starts after the physical precharge has released and a shared setup delay;
-the falling clock edge ends it. The write drivers cover the wordline's physical
-falling tail. Recovery and precharge finish before the next capture edge, so
-no secondary address, request or write-data hold latches are needed.
+Address, data, select and write request are captured once per cycle on the
+rising edge of `clk`. Access starts after the physical far precharge terminal
+has released and a shared setup delay; the falling clock edge ends it. The
+write drivers cover the wordline's physical falling tail. Recovery (wordline
+release, enable release, isolation release, precharge) finishes before the
+next capture edge, so no secondary address, request or write-data hold
+latches exist. The replica bitline times read sensing only; it is not a
+write-completion detector. A clock period must cover BOTH access and
+recovery, including local mismatch (`sram_compiler/sizing/timing_lookup.json`).
 
-The replica bitline still times read sensing; it is not a write-completion
-detector. The far replica wordline and PRE observers enforce non-overlap.
-A clock period must cover BOTH access and recovery, including local mismatch.
-See docs/design/PHASED_CONTROL_V2_2_0.md for the timing contract and evidence.
+Ports and internal nodes (the same names are probed by the waveform checks):
+
+  clk, csb, web, A{i}, DIN{i}   external inputs, captured on the rising edge
+  cs, we, A_dff{i}, DIN_dff{i}  registered copies (cs = !csb, we = !web)
+  gated_clk_buf                 cs & clk_buf: the raw clock-high request
+  pre_far, rwl, iso_far,        physical feedback: far replica PRE gate, far
+  sen_far, wen_far              replica wordline, far ISO / sense EN / write EN
+  pre_off_ready                 far PRE observed off and settled (4 stages + RC)
+  access_request  (A)           gated_clk_buf & pre_off_ready
+  write_prepare                 we & A: isolates the sense inputs for a write
+  sa_iso                        read_done | write_prepare | !enables_off (high = isolated)
+  iso_ready                     far ISO observed high and settled (4 stages + RC)
+  wordline_busy   (B)           wl_en | !wordline_off; wordline_off = far RWL
+                                observed low and settled (precharge_guard_stages)
+  write_window / w_en           A | B;  w_en = we & write_window & iso_ready
+  write_ready                   !we | wen_far: a write's WL waits for its far drivers
+  wordline_start                A & write_ready -> RC filter -> 8-stage setup chain
+  access_settled                the settled setup output (loaded above 64 rows)
+  wordline_request / wl_en      A & access_settled;  wl_en = wordline_request & !read_done
+  rbl, rbl_delay                replica bitline and its odd delay chain (the sense trigger)
+  read_done                     rbl_delay & A & !we: isolates, releases WL, then allows s_en
+  s_en                          read_done & !B & iso_ready
+  enables_off                   !(s_en | w_en) & far enables observed off and settled
+  PRE (active low)              !(clk_bar & wordline_off & enables_off): clock-low only
+
+Timing diagram. Measured 0.5 VDD crossings of the 8x4 6T array at SS,
+0.9 V, 125 C with a 9 ns clock (one column = 150 ps; "far" is the terminal at
+the last column or row, past every real load). Numbers mark the causal
+chain described below; the order, not the exact spacing, is the contract.
+
+  WRITE cycle (we = 1)
+  ns              0     1      2      3     4      5      6     7      8      9
+                  |     |      |      |     |      |      |     |      |      |
+  clk             /-----------------------------\_______________________________
+  cs, we          _/------------------------------------------------------------
+  PRE_far (low=on)_/--------------------------------------\_____________________
+  pre_off_ready   ___/------------------------------------\_____________________
+  access_request  ____/---------------------------\_____________________________
+  sa_iso_far      _____/---------------------------------\______________________
+  iso_ready       ________/-------------------------------\_____________________
+  w_en_far        ________/----------------------------\________________________
+  access_settled  ____________/----------------------\__________________________
+  wl_en           _____________/-------------------\____________________________
+  WL_far          ______________/-------------------\___________________________
+  wordline_busy   _____________/----------------------\_________________________
+  enables_off     ---------\_____________________________/----------------------
+  BLB_far (data 1)---------\______________________________/---------------------
+                   1 2 3   4  5   6      7          8  9 10 11 12 13
+
+  READ cycle (we = 0)
+  ns              0     1      2      3     4      5      6     7      8      9
+                  |     |      |      |     |      |      |     |      |      |
+  clk             /-----------------------------\_______________________________
+  cs (we=0)       _/------------------------------------------------------------
+  PRE_far (low=on)_/----------------------------------\_________________________
+  pre_off_ready   ___/---------------------------------\________________________
+  access_request  ____/---------------------------\_____________________________
+  access_settled  _______/---------------------------\__________________________
+  wl_en           ________/------\______________________________________________
+  WL_far          _________/------\_____________________________________________
+  RBL             ----------\_________________________/-------------------------
+  rbl_delay       _____________/-------------------------\______________________
+  read_done       ______________/-----------------\_____________________________
+  sa_iso_far      _______________/--------------------\_________________________
+  wordline_busy   ________/---------\___________________________________________
+  iso_ready       _________________/------------------\_________________________
+  s_en_far        ___________________/-------------\____________________________
+  OUT (reads 1)   ___________________/------------------------------------------
+  enables_off     -------------------\_______________/--------------------------
+  BLB_far         ----------\_________________________/-------------------------
+                   1 2 3     7    14 15 16 17 18      8      19 20 21 12 13
+
+Write sequence: (1) the rising edge captures cs/we/address/data and, through
+clk_bar, deasserts PRE; (2) the far PRE gate is observed off and settles into
+pre_off_ready; (3) access_request A rises; (4) write_prepare raises sa_iso,
+(5) the far ISO terminal is observed high and settled (iso_ready), (6) w_en
+turns the drivers on with the registered data and the driven bitline leaves
+its rail; (7) the far write enable (write_ready) starts the RC-filtered
+8-stage setup chain, access_settled rises and wordline_request opens wl_en
+and the wordline; (8) the falling edge clears A, wordline_request and wl_en,
+so WL releases; (9) the far replica wordline is observed low and settles, so
+wordline_busy B falls; (10) the write window A | B closes and w_en releases,
+after the physical WL; (11) both far enables are observed off and settled,
+so enables_off rises; (12) sa_iso releases and PRE turns on in the same
+step; (13) the bitlines and RBL restore before the next capture.
+
+Read sequence: (1)-(3) as for a write; (7) write_ready is already high, so
+the setup chain starts at A and WL opens; (14) the selected cell and the
+replica discharge their bitlines; (15) rbl_delay trips and (16) read_done
+rises: it raises sa_iso (the sense inputs are isolated with the developed
+differential) and (17) clears wl_en, so the wordline releases before any
+regeneration; (18) wordline_busy falls once the far replica wordline is
+observed off, iso_ready follows the far ISO terminal, and s_en fires: the
+footer regenerates and the output latch opens; (8) the falling edge clears A
+and read_done, (19) s_en releases and the latch holds OUT; (20)-(21)
+enables_off, then ISO release and PRE, then restore as (11)-(13).
+
+Required overlaps: write drivers with WL; s_en with the open output latch.
+Forbidden overlaps, enforced by the observers above and checked by
+`tests/spice/phased_waveforms.py`: PRE with WL, drivers or sense footer;
+w_en with s_en; a read WL with s_en; any enable before its input isolation.
+Every operation ends in the same recovered state (WL, w_en, s_en, sa_iso and
+rbl_delay low, bitlines high, PRE on), so read->read, write->read,
+read->write and write->write need no cross-cycle handover. Clock-low must
+finish (9)-(13) before the next rising edge; the checker requires it.
+
+See docs/design/PHASED_CONTROL_V2_2_2.md for the timing contract, the
+executed screen and its limits.
 """
 from __future__ import annotations
 
