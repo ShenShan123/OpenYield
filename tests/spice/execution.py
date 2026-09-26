@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import signal
 import shutil
 import subprocess
@@ -101,14 +102,18 @@ def deck_with_max_step(deck_path, max_step, name='deck_tighter_step.sp'):
 
 
 def deck_with_option(deck_path, option, name='deck_fallback.sp'):
-    """Copy of a materialized sample deck with one extra option line (the original is untouched)."""
+    """Copy of a materialized sample deck with one extra option line (the original is untouched).
+
+    The line goes last, before ``.END``: Xyce keeps only the last ``.OPTIONS``
+    line of a package, so a fallback placed before a deck's own
+    ``.OPTIONS NONLIN`` line (from a case's ``xyce_options``) would be discarded
+    and the fallback would repeat the attempt that failed.
+    """
     deck_path = Path(deck_path)
-    text = deck_path.read_text()
-    anchor = '.OPTIONS MEASURE MEASFAIL=1\n'
-    if anchor in text:
-        text = text.replace(anchor, anchor + option + '\n', 1)
-    else:
-        text = text.replace('\n.end', f'\n{option}\n.end', 1)
+    text, count = re.subn(r'(?im)^\s*\.END\s*$', lambda m: option + '\n' + m.group(0).strip(),
+                          deck_path.read_text(), count=1)
+    if count != 1:
+        raise ValueError(f'No .END line in {deck_path}')
     target = deck_path.with_name(name)
     target.write_text(text)
     return target
@@ -183,3 +188,94 @@ def execute_local_ensemble(xyce, deck_path, model_path, seed, samples, ranks, lo
                 shutil.copyfileobj(source, combined)
             combined.flush()
     return 0, manifest
+
+
+# V2.2.4: a seeded DC operating point for the largest nominal decks. Plain
+# Newton + GMIN stepping spent 13 h in the operating point of a 256x128 deck
+# and 92 h without converging at 256x256; MOSFET homotopy converged some
+# decks in minutes and failed others after hours, with no pattern in the .IC
+# set. A stimulus-free UIC transient settles every node, Xyce saves the result
+# as a .NODESET guess, and the deck's own operating point starts from it. The
+# .IC values are part of the guess (Xyce refuses .IC with .NODESET), so the
+# saved solution is checked against them: at 64x64 and 128x128 it equals the
+# plain .IC operating point within 0.42 mV on every node voltage. It solved
+# 256x128 in 4 min; at 256x256 Newton had not converged after 5.6 h (open).
+SETTLE_STOP = 0.9e-9        # the first cycle starts at 1 ns; no stimulus moves before it
+SEED_TOLERANCE = 0.01       # volts: worst .IC node deviation accepted in the seeded solution
+OPERATING_POINT_FILE = 'operating_point.txt'
+_END = re.compile(r'(?im)^\s*\.END\s*$')
+_NODESET = re.compile(r'\.NODESET V\((.+)\) = (\S+)$')
+
+
+def ic_values(text):
+    """{NODE: volts} of every ``.IC`` card in a deck."""
+    values = {}
+    for line in text.splitlines():
+        if line[:4].lower() == '.ic ':
+            for item in line.split()[1:]:
+                match = re.fullmatch(r'V\((.+)\)=([-+0-9.eE]+)V?', item, re.I)
+                if not match:
+                    raise ValueError(f'Unparsed .IC item {item!r}')
+                values[match.group(1).upper()] = float(match.group(2))
+    return values
+
+
+def settle_deck(deck_path, directory):
+    """UIC transient over the stimulus-free window that saves every node as a guess."""
+    lines = []
+    for line in Path(deck_path).read_text().splitlines():
+        key = line.split()[0].upper() if line.split() else ''
+        if key.startswith(('.PRINT', '.MEAS')):
+            continue
+        if key == '.TRAN':
+            line = f'.TRAN 5e-12 {SETTLE_STOP:.4e} 0 5e-12 UIC'
+        lines.append(line)
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    text, count = _END.subn(f'.PRINT TRAN V(PRE)\n.SAVE TYPE=NODESET FILE={directory / "nodeset.txt"} '
+                            f'TIME={SETTLE_STOP:.4e}\n.END', '\n'.join(lines), count=1)
+    if count != 1:
+        raise ValueError(f'No .END line in {deck_path}')
+    target = directory / 'deck.sp'
+    target.write_text(text + '\n')
+    return target
+
+
+def seed_operating_point(deck_path, nodeset_path):
+    """Replace the deck's .IC with the settled guess (holding the .IC values) in place.
+
+    Returns the .IC values the saved operating point must reproduce.
+    """
+    deck_path = Path(deck_path)
+    text = deck_path.read_text()
+    ic = ic_values(text)
+    guess, seen = [], set()
+    for line in Path(nodeset_path).read_text().splitlines():
+        match = _NODESET.match(line.strip())
+        if match:
+            name = match.group(1).upper()
+            seen.add(name)
+            guess.append(f'.NODESET V({match.group(1)}) = {ic.get(name, match.group(2))}')
+    guess += [f'.NODESET V({name}) = {value}' for name, value in ic.items() if name not in seen]
+    merged = deck_path.with_name('nodeset.sp')
+    merged.write_text('\n'.join(guess) + '\n')
+    text = '\n'.join(line for line in text.splitlines() if line[:4].lower() != '.ic ')
+    text, count = _END.subn(f'.INCLUDE {merged}\n.SAVE TYPE=NODESET '
+                            f'FILE={deck_path.with_name(OPERATING_POINT_FILE)} TIME=0\n.END', text, count=1)
+    if count != 1:
+        raise ValueError(f'No .END line in {deck_path}')
+    deck_path.write_text(text + '\n')
+    return ic
+
+
+def operating_point_deviation(ic, saved_path):
+    """(volts, node) of the .IC node farthest from its value in a saved operating point."""
+    saved = {}
+    for line in Path(saved_path).read_text().splitlines():
+        match = _NODESET.match(line.strip())
+        if match:
+            saved[match.group(1).upper()] = float(match.group(2))
+    missing = sorted(set(ic) - set(saved))
+    if missing:
+        raise ValueError(f'{len(missing)} .IC nodes absent from {saved_path}: {missing[:5]}')
+    return max(((abs(saved[name] - value), name) for name, value in ic.items()), default=(0.0, None))

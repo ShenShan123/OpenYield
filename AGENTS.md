@@ -2,16 +2,22 @@
 
 This project is a open-source SRAM compiler for yield estimation and transistor sizing optimizations. The main functions include SRAM netlist generation with distributed RC loads, global and local process variations, and full DC/TRAN analyses. `REDAME.md` in both root and sub-folders are the tutorials for this projects. `docs/CHANGELOG.md`is per release (V2.x.x).`AGENTS.md` holds the detailed working conventions.
 
-Current release: **V2.2.3** (supported array envelope of 512 rows by 256
-columns enforced by `resolve_timing` in every timing mode; the 512-column class
-removed; `half = max(row, column) + min(row_excess, column_excess)` so an array
-large in both dimensions pays for both, leaving every V2.2.2-screened period
-identical; `ACCESS_DEADLINE = 0.68` shared by the runtime `.MEASURE` cards and
-the waveform checker; VDD-scaled sense bar; wider sentinel rows through the
-shared `probed_rows`; `tests/spice/v223_cases.json` (285 cases) and
-`tests/spice/v223_negative_cases.json` replace `v220_cases.json`.
-**The V2.2.3 screen has not been run**, so `docs/data/PHASED_CONTROL_V2_2_2.json`
-certifies the V2.2.2 tree only; see `docs/design/PHASED_CONTROL_V2_2_3.md`.)
+Current release: **V2.2.4** (replica load cells off the replica wordline are
+passive, both storage nodes at VDD, so their leakage no longer fires `s_en`
+early at 512 rows FF/FS 125 C, where V2.2.3 failed 7 of 14 per-device draws on
+sense margin; consistent write-register startup `.IC`; variant clock floor
+restored; envelope enforced for injected clocks; runner/checker take the
+target column, probe one-row address bits, retry a failed nominal multi-rank
+DCOP with line search, and seed the operating point of nominal decks of 16,384
+cells or more (`operating_point: seeded`); manifests
+`tests/spice/v224_cases.json` (330), `v224_mc_cases.json` (1,444, including
+the 52 tall draws) and `v224_negative_cases.json` (6).
+**No V2.2.4 screen has been run and 256x256 has no working operating point**;
+see `docs/design/PHASED_CONTROL_V2_2_4.md`. V2.2.3 kept the 512x256 envelope,
+the joint-dimension clock rule `half = max(row, column) + min(row_excess,
+column_excess)` and `ACCESS_DEADLINE = 0.68`; its screen ran 284/285 but was
+never assembled, so `docs/data/PHASED_CONTROL_V2_2_2.json` certifies the V2.2.2
+tree only.)
 V2.2.2 was the production review of V2.2.1: precharged startup
 bias in every deck, reported access/recovery margins, measured timing diagram
 in `time_generate.py`, re-screen with per-device cases at larger arrays.
@@ -28,8 +34,10 @@ observers enforce sequencing. New last TIME_CONTROL inputs are `iso_far`,
 unchanged. Above 64 rows, two loaded setup stages cover decoder settling;
 `v2.2.0-timing-3` uses three times V2.1.10's 128–512-row budgets and twice
 its smaller row budgets. The 512-column class was removed in V2.2.3 as outside the envelope. The current
-record is `docs/design/PHASED_CONTROL_V2_2_3.md` (envelope, joint clocks,
-shared deadline, pending screen) with `PHASED_CONTROL_V2_2_2.md` (review,
+record is `docs/design/PHASED_CONTROL_V2_2_4.md` (passive replica loads, review
+fixes, seeded operating point, pending screen) with
+`PHASED_CONTROL_V2_2_3.md` (envelope, joint clocks, shared deadline),
+`PHASED_CONTROL_V2_2_2.md` (review,
 margins, executed screen and its coverage gaps) and `PHASED_CONTROL_V2_2_1.md`
 (phase contract); `TIME_CONTROL_PATH.md` preserves the V2.1.10 architecture. Reproducible functional SPICE checks live under
 `tests/spice/`; the ignored V2.1.x qualification tools use the old phase/probe
@@ -47,7 +55,7 @@ scope is extracted metal, half-select writes, and yield estimation, listed in
 * Critial drivers' sizes are configurated from `sram_compiler/sizing/sizing_lookup.json` for different array sizes. Use interpolation or extrapolation for unseen arry sizes. The drivers' ability can be adjusted through simulation results.
 * Variation: `Sram6TCoreMcTestbench` modes are `nominal`, `shared` (one AGAUSS card per base model), `custom` (parameter table from the cell YAML) and `per-device` (independent `vth0/u0/voff` per MOS, specialized in `create_testbench()` by `sram_compiler/per_device_mc/netlist.py`). The per-device mode is default. `mc=True` now means per-device, so `mc_runs=1` without `mc_seed` is one unseeded random sample, not nominal; deterministic callers must pass `variation_mode='nominal'`. Per-device cannot be combined with the legacy `.STEP` sweeps.
 * Parasitics: `w_rc` controls local storage-node and peripheral stubs; custom values propagate through all factories and nested cells. `interconnect.mode: distributed` is the only supported topology and the default; explicit star settings fail. Default wire geometry is illustrative (1 ohm / 0.1 fF per pitch), not extracted metal.
-* Replica wires should match array lengths and loads, and the TIME_CONTROL module observes the far replica wordline before precharge. Equivalent modes 1-4 retain every wire segment and attach omitted-cell loads locally; extraction is numeric-only and uses the effective PVT and model-content cache identity. See `docs/design/DISTRIBUTED_RC_MODEL.md`. `main_sram.py` selects a wire YAML through `INTERCONNECT_CONFIG` and the CLI through `--interconnect-config` (`interconnect.load_interconnect()`).
+* Replica wires should match array lengths and loads, and the TIME_CONTROL module observes the far replica wordline before precharge. Only the last `replica_k` replica cells are driven; the others are passive loads (both nodes at VDD, no leakage, no static path; `tests/test_driver_paths.py`). Equivalent modes 1-4 retain every wire segment and attach omitted-cell loads locally; extraction is numeric-only and uses the effective PVT and model-content cache identity. See `docs/design/DISTRIBUTED_RC_MODEL.md`. `main_sram.py` selects a wire YAML through `INTERCONNECT_CONFIG` and the CLI through `--interconnect-config` (`interconnect.load_interconnect()`).
 * Equivalent model: `sram_compiler/equivalent_modeling/` resolves the mode (`resolve_equivalent`, the `equivalent:` block of `global.yaml`, overridden by an explicit `real_cell_mode`) and holds the accuracy entrance `compare.py`; the injection itself stays in `subcircuits/sram_cell_add_equivalent.py`. Mode 0 is the only mode with full per-device coverage, so evidence and qualification runs use it; modes 1-4 also need Xyce at netlist-generation time for cell parasitic extraction.
 
 ## Working conventions

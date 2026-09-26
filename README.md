@@ -1,4 +1,4 @@
-# OpenYield V2.2.3: SRAM yield analysis and optimization
+# OpenYield V2.2.4: SRAM yield analysis and optimization
 
 ![](img/logo-cut-openyield.jpg)
 **OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
@@ -7,7 +7,7 @@ The circuit generator models parasitic capacitance/resistance, leakage coupling,
 
 The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
 
-## Current release: V2.2.3
+## Current release: V2.2.4
 
 The compiler generates full transistor arrays with distributed RC wires,
 per-device local mismatch by default, a replica-timed read path and a
@@ -17,6 +17,17 @@ from a row/column lookup table and driver sizes from integer size classes;
 both stay frozen across cell candidates and PVT samples
 ([timing](sram_compiler/sizing/README.md#clock-classes),
 [sizing](sram_compiler/sizing/README.md)).
+
+**V2.2.4 fixes a sense failure at the tall edge of the envelope.** Only the
+replica cells on the replica wordline are driven; the other replica load cells
+are now passive, with both storage nodes at VDD. Through V2.2.3 they all stored
+0, and at fast NMOS and 125 C their leakage fired the sense enable early. A
+per-device run failed 7 of 14 512x4 draws on sense margin (worst 0.177 V
+against a 0.252 V bar); the same draws now pass at 0.33-0.54 V. V2.2.4 also
+starts the write register consistently, restores the variant clock floor,
+closes review gaps in the screen tooling, and seeds the DC operating point of
+the largest nominal decks
+([V2.2.4 record](docs/design/PHASED_CONTROL_V2_2_4.md)).
 
 **Supported array envelope: up to 512 rows by 256 columns.** A larger array is
 rejected rather than given an extrapolated clock. An array that is large in
@@ -41,7 +52,8 @@ budgets are twice V2.1.10's through 64 rows and three times its 128–512-row
 budgets. The 512-column class uses 24 ns
 for 6T and 25.5 ns for 6T with a mux and 10T. Driver size classes and bitcells
 are unchanged.
-See the [V2.2.3 record](docs/design/PHASED_CONTROL_V2_2_3.md), the
+See the [V2.2.4 record](docs/design/PHASED_CONTROL_V2_2_4.md), the
+[V2.2.3 record](docs/design/PHASED_CONTROL_V2_2_3.md), the
 [V2.2.2 review and screen](docs/design/PHASED_CONTROL_V2_2_2.md), the
 [V2.2.1 phase-control record](docs/design/PHASED_CONTROL_V2_2_1.md), the
 [reproducible SPICE checks](tests/spice/README.md), and the
@@ -51,16 +63,17 @@ Validation is functional screening with illustrative wires (1 ohm / 0.1 fF per
 pitch), not extracted-metal or yield qualification; the remaining scope is
 listed under [open items](docs/README.md#open-items).
 
-**The V2.2.3 screen has not been run yet.** The last executed screen is
-V2.2.2's, 254 of 254 cases and 2,164,669 checks, assembled with its source,
-deck, waveform and scorer hashes in
-[`docs/data/PHASED_CONTROL_V2_2_2.json`](docs/data/PHASED_CONTROL_V2_2_2.json).
-It certifies the V2.2.2 tree: V2.2.3 changes the clock policy, the runtime data
-deadline and the waveform checker, which are all hashed sources of the screen,
-so that record does not carry over. V2.2.3 ships a 285-case manifest and six
-tracked negative controls that close the coverage gaps the V2.2.2 review found
-([how to run it](docs/design/PHASED_CONTROL_V2_2_3.md#running-the-screen), about
-560 solver-hours); until it has been run and assembled, nothing in V2.2.3 may be
+**The V2.2.4 screen has not been run, and the 256x256 array still has no
+working DC operating point.** The last assembled screen is V2.2.2's, 254 of
+254 cases and 2,164,669 checks, with its source, deck, waveform and scorer
+hashes in
+[`docs/data/PHASED_CONTROL_V2_2_2.json`](docs/data/PHASED_CONTROL_V2_2_2.json);
+it certifies the V2.2.2 tree only. V2.2.3's screen ran 284 of 285 cases
+(256x256 never left its operating point) but was not assembled, and V2.2.4
+changes the replica column in every deck. V2.2.4 ships 330 main cases, 1,444
+per-device draws and six negative controls
+([how to run them](docs/design/PHASED_CONTROL_V2_2_4.md#the-screen), about 1,400
+solver-hours); until they have been run and assembled, nothing in V2.2.4 may be
 cited as qualification.
 
 What the V2.2.2 screen did and did not cover, with the numbers behind it, is

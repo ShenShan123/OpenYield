@@ -187,7 +187,9 @@ def score(directory, report_name="result.json"):
     checks['complete'] = bool(time[-1] >= 1e-9 + span * period - 1e-14)
     if 'pattern' in case:
         plan = [(entry['op'], entry['data']) for entry in case['pattern']]
-    target = f'{metadata["row"]},{metadata["cols"] - 1}'
+    # V2.2.4: the target column is recorded; older records always used the last one.
+    target_col = metadata.get('col', metadata['cols'] - 1)
+    target = f'{metadata["row"]},{target_col}'
     expected = {key: 0 if key == target else case.get('background', 0) for key in nodes['cells']}
     cycles = 8 if metadata['operation'] == 'read&write' else len(plan)
     sense_margins, capture_slack, driver_slack = [], [], []
@@ -311,7 +313,7 @@ def score(directory, report_name="result.json"):
         if kind == 'read' and sense_start < stop:
             mux = 2 if case.get('mux', False) else 1
             for col in range(0, metadata['cols'], mux):
-                selected_col = col + (metadata['cols'] - 1) % mux
+                selected_col = col + target_col % mux
                 value = retained[f'{row},{selected_col}']
                 enabled = (signal(nodes['sen'][str(col)]), .1 * vdd, True)
                 q, qb = nodes['sense_state'][str(col)]
@@ -322,7 +324,7 @@ def score(directory, report_name="result.json"):
                     for limit, above in ((high - .1, False), (high + .1, True)))
 
     for cycle, (kind, datum) in enumerate(plan[:cycles]):
-        if 1e-9 + (cycle + .7) * period > time[-1] + 1e-14:
+        if 1e-9 + (cycle + ACCESS_DEADLINE) * period > time[-1] + 1e-14:
             continue
         base = 1e-9 + cycle * period
         start, stop = base + .2 * period, min(base + 1.2 * period, time[-1])
@@ -446,7 +448,7 @@ def score(directory, report_name="result.json"):
                         np.max(np.abs(signal(qb)[hold] - (1 - value) * vdd)))
             checks[f'{prefix}_cell{key}_retention'] = bool(error <= .1 * vdd)
         if kind == 'read':
-            value = expected[f'{row},{metadata["cols"] - 1}']
+            value = expected[f'{row},{target_col}']
             checks[f'{prefix}_output'] = bool(np.max(np.abs(signal('OUT')[hold] - value * vdd)) <= .1 * vdd)
             # Access margin: the latched output and every sense group settle
             # on their rail this long before the checker deadline (negative if
@@ -456,7 +458,7 @@ def score(directory, report_name="result.json"):
             settled = [band_entry('OUT', value, start, stop)]
             mux = 2 if case.get('mux', False) else 1
             for col in range(0, metadata['cols'], mux):
-                selected_col = col + (metadata['cols'] - 1) % mux
+                selected_col = col + target_col % mux
                 value = expected[f'{row},{selected_col}']
                 q, qb = nodes['sense_state'][str(col)]
                 error = max(abs(at(q, base + ACCESS_DEADLINE * period) - value * vdd),

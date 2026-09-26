@@ -181,6 +181,32 @@ def _budget_ladders(table, cell_type, mux):
     return table, 'shared'
 
 
+def require_envelope(rows, cols, table=None):
+    """Reject an array outside the supported envelope of ``table`` (the default lookup)."""
+    envelope = (load_timing_lookup() if table is None else table)['supported_envelope']
+    if rows > envelope['max_rows'] or cols > envelope['max_cols']:
+        raise ValueError(
+            f"{rows}x{cols} is outside the supported array envelope "
+            f"of {envelope['max_rows']} rows by {envelope['max_cols']} columns")
+
+
+def _half_period_ps(ladders, rows, cols):
+    """Joint half-period of one ladder set (V2.2.3 rule), in integer ps, and its classes."""
+    from .driver_sizing import interpolate_class
+    row = interpolate_class(ladders['row_classes'], 'max_rows', ('half_period_ps',), rows)
+    col = interpolate_class(ladders['column_classes'], 'max_cols', ('half_period_ps',), cols)
+    # V2.2.3: bitline height and wordline width cost time separately, so an
+    # array large in both dimensions pays for both. A dimension's excess is its
+    # budget above the budget of its own first class, which is what the
+    # smallest array of this architecture already pays. The larger of the two
+    # budgets carries that base once and the smaller excess is added on top.
+    # A dimension inside its first class has no excess, so every size screened
+    # before V2.2.3 keeps exactly the maximum-rule period it was screened at.
+    joint_ps = min(row['half_period_ps'] - ladders['row_classes'][0]['half_period_ps'],
+                   col['half_period_ps'] - ladders['column_classes'][0]['half_period_ps'])
+    return max(row['half_period_ps'], col['half_period_ps']) + joint_ps, row, col
+
+
 def resolve_timing(config, driver_sizes, context=None):
     """Select one period by array class, without simulation or PVT/cell refitting.
 
@@ -195,11 +221,7 @@ def resolve_timing(config, driver_sizes, context=None):
     driver_sizes.validate_for(config, driver_sizes.cell_type, driver_sizes.mux, context)
     options = _timing_options(config)
     table = load_timing_lookup(options.get('lookup'))
-    envelope = table['supported_envelope']
-    if driver_sizes.rows > envelope['max_rows'] or driver_sizes.cols > envelope['max_cols']:
-        raise ValueError(
-            f"{driver_sizes.rows}x{driver_sizes.cols} is outside the supported array envelope "
-            f"of {envelope['max_rows']} rows by {envelope['max_cols']} columns")
+    require_envelope(driver_sizes.rows, driver_sizes.cols, table)
     if options.get('mode', 'lookup') == 'fixed':
         period = options.get('t_period')
         if isinstance(period, bool):
@@ -221,20 +243,14 @@ def resolve_timing(config, driver_sizes, context=None):
     margin = options.get('margin', .25)
     if isinstance(margin, bool) or not isinstance(margin, (float, int)) or not isfinite(margin) or margin < 0:
         raise ValueError('Timing margin must be finite and nonnegative')
-    from .driver_sizing import interpolate_class
     ladders, budget = _budget_ladders(table, driver_sizes.cell_type, driver_sizes.mux)
-    row = interpolate_class(ladders['row_classes'], 'max_rows', ('half_period_ps',), driver_sizes.rows)
-    col = interpolate_class(ladders['column_classes'], 'max_cols', ('half_period_ps',), driver_sizes.cols)
-    # V2.2.3: bitline height and wordline width cost time separately, so an
-    # array large in both dimensions pays for both. A dimension's excess is its
-    # budget above the budget of its own first class, which is what the
-    # smallest array of this architecture already pays. The larger of the two
-    # budgets carries that base once and the smaller excess is added on top.
-    # A dimension inside its first class has no excess, so every size screened
-    # before V2.2.3 keeps exactly the maximum-rule period it was screened at.
-    joint_ps = min(row['half_period_ps'] - ladders['row_classes'][0]['half_period_ps'],
-                   col['half_period_ps'] - ladders['column_classes'][0]['half_period_ps'])
-    half_ps = max(row['half_period_ps'], col['half_period_ps']) + joint_ps
+    half_ps, row, col = _half_period_ps(ladders, driver_sizes.rows, driver_sizes.cols)
+    if ladders is not table:
+        # V2.2.4: a variant may only add time. Its excess is measured from its
+        # own first class, so a variant that raises only its early classes has
+        # a smaller joint excess and, without this floor, a shorter clock than
+        # the shared ladder it left (e.g. 128x128 at 19.5 against 20.5 ns).
+        half_ps = max(half_ps, _half_period_ps(table, driver_sizes.rows, driver_sizes.cols)[0])
     period = ceil(2 * half_ps * (1 + margin) / 50) * 50e-12
     return ArrayTiming(period, half_ps * 1e-12, half_ps * 1e-12, half_ps * 1e-12,
                        margin=margin, source='lookup', driver_key=driver_sizes.key,

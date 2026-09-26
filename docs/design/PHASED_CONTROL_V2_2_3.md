@@ -1,5 +1,11 @@
 # V2.2.3: supported envelope, joint-dimension clocks, one access deadline
 
+> *Later (V2.2.4 record): the screen below was run from the clean V2.2.3 commit;
+> 284 of 285 cases passed, the 6 controls failed as required, and 256x256 was
+> killed after 91.8 h in its operating point. It was never assembled, so there
+> is still no V2.2.3 evidence record. See
+> [PHASED_CONTROL_V2_2_4.md](PHASED_CONTROL_V2_2_4.md).*
+>
 > **No V2.2.3 screen has been run. There is no V2.2.3 evidence record.**
 > This release changes the clock policy, the compiler's runtime data deadline
 > and the waveform checker, all of which are hashed sources of the screen, so

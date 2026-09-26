@@ -1,4 +1,5 @@
 """The opt-in waveform scorer fails closed on real electrical safety violations."""
+import functools
 import json
 import tempfile
 import unittest
@@ -516,33 +517,176 @@ class ProbeAndBarTests(unittest.TestCase):
         self.assertNotIn('.68', inspect_source(phased_waveforms.score))
 
 
+class RunnerExecutionTests(unittest.TestCase):
+    """How the runner treats a numerical failure, with a stand-in solver and MPI launcher."""
+
+    def test_a_nominal_multirank_deck_gets_one_line_search_retry_and_keeps_its_first_attempt(self):
+        """V2.2.4: the one-rank path and the per-device ladder retried a failed DC operating
+        point with Newton line search, but the nominal multi-rank path did not, so a 257x4
+        10T/mux FF deck that converges with line search was reported as a solver failure."""
+        import stat
+        from unittest import mock
+
+        from tests.spice import phased_access
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            xyce, launcher = root / 'bin' / 'Xyce', root / 'bin' / 'mpiexec'
+            xyce.parent.mkdir()
+            # Fails plain Newton; converges once the deck asks for line search.
+            xyce.write_text('#!/bin/sh\n'
+                            'case "$1" in -capabilities) echo "Parallel with MPI"; exit 0;; '
+                            '-v) echo "stand-in Xyce"; exit 0;; esac\n'
+                            'for deck; do :; done\n'
+                            'if grep -q "SEARCHMETHOD=2" "$deck"; then echo converged; exit 0; fi\n'
+                            'echo "DC Operating Point Failed.  Exiting transient loop"; exit 1\n')
+            launcher.write_text('#!/bin/sh\nshift 2\nexec "$@"\n')
+            for path in (xyce, launcher):
+                path.chmod(path.stat().st_mode | stat.S_IEXEC)
+
+            def prepare(case, directory):
+                path = directory / 'deck.sp'
+                path.write_text('* stand-in\n.TRAN 5e-12 1e-9\n.END\n')
+                return path, {'case': case}
+
+            case = {'name': 'retry', 'rows': 256, 'cols': 4, 'mpi_ranks': 4}
+            with mock.patch.object(phased_access, 'prepare', prepare), \
+                    mock.patch.object(phased_access, 'check_sources', lambda: None), \
+                    mock.patch.object(phased_access, 'score', lambda d: {'passed': True, 'failures': []}):
+                result = phased_access.run(case, root / 'out', str(xyce))
+            self.assertTrue(result['passed'])
+            directory = root / 'out' / 'retry'
+            metadata = json.loads((directory / 'metadata.json').read_text())
+            self.assertEqual(metadata['returncode'], 0)
+            self.assertEqual(metadata['execution']['operating_point_retry']['option'],
+                             '.OPTIONS NONLIN SEARCHMETHOD=2')
+            self.assertIn('SEARCHMETHOD=2', (directory / 'deck.sp').read_text())
+            first = directory / metadata['execution']['operating_point_retry']['first_attempt']
+            self.assertNotIn('SEARCHMETHOD', (first / 'deck.sp').read_text())
+            self.assertIn('DC Operating Point Failed', (first / 'xyce.log').read_text())
+
+
+    def _seeded_run(self, root, drift, case_extra=None):
+        """Run a stand-in seeded case; the solver moves the Q node by ``drift`` volts."""
+        import stat
+        import sys
+        from unittest import mock
+
+        from tests.spice import phased_access
+        xyce, launcher = root / 'bin' / 'Xyce', root / 'bin' / 'mpiexec'
+        xyce.parent.mkdir(exist_ok=True)
+        # Settle: save a guess that disagrees with the .IC on Q. Main deck: save
+        # the operating point the guess leads to, with Q moved by `drift`.
+        xyce.write_text(f'#!{sys.executable}\n'
+                        'import re, sys\n'
+                        'if sys.argv[1] == "-capabilities": print("Parallel with MPI"); sys.exit(0)\n'
+                        'if sys.argv[1] == "-v": print("stand-in Xyce"); sys.exit(0)\n'
+                        'deck = open(sys.argv[-1]).read()\n'
+                        'target = re.search(r"\\.SAVE TYPE=NODESET FILE=(\\S+)", deck).group(1)\n'
+                        'if " UIC" in deck:\n'
+                        '    open(target, "w").write(".NODESET V(Q) = 0.1\\n.NODESET V(N1) = 0.45\\n")\n'
+                        'else:\n'
+                        '    guess = open(re.search(r"^\\.INCLUDE (\\S+)", deck, re.M).group(1)).read()\n'
+                        f'    open(target, "w").write(guess.replace("V(Q) = 0.9", "V(Q) = {0.9 + drift}"))\n')
+        launcher.write_text('#!/bin/sh\nshift 2\nexec "$@"\n')
+        for path in (xyce, launcher):
+            path.chmod(path.stat().st_mode | stat.S_IEXEC)
+
+        def prepare(case, directory):
+            path = directory / 'deck.sp'
+            path.write_text('* stand-in\n.TRAN 5e-12 2e-8 0 2e-11\n.PRINT TRAN V(OUT)\n'
+                            '.MEAS TRAN X MAX V(OUT)\n.ic V(Q)=0.9V V(BL0)=0.9V\n.END\n')
+            return path, {'case': case}
+
+        case = dict({'name': 'seeded', 'rows': 256, 'cols': 256, 'mpi_ranks': 4,
+                     'operating_point': 'seeded'}, **(case_extra or {}))
+        with mock.patch.object(phased_access, 'prepare', prepare), \
+                mock.patch.object(phased_access, 'check_sources', lambda: None), \
+                mock.patch.object(phased_access, 'score', lambda d: {'passed': True, 'failures': []}):
+            return phased_access.run(case, root / 'out', str(xyce)), root / 'out' / case['name']
+
+    def test_a_seeded_operating_point_keeps_the_decks_initial_conditions(self):
+        """V2.2.4: plain Newton spent 13 h in the operating point of 256x128 and never converged
+        at 256x256; homotopy was erratic. The seeded path settles the stimulus-free window by a
+        UIC transient and starts the deck's own operating point from it. It must not change
+        what the deck asks for: the settle run ends before the first cycle (1 ns), the .IC
+        values override the settled guess, and a solution that leaves an .IC node fails."""
+        from tests.spice.execution import SETTLE_STOP
+        with tempfile.TemporaryDirectory() as temp:
+            result, directory = self._seeded_run(Path(temp), drift=0.0)
+            self.assertTrue(result['passed'])
+            settle = (directory / 'settle' / 'deck.sp').read_text()
+            self.assertIn(f'.TRAN 5e-12 {SETTLE_STOP:.4e} 0 5e-12 UIC', settle)
+            self.assertLess(SETTLE_STOP, 1e-9)
+            self.assertNotIn('.MEAS', settle)
+            deck = (directory / 'deck.sp').read_text()
+            self.assertNotIn('.ic ', deck.lower())
+            guess = (directory / 'nodeset.sp').read_text().splitlines()
+            self.assertIn('.NODESET V(Q) = 0.9', guess)        # .IC beats the settled 0.1 V
+            self.assertIn('.NODESET V(N1) = 0.45', guess)      # other nodes keep the settled value
+            self.assertIn('.NODESET V(BL0) = 0.9', guess)      # .IC nodes the settle run did not save
+            record = json.loads((directory / 'metadata.json').read_text())['execution']['seeded_operating_point']
+            self.assertEqual((record['ic_nodes'], record['worst_ic_deviation_v']), (2, 0.0))
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaisesRegex(RuntimeError, 'from its .IC value'):
+                self._seeded_run(Path(temp), drift=0.05)
+            metadata = json.loads((Path(temp) / 'out' / 'seeded' / 'metadata.json').read_text())
+            self.assertFalse(metadata['passed'])
+            self.assertIn('Q', metadata['simulation_error'])
+        for extra in ({'variation': 'per-device'}, {'mpi_ranks': 1}, {'operating_point': 'homotopy'}):
+            with self.subTest(extra=extra), tempfile.TemporaryDirectory() as temp:
+                with self.assertRaises(ValueError):
+                    self._seeded_run(Path(temp), 0.0, extra)
+
+    def test_a_fallback_option_overrides_the_decks_own_nonlinear_options(self):
+        """Xyce 7.4 keeps only the last .OPTIONS NONLIN line (measured: a CONTINUATION=2 line
+        followed by SEARCHMETHOD=2 ran pure line search, and the reverse order pure homotopy).
+        The per-device ladder inserted its fallback right after MEASFAIL, ahead of a large
+        array's own homotopy line, so the fallback would have repeated the failed attempt."""
+        from tests.spice.execution import deck_with_option
+        with tempfile.TemporaryDirectory() as temp:
+            deck = Path(temp) / 'deck.sp'
+            deck.write_text('* deck\n.OPTIONS MEASURE MEASFAIL=1\n'
+                            '.OPTIONS NONLIN CONTINUATION=2 MAXSTEP=1000\nR1 a 0 1\n.END\n')
+            lines = deck_with_option(deck, '.OPTIONS NONLIN SEARCHMETHOD=2').read_text().splitlines()
+            nonlinear = [line for line in lines if line.upper().startswith('.OPTIONS NONLIN')]
+            self.assertEqual(nonlinear[-1], '.OPTIONS NONLIN SEARCHMETHOD=2')
+            self.assertEqual(lines[-1], '.END')
+            self.assertIn('CONTINUATION=2', deck.read_text())   # the original is untouched
+
+
+@functools.lru_cache(maxsize=None)
+def _period(rows, cols, cell, mux):
+    """Lookup clock of one architecture; the manifests repeat a few dozen of them."""
+    import contextlib
+    import io
+
+    from sram_compiler.per_device_mc.run import load_config
+    from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
+    with contextlib.redirect_stdout(io.StringIO()):
+        cfg = load_config(rows, cols, 'SS')
+        return resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type=cell, mux=mux)).t_period
+
+
 class ScreenManifestTests(unittest.TestCase):
     """The case list is a tracked artifact: it must stay runnable and keep its coverage."""
 
     @classmethod
     def setUpClass(cls):
         root = Path(__file__).resolve().parent / 'spice'
-        cls.cases = json.loads((root / 'v223_cases.json').read_text())
-        cls.negative = json.loads((root / 'v223_negative_cases.json').read_text())
+        cls.cases = json.loads((root / 'v224_cases.json').read_text())
+        cls.negative = json.loads((root / 'v224_negative_cases.json').read_text())
+        cls.mc = json.loads((root / 'v224_mc_cases.json').read_text())
 
     def periods(self, case):
-        import contextlib
-        import io
-
-        from sram_compiler.per_device_mc.run import load_config
-        from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
-        with contextlib.redirect_stdout(io.StringIO()):
-            cfg = load_config(case.get('rows', 8), case.get('cols', 4), case.get('corner', 'SS'))
-            sizes = resolve_driver_sizes(cfg, cell_type=case.get('cell', 'SRAM_6T_CELL'),
-                                         mux=case.get('mux', False))
-            return resolve_timing(cfg, sizes).t_period
+        return _period(case.get('rows', 8), case.get('cols', 4), case.get('cell', 'SRAM_6T_CELL'),
+                       case.get('mux', False))
 
     def test_every_case_names_one_directory_and_resolves_inside_the_envelope(self):
         """The runner makes a directory per case and refuses to reuse one, and a case it
         cannot build wastes whatever the queue already spent."""
-        names = [case['name'] for case in self.cases + self.negative]
+        names = [case['name'] for case in self.cases + self.negative + self.mc]
         self.assertEqual(len(names), len(set(names)))
-        for case in self.cases + self.negative:
+        for case in self.cases + self.negative + self.mc:
             with self.subTest(case=case['name']):
                 self.assertEqual(Path(case['name']).name, case['name'])
                 self.assertIn(case.get('operation', 'read&write'), ('read', 'write', 'read&write'))
@@ -550,7 +694,7 @@ class ScreenManifestTests(unittest.TestCase):
 
     def test_arbitrary_patterns_match_the_array_they_run_on(self):
         """apply_pattern rejects a bad pattern only once the deck is already built."""
-        for case in self.cases:
+        for case in self.cases + self.mc:
             pattern = case.get('pattern')
             if pattern is None:
                 continue
@@ -597,6 +741,72 @@ class ScreenManifestTests(unittest.TestCase):
                 draws[size(case)] = draws.get(size(case), 0) + 1
         for shape in ((256, 4), (512, 4)):
             self.assertGreaterEqual(draws.get(shape, 0), 2, shape)
+
+    def test_the_manifest_covers_the_gaps_the_V2_2_3_review_found(self):
+        """V2.2.4 review: each is a configuration the V2.2.3 screen never simulated."""
+        def cells(case):
+            return case.get('rows', 8) * case.get('cols', 4)
+
+        # The SEL0 input of the column mux: V2.2.3 always targeted the last column.
+        for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
+            self.assertTrue(any(case.get('mux') and case.get('cell', 'SRAM_6T_CELL') == cell
+                                and case.get('col', case.get('cols', 4) - 1) % 2 == 0
+                                for case in self.cases), cell)
+        # A read of column 0 whose neighbours hold the opposite value, so the
+        # wrong mux input cannot pass.
+        self.assertTrue(any(case.get('mux') and case.get('col') == 0 and case.get('background') == 1
+                            and case.get('operation') == 'read' for case in self.cases))
+        # The fast corner on tall arrays, cold and hot.
+        tall_fast = {(case.get('vdd'), case.get('temperature')) for case in self.cases
+                     if case.get('corner') == 'FF' and case.get('rows', 8) >= 128}
+        self.assertTrue({(1.1, -40), (1.1, 125)} <= tall_fast)
+        # Sizes that are not powers of two, a one-row array, a one-column array.
+        def power(n):
+            return n & (n - 1) == 0
+        odd = [case for case in self.cases if not (power(case['rows']) and power(case['cols']))]
+        self.assertGreaterEqual(len(odd), 15)
+        self.assertTrue(any(case['rows'] == 1 for case in self.cases))
+        self.assertTrue(any(case['cols'] == 1 for case in self.cases))
+        # Partial address-bit changes between neighbouring rows on a tall array.
+        self.assertTrue(any(case.get('rows', 8) >= 256 and any(
+            abs(a['row'] - b['row']) == 1 for a, b in zip(case.get('pattern', ()), case.get('pattern', ())[1:]))
+            for case in self.cases))
+        # Large nominal arrays seed their operating point: plain Newton spent 13 h at
+        # 256x128 and 92 h without converging at 256x256, and homotopy was erratic.
+        # Per-device decks keep plain Newton, which converged every 128x128 draw.
+        for case in self.cases + self.mc:
+            self.assertNotIn('xyce_options', case, case['name'])
+            expected = ('seeded' if cells(case) >= 16384 and case.get('variation') != 'per-device'
+                        else 'plain')
+            self.assertEqual(case.get('operating_point', 'plain'), expected, case['name'])
+        # The tall-array draws that exposed the V2.2.3 replica-leakage sense failure.
+        tall = [case for case in self.mc if case['name'].startswith('tall_')]
+        self.assertEqual(len(tall), 52)
+        self.assertTrue(all(case['rows'] >= 256 and case['temperature'] == 125
+                            and case['corner'] in ('FF', 'FS') for case in tall))
+
+    def test_the_mismatch_sweep_samples_every_mechanism_corner(self):
+        """The MC sweep: 20 per-device draws of every cell/mux configuration at each failure
+        mechanism's worst global corner (timing SS hot, write SF cold, read stability FS hot,
+        races FF cold, leakage FF hot), plus corner-case patterns under mismatch."""
+        draws = {}
+        for case in self.mc:
+            self.assertEqual(case.get('variation'), 'per-device', case['name'])
+            if (case['rows'], case['cols']) == (8, 4) and 'pattern' not in case:
+                key = (case['cell'], case['mux'], case['corner'], case['vdd'], case['temperature'])
+                draws[key] = draws.get(key, 0) + 1
+        points = {('SS', .9, 125), ('SF', .9, -40), ('FS', .9, 125), ('FF', 1.1, -40), ('FF', 1.1, 125)}
+        for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
+            for mux in (False, True):
+                for corner, vdd, temperature in points:
+                    self.assertGreaterEqual(draws.get((cell, mux, corner, vdd, temperature), 0), 20)
+        # Independent draws: no seed repeats on the same netlist. The tall draws reuse
+        # the seeds of their V2.2.3 run (paired before/after evidence), which were
+        # also used by 8x4 10T draws, a different netlist and so a different sample.
+        seeds = [(case['seed'], case['rows'], case['cols'], case['cell'], case['mux']) for case in self.mc]
+        self.assertEqual(len(seeds), len(set(seeds)))
+        kinds = {case['name'].split('_')[2] for case in self.mc if case['name'].startswith('pat_16x8')}
+        self.assertTrue({'raw', 'waw', 'bitflip', 'idle', 'walk'} <= kinds)
 
     def test_every_negative_control_is_too_short_to_pass(self):
         """A negative control that the contract would accept proves nothing. V2.2.2 had one,

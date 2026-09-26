@@ -16,8 +16,10 @@ that cite it.
 `PHASED_CONTROL_V2_2_2.json` certifies the tree at commit `c6ea3aa`, not the
 current one: V2.2.3 changed the clock policy, the runtime data deadline and the
 waveform checker, which are hashed sources of the screen, so its recorded
-source hashes no longer equal the tree. There is no V2.2.3 record yet; see
-[the V2.2.3 design record](../design/PHASED_CONTROL_V2_2_3.md).
+source hashes no longer equal the tree. V2.2.3's screen ran but was never
+assembled, and V2.2.4 changed the replica column of every deck; there is no
+V2.2.3 or V2.2.4 record. See
+[the V2.2.4 design record](../design/PHASED_CONTROL_V2_2_4.md).
 
 Read the V2.2.2 record's `coverage` block before quoting a minimum from it. The
 254 records are 131 SS, 49 FF, 32 SF, 30 FS and 12 TT; each corner appears at

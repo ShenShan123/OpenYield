@@ -1,4 +1,14 @@
-# Compiler regression tests — V2.2.3
+# Compiler regression tests — V2.2.4
+
+V2.2.4 adds `test_replica_load_cells_neither_leak_nor_short` (only the
+replica-wordline rows are driven cells; load cells hold both pass-gate nodes at
+VDD without a static VDD-VSS path, which the first passive 6T cell had), the
+seeded-operating-point runner test (the settle ends before the first cycle,
+`.IC` values override the settled guess, a solution that leaves an `.IC` node
+fails), the line-search retry and fallback-option ordering tests, the variant
+floor and injected-clock envelope tests, and the V2.2.4 manifest properties
+(mux column 0, FF on tall arrays, odd sizes, the 52 tall draws, seeded
+operating points). 188 tests in all.
 
 V2.2.3 adds ten tests for the supported array envelope (rejected in lookup and
 fixed timing modes alike), the joint-dimension clock rule against every period

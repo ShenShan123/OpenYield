@@ -4088,7 +4088,8 @@
   "rows": 128,
   "cols": 128,
   "mpi_ranks": 4,
-  "timeout": 331364
+  "timeout": 331364,
+  "operating_point": "seeded"
  },
  {
   "name": "128x128_6t_SS_read_write_pd",
@@ -4106,21 +4107,24 @@
   "operation": "read",
   "next_row": 0,
   "mpi_ranks": 4,
-  "timeout": 76175
+  "timeout": 76175,
+  "operating_point": "seeded"
  },
  {
   "name": "256x128_6t_SS_read_write",
   "rows": 256,
   "cols": 128,
   "mpi_ranks": 4,
-  "timeout": 783960
+  "timeout": 783960,
+  "operating_point": "seeded"
  },
  {
   "name": "256x256_6t_SS_read_write",
   "rows": 256,
   "cols": 256,
   "mpi_ranks": 4,
-  "timeout": 1697233
+  "timeout": 1697233,
+  "operating_point": "seeded"
  },
  {
   "name": "8x4_6t_FF_read_write_lowv",
@@ -4610,5 +4614,836 @@
   "variation": "per-device",
   "seed": 20260971,
   "timeout": 37716
+ },
+ {
+  "name": "8x4_6t_mux_SS_read_write_col0",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "col": 0,
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "8x4_10t_mux_FF_read_write_col0",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "col": 0,
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "8x4_6t_mux_SS_read_col0_bg1",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read",
+  "variation": "nominal",
+  "col": 0,
+  "background": 1,
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "8x4_10t_mux_SS_read_col0_bg1",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read",
+  "variation": "nominal",
+  "col": 0,
+  "background": 1,
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "8x4_6t_mux_SF_write_col0",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "SF",
+  "vdd": 0.9,
+  "temperature": -40,
+  "operation": "write",
+  "variation": "nominal",
+  "col": 0,
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "16x8_6t_mux_SS_read_write_col0_pd",
+  "rows": 16,
+  "cols": 8,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "per-device",
+  "seed": 2026092501,
+  "col": 0,
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "16x8_10t_mux_FS_read_write_col0_pd",
+  "rows": 16,
+  "cols": 8,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "FS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "per-device",
+  "seed": 2026092502,
+  "col": 0,
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "128x8_6t_mux_SS_read_write_col0",
+  "rows": 128,
+  "cols": 8,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "col": 0,
+  "timeout": 22793,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "8x256_6t_mux_SS_read_write_col0",
+  "rows": 8,
+  "cols": 256,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "col": 0,
+  "mpi_ranks": 4,
+  "timeout": 18498,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "64x64_6t_mux_SS_read_write_col0",
+  "rows": 64,
+  "cols": 64,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "col": 0,
+  "mpi_ranks": 4,
+  "timeout": 27748,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "128x8_6t_FFcold_read_write",
+  "rows": 128,
+  "cols": 8,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 21802,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "128x8_10t_mux_FFcold_read_write",
+  "rows": 128,
+  "cols": 8,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 23784,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "256x4_6t_FFcold_read_write",
+  "rows": 256,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 26757,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "256x4_6t_mux_FFhot_read_write",
+  "rows": 256,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 28739,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "512x4_6t_FFcold_read_write",
+  "rows": 512,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "mpi_ranks": 4,
+  "timeout": 36667,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "512x4_10t_mux_FFcold_read_write",
+  "rows": 512,
+  "cols": 4,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "mpi_ranks": 4,
+  "timeout": 42613,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "512x4_6t_FFhot_read_write",
+  "rows": 512,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "mpi_ranks": 4,
+  "timeout": 36667,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "8x256_6t_FFcold_read_write",
+  "rows": 8,
+  "cols": 256,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "mpi_ranks": 4,
+  "timeout": 18498,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "64x64_10t_mux_FFhot_read_write",
+  "rows": 64,
+  "cols": 64,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "mpi_ranks": 4,
+  "timeout": 31712,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "512x4_6t_FFhot_read_write_pd",
+  "rows": 512,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "per-device",
+  "seed": 2026092503,
+  "mpi_ranks": 4,
+  "timeout": 47667,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "1x1_6t_SShot_read_write",
+  "rows": 1,
+  "cols": 1,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "1x1_10t_FFcold_read_write",
+  "rows": 1,
+  "cols": 1,
+  "cell": "SRAM_10T_CELL",
+  "mux": false,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "1x4_6t_mux_SShot_read_write",
+  "rows": 1,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "1x4_10t_mux_FFcold_read_write",
+  "rows": 1,
+  "cols": 4,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "2x1_6t_SFcold_read_write",
+  "rows": 2,
+  "cols": 1,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SF",
+  "vdd": 0.9,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "3x3_6t_SShot_read_write",
+  "rows": 3,
+  "cols": 3,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "5x7_6t_SShot_read_changed",
+  "rows": 5,
+  "cols": 7,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read",
+  "variation": "nominal",
+  "next_row": 0,
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "12x5_10t_SShot_read_write",
+  "rows": 12,
+  "cols": 5,
+  "cell": "SRAM_10T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "6x2_6t_mux_FFcold_read_write",
+  "rows": 6,
+  "cols": 2,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "17x3_6t_FShot_read_write",
+  "rows": 17,
+  "cols": 3,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "FS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 7200,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "33x33_6t_SShot_read_write",
+  "rows": 33,
+  "cols": 33,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 14754,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "65x9_10t_SShot_read_write",
+  "rows": 65,
+  "cols": 9,
+  "cell": "SRAM_10T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 13587,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "48x20_10t_mux_SShot_read_write",
+  "rows": 48,
+  "cols": 20,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 14865,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "100x37_6t_SShot_read_write",
+  "rows": 100,
+  "cols": 37,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "mpi_ranks": 4,
+  "timeout": 44163,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "129x4_10t_mux_SShot_read_write",
+  "rows": 129,
+  "cols": 4,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 15980,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "257x4_10t_mux_FFcold_read_write",
+  "rows": 257,
+  "cols": 4,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 42780,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "300x3_6t_SShot_read_write",
+  "rows": 300,
+  "cols": 3,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 32227,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "511x4_6t_SShot_read_write",
+  "rows": 511,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "timeout": 73191,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "200x100_6t_SShot_read_write",
+  "rows": 200,
+  "cols": 100,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "mpi_ranks": 4,
+  "operating_point": "seeded",
+  "timeout": 312918,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "33x33_6t_SS_read_write_pd",
+  "rows": 33,
+  "cols": 33,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "per-device",
+  "seed": 2026092504,
+  "timeout": 19181,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "100x37_10t_SF_read_write_pd",
+  "rows": 100,
+  "cols": 37,
+  "cell": "SRAM_10T_CELL",
+  "mux": false,
+  "corner": "SF",
+  "vdd": 0.9,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "per-device",
+  "seed": 2026092505,
+  "mpi_ranks": 4,
+  "timeout": 62067,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "128x8_6t_SShot_bitflip_adjacent",
+  "rows": 128,
+  "cols": 8,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "pattern": [
+   {
+    "op": "write",
+    "row": 63,
+    "data": "10101010"
+   },
+   {
+    "op": "write",
+    "row": 64,
+    "data": "01010101"
+   },
+   {
+    "op": "read",
+    "row": 63,
+    "data": "00000000"
+   },
+   {
+    "op": "read",
+    "row": 64,
+    "data": "00000000"
+   },
+   {
+    "op": "write",
+    "row": 64,
+    "data": "10101010"
+   },
+   {
+    "op": "read",
+    "row": 63,
+    "data": "00000000"
+   },
+   {
+    "op": "read",
+    "row": 64,
+    "data": "00000000"
+   },
+   {
+    "op": "write",
+    "row": 63,
+    "data": "01010101"
+   }
+  ],
+  "timeout": 21802,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "512x4_6t_SShot_bitflip_adjacent",
+  "rows": 512,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "pattern": [
+   {
+    "op": "write",
+    "row": 255,
+    "data": "1010"
+   },
+   {
+    "op": "write",
+    "row": 256,
+    "data": "0101"
+   },
+   {
+    "op": "read",
+    "row": 255,
+    "data": "0000"
+   },
+   {
+    "op": "read",
+    "row": 256,
+    "data": "0000"
+   },
+   {
+    "op": "write",
+    "row": 256,
+    "data": "1010"
+   },
+   {
+    "op": "read",
+    "row": 255,
+    "data": "0000"
+   },
+   {
+    "op": "read",
+    "row": 256,
+    "data": "0000"
+   },
+   {
+    "op": "write",
+    "row": 255,
+    "data": "0101"
+   }
+  ],
+  "mpi_ranks": 4,
+  "timeout": 36667,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "256x4_10t_mux_FFcold_bitflip_adjacent",
+  "rows": 256,
+  "cols": 4,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "FF",
+  "vdd": 1.1,
+  "temperature": -40,
+  "operation": "read&write",
+  "variation": "nominal",
+  "pattern": [
+   {
+    "op": "write",
+    "row": 127,
+    "data": "1010"
+   },
+   {
+    "op": "write",
+    "row": 128,
+    "data": "0101"
+   },
+   {
+    "op": "read",
+    "row": 127,
+    "data": "0000"
+   },
+   {
+    "op": "read",
+    "row": 128,
+    "data": "0000"
+   },
+   {
+    "op": "write",
+    "row": 128,
+    "data": "1010"
+   },
+   {
+    "op": "read",
+    "row": 127,
+    "data": "0000"
+   },
+   {
+    "op": "read",
+    "row": 128,
+    "data": "0000"
+   },
+   {
+    "op": "write",
+    "row": 127,
+    "data": "0101"
+   }
+  ],
+  "timeout": 31712,
+  "added_in": "V2.2.4"
+ },
+ {
+  "name": "128x128_6t_SShot_bitflip_adjacent",
+  "rows": 128,
+  "cols": 128,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "variation": "nominal",
+  "pattern": [
+   {
+    "op": "write",
+    "row": 63,
+    "data": "10101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010"
+   },
+   {
+    "op": "write",
+    "row": 64,
+    "data": "01010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101"
+   },
+   {
+    "op": "read",
+    "row": 63,
+    "data": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   {
+    "op": "read",
+    "row": 64,
+    "data": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   {
+    "op": "write",
+    "row": 64,
+    "data": "10101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010"
+   },
+   {
+    "op": "read",
+    "row": 63,
+    "data": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   {
+    "op": "read",
+    "row": 64,
+    "data": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   {
+    "op": "write",
+    "row": 63,
+    "data": "01010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101"
+   }
+  ],
+  "mpi_ranks": 4,
+  "operating_point": "seeded",
+  "timeout": 216701,
+  "added_in": "V2.2.4"
  }
 ]

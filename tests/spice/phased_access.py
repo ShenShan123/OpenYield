@@ -13,9 +13,11 @@ from sram_compiler.per_device_mc.run import load_config
 from sram_compiler.sizing.timing import TimingConfig
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
 from sram_compiler.version import VERSION
-from tests.spice.execution import execution_command, execute_local_ensemble, execute
+from tests.spice.execution import (LINE_SEARCH, OPERATING_POINT_FILE, SEED_TOLERANCE, execution_command,
+                                   execute_local_ensemble, execute, operating_point_deviation,
+                                   seed_operating_point, settle_deck)
 from tests.spice.phased_waveforms import probed_rows, score
-from utils.xyce import execute_xyce
+from utils.xyce import _preserve_attempt, execute_xyce
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -94,11 +96,12 @@ def prepare(case, directory):
             corner=config.global_config.corner, temperature=config.global_config.temperature,
             variation_mode=case.get('variation', 'nominal'), mc_seed=case.get('seed', 20260919),
             next_row=case.get('next_row'), select_every=case.get('select_every', 1),
-            q_init_val=case.get('background', 0), t_max_step=2e-11, sim_path=str(directory))
+            q_init_val=case.get('background', 0), t_max_step=2e-11, sim_path=str(directory),
+            xyce_options=case.get('xyce_options'))
         if 'period' in case:
             TimingConfig(case['period'], 0, 0, 0, source='V2.2.0 probe').apply(tb)
         tb.t_step = 5e-12
-        circuit = tb.create_testbench(operation, case.get('row', rows - 1), cols - 1)
+        circuit = tb.create_testbench(operation, case.get('row', rows - 1), case.get('col', cols - 1))
         simulator = circuit.simulator(simulator='xyce-serial', temperature=tb.temperature,
                                       nominal_temperature=27)
         tb.add_analysis(simulator.circuit, operation, 1)
@@ -113,6 +116,9 @@ def prepare(case, directory):
                    'RBL_DELAY', 'W_EN', 'S_EN', 'SA_ISO'))
     if operation != 'write':
         probes.add('OUT')
+    # The checker decodes the row from the external address, which the
+    # compiler's own .PRINT omits for a one-row array.
+    probes.update(f'A{bit}' for bit in range(max(1, (rows - 1).bit_length())))
     nodes = {name: {} for name in ('cells', 'wl', 'pre', 'wen', 'sen', 'iso', 'data', 'sense', 'sense_state')}
     # The checker derives the same set; probing anything less fails closed.
     checked_rows = probed_rows(rows, cols, case, tb.target_row)
@@ -158,7 +164,8 @@ def prepare(case, directory):
         'version': VERSION, 'case': case, 'corner': tb.corner, 'temperature': tb.temperature,
         'period': float(tb.t_period), 'vdd': float(tb.vdd),
         'sample_interval': float(tb.t_step), 'analysis_stop': float(tb._analysis_stop(operation)),
-        'nodes': nodes, 'rows': rows, 'cols': cols, 'row': tb.target_row, 'operation': operation,
+        'nodes': nodes, 'rows': rows, 'cols': cols, 'row': tb.target_row, 'col': tb.target_col,
+        'operation': operation,
         'driver_sizes': tb.driver_sizes.to_dict(), 'timing': tb.timing_config.to_dict(),
         'variation': tb.variation_summary,
         'model_sha256': hashlib.sha256(Path(getattr(config.global_config, 'pdk_path_' + tb.corner)).read_bytes()).hexdigest(),
@@ -177,9 +184,27 @@ def run(case, root, xyce):
     metadata_path = directory / 'metadata.json'
     metadata_path.write_text(json.dumps(metadata, indent=2) + '\n')
     ranks, seed = case.get('mpi_ranks', 1), case.get('seed', 20260919)
+    seeded = case.get('operating_point', 'plain') == 'seeded'
+    if case.get('operating_point', 'plain') not in ('plain', 'seeded'):
+        raise ValueError(f"Unknown operating_point {case['operating_point']!r}")
+    if seeded and (ranks == 1 or case.get('variation') == 'per-device'):
+        raise ValueError('A seeded operating point is for nominal multi-rank decks')
     command, execution = execution_command(xyce, path, seed, ranks)
     started = time.time()
     try:
+        if seeded:
+            # V2.2.4: settle, then solve the deck's own operating point from
+            # the settled guess (tests/spice/execution.py).
+            settle = settle_deck(path, directory / 'settle')
+            with (settle.parent / 'xyce.log').open('w') as log:
+                settle_code = execute(execution_command(xyce, settle, seed, ranks)[0], log,
+                                      case.get('timeout', 3600))
+            if settle_code:
+                raise RuntimeError(f'Settling transient failed with return code {settle_code}')
+            execution['seeded_operating_point'] = {
+                'generated_deck_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                'settle_seconds': time.time() - started}
+            ic = seed_operating_point(path, settle.parent / 'nodeset.txt')
         if ranks > 1:
             with (directory / 'xyce.log').open('w') as log:
                 if case.get('variation') == 'per-device':
@@ -188,6 +213,25 @@ def run(case, root, xyce):
                         seed, 1, ranks, log, case.get('timeout', 3600))
                 else:
                     code = execute(command, log, case.get('timeout', 3600))
+            if (code and case.get('variation') != 'per-device'
+                    and 'DC Operating Point Failed' in (directory / 'xyce.log').read_text(errors='replace')):
+                # V2.2.4: the one line-search retry that the one-rank path
+                # (execute_xyce) and the per-device ladder already take; a
+                # 257x4 10T/mux FF deck failed plain Newton and converged with
+                # it. The failed attempt is kept beside the deck.
+                attempt = _preserve_attempt(path, directory / 'xyce.log', 'dcop')
+                path.write_text(re.sub(r'(?im)^\.END\s*$', LINE_SEARCH + '\n.END',
+                                       path.read_text(), count=1))
+                with (directory / 'xyce.log').open('w') as log:
+                    code = execute(command, log, case.get('timeout', 3600))
+                execution['operating_point_retry'] = {'option': LINE_SEARCH, 'first_attempt': attempt.name}
+            if seeded and not code:
+                deviation, node = operating_point_deviation(ic, directory / OPERATING_POINT_FILE)
+                execution['seeded_operating_point'].update(
+                    ic_nodes=len(ic), worst_ic_deviation_v=deviation, worst_ic_node=node)
+                if deviation > SEED_TOLERANCE:
+                    raise RuntimeError(f'Seeded operating point left {node} {deviation:.4f} V '
+                                       f'from its .IC value (limit {SEED_TOLERANCE} V)')
         else:
             result = execute_xyce(
                 path, command, log_path=directory / 'xyce.log', timeout=case.get('timeout', 3600),
@@ -222,7 +266,7 @@ def main():
     import shutil
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--cases', type=Path, default=Path(__file__).with_name('v223_cases.json'))
+    parser.add_argument('--cases', type=Path, default=Path(__file__).with_name('v224_cases.json'))
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--xyce', default=shutil.which('Xyce'))
     parser.add_argument('--workers', type=int, default=4)

@@ -177,7 +177,8 @@ class TimingLookupTests(unittest.TestCase):
         below the shared ladder (the V2.1.5 10T ladder ended 3200 -> 4000 ps against the shared
         2500 -> 3600 ps, so a 513-row 10T array resolved to 12.5 ns and the same 6T array to
         13 ns) and the resolver carried a floor for it. V2.2.3 rejects sizes beyond the last
-        anchor instead, so the anchors are the whole story; hold the invariant over the whole
+        anchor and dropped the floor, but the joint rule can still undercut at anchor-valid
+        tables (see the next test), so V2.2.4 restores it; hold the invariant over the whole
         envelope, including the joint sizes where the two ladders combine."""
         sizes = [(rows, cols) for rows in (1, 2, 8, 32, 33, 64, 65, 128, 129, 256, 257, 512)
                  for cols in (2, 4, 16, 32, 48, 64, 128, 256)]
@@ -192,6 +193,53 @@ class TimingLookupTests(unittest.TestCase):
                             cfg, cell_type=cell, mux=mux))
                         self.assertGreaterEqual(variant.t_period, shared.t_period)
                         self.assertFalse(variant.extrapolated)
+
+    def test_a_variant_that_raises_only_its_early_classes_still_never_undercuts_shared(self):
+        """V2.2.4 review: each ladder's joint excess is measured from its own first class, so
+        a variant that raises only its early column classes (the loader accepts it: every anchor
+        is still at least the shared one) has a smaller excess and, without a floor, resolved
+        128x128 to 19.5 ns against the shared 20.5 ns. Raising a budget must never shorten a
+        clock. The shipped table never reaches the floor, so no shipped period moves."""
+        cfg = load_config(128, 128, 'SS')
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'lookup.json'
+            table = load_timing_lookup()
+            variant = next(v for v in table['variants'] if v['cell_type'] == 'SRAM_10T_CELL')
+            variant['row_classes'] = [dict(c) for c in table['row_classes']]
+            variant['column_classes'] = [dict(c) for c in table['column_classes']]
+            for entry in variant['column_classes'][:4]:
+                entry['half_period_ps'] = 3600
+            path.write_text(json.dumps(table))
+            for rows, cols in ((128, 128), (128, 256), (256, 256), (512, 256), (64, 64)):
+                with self.subTest(rows=rows, cols=cols):
+                    cfg = load_config(rows, cols, 'SS')
+                    cfg.global_config.timing = {'mode': 'lookup', 'lookup': str(path)}
+                    shared = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_6T_CELL', mux=False))
+                    raised = resolve_timing(cfg, resolve_driver_sizes(cfg, cell_type='SRAM_10T_CELL', mux=False))
+                    self.assertGreaterEqual(raised.t_period, shared.t_period)
+        shipped = {}
+        for rows, cols in ((8, 4), (32, 32), (64, 64), (128, 128), (256, 256), (512, 256)):
+            cfg = load_config(rows, cols, 'SS')
+            shipped[rows, cols] = round(resolve_timing(cfg, resolve_driver_sizes(
+                cfg, cell_type='SRAM_10T_CELL', mux=True)).t_period / 1e-9, 3)
+        # The V2.2.3 periods of the 10T/mux variant, unchanged by the floor.
+        self.assertEqual(shipped, {(8, 4): 10.0, (32, 32): 10.0, (64, 64): 12.0, (128, 128): 22.0,
+                                   (256, 256): 30.0, (512, 256): 38.25})
+
+    def test_an_injected_clock_does_not_admit_an_array_outside_the_envelope(self):
+        """V2.2.4 review: the envelope was enforced only in resolve_timing, so a caller passing
+        its own timing_config built 1024x8 and 8x512 decks without complaint."""
+        for rows, cols in ((1024, 8), (8, 512), (513, 4)):
+            with self.subTest(rows=rows, cols=cols):
+                cfg = load_config(rows, cols, 'SS')
+                with self.assertRaises(ValueError) as raised:
+                    Sram6TCoreMcTestbench(cfg, choose_columnmux=False, variation_mode='nominal',
+                                          timing_config=TimingConfig(40e-9, 0, 0, 0, source='diagnostic'))
+                self.assertIn('outside the supported array envelope', str(raised.exception))
+        cfg = load_config(8, 256, 'SS')
+        tb = Sram6TCoreMcTestbench(cfg, choose_columnmux=False, variation_mode='nominal',
+                                   timing_config=TimingConfig(40e-9, 0, 0, 0, source='diagnostic'))
+        self.assertAlmostEqual(float(tb.t_period), 40e-9)
 
     def test_injected_baseline_survives_candidates_and_rejects_changed_contract(self):
         cfg = load_config(8, 4, 'TT')
@@ -227,7 +275,7 @@ class TimingLookupTests(unittest.TestCase):
             previous = os.getcwd()
             try:
                 os.chdir(temp)
-                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.2.3')
+                self.assertEqual(load_timing_lookup('sram_compiler/sizing/timing_lookup.json')['version'], 'V2.2.4')
             finally:
                 os.chdir(previous)
         cfg.global_config.timing = {'mode': 'fixed', 't_period': 10e-9}
@@ -436,7 +484,7 @@ class TimingLookupTests(unittest.TestCase):
             second, repeated = run.generate_deck(args)
             self.assertNotEqual(first.parent, second.parent)
             self.assertEqual(evidence.read_text(), 'FAILED original')
-            self.assertEqual(summary['compiler_version'], 'V2.2.3')
+            self.assertEqual(summary['compiler_version'], 'V2.2.4')
             self.assertAlmostEqual(summary['timing']['t_period'], 4e-9)
             self.assertEqual(summary['timing']['source'], 'fixed')
             args.run_xyce = True

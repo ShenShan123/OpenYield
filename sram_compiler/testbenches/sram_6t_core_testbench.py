@@ -14,6 +14,7 @@ from copy import copy
 from sram_compiler.interconnect import resolve_interconnect, add_tapped_line, cell_wire_nodes
 from sram_compiler.equivalent_modeling import resolve_equivalent
 from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
+from sram_compiler.sizing.timing import _timing_options, load_timing_lookup, require_envelope
 from sram_compiler.sizing.table import physical_context
 from sram_compiler.subcircuits.dummy_row_or_column import Dummy_Cell
 
@@ -96,6 +97,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         if self.timing_config is None:
             self.timing_config = resolve_timing(sram_config, self.driver_sizes,
                 physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode, self.interconnect))
+        else:
+            # V2.2.4: an injected clock does not buy a way past the envelope.
+            require_envelope(self.num_rows, self.num_cols, load_timing_lookup(_timing_options(sram_config).get('lookup')))
         if hasattr(self.timing_config, 'validate_for'):
             self.timing_config.validate_for(sram_config, self.driver_sizes)
         self.timing_config.apply(self)
@@ -283,6 +287,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             param_model_file=self.sim_path + '/param_sweep_models.data',
             sram_cell_type=self.sram_cell_type,
             interconnect=self.interconnect,
+            active_rows=self.driver_sizes.replica_k,
             **replica_kwargs
         ).create()
         circuit.subcircuit(replica_column)   # Add to main circuit

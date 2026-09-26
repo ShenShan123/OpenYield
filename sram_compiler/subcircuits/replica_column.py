@@ -8,7 +8,16 @@ ground), so a real-row access never discharges RBL in parallel with them.
 `ReplicaCell` stores a fixed 0: its left storage node is held low by an
 always-on pull-down, its right node is tied to VDD, so an active replica
 wordline discharges RBL through the same pass gate and pull-down as an array
-cell reading a 0 while RBLB stays high.  Widths and models follow the array
+cell reading a 0 while RBLB stays high.
+
+V2.2.4: the cells whose wordline is tied off are *passive*: both storage nodes
+are held at VDD, so their pass gates carry the same junction load but no
+leakage onto RBL or RBLB. Through V2.2.3 every load cell stored the active
+cell's 0, so at a fast, hot corner the leakage of `num_rows - 1` cells sped up
+RBL and fired the sense enable early exactly when the array's worst read (a 1
+against a column of 0s, whose leakage pulls the reference bitline down) had
+the least differential: 0.256 V against a 0.252 V bar at 512x4 6T FS 0.9 V
+125 C under mismatch, 0.68 V for the opposite read of the same trace.  Widths and models follow the array
 cell through ``resolve_driver_sizes`` (matched replica), which is why the
 V2.1.5 10T pull-down resize moved the sense trigger of every 10T array.
 Instance names (``XReplica_CELL_{row}``) and node names are part of the
@@ -26,7 +35,8 @@ from .base_subcircuit import BaseSubcircuit
 
 
 class ReplicaCell(BaseSubcircuit):
-    """Replica bitcell with a fixed stored 0 (6T or 10T topology)."""
+    """Replica bitcell with a fixed stored 0 (6T or 10T topology), or a passive
+    load cell with both storage nodes held at VDD (``passive=True``)."""
     NAME = 'Replica_CELL'
     NODES = ('VDD', 'VSS', 'RBL', 'RBLB', 'WL')
 
@@ -36,7 +46,11 @@ class ReplicaCell(BaseSubcircuit):
                  sram_cell_type: str = "SRAM_6T_CELL",
                  w_rc: bool = False,
                  pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 cell_pin_rc: Optional[bool] = None) -> None:
+                 cell_pin_rc: Optional[bool] = None,
+                 passive: bool = False) -> None:
+        if passive:
+            self.NAME = 'Replica_CELL_PASSIVE'
+        self.passive = passive
         super().__init__(
             pd_nmos_model, pu_pmos_model,
             pd_width, pu_width, length,
@@ -76,28 +90,41 @@ class ReplicaCell(BaseSubcircuit):
             self.add_6T_cell(bl_node, blb_node, wl_node, q_node)
 
     def add_6T_cell(self, bl_node: str, blb_node: str, wl_node: str, q_node: str) -> None:
-        """6T replica: Q held at 0 (PDL gate at VDD), the right node tied to VDD."""
+        """6T replica: Q held at 0 (PDL gate at VDD), the right node tied to VDD.
+
+        A passive load cell holds Q at VDD instead (left gates at VSS), so its
+        pass gates see no drain-source voltage on either bitline. Its right
+        inverter's gates go to VSS too: at Q = VDD the pull-down would short
+        the tied-high output to VSS (52 mW static at 512x4 FS 125 C).
+        """
         vdd, vss = self.NODES[0], self.NODES[1]
+        left_gate = vss if self.passive else vdd
+        right_gate = vss if self.passive else 'Q'
         # Access transistors: RBL to the stored 0, RBLB to VDD.
         self.M('PGL', bl_node, wl_node, q_node, vss,
                model=self.pg_nmos_model, w=self.pg_width, l=self.length)
         self.M('PGR', blb_node, wl_node, vdd, vss,
                model=self.pg_nmos_model, w=self.pg_width, l=self.length)
         # Left inverter with its input tied high: the pull-down holds Q at 0.
-        self.M('PDL', q_node, vdd, vss, vss,
+        self.M('PDL', q_node, left_gate, vss, vss,
                model=self.pd_nmos_model, w=self.pd_width, l=self.length)
-        self.M('PUL', q_node, vdd, vdd, vdd,
+        self.M('PUL', q_node, left_gate, vdd, vdd,
                model=self.pu_pmos_model, w=self.pu_width, l=self.length)
         # Right inverter with its output tied to VDD (gate loads of the storage node).
-        self.M('PDR', vdd, 'Q', vss, vss,
+        self.M('PDR', vdd, right_gate, vss, vss,
                model=self.pd_nmos_model, w=self.pd_width, l=self.length)
-        self.M('PUR', vdd, 'Q', vdd, vdd,
+        self.M('PUR', vdd, right_gate, vdd, vdd,
                model=self.pu_pmos_model, w=self.pu_width, l=self.length)
 
     def add_10T_cell(self, bl_node: str, blb_node: str, wl_node: str, q_node: str, qb_node: str) -> None:
-        """10T (Schmitt-trigger) replica with the stored state fixed to Q=0, QB=1."""
+        """10T (Schmitt-trigger) replica with the stored state fixed to Q=0, QB=1.
+
+        A passive load cell ties both gate inputs to VSS: both pull-ups hold Q
+        and QB at VDD and every pull-down is off, so neither access transistor leaks.
+        """
         vdd, vss = self.NODES[0], self.NODES[1]
-        q_fix, qb_fix = vss, vdd   # the cross-coupled gate inputs, tied to the stored levels
+        # the cross-coupled gate inputs, tied to the stored levels
+        q_fix, qb_fix = (vss, vss) if self.passive else (vss, vdd)
         # Access transistors
         self.M('AXL', bl_node, wl_node, q_node, vss,
                model=self.pg_nmos_model, w=self.pg_width, l=self.length)
@@ -139,9 +166,12 @@ class ReplicaColumn(SubCircuitFactory):
                  w_rc: bool = False,
                  sram_cell_type: str = 'SRAM_6T_CELL',
                  pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 interconnect=None) -> None:
+                 interconnect=None, active_rows=None) -> None:
         self.interconnect = resolve_interconnect(interconnect)
         self.cell_count = num_rows
+        # V2.2.4: the last `active_rows` cells are driven replicas, the others
+        # passive loads; None keeps every cell a stored-0 replica (V2.2.3).
+        self.active_rows = num_rows if active_rows is None else active_rows
         self.NAME = f"sram_{self.cell_count}x1_replica_column"
         self.NODES = (
             'VDD',
@@ -174,18 +204,22 @@ class ReplicaColumn(SubCircuitFactory):
 
     def build_array(self) -> None:
         """One replica cell per row, each on its own bitline taps and wordline pin."""
-        replica_cell = ReplicaCell(
-            self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model, self.fd_nmos_model,
-            self.pd_width, self.pu_width,
-            self.pg_width, self.length, self.fd_width,
-            w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
-            sram_cell_type=self.sram_cell_type,
-            cell_pin_rc=self.interconnect.cell_pin_rc,
-        )
-        self.subcircuit(replica_cell)
+        cells = {}
+        for passive in sorted({row < self.cell_count - self.active_rows for row in range(self.cell_count)}):
+            cells[passive] = ReplicaCell(
+                self.pd_nmos_model, self.pu_pmos_model, self.pg_nmos_model, self.fd_nmos_model,
+                self.pd_width, self.pu_width,
+                self.pg_width, self.length, self.fd_width,
+                w_rc=self.w_rc, pi_res=self.pi_res, pi_cap=self.pi_cap,
+                sram_cell_type=self.sram_cell_type,
+                cell_pin_rc=self.interconnect.cell_pin_rc, passive=passive,
+            )
+            self.subcircuit(cells[passive])
         for row in range(self.cell_count):
+            replica_cell = cells[row < self.cell_count - self.active_rows]
+            # Instance names stay XReplica_CELL_{row} for every cell (probe contract).
             self.X(
-                replica_cell.name + f"_{row}",
+                f"Replica_CELL_{row}",
                 replica_cell.name,
                 self.NODES[0],
                 self.NODES[1],

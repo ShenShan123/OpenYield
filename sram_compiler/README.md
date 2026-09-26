@@ -1,4 +1,4 @@
-# SRAM Compiler and Test Platform User Guide — V2.2.3
+# SRAM Compiler and Test Platform User Guide — V2.2.4
 
 V2.2.1 captures on the rising edge, accesses during clock-high, and recovers
 and precharges during clock-low. The clock budgets are twice V2.1.10's and
@@ -18,9 +18,13 @@ and the
 [V2.2.1 control and validation record](../docs/design/PHASED_CONTROL_V2_2_1.md).
 The measured cycle waveform, with the phase bar and the causal chain, is in the
 [root README](../README.md#how-the-macro-behaves-in-one-cycle) and in full in
-the `subcircuits/time_generate.py` module docstring. The current contract is
-[the V2.2.3 record](../docs/design/PHASED_CONTROL_V2_2_3.md), whose screen has
-not been run.
+the `subcircuits/time_generate.py` module docstring. V2.2.4 builds the replica load cells (every replica cell off the replica
+wordline) as passive cells with both storage nodes at VDD, so their leakage no
+longer fires the sense enable early on tall arrays at fast, hot corners. The
+current record is
+[the V2.2.4 record](../docs/design/PHASED_CONTROL_V2_2_4.md), whose screen has
+not been run; the envelope and clock rules are in
+[the V2.2.3 record](../docs/design/PHASED_CONTROL_V2_2_3.md).
 
 
 V2.1.1 retains V2.1.0’s default `timing.mode: lookup`: fixed row/column classes set a frozen clock before candidate/PVT changes. V2.1.3 adds a separate, evidenced budget for 10T cells (with or without a column mux). V2.1.4 raises the shared 6T row classes, adds a 6T column-mux budget and holds the TIME write request while the wordline enable is high. The [timing guide](sizing/README.md#clock-classes) covers settings, explicit overrides and evidence limits.

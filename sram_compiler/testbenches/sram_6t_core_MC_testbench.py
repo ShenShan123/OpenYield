@@ -73,7 +73,7 @@ def access_cycles(operation, select_every=1, cycles=None):
             continue
         following = next(((j, jk, jd) for j, (jk, jd) in enumerate(plan)
                           if j > cycle and jk != 'idle'), None)
-        if following is not None and following[0] + .7 > span + 1e-9:
+        if following is not None and following[0] + ACCESS_DEADLINE > span + 1e-9:
             following = None
         entries.append((cycle, kind, data) + (following if following else (None, None, None)))
     return entries
@@ -731,13 +731,20 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             # address register output (inside TIME_CONTROL) and the held / buffered copy
             init_cond[f'XTIME_CONTROL:A_reg{bit}'] = 0 @ u_V
             init_cond[f'A_dff{bit}'] = 0 @ u_V
-        init_cond['we'] = self.vdd @ u_V       # we初始化为高电平
         init_cond['cs_bar'] = self.vdd @ u_V   # cs_bar初始化为高电平
         # Slave node of the CS flip-flop (cs = ~qint).  Without this the slave latch
         # powers up in a random state; when it comes up "selected" the start-up clamp
         # fights the DFF output inverter (~300 uA) until the clamp releases, i.e. inside
         # the EREAD / EWRITE window.
         init_cond['XTIME_CONTROL:Xdff_buf:qint'] = self.vdd @ u_V
+        # V2.2.4: the write register starts the same way, having latched "no
+        # write" (we = ~qint = 0).  Through V2.2.3 `we` started at VDD against a
+        # free slave node; the operating point put qint at VDD, so we, we_bar
+        # and write_ready each swung rail to rail in the first nanosecond of
+        # every deck, before any stimulus.  The first rising edge latches web.
+        init_cond['we'] = 0 @ u_V
+        init_cond['we_bar'] = self.vdd @ u_V
+        init_cond['XTIME_CONTROL:Xdff_buf1:qint'] = self.vdd @ u_V
         if self.operation in ('write', 'read&write'):
             # Initialize the data buffer and the register feedback nodes
             # consistently instead of letting DC Newton choose their state.

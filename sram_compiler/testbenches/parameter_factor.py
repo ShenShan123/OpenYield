@@ -791,10 +791,11 @@ class ReplicaColumnFactory:
                  pmos_choices=None, nmos_choices=None,param_model_file=None,
                  sram_cell_type=None,
                  pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-                 interconnect=None
+                 interconnect=None, active_rows=None
                  ):
         
         self.interconnect = interconnect
+        self.active_rows = active_rows
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.pd_nmos_model = pd_nmos_model
@@ -880,6 +881,7 @@ class ReplicaColumnFactory:
             'pi_cap': self.pi_cap,
             'sram_cell_type': self.sram_cell_type,
             'interconnect': self.interconnect,
+            'active_rows': self.active_rows,
         }
         
     def create(self):

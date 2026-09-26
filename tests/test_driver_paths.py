@@ -77,6 +77,13 @@ class PathTests(unittest.TestCase):
                     if operation == 'read':
                         # The target cell stores 0, so a completed read is OUT falling.
                         self.assertIn('V(OUT)=0.9V', initial)
+                    # V2.2.4: both request registers start having latched "idle", so
+                    # neither output fights its own slave latch at t = 0.
+                    self.assertIn('V(CS_BAR)=0.9V', initial)
+                    self.assertIn('V(XTIME_CONTROL:XDFF_BUF:QINT)=0.9V', initial)
+                    self.assertIn('V(WE)=0V', initial)
+                    self.assertIn('V(WE_BAR)=0.9V', initial)
+                    self.assertIn('V(XTIME_CONTROL:XDFF_BUF1:QINT)=0.9V', initial)
 
     def test_wide_buffer_fingers_preserve_total_transistor_width(self):
         with redirect_stdout(io.StringIO()):
@@ -158,6 +165,76 @@ class PathTests(unittest.TestCase):
         # V2.1.6: the replica write driver writes a 0 with the real drivers (write slot).
         self.assertIn('XREPLICA_WDRV_LOAD VDD VSS w_en_line_far VSS RBL_periph_tap1 RBLB_periph_tap1 WRITEDRIVER', deck)
         self.assertEqual(sizes.replica_nmos_widths[1], 0.135e-6)
+
+    def test_replica_load_cells_neither_leak_nor_short(self):
+        # V2.2.4: only the K cells on the replica wordline may pull RBL. Through
+        # V2.2.3 every tied-off load cell also stored 0, and their leakage fired
+        # the sense enable early at 512 rows FS/FF 125 C, below the sense bar. A
+        # load cell must hold both pass-gate nodes at VDD (no drain-source
+        # voltage against the precharged RBL/RBLB) without any static VDD-VSS
+        # path; the first V2.2.4 passive 6T cell shorted its right inverter.
+        def blocks(deck):
+            found, stack = {}, []
+            for line in deck.splitlines():
+                words = line.split()
+                if not words:
+                    continue
+                if line.lower().startswith('.subckt'):
+                    stack.append(words[1])
+                    found[words[1]] = []
+                elif line.lower().startswith('.ends'):
+                    stack.pop()
+                elif stack:
+                    found[stack[-1]].append(words)
+            return found
+
+        def static_levels(body, wordline):
+            """DC levels (1/0) implied by the rails, the idle wordline and on devices."""
+            levels = {'VDD': 1, 'VSS': 0, 'WL': wordline}
+            devices = [(w[0][0].upper(), w[1:4] if w[0][0].upper() == 'M' else w[1:3], w[5] if w[0][0].upper() == 'M' else '')
+                       for w in body if w[0][0].upper() in 'MR']
+            for _ in range(len(devices) + 1):
+                for kind, pins, model in devices:
+                    if kind == 'M':
+                        drain, gate, source = pins
+                        on = levels.get(gate) == (0 if model.upper().startswith('P') else 1)
+                        ends = (drain, source)
+                    else:
+                        on, ends = True, pins
+                    if on:
+                        for a, b in (ends, ends[::-1]):
+                            if a in levels and b not in levels:
+                                levels[b] = levels[a]
+            shorts = [pins for kind, pins, model in devices if kind == 'M'
+                      and levels.get(pins[1]) == (0 if model.upper().startswith('P') else 1)
+                      and {levels.get(pins[0]), levels.get(pins[2])} == {0, 1}]
+            return levels, shorts
+
+        for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL'):
+            for w_rc in (False, True):
+                with self.subTest(cell=cell, w_rc=w_rc), redirect_stdout(io.StringIO()):
+                    cfg = load_config(8, 4, 'TT')
+                    cfg.global_config.sram_cell_type = cell
+                    cfg.global_config.sizing = {'mode': 'rules_only', 'replica': {'K': 2, 'N': 5}}
+                    tb = Sram6TCoreTestbench(cfg, sram_cell_type=cell, choose_columnmux=False, w_rc=w_rc)
+                    deck = str(tb.create_testbench('read', 7, 3))
+                found = blocks(deck)
+                column = next(name for name in found if name.endswith('_replica_column'))
+                # Rows on the replica wordline (the last K) use the driven cell, all others the load.
+                cells = {int(w[0].rsplit('_', 1)[1]): w[-1] for w in found[column]
+                         if w[0].startswith('XReplica_CELL_')}
+                self.assertEqual(sorted(cells), list(range(8)))
+                self.assertEqual({cells[row] for row in (6, 7)}, {'Replica_CELL'})
+                self.assertEqual({cells[row] for row in range(6)}, {'Replica_CELL_PASSIVE'})
+                for name, wordline in (('Replica_CELL', 1), ('Replica_CELL', 0), ('Replica_CELL_PASSIVE', 0)):
+                    levels, shorts = static_levels(found[name], wordline)
+                    self.assertEqual(shorts, [], f'{name} shorts VDD to VSS')
+                    # The storage-side node of each pass gate (gate on WL, one end on a bitline).
+                    pass_nodes = {pins[0] if not pins[0].startswith('RBL') else pins[2]
+                                  for pins in ([w[1], w[2], w[3]] for w in found[name]
+                                               if w[0].upper().startswith('M') and w[2].startswith('WL'))}
+                    stored = {levels.get(node) for node in pass_nodes}
+                    self.assertEqual(stored, {1} if name.endswith('PASSIVE') else {0, 1}, name)
 
     def test_replica_bitline_and_wordline_share_the_array_rc_configuration(self):
         def blocks(deck):

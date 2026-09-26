@@ -1,4 +1,4 @@
-# OpenYield V2.2.3 documentation
+# OpenYield V2.2.4 documentation
 
 Design and validation records (`design/`), the supplied evidence (`data/`,
 `qualification/`, `issue_reports/`) and the release history live here; usage
@@ -33,14 +33,22 @@ The carried Phase 6 scope. The working plans that defined it
   their data and every column still restores and releases; cases at mux ratios
   2 and 4, SS / SF 0.9 V / 125 C and FF 1.1 V / -40 C with address hazards, then
   per-device seeds. Read-modify-write is out of scope.
-- **The V2.2.3 screen.** V2.2.3 changed the clock policy, the runtime data
-  deadline and the waveform checker, all hashed sources of the screen, so
-  `data/PHASED_CONTROL_V2_2_2.json` certifies the V2.2.2 tree and not the
-  current one. The 285-case manifest and the six tracked negative controls that
-  close the V2.2.2 coverage gaps are ready to run
-  ([how](design/PHASED_CONTROL_V2_2_3.md#running-the-screen), about 560
-  solver-hours); nothing in V2.2.3 is qualification until they have been run
+- **The V2.2.4 screen.** `data/PHASED_CONTROL_V2_2_2.json` certifies the
+  V2.2.2 tree only. The V2.2.3 screen ran 284 of 285 cases and was never
+  assembled, and V2.2.4 changes the replica column of every deck. The V2.2.4
+  manifests (330 main cases, 1,444 per-device draws, 6 negative controls) are
+  ready to run ([how](design/PHASED_CONTROL_V2_2_4.md#the-screen), about 1,400
+  solver-hours); nothing in V2.2.4 is qualification until they have been run
   and assembled.
+- **The 256x256 operating point.** Plain Newton did not converge in 92 h in
+  the V2.2.3 screen, MOSFET homotopy is erratic, and the V2.2.4 seeded
+  operating point, which solves 128x128 and 256x128 in minutes, had not
+  converged at 256x256 after 5.6 h
+  ([record](design/PHASED_CONTROL_V2_2_4.md#the-operating-point-of-the-largest-arrays)).
+  The screen cannot complete without it.
+- **Dynamic column select.** There is no column decoder: the mux `SEL` input
+  is a DC level for the whole deck, so switching mux inputs between accesses
+  has never been simulated. V2.2.4 exercises input 0 statically.
 - **A stopped or gated clock.** Precharge is a clock-low function
   (`PRE = !(clk_bar & wordline_off & enables_off)`), so a clock stopped high
   parks the array with floating bitlines and open sense pass gates and a clock
@@ -73,7 +81,8 @@ The carried Phase 6 scope. The working plans that defined it
 | [Development guide](DEVELOPMENT.md) | Tracked regression tests and the ignored local tools |
 | [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Working proposal and qualification status of the driver classes |
 | [Automatic timing proposal](TIMING_AUTOCONFIG.md) | Timing design, measured basis and the per-signal phase table |
-| [V2.2.3 envelope and clocks](design/PHASED_CONTROL_V2_2_3.md) | Current contract: array envelope, joint-dimension clocks, shared access deadline, pending screen |
+| [V2.2.4 replica loads and review fixes](design/PHASED_CONTROL_V2_2_4.md) | Current record: passive replica load cells, V2.2.3 review fixes, seeded operating point, pending screen |
+| [V2.2.3 envelope and clocks](design/PHASED_CONTROL_V2_2_3.md) | Array envelope, joint-dimension clocks, shared access deadline |
 | [V2.2.2 review and screen](design/PHASED_CONTROL_V2_2_2.md) | Executed screen, reported margins, and the coverage it does not reach |
 | [V2.2.1 control path](design/PHASED_CONTROL_V2_2_1.md) | Phase ordering and timing contract |
 | [V2.1.10 control path](design/TIME_CONTROL_PATH.md) | Preserved previous architecture and naming contract |
@@ -83,6 +92,7 @@ The carried Phase 6 scope. The working plans that defined it
 
 | Release | Record |
 |---|---|
+| V2.2.4 | [replica load cells that do not leak, review fixes](design/PHASED_CONTROL_V2_2_4.md) |
 | V2.2.3 | [envelope, joint-dimension clocks, one access deadline](design/PHASED_CONTROL_V2_2_3.md) |
 | V2.2.2 | [production review, precharged startup, margins](design/PHASED_CONTROL_V2_2_2.md) |
 | V2.2.1 | [capture/access/recovery phase control](design/PHASED_CONTROL_V2_2_1.md) |

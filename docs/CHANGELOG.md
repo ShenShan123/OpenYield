@@ -6,6 +6,60 @@ before V2.1.10 were condensed in the V2.1.10 cleanup; the full text is at
 `git show c3f6f44:CHANGELOG.md` and in `sram_compiler/CIRCUIT_REVIEW.md` Parts II
 and III.
 
+## V2.2.4 — 2026-09-26 — replica load cells that do not leak, and the V2.2.3 review fixes
+
+[Design record](design/PHASED_CONTROL_V2_2_4.md). **No V2.2.4 screen has been
+run and 256x256 still has no working operating point**; the evidence on this
+tree is targeted (the seven failing tall draws, A/B cases, operating-point
+probes), not a screen.
+The controller, the array cells, the wires, the driver classes and every clock
+are unchanged. The replica column changed, so every generated deck differs
+from V2.2.3 and no V2.2.3 result carries over.
+
+- Tall-array sense failure: every tied-off replica load cell stored the
+  active cell's 0. At fast NMOS and 125 C, the leakage of 511 of them supplied
+  about 45 % of the replica bitline discharge and fired the sense enable early,
+  just as array leakage left a read of 1 against a column of 0s the least
+  differential. A per-device run of V2.2.3 failed 7 of the first 14 512x4 draws
+  at FS 0.9 V / FF 1.1 V, 125 C (worst 0.177 V against a 0.252 V bar). Load
+  cells are now passive, both storage nodes at VDD (`ReplicaColumn(active_rows=
+  replica_k)`), with the same bitline load and no leakage. The same seven draws
+  pass at 0.328-0.539 V. The read-output margin shrinks by 0.35-0.66 ns (still
+  3.19 ns at 512x4 SS); no ordering or recovery margin moves.
+- The first passive 6T cell shorted VDD to VSS through its right inverter
+  (52.4 mW static at 512x4 FS against 0.156 mW); only `PSTC` showed it, since
+  the rails are ideal. Fixed before the tall re-runs, with a structural test
+  that fails on it.
+- Write-register startup: `we`, `we_bar` and `write_ready` swung rail to rail
+  in the first nanosecond of every deck, because `.IC` forced `we` high against
+  a slave latch that held "no write". The register now starts consistently
+  (`we = 0`, `we_bar = VDD`, `Xdff_buf1:qint = VDD`); startup drift 0.3 mV.
+- The variant clock floor that V2.2.3 removed is restored for every size: under
+  the joint rule a variant raising only early classes would have clocked
+  128x128 at 19.5 against 20.5 ns. No shipped period changes. An injected
+  `timing_config` no longer bypasses the 512x256 envelope.
+- Screen tooling: the runner and checker take the target column (column-mux
+  input 0 was never read in any screen), probe the address bits of one-row
+  arrays, use `ACCESS_DEADLINE` everywhere, retry a failed nominal multi-rank
+  operating point once with line search, and append fallback options after a
+  deck's own. Nominal decks of 16,384 cells or more solve a seeded operating
+  point (settle transient → `.NODESET` guess → the deck's own DC solve,
+  checked against every `.IC` node): 128x128 in 17 min against 2.8 h plain,
+  equal on all 181,151 node voltages within 0.42 mV; 256x128 in 34 min
+  against about 13 h in V2.2.3. **256x256 is not solved**: the seeded solve
+  had not converged after 5.6 h. MOSFET homotopy, tried first, was erratic
+  and is not used.
+- Manifests: `tests/spice/v224_cases.json` (330: the 285 V2.2.3 cases plus
+  mux column 0, FF on tall arrays, odd and one-row sizes, adjacent-row address
+  flips), `tests/spice/v224_mc_cases.json` (1,444 per-device draws at each
+  failure mechanism's worst corner, corner-case patterns, and the 52 tall
+  draws), `tests/spice/v224_negative_cases.json` (6). Tracked tests: 188.
+- Evidence before this release: the V2.2.3 screen ran 284 of 285 (256x256 never
+  left its operating point; 6 of 6 negative controls failed as required), and a
+  1,487-case discovery campaign on V2.2.3 passed 1,474 (the 13 failures were
+  the one-row checker error and one operating point, both fixed here).
+  The V2.2.4 screen (about 1,400 solver-hours) has not been run.
+
 ## V2.2.3 — 2026-09-20 — supported envelope, joint-dimension clocks, one access deadline
 
 [Design record](design/PHASED_CONTROL_V2_2_3.md). **No V2.2.3 screen has been

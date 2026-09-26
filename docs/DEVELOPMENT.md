@@ -1,4 +1,4 @@
-# OpenYield V2.2.3 development tools
+# OpenYield V2.2.4 development tools
 
 V2.2.2's opt-in transistor-level transition checks are tracked under
 [`tests/spice/`](../tests/spice/README.md). They use full cells, record solver,
