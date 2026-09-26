@@ -10,7 +10,8 @@ restored; envelope enforced for injected clocks; runner/checker take the
 target column, probe one-row address bits, retry a failed nominal multi-rank
 DCOP with line search, and seed the operating point of nominal decks of 16,384
 cells or more (`operating_point: seeded`); manifests
-`tests/spice/v224_cases.json` (330), `v224_mc_cases.json` (1,444, including
+`tests/spice/v224_cases.json` (334, including four post-release dynamic mux
+reads), `v224_mc_cases.json` (1,444, including
 the 52 tall draws) and `v224_negative_cases.json` (6).
 **No V2.2.4 screen has been run and 256x256 has no working operating point**;
 see `docs/design/PHASED_CONTROL_V2_2_4.md`. V2.2.3 kept the 512x256 envelope,

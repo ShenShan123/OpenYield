@@ -95,10 +95,16 @@ cause a nonzero runner exit. Actual PVT model selection is regression-tested. Si
 
 ## What the manifests cover, and what they do not
 
-`v224_cases.json` is 330 cases: the 285 of V2.2.3 plus 45 V2.2.4 additions
+`v224_cases.json` is 334 cases: the 285 of V2.2.3 plus 49 V2.2.4 additions
 (`added_in`), namely mux column 0, FF cold and hot at 128 to 512 rows, sizes
-that are not powers of two including one-row and one-column arrays, and
-partial address-bit flips between neighbouring rows on tall arrays.
+that are not powers of two including one-row and one-column arrays, partial
+address-bit flips between neighbouring rows on tall arrays, and four
+post-release alternating mux-input reads. A `column_sequence` starts at `col`
+and stays in its mux group. The runner changes the external one-hot selects in
+clock-low before the next capture; the scorer checks each select at the root
+and the target mux tap through clock-high and follows the selected cell per
+cycle. This exercises dynamic mux input selection, while the compiler still
+has no physical column decoder.
 `v224_mc_cases.json` is 1,444 per-device draws at each failure mechanism's
 worst global corner, corner-case patterns under mismatch, and the 52 tall
 draws that exposed the V2.2.3 replica-leakage sense failure (with their V2.2.3

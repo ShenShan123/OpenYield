@@ -653,6 +653,20 @@ class RunnerExecutionTests(unittest.TestCase):
             self.assertEqual(lines[-1], '.END')
             self.assertIn('CONTINUATION=2', deck.read_text())   # the original is untouched
 
+    def test_mux_select_changes_between_accesses_with_break_before_make(self):
+        from types import SimpleNamespace
+        from tests.spice.phased_access import apply_column_sequence
+
+        tb = SimpleNamespace(select_every=1, choose_columnmux=True, num_cols=4,
+                             mux_in=2, target_col=0, t_period=9e-9, vdd=.9)
+        deck = 'VSEL_0 SEL0 VSS 0.9V\nVSEL_1 SEL1 VSS 0V\n.MEAS TRAN X MAX V(OUT)\n.END\n'
+        changed = apply_column_sequence(deck, [0, 1], tb, 'read')
+        self.assertIn('VSEL_0 SEL0 VSS PWL(0 0.9 8.56e-09 0.9 8.65e-09 0)', changed)
+        self.assertIn('VSEL_1 SEL1 VSS PWL(0 0 8.92e-09 0 9.01e-09 0.9)', changed)
+        self.assertNotIn('.MEAS', changed)
+        with self.assertRaisesRegex(ValueError, 'column_sequence'):
+            apply_column_sequence(deck, [0, 2], tb, 'read')
+
 
 @functools.lru_cache(maxsize=None)
 def _period(rows, cols, cell, mux):
@@ -756,6 +770,12 @@ class ScreenManifestTests(unittest.TestCase):
         # wrong mux input cannot pass.
         self.assertTrue(any(case.get('mux') and case.get('col') == 0 and case.get('background') == 1
                             and case.get('operation') == 'read' for case in self.cases))
+        dynamic = [case for case in self.cases if 'column_sequence' in case]
+        self.assertEqual({(case['cell'], case['corner']) for case in dynamic},
+                         {(cell, corner) for cell in ('SRAM_6T_CELL', 'SRAM_10T_CELL')
+                          for corner in ('SS', 'FF')})
+        self.assertTrue(all(case['column_sequence'] == [0, 1] and case['background'] == 1
+                            and case['operation'] == 'read' for case in dynamic))
         # The fast corner on tall arrays, cold and hot.
         tall_fast = {(case.get('vdd'), case.get('temperature')) for case in self.cases
                      if case.get('corner') == 'FF' and case.get('rows', 8) >= 128}

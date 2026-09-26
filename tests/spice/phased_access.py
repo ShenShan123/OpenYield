@@ -11,7 +11,7 @@ import time
 
 from sram_compiler.per_device_mc.run import load_config
 from sram_compiler.sizing.timing import TimingConfig
-from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench, cycle_plan
 from sram_compiler.version import VERSION
 from tests.spice.execution import (LINE_SEARCH, OPERATING_POINT_FILE, SEED_TOLERANCE, execution_command,
                                    execute_local_ensemble, execute, operating_point_deviation,
@@ -77,6 +77,51 @@ def apply_pattern(deck, pattern, testbench):
     return '\n'.join(line for line in deck.splitlines()
                      if not re.match(r'\.meas tran V(?:ACCESS|HOLD|WEN_ACCESS|RESTORE)_ERROR',
                                      line, re.I)) + '\n'
+
+
+def apply_column_sequence(deck, columns, testbench, operation, pattern=None):
+    """Drive the existing mux select pins between cycles, before the next capture."""
+    _, plan = cycle_plan(operation, testbench.select_every)
+    if pattern is not None:
+        plan = pattern
+    if (not testbench.choose_columnmux or len(columns) != len(plan)
+            or any(type(col) is not int or not 0 <= col < testbench.num_cols
+                   or col // testbench.mux_in != testbench.target_col // testbench.mux_in
+                   for col in columns)
+            or columns[0] != testbench.target_col):
+        raise ValueError('column_sequence must start at the target column and stay in its mux group')
+    period, vdd = float(testbench.t_period), float(testbench.vdd)
+    sources = {}
+    for input_number in range(testbench.mux_in):
+        initial = vdd if columns[0] % testbench.mux_in == input_number else 0.
+        points = [(0., initial)]
+        for cycle in range(1, len(columns)):
+            before = columns[cycle - 1] % testbench.mux_in == input_number
+            after = columns[cycle] % testbench.mux_in == input_number
+            if before == after:
+                continue
+            # Break before make in clock-low. Both edges finish before the next
+            # rising clock, leaving the distributed select line time to settle.
+            start = 1e-9 + (cycle - (.16 if before else .12)) * period
+            points.extend(((start, vdd if before else 0.),
+                           (start + .01 * period, vdd if after else 0.)))
+        node = f'SEL{input_number}'
+        sources[f'VSEL_{input_number}'] = (
+            f'VSEL_{input_number} {node} VSS PWL('
+            + ' '.join(f'{when:.12g} {value:.12g}' for when, value in points) + ')')
+    found = set()
+    lines = []
+    for line in deck.splitlines():
+        name = line.split()[0] if line.split() else ''
+        if name in sources:
+            found.add(name)
+        # The compiler's fixed-target measures do not describe a changing mux
+        # selection. The independent waveform scorer checks each cycle instead.
+        if not line.upper().startswith('.MEAS'):
+            lines.append(sources.get(name, line))
+    if found != set(sources):
+        raise ValueError(f'Missing mux select sources: {sorted(set(sources) - found)}')
+    return '\n'.join(lines) + '\n'
 
 
 def prepare(case, directory):
@@ -151,12 +196,19 @@ def prepare(case, directory):
         nodes['sense_state'][str(col)] = [f'SA_Q{group}', f'SA_QB{group}']
         probes.update(nodes['sense'][str(col)])
         probes.update(nodes['sense_state'][str(col)])
+    if 'column_sequence' in case:
+        group = (tb.target_col // tb.mux_in) * tb.mux_in
+        probes.update(f'SEL{i}' for i in range(tb.mux_in))
+        probes.update(f'SEL{i}_line_tap{group}' for i in range(tb.mux_in))
     lines = [line for line in deck.splitlines()
              if not line.upper().startswith('.PRINT TRAN') and line.lower() != '.end']
     deck = '\n'.join(lines) + '\n.PRINT TRAN ' + ' '.join(
         f'V({node})' for node in sorted({node.upper() for node in probes})) + '\n.END\n'
     if 'pattern' in case:
         deck = apply_pattern(deck, case['pattern'], tb)
+    if 'column_sequence' in case:
+        deck = apply_column_sequence(deck, case['column_sequence'], tb, operation,
+                                     case.get('pattern'))
     path = directory / 'deck.sp'
     path.write_text(deck)
     check_sources()

@@ -70,7 +70,7 @@ hashes in
 [`docs/data/PHASED_CONTROL_V2_2_2.json`](docs/data/PHASED_CONTROL_V2_2_2.json);
 it certifies the V2.2.2 tree only. V2.2.3's screen ran 284 of 285 cases
 (256x256 never left its operating point) but was not assembled, and V2.2.4
-changes the replica column in every deck. V2.2.4 ships 330 main cases, 1,444
+changes the replica column in every deck. The V2.2.4 manifest has 334 main cases, 1,444
 per-device draws and six negative controls
 ([how to run them](docs/design/PHASED_CONTROL_V2_2_4.md#the-screen), about 1,400
 solver-hours); until they have been run and assembled, nothing in V2.2.4 may be

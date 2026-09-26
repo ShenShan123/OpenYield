@@ -204,7 +204,7 @@ V2.2.3 (19.9 and 23.2 hours in total).
 
 | Manifest | Cases | What it adds |
 |---|---:|---|
-| `tests/spice/v224_cases.json` | 330 | the 285 V2.2.3 cases, plus 45: mux column 0 at five sizes, FF cold and hot on 128- to 512-row arrays (V2.2.3 had no FF case at 128 rows or more), sizes that are not powers of two including 1x1, 1x4, 2x1, 257x4, 511x4 and 200x100, and partial address-bit flips between neighbouring rows on tall arrays |
+| `tests/spice/v224_cases.json` | 334 | the 285 V2.2.3 cases, plus 49: mux column 0 at five sizes, four alternating mux-input reads, FF cold and hot on 128- to 512-row arrays (V2.2.3 had no FF case at 128 rows or more), sizes that are not powers of two including 1x1, 1x4, 2x1, 257x4, 511x4 and 200x100, and partial address-bit flips between neighbouring rows on tall arrays |
 | `tests/spice/v224_mc_cases.json` | 1,444 | per-device draws at each failure mechanism's worst global corner (timing SS hot, write SF cold, read stability FS hot, races FF cold, leakage FF hot), 20 per cell/mux configuration at 8x4; corner-case patterns under mismatch (read after write, write after write, adjacent bit flips, idle mixes, walking patterns); larger-array draws; and the 52 tall draws, with the seeds of their V2.2.3 run so each before/after pair shares its draw |
 | `tests/spice/v224_negative_cases.json` | 6 | the V2.2.3 controls, each at a period the lookup would not grant; must exit non-zero |
 
@@ -230,16 +230,31 @@ its operating point. That screen was never assembled into an evidence record,
 and it did not include the per-device tall draws that exposed the sense
 failure.
 
+**Post-release review of dynamic mux selection.** Four added 8x4 read cases
+drive the existing external `SEL0`/`SEL1` pins from input 0 to input 1 between
+accesses at SS 0.9 V / 125 C and FF 1.1 V / -40 C, on both 6T and 10T cells.
+The target cell starts at 0 and its neighbour at 1. The checker reads the
+selected column separately in each cycle and checks both root and mux-tap
+select levels through clock-high, as well as the usual output, sense,
+retention and control waveforms. This exercises a changing mux input; the
+column address decoder itself remains unimplemented. These cases were added
+after the original V2.2.4 release. All four passed Xyce 7.4 and 369 waveform
+checks each (`outputs/validation/v224-review-dynamic-final-20260926`); the
+worst sense margin was 0.913 V and the worst read-output lead was 1.511 ns.
+Re-scoring the 6T SS trace as though both cycles selected input 0 failed on
+the second output, sense data and four root/tap select checks. The four
+targeted cases do not constitute the full screen.
+
 ## Still open
 
 - **The 256x256 operating point** (above). Until it is solved, the V2.2.4
   screen cannot complete and 256x256 has no evidence under any release.
 - **The V2.2.4 screen itself** (above).
 
-- **Dynamic column select.** The compiler has no column decoder: `SEL` is a
-  DC level for the whole deck, so switching between mux inputs from one access
-  to the next has never been simulated. V2.2.4 closes only the static half
-  (input 0 is now exercised).
+- **Dynamic column select.** The compiler still has no column decoder: normal
+  decks hold `SEL` at a DC level. The four post-release runner cases now drive
+  alternating external selects and score both accesses, but the physical
+  decoder, address hazards, and its timing remain open.
 - **A stopped or gated clock**, unchanged from V2.2.3.
 - **Sense amplifier offset.** The 0.28 VDD bar is still a screening floor, not
   a measured offset.

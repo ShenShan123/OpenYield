@@ -49,7 +49,7 @@ from V2.2.3 and no V2.2.3 result carries over.
   against about 13 h in V2.2.3. **256x256 is not solved**: the seeded solve
   had not converged after 5.6 h. MOSFET homotopy, tried first, was erratic
   and is not used.
-- Manifests: `tests/spice/v224_cases.json` (330: the 285 V2.2.3 cases plus
+- Manifests at release: `tests/spice/v224_cases.json` (330: the 285 V2.2.3 cases plus
   mux column 0, FF on tall arrays, odd and one-row sizes, adjacent-row address
   flips), `tests/spice/v224_mc_cases.json` (1,444 per-device draws at each
   failure mechanism's worst corner, corner-case patterns, and the 52 tall
@@ -59,6 +59,13 @@ from V2.2.3 and no V2.2.3 result carries over.
   1,487-case discovery campaign on V2.2.3 passed 1,474 (the 13 failures were
   the one-row checker error and one operating point, both fixed here).
   The V2.2.4 screen (about 1,400 solver-hours) has not been run.
+
+Post-release review, still numbered V2.2.4: four 8x4 mux-read cases now switch
+the external select from input 0 to input 1 between cycles. The checker follows
+the selected column per cycle and verifies both root and mux-tap selects during
+access. All four targeted Xyce cases pass 369 waveform checks each. The
+compiler's column decoder and the full V2.2.4 screen remain open;
+the main manifest now has 334 cases. No V2.2.5 qualification is claimed.
 
 ## V2.2.3 — 2026-09-20 — supported envelope, joint-dimension clocks, one access deadline
 

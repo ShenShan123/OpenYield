@@ -36,7 +36,7 @@ The carried Phase 6 scope. The working plans that defined it
 - **The V2.2.4 screen.** `data/PHASED_CONTROL_V2_2_2.json` certifies the
   V2.2.2 tree only. The V2.2.3 screen ran 284 of 285 cases and was never
   assembled, and V2.2.4 changes the replica column of every deck. The V2.2.4
-  manifests (330 main cases, 1,444 per-device draws, 6 negative controls) are
+  manifests (334 main cases, 1,444 per-device draws, 6 negative controls) are
   ready to run ([how](design/PHASED_CONTROL_V2_2_4.md#the-screen), about 1,400
   solver-hours); nothing in V2.2.4 is qualification until they have been run
   and assembled.
@@ -46,9 +46,10 @@ The carried Phase 6 scope. The working plans that defined it
   converged at 256x256 after 5.6 h
   ([record](design/PHASED_CONTROL_V2_2_4.md#the-operating-point-of-the-largest-arrays)).
   The screen cannot complete without it.
-- **Dynamic column select.** There is no column decoder: the mux `SEL` input
-  is a DC level for the whole deck, so switching mux inputs between accesses
-  has never been simulated. V2.2.4 exercises input 0 statically.
+- **Dynamic column select.** There is no column decoder: normal decks hold the
+  mux `SEL` input at a DC level. Four post-release V2.2.4 runner cases switch
+  the external selects between accesses and check the resulting reads; decoder
+  logic and address hazards remain open.
 - **A stopped or gated clock.** Precharge is a clock-low function
   (`PRE = !(clk_bar & wordline_off & enables_off)`), so a clock stopped high
   parks the array with floating bitlines and open sense pass gates and a clock

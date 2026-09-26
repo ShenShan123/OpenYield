@@ -189,6 +189,17 @@ def score(directory, report_name="result.json"):
         plan = [(entry['op'], entry['data']) for entry in case['pattern']]
     # V2.2.4: the target column is recorded; older records always used the last one.
     target_col = metadata.get('col', metadata['cols'] - 1)
+    columns_by_cycle = case.get('column_sequence')
+    if columns_by_cycle is not None:
+        if (not case.get('mux', False) or len(columns_by_cycle) != len(plan)
+                or columns_by_cycle[0] != target_col
+                or any(type(col) is not int or not 0 <= col < cols
+                       or col // 2 != target_col // 2 for col in columns_by_cycle)):
+            raise ValueError('Invalid column_sequence in waveform contract')
+
+    def column_for_cycle(cycle):
+        return target_col if columns_by_cycle is None else columns_by_cycle[min(cycle, len(columns_by_cycle) - 1)]
+
     target = f'{metadata["row"]},{target_col}'
     expected = {key: 0 if key == target else case.get('background', 0) for key in nodes['cells']}
     cycles = 8 if metadata['operation'] == 'read&write' else len(plan)
@@ -254,6 +265,7 @@ def score(directory, report_name="result.json"):
     retained = expected.copy()
     for cycle in range(max(0, int((time[-1] - 1e-9) / period - .2) + 1)):
         kind, datum = plan[min(cycle, len(plan) - 1)]
+        cycle_col = column_for_cycle(cycle)
         start = 1e-9 + (cycle + .2) * period
         stop = min(1e-9 + (cycle + 1.2) * period, time[-1])
         prefix = f'cycle{cycle}_{kind}'
@@ -313,7 +325,7 @@ def score(directory, report_name="result.json"):
         if kind == 'read' and sense_start < stop:
             mux = 2 if case.get('mux', False) else 1
             for col in range(0, metadata['cols'], mux):
-                selected_col = col + target_col % mux
+                selected_col = col + cycle_col % mux
                 value = retained[f'{row},{selected_col}']
                 enabled = (signal(nodes['sen'][str(col)]), .1 * vdd, True)
                 q, qb = nodes['sense_state'][str(col)]
@@ -332,6 +344,16 @@ def score(directory, report_name="result.json"):
         row = sum((at(f'A{bit}', start - .005 * period) > .5 * vdd) << bit
                   for bit in range(max(1, (metadata['rows'] - 1).bit_length())))
         prefix = f'cycle{cycle}_{kind}'
+        cycle_col = column_for_cycle(cycle)
+        if columns_by_cycle is not None:
+            selected_input = cycle_col % 2
+            group = (target_col // 2) * 2
+            access = window(start, base + .7 * period)
+            for input_number in range(2):
+                level = vdd if input_number == selected_input else 0.
+                for node in (f'SEL{input_number}', f'SEL{input_number}_line_tap{group}'):
+                    checks[f'{prefix}_{node}_settled'] = bool(
+                        np.max(np.abs(signal(node)[access] - level)) <= .1 * vdd)
         for node in ('XTIME_CONTROL:wordline_busy', 'XTIME_CONTROL:iso_ready',
                      'XTIME_CONTROL:access_request', 'XTIME_CONTROL:access_settled',
                      'XTIME_CONTROL:read_done', 'RBL_DELAY'):
@@ -448,7 +470,7 @@ def score(directory, report_name="result.json"):
                         np.max(np.abs(signal(qb)[hold] - (1 - value) * vdd)))
             checks[f'{prefix}_cell{key}_retention'] = bool(error <= .1 * vdd)
         if kind == 'read':
-            value = expected[f'{row},{target_col}']
+            value = expected[f'{row},{cycle_col}']
             checks[f'{prefix}_output'] = bool(np.max(np.abs(signal('OUT')[hold] - value * vdd)) <= .1 * vdd)
             # Access margin: the latched output and every sense group settle
             # on their rail this long before the checker deadline (negative if
@@ -458,7 +480,7 @@ def score(directory, report_name="result.json"):
             settled = [band_entry('OUT', value, start, stop)]
             mux = 2 if case.get('mux', False) else 1
             for col in range(0, metadata['cols'], mux):
-                selected_col = col + target_col % mux
+                selected_col = col + cycle_col % mux
                 value = expected[f'{row},{selected_col}']
                 q, qb = nodes['sense_state'][str(col)]
                 error = max(abs(at(q, base + ACCESS_DEADLINE * period) - value * vdd),
