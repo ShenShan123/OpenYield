@@ -1,5 +1,17 @@
 .DS_Store
 .coverage*
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.tox/
+.nox/
+.venv/
+venv/
+*.egg-info/
+/build/
+/dist/
+.idea/
 *~
 *.orig
 *.rej
