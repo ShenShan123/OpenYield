@@ -27,25 +27,26 @@ Waveform scoring checks read and write data, retention, sensing, physical far-en
 | 2026-09-28 08:34 UTC, full launch | 0 / 1,778 | 0 / 6 | Six persistent queues active: hero 2 workers, big 8, mid 8, small 20, dynamic 2, negative 2. Cases are running; no queue result had finished at this checkpoint. |
 | 2026-09-28 08:37 UTC, first scored results | 2 / 1,778 | 1 / 6 | Two dynamic mux-column reads passed. `negative_8x4_SS_2ns` failed waveform checks as intended (1,442 checks, including isolation and precharge exclusion failures); Xyce exited 0. Other queues remain active. |
 | 2026-09-28 08:39 UTC, dynamic queue complete | 4 / 1,778 | 1 / 6 | All four dynamic mux-column reads passed. The other positive queues have active Xyce cases and no scored failures yet. The negative queue has five controls pending or running. |
+| 2026-09-28 12:32 UTC, four-hour check | 178 / 1,778 | 5 / 6 | Small 171, mid 3, dynamic 4 passed; no positive failures or solver/checker errors. Five controls produced waveform failures with Xyce return code 0. The last control, `negative_512x4_SS_14ns`, is active. Hero and big have no completed cases yet. |
 
 ## Live queue snapshot
 
 The local monitor reads saved `result.json` and `metadata.json` files and refreshes this table while the campaign runs. It does not treat a started case as a pass.
 
 <!-- v225-progress-start -->
-Updated 2026-09-28 08:44:41 UTC.
+Updated 2026-09-28 12:29:48 UTC.
 
 | Queue | Expected | Passed | Expected negative rejections | Failed | Solver/checker errors | Active | Pending |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | hero | 8 | 0 | 0 | 0 | 0 | 2 | 6 |
 | big | 164 | 0 | 0 | 0 | 0 | 8 | 156 |
-| mid | 157 | 0 | 0 | 0 | 0 | 8 | 149 |
-| small | 1445 | 0 | 0 | 0 | 0 | 20 | 1425 |
+| mid | 157 | 3 | 0 | 0 | 0 | 8 | 146 |
+| small | 1445 | 171 | 0 | 0 | 0 | 20 | 1254 |
 | dynamic | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
-| negative | 6 | 0 | 1 | 0 | 0 | 2 | 3 |
+| negative | 6 | 0 | 5 | 0 | 0 | 1 | 0 |
 <!-- v225-progress-end -->
 
 ## Open outcomes
 
-- The dynamic positive queue has completed; the hero, big, mid, small, and negative queues remain active. The 256x256 seeded operating point remains an explicit risk. Its preserved manifest timeout is 1,697,233 s (about 19.6 days), not evidence that the operating point will converge. Report it as incomplete if it cannot converge within a bounded diagnostic window.
+- The dynamic positive queue has completed; the hero, big, mid, small, and negative queues remain active. At the four-hour check, 256x256 had finished its settle and spent 2 h 24 min in its DC operating-point calculation without a result. The 256x128 transient reported 9.02% complete and an Xyce estimate of about 1 day 6.5 hours remaining under current load. These are active solves, not passes. The preserved 256x256 manifest timeout is 1,697,233 s (about 19.6 days), not evidence that the operating point will converge. Report it as incomplete if it cannot converge within a bounded diagnostic window.
 - Do not assemble or promote a V2.2.5 evidence record until every required case finishes and the negative controls show their intended failures.
