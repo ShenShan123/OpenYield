@@ -10,6 +10,7 @@ from sram_compiler.testbenches.parameter_factor import (TimeControlFactory,Repli
 from utils import parse_spice_models  # type: ignore
 from sram_compiler.testbenches.base_testbench import BaseTestbench  # type: ignore
 from math import ceil, log2
+from numbers import Integral
 from copy import copy
 from sram_compiler.interconnect import resolve_interconnect, add_tapped_line, cell_wire_nodes
 from sram_compiler.equivalent_modeling import resolve_equivalent
@@ -967,6 +968,14 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         target_row: Row index of the target cell
         target_col: Column index of the target cell
         """
+        if operation not in ('read', 'write', 'read&write', 'hold_snm', 'read_snm', 'write_snm'):
+            raise ValueError(f'Invalid operation: {operation}')
+        if isinstance(target_row, bool) or not isinstance(target_row, Integral) or not 0 <= target_row < self.num_rows:
+            raise ValueError(f'target_row must be in [0, {self.num_rows - 1}]')
+        if isinstance(target_col, bool) or not isinstance(target_col, Integral) or not 0 <= target_col < self.num_cols:
+            raise ValueError(f'target_col must be in [0, {self.num_cols - 1}]')
+        if self.choose_columnmux and self.num_cols % 2:
+            raise ValueError('Column mux requires an even number of columns (fan-in 2)')
         # Extraction consumes the actual operating point without mutating the
         # baseline configuration shared by optimizer/PVT callers.
         operating_config = copy(self.sram_config.global_config)
@@ -975,8 +984,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         operating_config.temperature = self.temperature
         self.driver_sizes.validate_for(self.sram_config, self.sram_cell_type, self.choose_columnmux,
                                        physical_context(self.w_rc, float(self.pi_res), float(self.pi_cap), self.real_cell_mode, self.interconnect))
-        self.target_row = target_row if target_row < self.num_rows else self.num_rows - 1
-        self.target_col = target_col if target_col < self.num_cols else self.num_cols - 1
+        self.target_row = target_row
+        self.target_col = target_col
         # Column-mux fan-in (fixed to 2 in create_read_periphery); needed before any
         # SA_Q{col // mux_in} node name is built.
         self.mux_in = 2 if self.choose_columnmux else 1

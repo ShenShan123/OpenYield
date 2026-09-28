@@ -267,7 +267,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         except FileExistsError:
             run_dir = run_root / f'{run_name}_attempt{attempt}'
             attempt += 1
-    is_shared = args.variation_mode == "shared"
+    is_sampled = args.variation_mode in ("shared", "per-device")
     is_custom = args.variation_mode == "custom"
     sample_count = 1 if args.variation_mode == "nominal" else mc_runs
 
@@ -278,7 +278,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         pi_res=args.pi_res_ohm @ u_Ohm,
         pi_cap=args.pi_cap_pf @ u_pF,
         vth_std=args.vth_std,
-        mc=is_shared,
+        mc=is_sampled,
         custom_mc=is_custom,
         variation_mode=args.variation_mode,
         mc_seed=args.seed,
@@ -437,8 +437,10 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.rows <= 0 or args.cols <= 0:
         parser.error("--rows and --cols must be positive")
-    if args.vth_std < 0:
-        parser.error("--vth-std must be non-negative")
+    if not math.isfinite(args.vth_std) or args.vth_std < 0:
+        parser.error("--vth-std must be finite and non-negative")
+    if args.seed <= 0:
+        parser.error("--seed must be positive")
     if args.vdd is not None and not (math.isfinite(args.vdd) and args.vdd > 0):
         parser.error("--vdd must be finite and positive")
     if args.temperature is not None and not math.isfinite(args.temperature):
@@ -514,11 +516,10 @@ def main() -> int:
             encoding="utf-8",
         )
         raise
-    if args.audit or rejection is not None or 'waveform_error' in summary:
-        (Path(summary["run_dir"]) / "summary.json").write_text(
-            json.dumps(summary, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+    (Path(summary["run_dir"]) / "summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     print(json.dumps(summary, indent=2, sort_keys=True))
     if rejection is not None:
         raise rejection

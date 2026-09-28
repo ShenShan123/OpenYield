@@ -46,4 +46,4 @@ print(sizes.size_class, timing.t_period, timing.source)
 # Pass these same objects to testbenches for candidate cells and PVT samples.
 ```
 
-For a simple CLI run, use the [compiler tutorial](../README.md). YAML widths and lengths are SI metres. Class lookups and physical-context hashes travel with a run's summary. The current [V2.2.4 release record](../../docs/design/PHASED_CONTROL_V2_2_4.md) reports the pending waveform screen and the unresolved 256x256 operating point. The completed [V2.2.2 screen](../../docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
+For macro generation, use `main_sram.py` as shown in the [compiler tutorial](../README.md). YAML widths and lengths are SI metres. Class lookups and physical-context hashes travel with a run's summary. The current [V2.2.4 release record](../../docs/design/PHASED_CONTROL_V2_2_4.md) reports the pending waveform screen and the unresolved 256x256 operating point. The completed [V2.2.2 screen](../../docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.

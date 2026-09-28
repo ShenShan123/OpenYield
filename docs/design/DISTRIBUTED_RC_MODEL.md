@@ -17,21 +17,21 @@ versions; the original V2.0.7 implementation plan is historical
 (`git show 61d01a7:docs/design/DISTRIBUTED_RC_PLAN.md`).
 
 Customize it through `global.yaml`'s `interconnect` mapping, the appended
-`interconnect=` testbench argument, the `INTERCONNECT_CONFIG` setting of
-`main_sram.py` (a YAML path applied in memory), or the CLI:
+`interconnect=` testbench argument, or `INTERCONNECT_CONFIG` in
+`main_sram.py` (a YAML path applied in memory). For one generated macro, set
+`ARRAY = [4, 4, False]`, `OPERATION = "read&write"`,
+`INTERCONNECT_CONFIG = "sram_compiler/config_yaml/interconnect_example.yaml"`,
+and `RUN_XYCE = False`, then run:
 
 ```bash
-python3 -m sram_compiler.per_device_mc.run --rows 4 --cols 4 \
-  --variation-mode nominal --operation 'read&write' \
-  --interconnect-config sram_compiler/config_yaml/interconnect_example.yaml
+python main_sram.py
 ```
 
-This generates a deck. Append `--run-xyce` to simulate. The
+This generates a deck. Set `RUN_XYCE = True` to simulate. The
 [example configuration](../../sram_compiler/config_yaml/interconnect_example.yaml)
 uses illustrative 1-ohm / 0.1-fF pitches for diagnostics; replace them with
 technology/layout extraction before drawing physical timing or yield conclusions.
-For normal MC, omit `--variation-mode nominal`: per-device mismatch remains
-the default.
+Independent local device variation is included automatically.
 
 ## Configuration and topology
 

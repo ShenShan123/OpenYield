@@ -18,7 +18,10 @@ which exposes the same defaults as command-line options.
 from __future__ import annotations
 
 import os
+import hashlib
+import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any, List, Optional, Sequence
 
 import numpy as np
@@ -29,6 +32,7 @@ from sram_compiler.equivalent_modeling import resolve_equivalent
 from sram_compiler.interconnect import load_interconnect, resolve_interconnect
 from sram_compiler.per_device_mc.run import get_custom_vars, load_config, resolve_mc_runs
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from sram_compiler.version import VERSION
 from utils import estimate_bitcell_area  # type: ignore
 
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -44,6 +48,7 @@ OPERATION = "write"             # read | write | read&write | hold_snm | read_sn
 VARIATION_MODE = "per-device"   # per-device (default) | nominal | shared | custom
 MC_RUNS: Optional[int] = None   # None: monte_carlo_runs from global.yaml
 MC_SEED: Optional[int] = 20260711  # Xyce sampling seed; None draws a new seed every run
+RUN_XYCE = True                 # False: generate the deck without simulating it
 # Equivalent array model; None keeps the `equivalent` block of global.yaml
 # (0: full transistor array, complete local coverage; 1-4: equivalent cells for
 # the unused array, an approximation). See sram_compiler/equivalent_modeling/.
@@ -63,8 +68,13 @@ def configure(rows: int, cols: int, choose_columnmux: bool, corner: str,
               cell_6t: Optional[Sequence[Any]] = None,
               interconnect_config: Optional[str] = INTERCONNECT_CONFIG) -> SRAM_CONFIG:
     """Load the tracked YAML files in memory and apply the script settings."""
+    if any(isinstance(value, bool) or not isinstance(value, int) or value <= 0
+           for value in (rows, cols)):
+        raise ValueError('ARRAY rows and columns must be positive integers')
+    if not isinstance(choose_columnmux, bool):
+        raise ValueError('ARRAY column_mux must be a boolean')
     config = load_config(rows, cols, corner)
-    config.global_config.choose_columnmux = bool(choose_columnmux)
+    config.global_config.choose_columnmux = choose_columnmux
     if interconnect_config is not None:
         config.global_config.interconnect = load_interconnect(interconnect_config)
     if cell_6t is not None and config.global_config.sram_cell_type == "SRAM_6T_CELL":
@@ -72,6 +82,9 @@ def configure(rows: int, cols: int, choose_columnmux: bool, corner: str,
             raise ValueError("CELL_6T needs [pd_width, pg_width, pu_width, length, "
                              "pd_model, pg_model, pu_model]")
         pd_width, pg_width, pu_width, length, pd_model, pg_model, pu_model = cell_6t
+        if any(not np.isfinite(float(value)) or float(value) <= 0
+               for value in (pd_width, pg_width, pu_width, length)):
+            raise ValueError('CELL_6T widths and length must be finite and positive metres')
         cell = config.sram_6t_cell
         cell.nmos_width.value = [float(pd_width), float(pg_width)]
         cell.pmos_width.value = float(pu_width)
@@ -127,12 +140,54 @@ def build_testbench(config: SRAM_CONFIG, sim_path: str, *,
 
 
 def _mean(values: Any) -> float:
-    return float(np.mean(np.asarray(values, dtype=float).ravel()))
+    samples = np.asarray(values, dtype=float).ravel()
+    if not len(samples) or not np.isfinite(samples).all():
+        raise RuntimeError('Simulation returned missing or failed samples; inspect the saved results')
+    return float(np.mean(samples))
+
+
+def write_deck(testbench: Sram6TCoreMcTestbench, operation: str,
+               target_row: int, target_col: int, mc_runs: int,
+               custom_vars: Any) -> Path:
+    """Export the same sampled circuit and measures used by a Xyce run."""
+    circuit = testbench.create_testbench(operation, target_row, target_col)
+    simulator = circuit.simulator(simulator='xyce-serial',
+                                  temperature=testbench.temperature,
+                                  nominal_temperature=27)
+    testbench.add_analysis(simulator.circuit, operation, mc_runs)
+    testbench.add_meas_and_print(simulator, testbench.data_init(), operation)
+    if custom_vars is not None:
+        testbench.gen_process_params(simulator.circuit, operation,
+                                     num_mc=mc_runs, vars=custom_vars)
+    deck_path = Path(testbench.sim_path) / 'deck.sp'
+    deck_path.write_text(str(simulator), encoding='utf-8')
+    model_path = Path(getattr(testbench.sram_config.global_config,
+                              f'pdk_path_{testbench.corner}'))
+    summary = {
+        'compiler_version': VERSION,
+        'deck': str(deck_path), 'operation': operation,
+        'rows': testbench.num_rows, 'cols': testbench.num_cols,
+        'target_row': target_row, 'target_col': target_col,
+        'cell_type': testbench.sram_cell_type, 'corner': testbench.corner,
+        'temperature': testbench.temperature, 'vdd': float(testbench.vdd),
+        'variation_mode': testbench.variation_mode, 'mc_runs': mc_runs,
+        'full_device_coverage': testbench.variation_mode == 'per-device'
+                                and testbench.real_cell_mode == 0,
+        'seed': testbench.mc_seed, 'model_sha256': hashlib.sha256(model_path.read_bytes()).hexdigest(),
+        'equivalent': testbench.equivalent.to_dict(),
+        'interconnect': testbench.interconnect.to_dict(),
+        'driver_sizes': testbench.driver_sizes.to_dict(),
+        'timing': testbench.timing_config.to_dict(),
+        **testbench.variation_summary,
+    }
+    (Path(testbench.sim_path) / 'summary.json').write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+    return deck_path
 
 
 def main() -> None:
     rows, cols, choose_columnmux = ARRAY
-    config = configure(int(rows), int(cols), bool(choose_columnmux), CORNER, CELL_6T)
+    config = configure(rows, cols, choose_columnmux, CORNER, CELL_6T)
     cell_type = config.global_config.sram_cell_type
     custom_vars = get_custom_vars(config, cell_type) if VARIATION_MODE == "custom" else None
     requested = int(config.global_config.monte_carlo_runs) if MC_RUNS is None else int(MC_RUNS)
@@ -142,8 +197,8 @@ def main() -> None:
                                     if REAL_CELL_MODE is None else REAL_CELL_MODE)
 
     suffix = "6t" if cell_type == "SRAM_6T_CELL" else "10t"
-    time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    sim_path = os.path.join(_PROJECT_ROOT, "sim1", f"{time_str}_mc_{suffix}")
+    time_str = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    sim_path = os.path.join(_PROJECT_ROOT, "outputs", "main_sram", f"{time_str}_{suffix}")
     os.makedirs(sim_path, exist_ok=True)
 
     area = bitcell_area(config)
@@ -162,6 +217,12 @@ def main() -> None:
     print(f"===== {suffix.upper()} SRAM Array Monte Carlo Simulation ({VARIATION_MODE}) =====")
     testbench = build_testbench(config, sim_path)
     temperature = config.global_config.temperature
+
+    if not RUN_XYCE:
+        deck_path = write_deck(testbench, OPERATION, target_row, target_col,
+                               mc_runs, custom_vars)
+        print(f"[OUTPUT] deck: {deck_path}")
+        return
 
     if OPERATION in _TRANSIENT_OPERATIONS:
         delay, pavg, pstc, pdyn = testbench.run_mc_simulation(

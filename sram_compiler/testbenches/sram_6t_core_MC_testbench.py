@@ -17,7 +17,8 @@ from sram_compiler.config_yaml.sweep_config import SWEEP_CONFIGS
 from sram_compiler.version import VERSION
 import numpy as np
 from PySpice.Spice.Netlist import Circuit, SubCircuitFactory
-from math import ceil, log2
+from math import ceil, isfinite, log2
+from numbers import Integral
 
 # Fraction of the period by which a read's data must be on its rail and a
 # written cell settled, counted from the capture edge of that cycle. The
@@ -161,9 +162,13 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         self.sweep_precharge=sweep_precharge
         self.sweep_cell =sweep_cell
         self.sram_config = sram_config
+        if not isfinite(vth_std) or vth_std < 0:
+            raise ValueError('vth_std must be finite and non-negative')
         self.vth_std = vth_std
         if self.driver_sizes.source == 'table' and variation_mode == 'per-device' and vth_std != .05:
             raise ValueError('Table-qualified timing requires the recorded 5% local mismatch model')
+        if mc_seed is not None and (isinstance(mc_seed, bool) or not isinstance(mc_seed, Integral) or mc_seed <= 0):
+            raise ValueError('mc_seed must be a positive integer or None')
         self.mc_seed = mc_seed
         self.xyce_options = list(xyce_options) if xyce_options else []
         self.t_max_step = t_max_step
@@ -895,6 +900,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
     def add_analysis(self, circuit, operation, num_mc):
         """ Add .DC / .TRAN analysis DC 扫描/瞬态分析"""
+        if isinstance(num_mc, bool) or not isinstance(num_mc, Integral) or num_mc <= 0:
+            raise ValueError('num_mc must be a positive integer')
         if self.variation_mode == 'per-device' and any((
                 self.sweep_cell, self.sweep_precharge, self.sweep_senseamp,
                 self.sweep_wordlinedriver, self.sweep_columnmux,
