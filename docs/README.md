@@ -1,4 +1,4 @@
-# OpenYield V2.2.4 documentation
+# OpenYield V2.2.5 documentation
 
 Design and validation records (`design/`), the supplied evidence (`data/`,
 `qualification/`, `issue_reports/`) and the release history live here; usage
@@ -33,13 +33,13 @@ The carried Phase 6 scope. The working plans that defined it
   their data and every column still restores and releases; cases at mux ratios
   2 and 4, SS / SF 0.9 V / 125 C and FF 1.1 V / -40 C with address hazards, then
   per-device seeds. Read-modify-write is out of scope.
-- **The V2.2.4 screen.** `data/PHASED_CONTROL_V2_2_2.json` certifies the
+- **The V2.2.5 screen.** `data/PHASED_CONTROL_V2_2_2.json` certifies the
   V2.2.2 tree only. The V2.2.3 screen ran 284 of 285 cases and was never
-  assembled, and V2.2.4 changes the replica column of every deck. The V2.2.4
-  manifests (334 main cases, 1,444 per-device draws, 6 negative controls) are
-  ready to run ([how](design/PHASED_CONTROL_V2_2_4.md#the-screen), about 1,400
-  solver-hours); nothing in V2.2.4 is qualification until they have been run
-  and assembled.
+  assembled, and V2.2.4 changed the replica column of every deck. V2.2.5
+  changes the compiler entrance and validation. The V2.2.4 manifests (334 main
+  cases, 1,444 per-device draws, 6 negative controls) remain the unrun plan
+  ([how](design/PHASED_CONTROL_V2_2_4.md#the-screen), about 1,400 solver-hours);
+  no V2.2.5 screen or qualification has been assembled.
 - **The 256x256 operating point.** Plain Newton did not converge in 92 h in
   the V2.2.3 screen, MOSFET homotopy is erratic, and the V2.2.4 seeded
   operating point, which solves 128x128 and 256x128 in minutes, had not
@@ -82,7 +82,8 @@ The carried Phase 6 scope. The working plans that defined it
 | [Development guide](DEVELOPMENT.md) | Optional local regression and qualification tools |
 | [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Working proposal and qualification status of the driver classes |
 | [Automatic timing proposal](TIMING_AUTOCONFIG.md) | Timing design, measured basis and the per-signal phase table |
-| [V2.2.4 replica loads and review fixes](design/PHASED_CONTROL_V2_2_4.md) | Current record: passive replica load cells, V2.2.3 review fixes, seeded operating point, pending screen |
+| [V2.2.5 compiler entrance](design/COMPILER_ENTRY_V2_2_5.md) | Current release: macro entrance, default local variation, input checks, and validation limits |
+| [V2.2.4 replica loads and review fixes](design/PHASED_CONTROL_V2_2_4.md) | Passive replica load cells, V2.2.3 review fixes, seeded operating point, pending screen |
 | [V2.2.3 envelope and clocks](design/PHASED_CONTROL_V2_2_3.md) | Array envelope, joint-dimension clocks, shared access deadline |
 | [V2.2.2 review and screen](design/PHASED_CONTROL_V2_2_2.md) | Executed screen, reported margins, and the coverage it does not reach |
 | [V2.2.1 control path](design/PHASED_CONTROL_V2_2_1.md) | Phase ordering and timing contract |
@@ -93,6 +94,7 @@ The carried Phase 6 scope. The working plans that defined it
 
 | Release | Record |
 |---|---|
+| V2.2.5 | [macro entrance and generation checks](design/COMPILER_ENTRY_V2_2_5.md) |
 | V2.2.4 | [replica load cells that do not leak, review fixes](design/PHASED_CONTROL_V2_2_4.md) |
 | V2.2.3 | [envelope, joint-dimension clocks, one access deadline](design/PHASED_CONTROL_V2_2_3.md) |
 | V2.2.2 | [production review, precharged startup, margins](design/PHASED_CONTROL_V2_2_2.md) |

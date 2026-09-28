@@ -1,4 +1,4 @@
-# Batch simulation runner — V2.2.4
+# Batch simulation runner — V2.2.5
 
 Use [`main_sram.py`](../../main_sram.py) for one SRAM macro. This runner accepts command-line options for batches and automated experiments. From the repository root, generate a full-transistor deck without Xyce:
 
@@ -54,4 +54,4 @@ circuit = testbench.create_testbench("read", 7, 3)
 
 `run.py` provides the batch CLI and in-memory YAML loading. `netlist.py` specializes model cards and audits connectivity. Local waveform and MPI sampling scripts can live in ignored `tests/` and `dev/` workspaces; they are not needed to generate a deck.
 
-A generated deck, passing measures, or one Monte Carlo draw does not establish read/write correctness or yield. Inspect waveforms and the reported margins. The [V2.2.4 record](../../docs/design/PHASED_CONTROL_V2_2_4.md) describes the pending screen and the unresolved 256x256 operating point; [the compiler tutorial](../README.md) explains the full flow.
+A generated deck, passing measures, or one Monte Carlo draw does not establish read/write correctness or yield. Inspect waveforms and the reported margins. The [V2.2.5 record](../../docs/design/COMPILER_ENTRY_V2_2_5.md) describes the pending screen and the unresolved 256x256 operating point; [the compiler tutorial](../README.md) explains the full flow.

@@ -1,4 +1,4 @@
-# Driver sizing and timing — V2.2.4
+# Driver sizing and timing — V2.2.5
 
 The compiler resolves critical driver widths and the clock **before** a cell candidate or PVT sample is evaluated. Keep that baseline fixed across those evaluations. A changed peripheral, model file, physical RC context, or control architecture needs a new baseline and functional evidence; stale qualified records are rejected.
 
@@ -46,4 +46,4 @@ print(sizes.size_class, timing.t_period, timing.source)
 # Pass these same objects to testbenches for candidate cells and PVT samples.
 ```
 
-For macro generation, use `main_sram.py` as shown in the [compiler tutorial](../README.md). YAML widths and lengths are SI metres. Class lookups and physical-context hashes travel with a run's summary. The current [V2.2.4 release record](../../docs/design/PHASED_CONTROL_V2_2_4.md) reports the pending waveform screen and the unresolved 256x256 operating point. The completed [V2.2.2 screen](../../docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
+For macro generation, use `main_sram.py` as shown in the [compiler tutorial](../README.md). YAML widths and lengths are SI metres. Class lookups and physical-context hashes travel with a run's summary. The [V2.2.5 release record](../../docs/design/COMPILER_ENTRY_V2_2_5.md) reports the pending waveform screen and the unresolved 256x256 operating point. The completed [V2.2.2 screen](../../docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.

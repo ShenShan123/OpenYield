@@ -1,6 +1,6 @@
 # OpenYield working conventions
 
-OpenYield is an open-source SRAM compiler for transistor-level 6T and 10T arrays, DC/transient analysis, sizing optimization, and yield research. The current release stays **V2.2.4**. The [root tutorial](README.md) and subdirectory READMEs explain usage; [docs/CHANGELOG.md](docs/CHANGELOG.md) and [the V2.2.4 design record](docs/design/PHASED_CONTROL_V2_2_4.md) carry release details. No V2.2.4 screen has run, and 256x256 has no working operating point. The last assembled screen, `docs/data/PHASED_CONTROL_V2_2_2.json`, certifies only that earlier tree. Never promote a partial or failed screen.
+OpenYield is an open-source SRAM compiler for transistor-level 6T and 10T arrays, DC/transient analysis, sizing optimization, and yield research. The current release is **V2.2.5**. The [root tutorial](README.md) and subdirectory READMEs explain usage; [docs/CHANGELOG.md](docs/CHANGELOG.md) and [the V2.2.5 design record](docs/design/COMPILER_ENTRY_V2_2_5.md) carry release details. No V2.2.5 waveform screen has run, and 256x256 has no working operating point. The last assembled screen, `docs/data/PHASED_CONTROL_V2_2_2.json`, certifies only that earlier tree. Never promote a partial or failed screen.
 
 ## Architecture
 

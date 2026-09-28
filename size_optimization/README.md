@@ -1,6 +1,6 @@
 # SRAM sizing optimization
 
-This directory contains two independent workflows: circuit-backed searches that call the current SRAM compiler and Xyce, and the offline `openyield_v2/` surrogate package. Run commands from the repository root. The release version remains V2.2.4; current array and clock limits are in the [compiler tutorial](../sram_compiler/README.md).
+This directory contains two independent workflows: circuit-backed searches that call the current SRAM compiler and Xyce, and the offline `openyield_v2/` surrogate package. Run commands from the repository root. The current release is V2.2.5; array and clock limits are in the [compiler tutorial](../sram_compiler/README.md).
 
 ## Circuit-backed search
 

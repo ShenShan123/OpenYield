@@ -6,6 +6,19 @@ before V2.1.10 were condensed in the V2.1.10 cleanup; the full text is at
 `git show c3f6f44:CHANGELOG.md` and in `sram_compiler/CIRCUIT_REVIEW.md` Parts II
 and III.
 
+## V2.2.5 — 2026-09-28 — macro entrance and generation checks
+
+[Design record](design/COMPILER_ENTRY_V2_2_5.md). `main_sram.py` is the documented
+macro entrance, with deck-only generation, local process variation by default,
+and saved configuration provenance. The batch runner uses the same default and
+writes a summary for successful deck-only runs. Invalid targets, operations,
+sample controls, and main-entrance dimensions now fail before a misleading deck
+or result can be reported. Current tutorials describe this flow.
+
+No V2.2.5 waveform screen has run. The V2.2.4 timing table and historical
+manifests keep their original versions; 256x256 remains unresolved. The last
+assembled screen is V2.2.2 and does not certify V2.2.5.
+
 ## V2.2.4 — 2026-09-26 — replica load cells that do not leak, and the V2.2.3 review fixes
 
 [Design record](design/PHASED_CONTROL_V2_2_4.md). **No V2.2.4 screen has been

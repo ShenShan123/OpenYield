@@ -1,4 +1,4 @@
-# OpenYield V2.2.4 development tools
+# OpenYield V2.2.5 development tools
 
 V2.2.2's opt-in transistor-level transition checks are kept locally under
 [`tests/spice/`](../tests/spice/README.md); their case manifests remain tracked. They use full cells, record solver,

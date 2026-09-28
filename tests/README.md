@@ -1,4 +1,4 @@
-# Local checks and V2.2.4 manifests
+# Local checks for V2.2.5 and preserved V2.2.4 manifests
 
 Python regression and waveform scripts are kept in local workspaces and ignored by Git. A fresh clone includes this guide and the JSON case manifests under `spice/`, but does not include the Python runner. The manifests preserve the planned V2.2.4 cases; they are not results or qualification evidence.
 
@@ -20,4 +20,4 @@ The [SPICE guide](spice/README.md) describes the optional local waveform runner 
 | `spice/v224_mc_cases.json` | 1,444 per-device draws |
 | `spice/v224_negative_cases.json` | 6 negative controls |
 
-The V2.2.4 screen has not run, and 256x256 still lacks a working operating point. The [V2.2.4 record](../docs/design/PHASED_CONTROL_V2_2_4.md) describes current evidence and the [V2.2.2 record](../docs/design/PHASED_CONTROL_V2_2_2.md) describes the last assembled screen, which certifies only that older tree.
+The V2.2.4 manifests have not been run as a V2.2.5 screen, and 256x256 still lacks a working operating point. The [V2.2.5 record](../docs/design/COMPILER_ENTRY_V2_2_5.md) describes current changes; the [V2.2.2 record](../docs/design/PHASED_CONTROL_V2_2_2.md) describes the last assembled screen, which certifies only that older tree.

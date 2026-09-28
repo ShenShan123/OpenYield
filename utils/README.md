@@ -1,4 +1,4 @@
-# Shared utilities — V2.2.4
+# Shared utilities — V2.2.5
 
 Introduced in V2.0.6, this package consolidates the former root `utils.py`, reusable `plot_data.py`
 functions, and shared optimizer plotting helpers. It is tracked runtime code;

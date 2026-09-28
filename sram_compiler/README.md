@@ -1,4 +1,4 @@
-# SRAM compiler tutorial — V2.2.4
+# SRAM compiler tutorial — V2.2.5
 
 The compiler builds 6T or 10T transistor-level SRAM arrays with distributed wordline and bitline RC, a replica column, address and control logic, and column periphery. Generate SRAM macros through [`main_sram.py`](../main_sram.py). Run commands from the repository root.
 
@@ -52,4 +52,4 @@ The signal wiring is always distributed. `interconnect.mode: star` is rejected. 
 
 The main entrance records the resolved configuration, timing and sizing identities, model hash, seed, and variation metadata in `summary.json` for deck-only runs; simulation results and logs are saved beside the deck. The batch runner also records solver path and run status and retains failed attempts separately. Inspect the `.prn` data for `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, and `sa_iso` first when an access fails. Clock-high is access; clock-low is recovery and precharge, including after writes.
 
-The configured V2.2.4 envelope is not fully qualified: its waveform screen has not run and 256x256 has no working operating point. The [release record](../docs/design/PHASED_CONTROL_V2_2_4.md) explains the current limits. The [root guide](../README.md) links the sizing, optimization, and yield workflows.
+The configured V2.2.5 envelope is not fully qualified: its waveform screen has not run and 256x256 has no working operating point. The [release record](../docs/design/COMPILER_ENTRY_V2_2_5.md) explains the current limits. The [root guide](../README.md) links the sizing, optimization, and yield workflows.
