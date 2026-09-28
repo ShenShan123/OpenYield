@@ -79,6 +79,7 @@ The carried Phase 6 scope. The working plans that defined it
 | Document | Purpose |
 |---|---|
 | [Changelog](CHANGELOG.md) | Release history, one entry per release with its record |
+| [V2.2.5 full-coverage evaluation](V2_2_5_FULL_COVERAGE_EVALUATION.md) | Live Xyce campaign plan, provenance, progress, and unresolved cases |
 | [Development guide](DEVELOPMENT.md) | Optional local regression and qualification tools |
 | [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Working proposal and qualification status of the driver classes |
 | [Automatic timing proposal](TIMING_AUTOCONFIG.md) | Timing design, measured basis and the per-signal phase table |
