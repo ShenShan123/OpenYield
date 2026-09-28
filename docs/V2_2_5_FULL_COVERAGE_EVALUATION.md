@@ -26,8 +26,9 @@ Waveform scoring checks read and write data, retention, sensing, physical far-en
 | 2026-09-28 08:34 UTC, local-variation pilot | 0 / 1,778 | 0 / 6 | `mc_8x4_10t_SShot_s00` passed in 280.7 s; saved in `pilot-mc`, outside campaign totals. |
 | 2026-09-28 08:34 UTC, full launch | 0 / 1,778 | 0 / 6 | Six persistent queues active: hero 2 workers, big 8, mid 8, small 20, dynamic 2, negative 2. Cases are running; no queue result had finished at this checkpoint. |
 | 2026-09-28 08:37 UTC, first scored results | 2 / 1,778 | 1 / 6 | Two dynamic mux-column reads passed. `negative_8x4_SS_2ns` failed waveform checks as intended (1,442 checks, including isolation and precharge exclusion failures); Xyce exited 0. Other queues remain active. |
+| 2026-09-28 08:39 UTC, dynamic queue complete | 4 / 1,778 | 1 / 6 | All four dynamic mux-column reads passed. The other positive queues have active Xyce cases and no scored failures yet. The negative queue has five controls pending or running. |
 
 ## Open outcomes
 
-- No full positive or negative queue has completed. The 256x256 seeded operating point remains an explicit risk; report it as incomplete if it cannot converge.
+- The dynamic positive queue has completed; the hero, big, mid, small, and negative queues remain active. The 256x256 seeded operating point remains an explicit risk. Its preserved manifest timeout is 1,697,233 s (about 19.6 days), not evidence that the operating point will converge. Report it as incomplete if it cannot converge within a bounded diagnostic window.
 - Do not assemble or promote a V2.2.5 evidence record until every required case finishes and the negative controls show their intended failures.
