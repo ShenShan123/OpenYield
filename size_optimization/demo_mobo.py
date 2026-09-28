@@ -42,7 +42,7 @@ sys.path.append(project_root)
 # Import utilities from exp_utils
 from size_optimization.exp_utils import (
     seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
-    OptimizationLogger, get_default_normalized_vector
+    get_default_normalized_vector
 )
 from utils import estimate_bitcell_area
 

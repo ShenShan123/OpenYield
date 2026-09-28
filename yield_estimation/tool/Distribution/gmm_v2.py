@@ -577,19 +577,3 @@ class mixture_gaussian():
         if mp_format == False:
             prob = prob.astype(float)
         return prob
-
-if __name__ == "__main__":
-    k = 4
-    d = 5
-    n = 10
-    gmm_pi = np.random.normal(0,1,size=[k])
-    gmm_pi = np.abs(gmm_pi)
-    gmm_pi = gmm_pi / gmm_pi.sum() # 系数, 总和为1
-
-    x = np.random.normal(0,1,size=[n, d])
-
-    mu = np.random.normal(0,1,size=[k,d]) # 每个高斯分布的 平均值
-
-    mix = mixture_gaussian(pi=gmm_pi, mu=mu, var=None)
-    logpdf = mix.log_pdf(x)
-    print(logpdf.shape)

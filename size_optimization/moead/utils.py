@@ -61,9 +61,6 @@ def cpt_W_Bi_T(moead):
     print(f'计算邻域完成,每个个体{moead.T_size}个邻居')
 
 
-def Tchebycheff_dist(w, f, z):
-    """Tchebycheff距离(由cpt_tchbycheff内部调用，已包含归一化)"""
-    return w * abs(f - z)
 
 
 def cpt_tchbycheff(moead, idx, individual):

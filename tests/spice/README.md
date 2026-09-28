@@ -1,5 +1,9 @@
 # Phased SRAM access integration checks
 
+The case manifests are tracked; the Python runner and waveform checker are
+local ignored scripts. The commands below apply only to a workspace retaining
+those scripts. A fresh clone does not include the runner.
+
 These opt-in tests exercise real Xyce waveforms for V2.2.4. They are separate
 from `python3 -m unittest discover -s tests`, which does not launch this screen.
 **The V2.2.4 manifests have not been run**, and `256x256_6t_SS_read_write`

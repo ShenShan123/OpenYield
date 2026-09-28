@@ -16,8 +16,6 @@ except ImportError:
     torch = None
 import random
 import time
-import csv
-import json
 import traceback
 import yaml
 import hashlib
@@ -1363,85 +1361,3 @@ class BaseOptimizer:
             # Record best Merit history
             # 记录最佳Merit历史
             self.best_history.append(self.best_merit)
-
-
-class OptimizationLogger:
-    """
-    Optimization logger class
-    优化日志记录器类
-    """
-
-    def __init__(self, algorithm_name):
-        self.algorithm_name = algorithm_name
-        self.log_data = []
-
-    def log_iteration(self, iteration, merit, objectives, constraints, success):
-        """
-        Log iteration data
-        记录迭代数据
-        """
-        self.log_data.append({"iteration": iteration, "merit": merit, "objectives": objectives, "constraints": constraints, "success": success})
-
-    def save_log(self, filename):
-        """
-        Save log to file
-        保存日志到文件
-        """
-        with open(filename, "w", newline="") as csvfile:
-            fieldnames = ["iteration", "merit", "objectives", "constraints", "success"]
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in self.log_data:
-                writer.writerow(row)
-
-
-def save_pareto_front(pareto_front, filename):
-    """
-    Save Pareto front to file
-    保存Pareto前沿到文件
-    """
-    with open(filename, "w", newline="") as csvfile:
-        fieldnames = ["min_snm", "max_power", "area", "merit"]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for point in pareto_front:
-            writer.writerow(point)
-
-
-def save_best_result(best_result, algorithm_name, filename):
-    """
-    Save best result to file
-    保存最佳结果到文件
-    """
-    result_data = {"algorithm": algorithm_name, "best_merit": best_result["merit"] if best_result else None, "best_params": best_result["params"] if best_result else None, "best_result": best_result["result"] if best_result else None}
-
-    with open(filename, "w") as jsonfile:
-        json.dump(result_data, jsonfile, indent=2, default=str)
-
-
-def update_pareto_front(pareto_front, objectives, result):
-    """
-    Update Pareto front
-    更新Pareto前沿
-    """
-    new_point = {"min_snm": objectives[0], "max_power": -objectives[1], "area": -objectives[2], "merit": result["merit"]}  # Convert back from negative  # Convert back from negative
-
-    # Simple Pareto front update (can be optimized)
-    # 简单的Pareto前沿更新（可以优化）
-    pareto_front.append(new_point)
-    return pareto_front
-
-
-def save_optimization_history(history, algorithm_name, filename):
-    """
-    Save optimization history
-    保存优化历史
-    """
-    with open(filename, "w", newline="") as csvfile:
-        fieldnames = ["iteration", "merit", "min_snm", "max_power", "area", "success"]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for entry in history:
-            row = {"iteration": entry["iteration"], "merit": entry["merit"], "min_snm": entry["objectives"][0] if entry["success"] else None, "max_power": -entry["objectives"][1] if entry["success"] else None, "area": -entry["objectives"][2] if entry["success"] else None, "success": entry["success"]}
-            writer.writerow(row)

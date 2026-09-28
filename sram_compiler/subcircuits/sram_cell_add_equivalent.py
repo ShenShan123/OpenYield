@@ -467,9 +467,6 @@ class SRAMCellParasiticTester:
             maxfev=10000,
         )
 
-        def fit_func(x):
-            return self._piecewise_static_model(x, *popt)
-
         if fit_label is None:
             fit_label = (
                 f"Fitted: smooth blend; "
@@ -486,7 +483,6 @@ class SRAMCellParasiticTester:
             "fit_mask":     fit_mask,
             "popt":         popt,
             "pcov":         pcov,
-            "fit_func":     fit_func,
             "fit_label":    fit_label,
         }
 

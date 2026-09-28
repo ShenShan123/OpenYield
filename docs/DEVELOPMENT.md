@@ -1,7 +1,7 @@
 # OpenYield V2.2.4 development tools
 
-V2.2.2's opt-in transistor-level transition checks are tracked under
-[`tests/spice/`](../tests/spice/README.md). They use full cells, record solver,
+V2.2.2's opt-in transistor-level transition checks are kept locally under
+[`tests/spice/`](../tests/spice/README.md); their case manifests remain tracked. They use full cells, record solver,
 model, seed and source identities, and preserve failed runs. The historical
 `dev/v210_*` and `dev/sizing/qualification.py` tools below encode the V2.1.x
 clock phases and probe names: use their archived sources for old evidence,
@@ -47,27 +47,31 @@ from the tracked cell YAML and the clocks from the tracked
 `timing_lookup.json`. `result.json` records `cell_widths` and `equivalent`.
 
 The circuit generator lives in `sram_compiler/`. Reusable compiler regression
-tests live in the tracked top-level `tests/` directory. Local experiments,
+scripts live in the ignored top-level `tests/` directory. Local experiments,
 qualification campaign runners, and tests of those tools live under ignored
 `dev/`; they remain available in this workspace and are not included in a fresh
 checkout. Run commands from the repository root.
 
-## Tracked regression checks
+## Local regression checks
 
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m unittest discover -s size_optimization/openyield_v2/tests -v
-python3 -m compileall -q sram_compiler utils tests size_optimization/exp_utils.py
+python3 -m compileall -q sram_compiler utils size_optimization/exp_utils.py
 git diff --check
 ```
 
-The compiler tests require no local development tools or Xyce executable.
+The Python regression commands require a workspace that retains the local
+ignored scripts. Most compiler unit tests need no Xyce; equivalent-model
+extraction checks do. A fresh clone can still compile the runtime modules
+and generate a nominal mode 0 deck through the CLI.
 `testbenches/` contains the compiler's simulation construction API, which is
 runtime code and remains tracked inside `sram_compiler/`.
 
-Keep reusable regression tests in Git alongside the implementation so every
-checkout can verify fixes. Only ad hoc experiments, machine-specific scripts,
-and tests of ignored local tools belong under `dev/`. Shared utility checks in
+Regression and waveform Python scripts are now local-only by project choice.
+Keep release manifests and supplied evidence in Git. Ad hoc experiments,
+machine-specific scripts, and tests of ignored local tools belong under `dev/`.
+Shared utility checks in
 `tests/test_utils.py` cover parsing, sample boundaries, headless plots, and
 compatibility imports.
 

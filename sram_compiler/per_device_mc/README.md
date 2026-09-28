@@ -1,84 +1,43 @@
-# Per-device local mismatch — V2.1.4
+# Per-device simulation runner — V2.2.4
 
-V2.1.1 retains the fixed timing lookup introduced in V2.1.0. `--period 1e-8` selects a diagnostic clock in seconds; `--timing-lookup` selects another class table. V2.1.2 adds `--vdd` (volts) and `--temperature` (Celsius), which override `global.yaml` and enter the run identity. Run metadata carries the applied timing, the release version and, with `--run-xyce`, the resolved `xyce` installation. V2.1.3 gives 10T cells their own timing budget (`timing.budget` in the summary reads `SRAM_10T_CELL`); V2.1.4 raises the shared 6T classes and gives 6T arrays with a column mux their own (`SRAM_6T_CELL/mux`; 6T without a mux reads `shared`). Repeated runs use separate attempt directories, and failures retain `summary.json`. Distributed wiring is the only topology and the default; explicit star settings fail. Runs check wordline release, access data, full retention and finite primary metrics.
-
-WL/write/sense assertion waits for settled far-end PRE. The baseline records
-the guard's loads and physical RC delay; sampled devices cannot refit it.
-`VPRE_ACCESS_ERROR_n` rejects PRE overlap while the target wordline or write
-driver is active, in addition to the independent all-column waveform screen.
-
-This package is part of the SRAM compiler. Independent local mismatch is the
-default for both its runner and `Sram6TCoreMcTestbench`: the selected PDK corner
-stays fixed while every retained MOS gets its own `vth0`, `u0`, and `voff`
-Gaussian expressions. The default relative sigma is 5% for all three parameters.
-Array and peripheral MOS devices are included; fingers within one MOS share its
-draw. This model does not apply area scaling or calibrated parameter correlations.
-
-`main_sram.py` at the repository root is the script entrance with the same
-default: seeded per-device mismatch (`MC_SEED = 20260711`) over the full array,
-with the YAML files read in memory. This runner is the command-line form.
-
-V2.0.11 keeps the rejected sample's provenance: an unsafe or missing
-wordline-release measurement writes `summary.json` (with
-`precharge_release_checked: false` and the rejection text) and the waveform
-before the run fails. A failed operating point's per-sample outputs are removed
-once they are copied into `dcop_attempt/`, so the retry cannot report a sample
-it never wrote.
-
-V2.0.10 retains every requested measurement-sample index and rejects missing or
-unsafe distributed wordline-release measurements. A failed DC operating point
-gets one Newton line-search retry with the same sampling seed; the first deck,
-log and outputs remain in `dcop_attempt/`. If an unseeded run's actual seed
-cannot be recovered, it remains failed. A successful simulator exit is not a
-full timing or yield qualification.
-
-Run commands from the repository root:
+Run this command from the repository root to generate a full-transistor SRAM deck without Xyce:
 
 ```bash
-# Generate a full-array deck, model cards, and an audit without running Xyce.
 python -m sram_compiler.per_device_mc.run \
-  --rows 8 --cols 4 --operation read --mc-runs 2 --seed 3 --audit
-
-# Add simulation and waveform plotting.
-python -m sram_compiler.per_device_mc.run \
-  --rows 8 --cols 4 --operation write --mc-runs 2 --seed 3 --run-xyce
+  --rows 8 --cols 4 --target-row 7 --target-col 3 \
+  --operation read --variation-mode nominal --mc-runs 1 \
+  --real-cell-mode 0 --output-dir outputs/example
 ```
 
-Direct script execution is also supported:
-`python sram_compiler/per_device_mc/run.py --help`.
-In V2.0.6 the former top-level `per_device_mc` package has moved here; update imports to
-`sram_compiler.per_device_mc` and CLI commands to the paths above.
+Add `--run-xyce` to simulate. Xyce must be on `PATH`, or pass `--xyce /path/to/Xyce`. The runner writes a configuration-specific directory under `--output-dir`, keeping `summary.json`, the generated deck and model cards, Xyce logs, measures, and waveform data when available. Failed attempts retain provenance. `--audit` writes a per-device model audit; `--no-waveform` omits `.PRINT` waveform output. Use `--help` for the full option list.
 
-The runner defaults to `real_cell_mode=0` (full transistor array), 100 samples,
-and `outputs/per_device_mc/`. It loads YAML in memory. Each configuration has a
-deterministic output subdirectory; `--output-dir` selects another output root.
-The supported operations are `read`, `write`, `read&write`, `hold_snm`, `read_snm`,
-and `write_snm`. `--run-xyce` needs Xyce on PATH or `--xyce /path/to/Xyce`.
-`--interconnect-config path.yaml` applies a wire mapping in memory (see the
-[distributed RC guide](../../docs/design/DISTRIBUTED_RC_MODEL.md)); the run
-directory name and `summary.json` include the resolved topology.
-After a successful simulation, waveform output is plotted as `waveform.png`.
-If the plot cannot be drawn, the `.prn` and the passing measures stand: the
-summary records `waveform_error` with `waveform_png: null`, is written to
-`summary.json`, and the run still exits 0. An interrupted solver run also
-writes `summary.json`, with its `xyce` installation and seed, before the
-interrupt propagates.
+## Variation choices
 
-| Variation mode | Behavior |
+| Mode | Result |
 |---|---|
-| `per-device` (default) | Independent local draws for each retained MOS |
-| `nominal` | Fixed corner alone; exactly one run |
-| `shared` | Legacy random model cards shared by devices using the same base model |
-| `custom` | Process-parameter tables from the cell YAML; sample count matches table rows |
+| `per-device` (default) | Independent Gaussian `vth0`, `u0`, and `voff` values for each retained MOS at the selected corner |
+| `nominal` | Fixed corner with no random draw; use this for a deterministic baseline |
+| `shared` | One random card shared by every device using a base model |
+| `custom` | Process parameter table from the cell YAML |
 
-A single per-device sample is random. Use `--variation-mode nominal` for a
-deterministic corner run. Equivalent modes 1–4 only vary the retained devices;
-replaced cells remain approximations. See the
-[equivalent-model guide](../equivalent_modeling/README.md).
-Per-device mismatch requires a separate deck per geometry and cannot be combined
-with legacy `.STEP` geometry sweeps.
+For repeatable local mismatch, pass a positive `--seed` and an explicit sample count:
 
-For in-memory configuration:
+```bash
+python -m sram_compiler.per_device_mc.run \
+  --rows 8 --cols 4 --operation write \
+  --variation-mode per-device --mc-runs 2 --seed 3 \
+  --real-cell-mode 0 --output-dir outputs/example --run-xyce
+```
+
+A single per-device run without a seed is one random sample. The selected PDK corner is fixed across its local draws. The default relative sigma is 5% for all three parameters; this is an illustrative mismatch model, without area scaling or calibrated correlation. Modes 1–4 only vary the transistors they retain, so use mode 0 for full-array mismatch coverage.
+
+## Set circuit inputs
+
+`--corner` accepts `TT`, `FF`, `SS`, `FS`, or `SF`. `--vdd` is in volts, `--temperature` in Celsius, and `--period` in seconds. `--period` is a diagnostic clock override; the default is the frozen lookup clock. `--timing-lookup` loads another class table. `--interconnect-config` loads a wire YAML mapping without rewriting `global.yaml`. The only supported topology is distributed. The supported array envelope is 512 rows by 256 columns.
+
+The runner supports `read`, `write`, `read&write`, `hold_snm`, `read_snm`, and `write_snm`. `--target-row` and `--target-col` select the accessed cell. An omitted target defaults to the last row and column. Per-device mode cannot be combined with legacy `.STEP` geometry sweeps.
+
+For Python callers:
 
 ```python
 from sram_compiler.per_device_mc.run import load_config
@@ -86,29 +45,13 @@ from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTest
 
 config = load_config(8, 4, "TT")
 testbench = Sram6TCoreMcTestbench(
-    config, corner="TT", real_cell_mode=0, mc_seed=3,
-    sim_path="outputs/compiler_example",
+    config, corner="TT", variation_mode="nominal",
+    choose_columnmux=False, real_cell_mode=0,
+    sim_path="outputs/python_example",
 )
 circuit = testbench.create_testbench("read", 7, 3)
-testbench.add_analysis(circuit, "read", 2)  # Enables Xyce stochastic sampling.
 ```
 
-| Module | Responsibility |
-|---|---|
-| `run.py` | In-memory YAML loading, CLI, deck export, Xyce execution, and waveform plotting |
-| `netlist.py` | Model specialization and hierarchy audits while preserving MOS connectivity, dimensions, and sweep expressions |
-| `sampling.py` | Reproducible local Latin hypercube draws materialized into numeric cards for MPI execution |
+`run.py` provides the CLI and in-memory YAML loading. `netlist.py` specializes model cards and audits connectivity. Local waveform and MPI sampling scripts can live in ignored `tests/` and `dev/` workspaces; they are not needed to generate a nominal deck.
 
-See the [compiler guide](../README.md) and [sizing guide](../sizing/README.md)
-for testbench and qualification details. Generated decks alone do not establish
-waveform correctness or timing qualification.
-
-Mismatch coverage in the tracked evidence is thin above the small arrays. The
-executed V2.2.2 screen runs 72 per-device cases, 52 of them at 8x4, and exactly
-one seeded sample each at 256 rows, 512 rows and 256 columns. At 512x4 that
-single draw cost 13 % of the nominal sense margin (0.540 V to 0.467 V), so one
-sample bounds no tail. The V2.2.3 manifest raises this to 85 per-device cases,
-with further draws at 256 and 512 rows and mismatch at the joint sizes up to
-128x128, but it has not been run. Whatever a screen says, raise `--mc-runs` on
-the size you actually intend to build; see
-[what the screen does not cover](../../docs/design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover).
+A generated deck, passing measures, or one Monte Carlo draw does not establish read/write correctness or yield. Inspect waveforms and the reported margins. The [V2.2.4 record](../../docs/design/PHASED_CONTROL_V2_2_4.md) describes the pending screen and the unresolved 256x256 operating point; [the compiler tutorial](../README.md) explains the full flow.

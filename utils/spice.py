@@ -119,24 +119,3 @@ def write_spice_models(models: Dict[str, Dict[str, Any]], filepath: str):
             f.write('\n\n')
 
         f.write('\n')
-
-# if __name__ == "__main__":
-# # Parse the models from file
-#     models = parse_spice_models('model_lib/models.spice')
-
-#     # Print results
-#     for name, model in models.items():
-#         print(f"Model: {name}")
-#         print(f"Type: {model['type']}")
-#         print(f"Parameters: {len(model['parameters'])}")
-
-#         # Show first few parameters
-#         for i, (param, value) in enumerate(model['parameters'].items()):
-#             if i < 5:
-#                 print(f"  {param}: {value}")
-#         print()
-
-#     # Access specific parameter
-#     if 'NMOS_VTG' in models:
-#         vth0 = models['NMOS_VTG']['parameters']['vth0']
-#         print(f"NMOS_VTG vth0 parameter: {vth0}")

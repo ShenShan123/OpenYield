@@ -1,22 +1,9 @@
-"""
-Two-Stage SRAM Optimization Program
-二阶段SRAM优化程序
+"""Interactive joint architecture/sizing or fixed-configuration sizing search.
 
-This program implements a two-stage optimization approach for 32KB (262144-bit) SRAM arrays:
-该程序实现了32KB（262144 位）SRAM阵列的二阶段优化方法：
-
-Stage 1: Architecture Configuration Optimization (SA or SMAC)
-第一阶段：架构配置优化（SA 或 SMAC）
-- Find optimal row/column counts and number of arrays
-- Constraints: rows ≤ 512, columns ≤ 512, total capacity = 262144 bits (32KB)
-
-Stage 2: Transistor Parameter Optimization
-第二阶段：晶体管参数优化
-- Optimize transistor parameters for the best architecture from Stage 1
-- Supported algorithms: SA, PSO, SMAC, CBO, RoSE_Opt, CMA-ES, MOEAD, MOBO, NSGA-II, tSS-BO, CPN
-
-Joint Optimization Mode: optimize architecture + transistor sizing simultaneously
-联合优化模式：同时优化架构与晶体管尺寸
+The historical ``TwoStageOptimizer`` name remains for compatibility. Its
+standalone architecture search stage is no longer called; the entry point
+offers a joint search or transistor sizing at five fixed array configurations.
+The SRAM compiler enforces at most 512 rows and 256 columns.
 """
 
 import os
@@ -37,16 +24,9 @@ import matplotlib.pyplot as plt
 warnings.filterwarnings("ignore")
 
 ROW_CHOICES = [16, 32, 64, 128, 256, 512]
-COLUMN_CHOICES = [16, 32, 64, 128, 256, 512]
+COLUMN_CHOICES = [16, 32, 64, 128, 256]
 TOTAL_BITS = 262144
 output_cols = 64
-
-# Import SMAC for Stage 1 optimization
-from smac import HyperparameterOptimizationFacade, Scenario
-from ConfigSpace import Configuration, ConfigurationSpace
-import ConfigSpace.hyperparameters as CSH
-
-SMAC_AVAILABLE = True
 
 # Import path handling
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -766,136 +746,6 @@ class SAOptimizer:
         return self.best_solution, self.best_value, self.best_result
 
 
-class SMACStage1Optimizer:
-    """
-    SMAC optimizer for Stage 1 discrete optimization (architecture configuration)
-    阶段1离散优化（架构配置）的SMAC优化器
-    """
-
-    def __init__(self, evaluation_function, num_configurations, maximize=True):
-        """
-        Initialize SMAC optimizer for discrete space
-        初始化离散空间的SMAC优化器
-
-        Args:
-            evaluation_function: Function to evaluate configuration index -> (fom, result)
-            num_configurations: Total number of valid configurations
-            maximize: Whether to maximize (True) or minimize (False) the objective
-        """
-        if not SMAC_AVAILABLE:
-            raise ImportError("SMAC is not available. Please install with: pip install smac ConfigSpace")
-
-        self.evaluation_function = evaluation_function
-        self.num_configurations = num_configurations
-        self.maximize = maximize
-        self.best_solution = None
-        self.best_value = float("-inf") if maximize else float("inf")
-        self.best_result = None
-        self.history = []
-        self.evaluation_count = 0
-
-        # Create configuration space with single integer hyperparameter
-        # 创建包含单个整数超参数的配置空间
-        self.cs = ConfigurationSpace()
-        # Use UniformIntegerHyperparameter with positional arguments
-        # 使用UniformIntegerHyperparameter，参数为位置参数
-        hp = CSH.UniformIntegerHyperparameter("config_index", 0, num_configurations - 1, default_value=num_configurations // 2)  # lower bound  # upper bound
-        self.cs.add_hyperparameter(hp)
-
-    def smac_objective(self, config: Configuration, seed: int = 0) -> float:
-        """
-        Objective function for SMAC (discrete optimization)
-        SMAC的目标函数（离散优化）
-        """
-        # Extract configuration index
-        # 提取配置索引
-        config_index = config["config_index"]
-        config_index = int(config_index)
-
-        # Ensure index is within valid range
-        # 确保索引在有效范围内
-        config_index = max(0, min(config_index, self.num_configurations - 1))
-
-        print(f"\n===== SMAC Stage 1 评估 {self.evaluation_count + 1} =====")
-        print(f"评估配置索引: {config_index}/{self.num_configurations - 1}")
-
-        # Evaluate configuration
-        # 评估配置
-        start_time = time.time()
-        fom, result = self.evaluation_function(config_index)
-        end_time = time.time()
-
-        print(f"评估用时: {end_time - start_time:.2f} 秒")
-        print(f"FoM: {fom:.6e}")
-
-        # Record history
-        # 记录历史
-        self.history.append({"iteration": self.evaluation_count, "config_index": config_index, "fom": fom, "result": result})
-
-        # Update best solution
-        # 更新最佳解
-        if (self.maximize and fom > self.best_value) or (not self.maximize and fom < self.best_value):
-            self.best_solution = config_index
-            self.best_value = fom
-            self.best_result = result
-            print(f"*** 发现新的最优解: 索引={config_index}, FoM={fom:.6e} ***")
-
-        self.evaluation_count += 1
-
-        # SMAC minimizes, so return negative FoM if maximizing
-        # SMAC是最小化，所以如果最大化则返回负FoM
-        if self.maximize:
-            return -fom
-        else:
-            return fom
-
-    def optimize_discrete(self, max_iter=100):
-        """
-        Run SMAC optimization for discrete space
-        运行离散空间的SMAC优化
-        """
-        print(f"Starting SMAC optimization for discrete space with {self.num_configurations} configurations")
-        print(f"开始对包含{self.num_configurations}个配置的离散空间进行SMAC优化")
-
-        # Create SMAC scenario
-        # 创建SMAC场景
-        scenario = Scenario(
-            configspace=self.cs,
-            deterministic=True,
-            n_trials=max_iter,
-            seed=42,
-        )
-
-        # Initialize SMAC
-        # 初始化SMAC
-        smac = HyperparameterOptimizationFacade(
-            scenario,
-            self.smac_objective,
-            dask_client=None,  # No parallel execution
-        )
-
-        # Run optimization
-        # 运行优化
-        print("开始SMAC优化循环...")
-        incumbent = smac.optimize()
-
-        # Extract best configuration index
-        # 提取最佳配置索引
-        best_config_index = int(incumbent["config_index"])
-        best_config_index = max(0, min(best_config_index, self.num_configurations - 1))
-
-        print(f"\nSMAC优化完成，共进行{self.evaluation_count}次评估")
-        print(f"最终配置索引: {best_config_index}")
-
-        # Use best solution found during optimization
-        # 使用优化过程中找到的最佳解
-        if self.best_solution is not None:
-            return self.best_solution, self.best_value, self.best_result
-        else:
-            # Fallback: evaluate the incumbent configuration
-            # 后备方案：评估最终配置
-            fom, result = self.evaluation_function(best_config_index)
-            return best_config_index, fom, result
 
 
 class TwoStageOptimizer:
@@ -1129,133 +979,7 @@ class TwoStageOptimizer:
 
         return timeout
 
-    def _evaluate_architecture(self, config_index: int) -> Tuple[float, Dict]:
-        """
-        Evaluate architecture configuration with fixed transistor parameters
-        使用固定晶体管参数评估架构配置
-        """
-        try:
-            # Get configuration
-            config = self.arch_space.get_configuration(config_index)
 
-            # Use default transistor parameters for Stage 1
-            default_params = {"pd_model_name": "NMOS_VTG", "pg_model_name": "NMOS_VTG", "nmos_model_name": "NMOS_VTG", "pmos_model_name": "PMOS_VTG", "pd_width": 0.205e-6, "pu_width": 0.09e-6, "pg_width": 0.135e-6, "length": 50e-9, "length_nm": 50}
-
-            print(f"Evaluating config {config_index}: {config['rows']}x{config['cols']} x{config['num_arrays']} arrays")
-            print(f"评估配置 {config_index}: {config['rows']}x{config['cols']} x{config['num_arrays']} 个阵列")
-
-            timeout = None
-
-            # Evaluate single array performance
-            iteration_num = len(self.stage1_iteration_history)
-            objectives, constraints, result, success = evaluate_sram_with_config(default_params, config["rows"], config["cols"], config["num_arrays"], timeout=timeout, stage_label="stage1", iteration_index=iteration_num, gen_unused_cells=self.gen_unused_cells)
-
-            if success and result:
-                # Scale metrics by number of arrays
-                max_power = result["max_power"]
-                total_area = result["area"]
-
-                # Stage1 FoM (no SNM simulation): FoM = log10(1 / (max_power * sqrt(area) * max_delay))
-                # Stage1 品质因数（无 SNM 仿真）: FoM = log10(1 / (max_power * sqrt(area) * max_delay))
-                max_delay = max(result["read_delay"], result["write_delay"])
-                if max_power > 0 and total_area > 0 and max_delay > 0:
-                    fom = np.log10(1 / (max_power * np.sqrt(total_area) * max_delay))
-                else:
-                    fom = -10.0  # Penalty value for invalid cases
-
-                evaluation_result = {"config": config, "single_array_result": result, "total_power": max_power, "total_area": total_area, "max_delay": max_delay, "fom": fom, "success": True}
-
-                # Record iteration history
-                # 记录迭代历史
-                iteration_record = {"iteration": iteration_num, "config_index": config_index, "rows": config["rows"], "cols": config["cols"], "num_arrays": config["num_arrays"], "array_capacity": config["array_capacity"], "fom": fom, "min_snm": result["min_snm"], "hold_snm": result["hold_snm"], "read_snm": result["read_snm"], "write_snm": result["write_snm"], "read_delay": result["read_delay"], "write_delay": result["write_delay"], "max_delay": max_delay, "read_power": result["read_power"], "write_power": result["write_power"], "max_power": result["max_power"], "total_power": max_power, "single_array_area": result.get("single_array_area", total_area), "total_area": total_area, "success": True}
-                self.stage1_iteration_history.append(iteration_record)
-                self._append_iteration_csv("stage1", iteration_record)
-
-                print(f"Config {config_index} FoM: {fom:.6e}, max_delay: {max_delay:.2e}s")
-                print(f"配置 {config_index} FoM: {fom:.6e}, 最大延迟: {max_delay:.2e}s")
-
-                return fom, evaluation_result
-            else:
-                # Record failed iteration
-                # 记录失败的迭代
-                iteration_record = {"iteration": iteration_num, "config_index": config_index, "rows": config["rows"], "cols": config["cols"], "num_arrays": config["num_arrays"], "array_capacity": config["array_capacity"], "fom": -1e9, "success": False}
-                self.stage1_iteration_history.append(iteration_record)
-                self._append_iteration_csv("stage1", iteration_record)
-
-                print(f"Config {config_index} evaluation failed")
-                print(f"配置 {config_index} 评估失败")
-                return -1e9, {"config": config, "success": False}
-
-        except Exception as e:
-            print(f"Error evaluating config {config_index}: {str(e)}")
-            print(f"评估配置 {config_index} 时出错: {str(e)}")
-            # Record error iteration
-            try:
-                config = self.arch_space.get_configuration(config_index)
-                iteration_record = {"iteration": len(self.stage1_iteration_history), "config_index": config_index, "rows": config["rows"], "cols": config["cols"], "num_arrays": config.get("num_arrays", 0), "array_capacity": config.get("array_capacity", 0), "fom": -1e9, "success": False, "error": str(e)}
-                self.stage1_iteration_history.append(iteration_record)
-                self._append_iteration_csv("stage1", iteration_record)
-            except:
-                pass
-            return -1e9, {"config": self.arch_space.get_configuration(config_index), "success": False}
-
-    def _select_candidate_architectures(self, num_candidates: int = 3) -> List[Dict]:
-        """
-        从阶段1迭代历史的功耗-延时数据中选取候选架构配置。
-        策略：基于极小帕累托前沿，选择低功耗点、低延时点以及若干中间代表点。
-        返回包含 rows/cols/num_arrays/array_capacity 的配置字典列表。
-        """
-        # 收集有效点 (power, delay, record)
-        valid_records = [rec for rec in self.stage1_iteration_history if rec.get("success") and (rec.get("total_power", 0) > 0) and (rec.get("max_delay", 0) > 0)]
-        if not valid_records:
-            print("No valid Stage 1 records for candidate selection.")
-            return []
-
-        points = [(float(rec["total_power"]), float(rec["max_delay"])) for rec in valid_records]
-        frontier = self._compute_pareto_frontier(points)
-        if not frontier:
-            print("No Pareto frontier found; falling back to best-FoM records.")
-            # 退化处理：按FoM排序取前num_candidates
-            sorted_by_fom = sorted(valid_records, key=lambda r: r.get("fom", -1e9), reverse=True)
-            chosen = sorted_by_fom[: max(1, num_candidates)]
-            return [{"rows": c.get("rows"), "cols": c.get("cols"), "num_arrays": c.get("num_arrays"), "array_capacity": c.get("array_capacity")} for c in chosen]
-
-        # 将前沿点映射到对应的记录（首个匹配）
-        frontier_records: List[Dict] = []
-        for pwr, dly in frontier:
-            for rec in valid_records:
-                if abs(float(rec["total_power"]) - pwr) < 1e-12 and abs(float(rec["max_delay"]) - dly) < 1e-12:
-                    frontier_records.append(rec)
-                    break
-
-        if not frontier_records:
-            print("Pareto frontier records empty after mapping; using valid records fallback.")
-            frontier_records = valid_records
-
-        # 选择低功耗、低延时及中间点
-        n = len(frontier_records)
-        if n <= num_candidates:
-            chosen_records = frontier_records
-        else:
-            # 等距采样索引（包含首尾）
-            import numpy as _np
-
-            indices = list(map(lambda x: int(round(x)), _np.linspace(0, n - 1, num_candidates)))
-            chosen_records = [frontier_records[i] for i in indices]
-
-        # 构造配置字典列表
-        candidates = []
-        seen = set()
-        for c in chosen_records:
-            key = (c.get("rows"), c.get("cols"), c.get("num_arrays"))
-            if key in seen:
-                continue
-            seen.add(key)
-            candidates.append({"rows": c.get("rows"), "cols": c.get("cols"), "num_arrays": c.get("num_arrays"), "array_capacity": c.get("array_capacity")})
-        print(f"Selected {len(candidates)} candidate architectures from Stage 1 Pareto frontier.")
-        for i, cfg in enumerate(candidates, 1):
-            print(f"  [{i}] rows={cfg['rows']}, cols={cfg['cols']}, arrays={cfg['num_arrays']}")
-        return candidates
 
     def _plot_power_delay_pareto_from_records(self, records: List[Dict], output_png_path: str, title: str):
         """
@@ -1827,56 +1551,6 @@ class TwoStageOptimizer:
                 min_delay = dly
         return frontier
 
-    def _plot_power_delay_pareto_stage1(self, output_png_path: str):
-        """
-        绘制阶段1（架构优化）的功耗-延时散点与帕累托前沿，并保存到指定路径。
-        目标函数参考：FOM = log10(1/ (max_power * sqrt(total_area) * max_delay))（最大化）。
-        此处帕累托前沿按功耗与延时的极小解计算。
-        """
-        try:
-            # 从迭代历史中提取有效数据
-            points: List[Tuple[float, float]] = []
-            for rec in getattr(self, "stage1_iteration_history", []):
-                if rec.get("success") and ("total_power" in rec) and ("max_delay" in rec):
-                    try:
-                        pwr = float(rec["total_power"])
-                        dly = float(rec["max_delay"])
-                    except Exception:
-                        continue
-                    if pwr > 0 and dly > 0:
-                        points.append((pwr, dly))
-
-            if not points:
-                print("No valid Stage 1 points to plot Pareto frontier.")
-                return
-
-            frontier = self._compute_pareto_frontier(points)
-
-            # 绘图
-            plt.figure(figsize=(8, 6))
-            p_all = [p for p, d in points]
-            d_all = [d for p, d in points]
-            plt.scatter(p_all, d_all, s=24, c="tab:blue", alpha=0.6, label="All configs")
-
-            if frontier:
-                p_f = [p for p, d in frontier]
-                d_f = [d for p, d in frontier]
-                plt.plot(p_f, d_f, "-o", color="tab:red", linewidth=2, markersize=4, label="Pareto frontier")
-
-            plt.xlabel("Total Power (W)")
-            plt.ylabel("Max Delay (s)")
-            plt.title("Stage 1 Power-Delay Pareto Frontier")
-            plt.grid(True, alpha=0.3)
-            plt.legend(loc="best")
-            plt.tight_layout()
-
-            out_path = Path(output_png_path)
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(str(out_path), dpi=200)
-            plt.close()
-            print(f"Stage 1 Pareto plot saved: {out_path}")
-        except Exception as e:
-            print(f"Error while plotting Stage 1 Pareto frontier: {e}")
 
 
 def main():

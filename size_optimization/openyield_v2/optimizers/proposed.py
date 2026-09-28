@@ -244,10 +244,6 @@ def resolve_device(requested: str) -> str:
     return requested
 
 
-def ensure_dir(path: Path | str) -> Path:
-    path = Path(path)
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def _as_bool_series(series: pd.Series) -> pd.Series:
@@ -841,127 +837,6 @@ def check_hard_constraints(
     )
 
 
-def standardize_reference_dataframe(
-    df: pd.DataFrame,
-    *,
-    bounds: Dict[str, Tuple[float, float]],
-    shared_choices: Dict[str, List[str]],
-    fd_choices: List[str],
-    architectures: List[Dict[str, int]],
-    constraint_enabled: bool,
-    min_snm_limit: float,
-    max_delay_limit: float,
-    max_power_limit: float,
-) -> pd.DataFrame:
-    df = df.copy()
-    df.columns = df.columns.astype(str).str.strip()
-    if df.columns.duplicated().any():
-        df = df.loc[:, ~df.columns.duplicated(keep="last")].copy()
-
-    if "topology" not in df.columns and "topology_id" in df.columns:
-        topo_id = pd.to_numeric(df["topology_id"], errors="coerce")
-        df["topology"] = np.where(topo_id >= 0.5, "10T", "6T")
-    if "topology" not in df.columns:
-        raise ValueError("参考前沿缺少 topology（或 topology_id）列。")
-    df["topology"] = df["topology"].astype(str).str.strip().str.upper()
-    df = df[df["topology"].isin(["6T", "10T"])].copy()
-
-    required_design = SHARED_CONT_FEATURES + ARCH_FEATURES + SHARED_CAT_FEATURES
-    missing = [c for c in required_design if c not in df.columns]
-    if missing:
-        raise ValueError(
-            "参考前沿缺少联合设计列:\n"
-            + "\n".join(f"  - {c}" for c in missing)
-        )
-
-    for col in SHARED_CONT_FEATURES + ARCH_FEATURES + ["fd_width"] + SYSTEM_METRICS + [
-        "min_snm", "max_delay", "max_power", "power_delay_product"
-    ]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    df = df.dropna(subset=required_design).copy()
-    df["rows"] = pd.to_numeric(df["rows"], errors="coerce")
-    df["cols"] = pd.to_numeric(df["cols"], errors="coerce")
-    df = df.dropna(subset=["rows", "cols"]).copy()
-    df["rows"] = df["rows"].astype(int)
-    df["cols"] = df["cols"].astype(int)
-
-    # 只保留第二段代码中定义的 6T/10T 共同架构。
-    common_pairs = {(a["rows"], a["cols"]) for a in architectures}
-    arch_valid = [(r, c) in common_pairs for r, c in zip(df["rows"], df["cols"])]
-    dropped_arch = int(len(df) - np.sum(arch_valid))
-    if dropped_arch:
-        print(f"[Reference] 丢弃 {dropped_arch} 个不属于共同架构的点。")
-    df = df.loc[arch_valid].copy()
-
-    for col in SHARED_CONT_FEATURES:
-        lo, hi = bounds[col]
-        df[col] = pd.to_numeric(df[col], errors="coerce").clip(lo, hi)
-
-    # 公共类别必须是本次编码器已见类别。
-    category_valid = np.ones(len(df), dtype=bool)
-    for cat, choices in shared_choices.items():
-        values = df[cat].astype(str).str.strip()
-        bad = ~values.isin(choices)
-        if bad.any():
-            print(f"[Reference] {cat} 有 {int(bad.sum())} 行类别未被本次编码器见过，将丢弃。")
-        category_valid &= ~bad.to_numpy()
-        df[cat] = values
-    df = df.loc[category_valid].copy()
-
-    if "fd_width" not in df.columns:
-        df["fd_width"] = 0.0
-    if "fd_model" not in df.columns:
-        df["fd_model"] = "NOT_APPLICABLE"
-
-    is_6t = df["topology"] == "6T"
-    df.loc[is_6t, "fd_present"] = 0.0
-    df.loc[is_6t, "fd_width"] = 0.0
-    df.loc[is_6t, "fd_model"] = "NOT_APPLICABLE"
-
-    is_10t = ~is_6t
-    df.loc[is_10t, "fd_present"] = 1.0
-    lo_fd, hi_fd = bounds["fd_width"]
-    df.loc[is_10t, "fd_width"] = pd.to_numeric(
-        df.loc[is_10t, "fd_width"], errors="coerce"
-    ).clip(lo_fd, hi_fd)
-    df.loc[is_10t, "fd_model"] = df.loc[is_10t, "fd_model"].astype(str)
-    fd_valid = (~is_10t) | (
-        df["fd_width"].notna()
-        & (df["fd_width"] > 0)
-        & df["fd_model"].isin(fd_choices)
-    )
-    if (~fd_valid).any():
-        print(f"[Reference] 丢弃 {int((~fd_valid).sum())} 个无效 10T FD 组合。")
-    df = df.loc[fd_valid].copy()
-
-    total_bits = TOTAL_KB * 1024 * 8
-    df["num_arrays"] = np.maximum(
-        np.ceil(total_bits / (df["rows"] * df["cols"])).astype(int),
-        1,
-    )
-
-    df = add_optimization_metric_columns(df)
-    missing_obj = [c for c in OBJECTIVE_NAMES if c not in df.columns]
-    if missing_obj:
-        raise ValueError(
-            "参考前沿必须包含目标列，或包含可推导这些目标的系统指标。"
-            f" 缺少: {missing_obj}"
-        )
-    finite = np.all(np.isfinite(df[OBJECTIVE_NAMES].to_numpy(float)), axis=1)
-    if "power_delay_product" in OBJECTIVE_NAMES:
-        finite &= df["power_delay_product"].to_numpy(float) > 0
-    df = df.loc[finite].copy().reset_index(drop=True)
-
-    df["is_feasible"] = check_hard_constraints(
-        df,
-        enabled=constraint_enabled,
-        min_snm_limit=min_snm_limit,
-        max_delay_limit=max_delay_limit,
-        max_power_limit=max_power_limit,
-    )
-    return deduplicate_designs(df)
 
 
 class CoarseSearchProblem(Problem):

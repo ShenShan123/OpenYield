@@ -70,17 +70,3 @@ class ActorPolicyNet(nn.Module):
 
             # 返回零张量作为备选
             return torch.zeros((x.shape[0], self.action_dim, self.input_dim)).to(device)
-
-
-# 测试代码
-if __name__ == "__main__":
-    # 设置日志
-    logging.basicConfig(level=logging.DEBUG)
-
-    # 示例用法:
-    input_dim = 10  # 替换为您的电路维度
-    model = ActorPolicyNet(input_dim)
-    sample_input = torch.randn(1, input_dim)  # 带有一个样本的示例批次
-    output = model(sample_input)
-
-    print("输出形状:", output.shape)  # 预期: (1, 3, input_dim)

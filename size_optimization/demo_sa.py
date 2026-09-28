@@ -27,7 +27,7 @@ sys.path.append(project_root)
 
 # Import utilities from exp_utils
 # 从exp_utils导入工具函数
-from size_optimization.exp_utils import seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace, CompositeSRAMParameterSpace, OptimizationLogger, save_pareto_front, save_best_result, plot_merit_history, plot_pareto_frontier, update_pareto_front, save_optimization_history, estimate_scaled_total_area, get_composite_initial_params
+from size_optimization.exp_utils import seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace, CompositeSRAMParameterSpace, plot_merit_history, plot_pareto_frontier, estimate_scaled_total_area, get_composite_initial_params
 
 
 # SA optimizer class

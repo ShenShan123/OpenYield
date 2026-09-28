@@ -103,8 +103,3 @@ def print_metrics_v2(metrics, metric_names):
         table.add_row(info)
 
     print(table)
-
-if __name__ == "__main__":
-    metrics = {'MC': {'Pfail': 3.032630836157212e-05, 'Num': 14000, 'Speedup': '1.0x', 'Error': '0.0%', 'Success': 'Y'}, 'MNIS': {'Pfail': 3.032630836157212e-05, 'Num': 14000, 'Speedup': '1.0x', 'Error': '0.0%', 'Success': 'Y'}, 'AIS': {'Pfail': 3.032630836157212e-05, 'Num': 14000, 'Speedup': '1.0x', 'Error': '0.0%', 'Success': 'Y'}, 'HSCS': {'Pfail': 3.032630836157212e-05, 'Num': 14000, 'Speedup': '1.0x', 'Error': '0.0%', 'Success': 'Y'}}
-    name = ['Pfail','Num','Speedup','Error','Success']
-    print_metrics_v2(metrics, name)

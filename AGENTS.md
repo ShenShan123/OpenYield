@@ -1,91 +1,26 @@
-# OpenYield project instructions
+# OpenYield working conventions
 
-This project is a open-source SRAM compiler for yield estimation and transistor sizing optimizations. The main functions include SRAM netlist generation with distributed RC loads, global and local process variations, and full DC/TRAN analyses. `REDAME.md` in both root and sub-folders are the tutorials for this projects. `docs/CHANGELOG.md`is per release (V2.x.x).`AGENTS.md` holds the detailed working conventions.
+OpenYield is an open-source SRAM compiler for transistor-level 6T and 10T arrays, DC/transient analysis, sizing optimization, and yield research. The current release stays **V2.2.4**. The [root tutorial](README.md) and subdirectory READMEs explain usage; [docs/CHANGELOG.md](docs/CHANGELOG.md) and [the V2.2.4 design record](docs/design/PHASED_CONTROL_V2_2_4.md) carry release details. No V2.2.4 screen has run, and 256x256 has no working operating point. The last assembled screen, `docs/data/PHASED_CONTROL_V2_2_2.json`, certifies only that earlier tree. Never promote a partial or failed screen.
 
-Current release: **V2.2.4** (replica load cells off the replica wordline are
-passive, both storage nodes at VDD, so their leakage no longer fires `s_en`
-early at 512 rows FF/FS 125 C, where V2.2.3 failed 7 of 14 per-device draws on
-sense margin; consistent write-register startup `.IC`; variant clock floor
-restored; envelope enforced for injected clocks; runner/checker take the
-target column, probe one-row address bits, retry a failed nominal multi-rank
-DCOP with line search, and seed the operating point of nominal decks of 16,384
-cells or more (`operating_point: seeded`); manifests
-`tests/spice/v224_cases.json` (334, including four post-release dynamic mux
-reads), `v224_mc_cases.json` (1,444, including
-the 52 tall draws) and `v224_negative_cases.json` (6).
-**No V2.2.4 screen has been run and 256x256 has no working operating point**;
-see `docs/design/PHASED_CONTROL_V2_2_4.md`. V2.2.3 kept the 512x256 envelope,
-the joint-dimension clock rule `half = max(row, column) + min(row_excess,
-column_excess)` and `ACCESS_DEADLINE = 0.68`; its screen ran 284/285 but was
-never assembled, so `docs/data/PHASED_CONTROL_V2_2_2.json` certifies the V2.2.2
-tree only.)
-V2.2.2 was the production review of V2.2.1: precharged startup
-bias in every deck, reported access/recovery margins, measured timing diagram
-in `time_generate.py`, re-screen with per-device cases at larger arrays.
-Request capture is on the rising clock edge;
-clock-high contains access and clock-low contains recovery/precharge, including
-after writes. Secondary address/request/data hold latches and the write-slot
-handover are removed. `w_en = we & (access_request | wordline_busy) & iso_ready`;
-a write's WL setup observes `wen_far` and its RC settling, and drivers release only after
-the physical WL is observed off. `read_done` isolates the read and releases WL;
-`s_en = read_done & wordline_idle & iso_ready`. Far PRE, replica WL, ISO, and write/sense enable
-observers enforce sequencing. New last TIME_CONTROL inputs are `iso_far`,
-`sen_far`, and `wen_far`;
-`din_hold` and its column wire no longer exist. Driver classes and bitcells are
-unchanged. Above 64 rows, two loaded setup stages cover decoder settling;
-`v2.2.0-timing-3` uses three times V2.1.10's 128–512-row budgets and twice
-its smaller row budgets. The 512-column class was removed in V2.2.3 as outside the envelope. The current
-record is `docs/design/PHASED_CONTROL_V2_2_4.md` (passive replica loads, review
-fixes, seeded operating point, pending screen) with
-`PHASED_CONTROL_V2_2_3.md` (envelope, joint clocks, shared deadline),
-`PHASED_CONTROL_V2_2_2.md` (review,
-margins, executed screen and its coverage gaps) and `PHASED_CONTROL_V2_2_1.md`
-(phase contract); `TIME_CONTROL_PATH.md` preserves the V2.1.10 architecture. Reproducible functional SPICE checks live under
-`tests/spice/`; the ignored V2.1.x qualification tools use the old phase/probe
-contract. The assembled screen is `docs/data/PHASED_CONTROL_V2_2_2.json`.
-No partial or failed screen is qualification evidence. The remaining
-scope is extracted metal, half-select writes, and yield estimation, listed in
-`docs/README.md`.
+## Architecture
 
-## Purpose and architecture
+YAML under `sram_compiler/config_yaml/` loads through `SRAM_CONFIG` in `config.py`. Factories in `sram_compiler/testbenches/parameter_factor.py` build subcircuits, then `Sram6TCoreTestbench` assembles the array, replica column, decoder, TIME_CONTROL, wires, and periphery. `Sram6TCoreMcTestbench` adds variation, stimuli, measurements, Xyce execution, and result parsing. `main_sram.py` and `python -m sram_compiler.per_device_mc.run` are the user entrances. Optimization consumes the resulting metrics through `size_optimization/exp_utils.py`.
 
-* Data flow: YAML in `sram_compiler/config_yaml/` -> `SRAM_CONFIG` (`sram_compiler/config_yaml/config.py`; root `config.py` re-exports it) -> factories in `sram_compiler/testbenches/parameter_factor.py` -> subcircuits in `sram_compiler/subcircuits/` (all derive from `BaseSubcircuit`, which owns the RC helper)-> `Sram6TCoreTestbench` (array, replica column, decoder, wordline drivers, TIME_CONTROL module, column periphery) -> `Sram6TCoreMcTestbench` (variation, stimuli, `.MEASURE`/`.PRINT`, Xyce execution, result parsing) -> metrics consumed by `size_optimization/exp_utils.py` (optimizer objective) or `yield_estimation/`.
-* YAML widths/lengths are metres; PySpice unit objects inside circuits; sweep
-  mode substitutes SPICE expression strings, so test numeric and sweep paths together.
-* Clock timing is set from `sram_compiler/sizing/timing_lookup.json` for different array configurations. Use interpolation or extrapolation for unseen arry sizes. Make sure it has enough margin for correct access under the worst PVT variations.
-* Critial drivers' sizes are configurated from `sram_compiler/sizing/sizing_lookup.json` for different array sizes. Use interpolation or extrapolation for unseen arry sizes. The drivers' ability can be adjusted through simulation results.
-* Variation: `Sram6TCoreMcTestbench` modes are `nominal`, `shared` (one AGAUSS card per base model), `custom` (parameter table from the cell YAML) and `per-device` (independent `vth0/u0/voff` per MOS, specialized in `create_testbench()` by `sram_compiler/per_device_mc/netlist.py`). The per-device mode is default. `mc=True` now means per-device, so `mc_runs=1` without `mc_seed` is one unseeded random sample, not nominal; deterministic callers must pass `variation_mode='nominal'`. Per-device cannot be combined with the legacy `.STEP` sweeps.
-* Parasitics: `w_rc` controls local storage-node and peripheral stubs; custom values propagate through all factories and nested cells. `interconnect.mode: distributed` is the only supported topology and the default; explicit star settings fail. Default wire geometry is illustrative (1 ohm / 0.1 fF per pitch), not extracted metal.
-* Replica wires should match array lengths and loads, and the TIME_CONTROL module observes the far replica wordline before precharge. Only the last `replica_k` replica cells are driven; the others are passive loads (both nodes at VDD, no leakage, no static path; `tests/test_driver_paths.py`). Equivalent modes 1-4 retain every wire segment and attach omitted-cell loads locally; extraction is numeric-only and uses the effective PVT and model-content cache identity. See `docs/design/DISTRIBUTED_RC_MODEL.md`. `main_sram.py` selects a wire YAML through `INTERCONNECT_CONFIG` and the CLI through `--interconnect-config` (`interconnect.load_interconnect()`).
-* Equivalent model: `sram_compiler/equivalent_modeling/` resolves the mode (`resolve_equivalent`, the `equivalent:` block of `global.yaml`, overridden by an explicit `real_cell_mode`) and holds the accuracy entrance `compare.py`; the injection itself stays in `subcircuits/sram_cell_add_equivalent.py`. Mode 0 is the only mode with full per-device coverage, so evidence and qualification runs use it; modes 1-4 also need Xyce at netlist-generation time for cell parasitic extraction.
+The supported timing envelope is 512 rows by 256 columns; `timing_lookup.json` and `sizing_lookup.json` set frozen clock and critical driver classes. Physical wiring is distributed only. Its default 1 ohm / 0.1 fF per pitch is illustrative, not extracted metal; `w_rc` controls separate local stubs. Mode 0 retains every transistor; equivalent modes 1–4 approximate omitted cells and need Xyce for extraction. Per-device mismatch is the default random mode; use `variation_mode='nominal'` for a deterministic corner. See the linked tutorials for inputs and limits.
 
-## Working conventions
+## Editing rules
 
-- Make sure the SRAM read/write/hold operations totally CORRECT first. Then solve the driver sizes, transistor sizing optimizations, and yield estimations.
-- Run commands from the repository root. Resolve data paths from source-file locations, not the caller's working directory; avoid new machine-local paths.
-- Append optional arguments. Do not reformat unrelated legacy code or comments.
-- YAML widths/lengths use SI metres; PySpice uses unit objects, and parameter sweeps use SPICE expression strings. Test numeric and sweep paths together.
-- A baseline sizing result must remain fixed across cell candidates and PVT
-  samples. Changed architecture/peripheral inputs must not silently reuse it.
-- Use per-device mismatch as default in MC simulations; equivalent cells are approximations. Generated decks or passing measures alone do not prove waveform correctness, retention, sensing margin, or timing qualification.
-- Keep generated decks/results under ignored `outputs/` or a temporary path. Keep ad hoc development scripts under ignored `dev/`, outside `sram_compiler/`. Preserve supplied CSV evidence.
-- Keep topology separate from sizing and timing policy; resolve loads from actual scaled widths. Preserve positional factory/testbench arguments and append optional ones.
-- In each debug process, always check the critial pulse signals first that input and output from `TIME_CONTROL` module, such as `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, `sa_iso`, or other signals in the timing waveforms. These enable pulses control all crictial subcircuits in SRAM macro.
-- Generated decks or passing measures alone do not prove correctness; check waveforms (the qualification scorer or `.prn` crossings) and say exactly which validation ran.
-- Preserve supplied evidence (e.g., `docs/data/DRIVER_SIZING_data.csv`, `docs/data/TIMING_AUTOCONFIG_data.csv`, `docs/qualification/*.json`). Never promote partial or failed qualification runs.
-- Xyce specifics: `.SAMPLING useExpr=true` plus `.options samples numsamples=N seed=S` enable sampling (AGAUSS returns its mean without it); failed measures print `FAILED`
-  (`MEASFAIL=1`); "Time step too small" gets one tighter-step retry in the runner; native MPI sampling crashes on large decks, hence the materialized cards.
-- `pkill -f <pattern>` also matches the shell that runs it; kill by PID or from a script file.
-- Commits use Conventional Commits (`fix(sram_compiler): ...`, `feat(sizing): ...`, `docs: ...`).
+- Establish read, write, hold, sense, and recovery correctness before changing driver sizes, transistor optimization, or yield logic. A deck or passing measures alone does not prove waveform correctness.
+- Run commands from the repository root. Resolve data paths from source locations; avoid machine-local paths. Put generated decks and results under ignored `outputs/` or a temporary directory.
+- Preserve positional factory and testbench arguments; append optional ones. Keep topology separate from sizing and timing policy, and resolve loads from actual scaled widths.
+- YAML widths and lengths are SI metres; circuits use PySpice units, and sweeps substitute SPICE expression strings. Check numeric and sweep paths when either changes.
+- Freeze baseline sizing and timing across cell candidates and PVT samples. Changed architecture, periphery, model, or physical RC must not silently reuse a stale baseline.
+- Default Monte Carlo to per-device `vth0/u0/voff` mismatch. `mc=True` means per-device, so `mc_runs=1` without a seed is random. Equivalent arrays do not cover every MOS and are not full-array yield evidence.
+- Inspect TIME_CONTROL pulse inputs and outputs first when debugging: `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, and `sa_iso`. Check physical far-end crossings and data retention, then state exactly which waveform validation ran.
+- Preserve supplied evidence, including `docs/data/*.csv` and `docs/qualification/*.json`. Record solver, model, seed, RC, and equivalent-mode provenance with results.
+- Keep ad hoc scripts under ignored `dev/`; regression and waveform Python scripts under ignored `tests/` stay local. The `tests/spice/*.json` case manifests remain tracked. A fresh clone does not include the local Python test runner.
+- Commit with Conventional Commits, run `git diff --check`, and review the final diff.
 
-## Environment and verification
+## Environment
 
-- `environment.yml` specifies the Conda environment (Python 3.9, PySpice 1.5, Xyce 7.4); newer runner code uses postponed annotations. This workspace has working `python3` with PySpice/numpy/pandas/matplotlib/PyYAML/pytest.
-- Xyce may need the `openyield` Conda environment activated; check `command -v Xyce` before simulation. Full-array netlist generation (`real_cell_mode=0`) needs no simulator; equivalent modes can run Xyce for parameter extraction.
-- Local development checks, if `dev/` is available:
-  `python3 -m unittest discover -s dev/tests -v`.
-- Keep solver/model/seed provenance with results. Match physical RC and equivalent modes when looking up qualified records; never promote partial or failed runs.
-- `docs/DEVELOPMENT.md` documents local tools and the tracked scoring-source
-  manifest; compiler table lookup must work when `dev/` is absent.
-- Check `git diff --check` and review the final diff. Recent commits use
-  `fix(sram_compiler): ...` and `docs: ...`; no repository-wide CI/linter config or package manifest was found in the initial scan.
+`environment.yml` defines the Python 3.9, PySpice 1.5, Xyce 7.4 environment. Check `command -v Xyce` before simulation. Full mode 0 netlist generation needs no simulator; equivalent modes may invoke Xyce during extraction. Xyce reports failed measures as `FAILED` (`MEASFAIL=1`); the runner has one tighter-step retry for "Time step too small". The local development tools and validation history are indexed in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).

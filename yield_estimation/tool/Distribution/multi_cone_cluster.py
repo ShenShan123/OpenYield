@@ -1,5 +1,5 @@
 import numpy as np
-from Distribution.utils import normalize, cos_distance
+from .utils import normalize, cos_distance
 import time
 
 class cone_cluster():
@@ -30,10 +30,3 @@ class cone_cluster():
                 break
 
         return now_labels
-
-
-if __name__ == "__main__":
-    t = cone_cluster(cluster_num=5, dim=5)
-    x = np.random.normal(0,1,[100,5])
-    now_labels = t.cluster(x)
-    print(now_labels)

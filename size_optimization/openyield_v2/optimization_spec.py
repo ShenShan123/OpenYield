@@ -260,33 +260,3 @@ def feasible_mask(
         else:
             valid &= values >= float(spec["value"])
     return valid
-
-
-def constraint_violation(
-    metrics_df: pd.DataFrame,
-    constraints: Sequence[Dict[str, Any]],
-    *,
-    enforce_physical_validity: bool,
-) -> np.ndarray:
-    """Return one non-negative aggregate violation per row."""
-    total = np.zeros(len(metrics_df), dtype=float)
-    if enforce_physical_validity:
-        for metric in PHYSICAL_POSITIVE_METRICS:
-            values = pd.to_numeric(metrics_df[metric], errors="coerce").to_numpy(float)
-            scale = max(float(np.nanmedian(np.abs(values))), 1.0e-30)
-            term = np.maximum(-values / scale, 0.0)
-            term[~np.isfinite(values)] = 1.0e6
-            total += term * term
-    for spec in constraints:
-        values = pd.to_numeric(
-            metrics_df[str(spec["metric"])], errors="coerce"
-        ).to_numpy(float)
-        value = float(spec["value"])
-        scale = float(spec["scale"])
-        if spec["operator"] == "<=":
-            term = np.maximum((values - value) / scale, 0.0)
-        else:
-            term = np.maximum((value - values) / scale, 0.0)
-        term[~np.isfinite(values)] = 1.0e6
-        total += term * term
-    return total

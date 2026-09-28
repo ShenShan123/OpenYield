@@ -16,8 +16,3 @@ def delete_folder_content(folder_path):
                     shutil.rmtree(file_path)
             except Exception as e:
                 print(f'Failed to delete {file_path}. Reason: {e}')
-
-# 调用示例
-folder_path = '/home/lixy/sim'
-delete_folder_content(folder_path)
-    

@@ -1,53 +1,37 @@
 # SRAM sizing optimization
 
-This directory contains the original circuit-backed optimization scripts and the separate OpenYield V2 offline optimizer package.
+This directory contains two independent workflows: circuit-backed searches that call the current SRAM compiler and Xyce, and the offline `openyield_v2/` surrogate package. Run commands from the repository root. The release version remains V2.2.4; current array and clock limits are in the [compiler tutorial](../sram_compiler/README.md).
 
-In OpenYield V2.0.6, the detailed algorithm guide lives in this directory. The
-offline package's name, OpenYield V2, identifies its optimizer workflow.
+## Circuit-backed search
 
-V2.1.1 circuit evaluations use distributed wiring by default and reject star
-configurations. Driver sizes and the lookup clock remain frozen across cell
-candidates; changing routing does not qualify the existing timing budgets.
-See the [release report](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md) for current
-functional evidence and limits.
+Install the OpenYield environment from `environment.yml`, confirm `Xyce` is on `PATH`, then install any optional packages required by the chosen method. `config_sram.yaml` and the circuit YAMLs define the parameter ranges; `exp_utils.py` connects them to the compiler. The driver sizes and timing lookup remain fixed across cell candidates and PVT samples.
 
-See [电路算法说明文档.md](电路算法说明文档.md) for the detailed parameter-space,
-objective-function, and two-stage optimization guide.
-
-## Circuit-backed scripts
-
-The original scripts call the current OpenYield configuration and evaluation code through `exp_utils.py`.
-
-Shared merit-history and Pareto plots now live in
-[`utils.plotting`](../utils/README.md); `exp_utils.py` re-exports them so existing
-optimization scripts keep their current imports.
-
-| Method | Entry point |
+| Method | Script |
 |---|---|
-| Simulated annealing | `demo_sa.py` |
-| Particle swarm optimization | `demo_pso.py` |
-| Constrained Bayesian optimization | `demo_cbo.py` |
-| RoSE-Opt | `demo_roseopt.py` |
-| CMA-ES | `demo_cmaes.py` |
-| SMAC | `demo_smac.py` |
-| NSGA-II | `demo_nsgaii.py` |
-| MOEA/D | `demo_moead.py` |
-| Multi-objective BO | `demo_mobo.py` |
-| Random search | `demo_random.py` |
+| Simulated annealing, particle swarm, random | `demo_sa.py`, `demo_pso.py`, `demo_random.py` |
+| Bayesian and surrogate methods | `demo_cbo.py`, `demo_tssbo.py`, `demo_cpn.py`, `demo_roseopt.py` |
+| CMA-ES and SMAC | `demo_cmaes.py`, `demo_smac.py` |
+| Multi-objective search | `demo_nsgaii.py`, `demo_moead.py`, `demo_mobo.py` |
 
-Run scripts from the repository root so the YAML and model-card paths resolve consistently:
+A small entry-point example:
 
 ```bash
 python size_optimization/demo_sa.py
-python size_optimization/demo_pso.py
-python size_optimization/demo_cbo.py
 ```
 
-`experiment.py` runs the existing two-stage architecture and transistor-sizing flow. Parameter ranges are read from `config_sram.yaml` and the circuit YAML files.
+`main_opt.py` at the repository root offers an interactive selector for the demo algorithms. `experiment.py` offers joint architecture and transistor sizing or sizing on one or all five fixed array configurations:
 
-## OpenYield V2
+```bash
+python size_optimization/experiment.py
+```
 
-`openyield_v2/` is an offline surrogate-optimization package. It does not replace the circuit-backed scripts and does not call Xyce during optimization. Its bundled 6T and 10T datasets are fixed training samples with per-device variation disabled.
+The earlier standalone architecture-stage SMAC class was unused and has been removed. `experiment.py` still uses the historical `TwoStageOptimizer` class name internally; its current interactive choices are joint search and fixed-configuration sizing. Search outputs are written under the optimizer's experiment directories; keep generated runs out of Git.
+
+The [detailed algorithm notes](电路算法说明文档.md) describe the parameter space and objective. The [MOBO](MOBO/README.md) and [NSGA-II](NSGA-II/Readme.md) pages show their direct SRAM entry points. Equivalent circuit evaluations are approximations; compare with a full-transistor mode 0 run before interpreting their metrics.
+
+## Offline OpenYield V2 package
+
+`openyield_v2/` reads bundled static 6T and 10T datasets. It does not call Xyce during optimization. Those datasets were collected under earlier cell and equivalent-model settings and are not current per-device yield evidence.
 
 ```bash
 python -m pip install -r size_optimization/openyield_v2/requirements.txt
@@ -55,4 +39,4 @@ python -m size_optimization.openyield_v2.run_experiment --dry-run
 python -m size_optimization.openyield_v2.run_experiment
 ```
 
-See [`openyield_v2/README.md`](openyield_v2/README.md) for algorithm selection and output files.
+See the [offline package guide](openyield_v2/README.md) for algorithm selection, budgets, and output files.

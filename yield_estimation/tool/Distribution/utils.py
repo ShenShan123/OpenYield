@@ -29,14 +29,3 @@ def cos_distance(x, v):
 
     return cosine_distance_matrix
 
-if __name__ == "__main__":
-    np.random.seed(0)
-    x = np.random.normal(0,1,[3,4])
-    v = np.random.normal(0,1,[6,4])
-    y = cos_distance(x, v)
-    a = cos_distance(x[1], v[1])
-    print(y)
-    c,d = x[1], v[1]
-    print( 1 - (c * d).sum() / (c*c).sum()**0.5 / (d*d).sum()**0.5 )
-    print(a)
-

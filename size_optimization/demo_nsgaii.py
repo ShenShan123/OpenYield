@@ -39,7 +39,7 @@ sys.path.append(project_root)
 
 from size_optimization.exp_utils import (
     seed_set, create_directories, evaluate_sram, ModifiedSRAMParameterSpace,
-    OptimizationLogger, get_default_transistor_features,
+    get_default_transistor_features,
     get_peripheral_params_from_yaml, PERIPHERAL_ALL_KEYS,
 )
 from utils import estimate_bitcell_area

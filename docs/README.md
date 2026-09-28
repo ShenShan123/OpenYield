@@ -64,7 +64,7 @@ The carried Phase 6 scope. The working plans that defined it
   (0.90 / 0.86 / 0.80 / 0.67 / 0.47 V at 32 / 64 / 128 / 256 / 512 rows), which
   the 512-row envelope bounds rather than relieves.
 - **Yield estimators.** `yield_estimation/model_lib/{MC,MNIS,AIS,ACS,HSCS}.py`
-  are not usable as shipped: machine-local paths and an import-time deletion,
+  are not usable as shipped: machine-local paths,
   dependencies absent from `environment.yml` (`torch`, `gpytorch`, `mpmath`,
   `prettytable`), sampling through the `custom` variation mode and a delay
   threshold instead of the release checks. Needed: configurable paths, a sample
@@ -79,7 +79,7 @@ The carried Phase 6 scope. The working plans that defined it
 | Document | Purpose |
 |---|---|
 | [Changelog](CHANGELOG.md) | Release history, one entry per release with its record |
-| [Development guide](DEVELOPMENT.md) | Tracked regression tests and the ignored local tools |
+| [Development guide](DEVELOPMENT.md) | Optional local regression and qualification tools |
 | [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Working proposal and qualification status of the driver classes |
 | [Automatic timing proposal](TIMING_AUTOCONFIG.md) | Timing design, measured basis and the per-signal phase table |
 | [V2.2.4 replica loads and review fixes](design/PHASED_CONTROL_V2_2_4.md) | Current record: passive replica load cells, V2.2.3 review fixes, seeded operating point, pending screen |
@@ -124,7 +124,7 @@ The supplied evidence CSVs are kept unchanged in `data/`:
 |---|---|
 | [SRAM compiler](../sram_compiler/README.md) | Configuration, circuit generation, simulations, and waveform outputs |
 | [Shared utilities](../utils/README.md) | Measurement and waveform parsing, plots, SPICE models, and area estimates |
-| [Compiler regression tests](../tests/README.md) | Simulator-free checks that run without local development scripts |
+| [Local compiler checks](../tests/README.md) | Tracked manifests and optional ignored regression scripts |
 | [Per-device mismatch](../sram_compiler/per_device_mc/README.md) | Default local mismatch, CLI, and in-memory configuration |
 | [Driver sizing](../sram_compiler/sizing/README.md) | Driver size classes, clock classes, and qualification workflows |
 | [Circuit review](../sram_compiler/CIRCUIT_REVIEW.md) | Circuit findings and verification evidence |

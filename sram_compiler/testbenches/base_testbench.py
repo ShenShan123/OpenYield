@@ -72,23 +72,3 @@ class BaseTestbench:#基础测试平台类
         circuit.V(self.gnd_node, self.gnd_node, circuit.gnd, 0 @ u_V)
 
         return circuit
-
-    def run_simulation(self):#运行spice仿真
-        """
-        Override this method to run a specific test.
-        Run specified test and return results
-        """
-        circuit = self.create_testbench()#创建电路测试
-        simulator = circuit.simulator()
-
-        # Initialize all internal data nodes (Q and QB) in all cells to 0V
-        initial_conditions = {}     #初始化所有内部数据节点（Q 和 QB）为 0V
-        simulator.initial_condition(**initial_conditions)
-
-        # Run transient simulation运行瞬态仿真，步长0.01，结束14ns
-        analysis = simulator.transient(step_time=0.01 @ u_ns, end_time=self.t_period)
-
-        return {
-            'success': True,
-            'analysis': analysis,
-        }

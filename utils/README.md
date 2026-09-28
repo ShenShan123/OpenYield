@@ -1,4 +1,4 @@
-# Shared utilities — V2.1.2
+# Shared utilities — V2.2.4
 
 Introduced in V2.0.6, this package consolidates the former root `utils.py`, reusable `plot_data.py`
 functions, and shared optimizer plotting helpers. It is tracked runtime code;
@@ -80,7 +80,7 @@ RC plots save PNG. Pass `output_dir=...` to select a different directory or
 `show=True` to display a plot after saving. The default is noninteractive;
 comparison plot styles are scoped to each call and figures are closed afterward.
 
-Reusable tests are tracked in [`tests/`](../tests/README.md):
+If the local ignored [`tests/`](../tests/README.md) scripts are available, check these helpers with:
 
 ```bash
 python3 -m unittest tests.test_utils -v

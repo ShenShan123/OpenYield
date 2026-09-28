@@ -1,76 +1,31 @@
-SRAM Yield Estimation Algorithm
-=====
-This directory implements various rare-event estimation algorithms using importance sampling techniques to evaluate SRAM failure probabilities under process variations, enabling accurate and efficient yield analysis.
+# Yield estimation in OpenYield V2.2.4
 
-V2.1.0 fixes all 15 compiler calls to consume `(delay, pavg, pstc, pdyn)` and treats NaN/infinite delays as failed samples. The supplied testbench keeps its lookup clock fixed across sampling. These adapter checks do not validate the legacy importance-sampling algorithms end to end; their machine-local paths and external ML dependencies remain separate work.
+The current compiler can generate reproducible, independent per-device process samples. The legacy importance-sampling implementations in `model_lib/` are research code and are **not a validated V2.2.4 yield flow**. They still depend on machine-local paths, optional ML packages absent from `environment.yml`, and the older custom-variation interface. The old root debug driver was removed because it did not provide a working current-release tutorial.
 
-V2.1.1 uses distributed wiring throughout and rejects star configurations.
-The fixed timing table and transistor classes remain unchanged. New physical
-routes require fresh functional evidence before PVT/mismatch expansion; see
-the [open items](../docs/README.md#open-items). Historical
-measurements and qualification records retain their original version and
-physical context.
+## Generate current process samples
 
-Preparation File: spiced.py 
--------
-The spice.py file defines threshold settings for yield estimation and establishes sampling boundary constraints across different circuit dimensions to guide the importance sampling process.and includes functions for defining yield criteria to guide the importance sampling process.
+Run from the repository root with the OpenYield environment and Xyce available:
 
-Algorithm
---------
-### 1.Monte Carlo(MC)
-File: MC.py 
+```bash
+python -m sram_compiler.per_device_mc.run \
+  --rows 8 --cols 4 --operation read \
+  --real-cell-mode 0 --variation-mode per-device \
+  --mc-runs 100 --seed 3 --run-xyce \
+  --output-dir outputs/yield_study
+```
 
-Standard Monte Carlo draws samples directly from the original distribution, serving as an unbiased baseline for yield estimation.
-- Direct SPICE-based pass/fail simulation
-- No distribution modification or learning
+Use mode 0 for full device coverage and record the corner, VDD, temperature, wire model, timing table, driver baseline, model cards, and seed with the results. The runner writes a summary and measurement data to a configuration-specific output directory. `--variation-mode nominal --mc-runs 1` provides a fixed-corner reference. See the [runner tutorial](../sram_compiler/per_device_mc/README.md) for sample and output semantics.
 
-Dependencies: Standard libraries (numpy, torch, gpytorch)
-### 2. Mean-shifted IS(MNIS)
-File: MNIS.py 
+This command produces circuit results, not a qualified failure probability. A yield study must define failure using waveform-based read, write, retention, sensing, and recovery checks, count numerical non-completion separately, and establish coverage across PVT and mismatch. The [V2.2.4 screen](../docs/design/PHASED_CONTROL_V2_2_4.md) has not run. The [open items](../docs/README.md#open-items) describe the work needed to connect samples to release checks and validate the estimators.
 
-Shifts the sampling distribution toward the most probable failure boundary point to improve rare-event sampling focus.
-- Computes minimal-norm failure-inducing point
-- Focuses on single-mode failure boundaries
-  
-Dependencies: Standard libraries (numpy, torch, gpytorch)
-### 3. Adaptive Compressed Sampling(ACS)
-File: ACS.py 
+## Legacy algorithm modules
 
-Applies compressed sensing to construct sparse representations of failure regions, reducing reliance on full-distribution sampling.
-- Uses L1-regularized recovery methods
-- Exploits sparsity in failure patterns
-- Best suited for smooth failure boundaries
-  
-Dependencies: Standard libraries (numpy, torch, gpytorch)
-### 4. Adaptive IS(AIS)
-File: AIS.py 
+| Module | Research method |
+|---|---|
+| `model_lib/MC.py` | Direct Monte Carlo baseline |
+| `model_lib/MNIS.py` | Mean-shifted importance sampling |
+| `model_lib/AIS.py` | Adaptive importance sampling |
+| `model_lib/ACS.py` | Adaptive compressed sampling |
+| `model_lib/HSCS.py` | High-dimensional sparse compressed sampling |
 
-Refines the proposal distribution iteratively using cross-entropy minimization to adapt to unknown or complex failure structures.
-- Learns sampling distribution from feedback
-- Capable of capturing multiple failure modes
-- Requires sampling + optimization in loop
-  
-Dependencies: Standard libraries (numpy, torch, gpytorch)
-### 5. High-dimensional Sparse Compressed(HSCS)
-File: HSCS.py 
-
-Combines sparsity and compression strategies to model and sample failure modes in high-dimensional parameter spaces.
-- Designed for full-array SRAM or large circuits
-- Scales well with hundreds of variation parameters
-- Incorporates hierarchical or block sparsity
-  
-Dependencies: Standard libraries (numpy, torch, gpytorch, sklearn.cluster)
-
-Usage
----
-### 1. Run an Algorithm
-<pre> python demo_run_a_testbench.py </pre>
-Set `RUN_MODEL` at the top of `demo_run_a_testbench.py` (repository root) to select the algorithm; parameter settings are provided for circuits of different dimensionalities. The script uses the explicit custom process-parameter table mode of `Sram6TCoreMcTestbench` (`custom_mc=True`), not the compiler's default per-device mismatch. The former `main_estimation.py` targeted a removed package and testbench API and was deleted in V2.0.6.
-
-Output
------
-Each algorithm's results will be saved as a CSV file; use these CSV outputs to generate visualization plots as needed.
-
-Future Algorithm Extensions
------
-We will continue to add more state-of-the-art algorithms for yield estimation in the future, providing additional methods for testing and comparison.
+`tool/Distribution/` contains their distribution helpers. These modules remain available for porting and comparison, but no supported CLI currently runs them end to end. The import-time deletion of a machine-local simulation directory has been removed from `tool/delete.py`; callers still need to supply their own output directories.

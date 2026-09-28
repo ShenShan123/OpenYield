@@ -37,7 +37,3 @@ class norm_dist():
         if mp_format==False:
             prob = prob.astype(float)
         return prob
-
-if __name__ == "__main__":
-
-    pass

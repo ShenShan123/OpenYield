@@ -67,6 +67,17 @@ access. All four targeted Xyce cases pass 369 waveform checks each. The
 compiler's column decoder and the full V2.2.4 screen remain open;
 the main manifest now has 334 cases. No V2.2.5 qualification is claimed.
 
+Repository cleanup within V2.2.4: unused example and debug entry points,
+unreferenced implementation helpers, and obsolete optimization and yield
+utilities were removed. The Python regression, waveform, comparison, and
+sampling scripts were kept in local workspaces but removed from Git tracking;
+their paths are ignored. The V2.2.4 JSON case manifests and historical evidence
+remain tracked. Root and subdirectory READMEs now describe the current CLI,
+configuration, optimization entrances, and validation limits. `AGENTS.md` now
+holds working conventions and links to the release records instead of
+repeating their history. The historical tracked-test counts above describe
+the original release snapshot; this cleanup is not a new screen or release.
+
 ## V2.2.3 — 2026-09-20 — supported envelope, joint-dimension clocks, one access deadline
 
 [Design record](design/PHASED_CONTROL_V2_2_3.md). **No V2.2.3 screen has been

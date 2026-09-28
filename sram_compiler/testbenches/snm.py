@@ -426,12 +426,6 @@ def process_xyce_montecarlo_prn(
     return df_data, df_stats
 
 
-if __name__ == "__main__":
-    # 例子1：hold — replace with actual sim output path
-    process_xyce_montecarlo_prn(
-        prn_path="sim/mc_hold_snm_16x8_rc0_tb.sp.prn",
-        metric_name="HOLD_SNM",
-    )
 
     # 例子2：read
     # process_xyce_montecarlo_prn(

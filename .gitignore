@@ -33,6 +33,13 @@ miniconda/
 **/__pycache__
 # Local development experiments, qualification runners, and their tests.
 /dev/
+# Local regression and waveform scripts are retained in existing workspaces.
+tests/**/*.py
+tests/*.py
+size_optimization/openyield_v2/tests/*.py
+# Optional local comparison and sampling experiments.
+sram_compiler/equivalent_modeling/compare.py
+sram_compiler/per_device_mc/sampling.py
 size_optimization/experiment/
 size_optimization/smac_output/
 size_optimization/smac3_output/

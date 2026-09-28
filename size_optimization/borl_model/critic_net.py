@@ -48,17 +48,3 @@ class CriticNet(nn.Module):
                 return torch.zeros((x.shape[0], 1)).to(device)
             else:
                 return torch.zeros(1).to(device)
-
-
-# 测试代码
-if __name__ == "__main__":
-    # 设置日志
-    logging.basicConfig(level=logging.DEBUG)
-
-    # 示例用法:
-    input_dim = 10  # 用户定义的电路维度
-    critic = CriticNet(input_dim)
-    sample_input = torch.randn(1, input_dim)  # 带有一个样本的示例批次
-    value_estimate = critic(sample_input)
-
-    print("评论家输出 (值估计):", value_estimate.item())  # 应该是单个标量

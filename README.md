@@ -1,582 +1,107 @@
-# OpenYield V2.2.4: SRAM yield analysis and optimization
+# OpenYield V2.2.4
 
-![](img/logo-cut-openyield.jpg)
-**OpenYield** generates 6T and 10T SRAM netlists for Xyce and evaluates noise margin, delay, power, area, and yield. The repository includes transistor-level arrays, an equivalent-cell model for unused cells, selectable process-variation flows, and sizing/architecture optimization drivers.
+OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and can apply independent local variation to each retained MOS device.
 
-The circuit generator models parasitic capacitance/resistance, leakage coupling, and variation in peripheral circuits such as sense amplifiers and write drivers.
+**Release status:** V2.2.4 fixes passive replica load cells and several control and runner issues. Its full waveform screen has not run. The configured limit is 512 rows by 256 columns, but 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree. See the [V2.2.4 record](docs/design/PHASED_CONTROL_V2_2_4.md) before treating a generated deck or passing measurement as functional evidence.
 
-The main simulation backend is Xyce. FreePDK45 model cards are included under `tran_models/`.
+## Quick start
 
-## Current release: V2.2.4
-
-The compiler generates full transistor arrays with distributed RC wires,
-per-device local mismatch by default, a replica-timed read path and a
-`TIME_CONTROL` block that observes physical release and isolation before
-switching incompatible enables. Clocks come
-from a row/column lookup table and driver sizes from integer size classes;
-both stay frozen across cell candidates and PVT samples
-([timing](sram_compiler/sizing/README.md#clock-classes),
-[sizing](sram_compiler/sizing/README.md)).
-
-**V2.2.4 fixes a sense failure at the tall edge of the envelope.** Only the
-replica cells on the replica wordline are driven; the other replica load cells
-are now passive, with both storage nodes at VDD. Through V2.2.3 they all stored
-0, and at fast NMOS and 125 C their leakage fired the sense enable early. A
-per-device run failed 7 of 14 512x4 draws on sense margin (worst 0.177 V
-against a 0.252 V bar); the same draws now pass at 0.33-0.54 V. V2.2.4 also
-starts the write register consistently, restores the variant clock floor,
-closes review gaps in the screen tooling, and seeds the DC operating point of
-the largest nominal decks
-([V2.2.4 record](docs/design/PHASED_CONTROL_V2_2_4.md)).
-
-**Supported array envelope: up to 512 rows by 256 columns.** A larger array is
-rejected rather than given an extrapolated clock. An array that is large in
-both dimensions now pays for both: the period is the larger dimension's budget
-plus the smaller dimension's excess over its own first class, so 128x128 takes
-20.5 ns where V2.2.2 gave it a 128x8 clock of 16.5 ns. Every array size the
-V2.2.2 screen covered keeps exactly the period it was screened at. The
-compiler's own `.MEASURE` data deadline and the waveform screen's deadline are
-now one number, `k + 0.68 T`.
-
-V2.2.2 was the production review of the phased controller introduced in
-V2.2.1: every deck starts from the precharged clock-low state, the
-waveform checker reports access and recovery margins, the controller source
-carries a measured timing diagram, and the screen was re-run with additional
-per-device mismatch cases at the larger arrays. V2.2.1 separates rising-edge
-capture, clock-high access, and clock-low recovery. It removes the secondary
-address/request/data hold latches and the write-to-write slot handover. Writes release their wordline before releasing
-the drivers; reads isolate the sense inputs and release the wordline before
-sense regeneration. Physical guards enforce the ordering. Every cycle
-precharges in clock-low, including consecutive writes. Conservative clock
-budgets are twice V2.1.10's through 64 rows and three times its 128–512-row
-budgets. The 512-column class uses 24 ns
-for 6T and 25.5 ns for 6T with a mux and 10T. Driver size classes and bitcells
-are unchanged.
-See the [V2.2.4 record](docs/design/PHASED_CONTROL_V2_2_4.md), the
-[V2.2.3 record](docs/design/PHASED_CONTROL_V2_2_3.md), the
-[V2.2.2 review and screen](docs/design/PHASED_CONTROL_V2_2_2.md), the
-[V2.2.1 phase-control record](docs/design/PHASED_CONTROL_V2_2_1.md), the
-[reproducible SPICE checks](tests/spice/README.md), and the
-[changelog](docs/CHANGELOG.md).
-
-Validation is functional screening with illustrative wires (1 ohm / 0.1 fF per
-pitch), not extracted-metal or yield qualification; the remaining scope is
-listed under [open items](docs/README.md#open-items).
-
-**The V2.2.4 screen has not been run, and the 256x256 array still has no
-working DC operating point.** The last assembled screen is V2.2.2's, 254 of
-254 cases and 2,164,669 checks, with its source, deck, waveform and scorer
-hashes in
-[`docs/data/PHASED_CONTROL_V2_2_2.json`](docs/data/PHASED_CONTROL_V2_2_2.json);
-it certifies the V2.2.2 tree only. V2.2.3's screen ran 284 of 285 cases
-(256x256 never left its operating point) but was not assembled, and V2.2.4
-changes the replica column in every deck. The V2.2.4 manifest has 334 main cases, 1,444
-per-device draws and six negative controls
-([how to run them](docs/design/PHASED_CONTROL_V2_2_4.md#the-screen), about 1,400
-solver-hours); until they have been run and assembled, nothing in V2.2.4 may be
-cited as qualification.
-
-What the V2.2.2 screen did and did not cover, with the numbers behind it, is
-[what the screen does not cover](docs/design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover);
-[the V2.2.3 record](docs/design/PHASED_CONTROL_V2_2_3.md) maps each item to
-what now closes it.
-
-Documentation: [compiler guide](sram_compiler/README.md),
-[equivalent models](sram_compiler/equivalent_modeling/README.md),
-[sizing optimization](size_optimization/README.md),
-[yield estimation](yield_estimation/README.md),
-[utilities](utils/README.md), the [documentation index](docs/README.md) and the
-[development guide](docs/DEVELOPMENT.md). Reusable compiler tests live in
-`tests/`; local development and qualification scripts live under ignored `dev/`.
-
-## How the macro behaves in one cycle
-
-Address, chip select, write enable and write data are captured once, on the
-rising edge of `clk`. The clock-high phase is the **access**: precharge
-releases, the decoder settles, the wordline opens, and a write drives the
-bitlines or a read develops and latches its output. The clock-low phase is the
-**recovery**: the wordline releases, the write drivers and the sense amplifier
-release, the sense inputs un-isolate and the bitlines precharge again. Both
-phases finish inside one period, so every cycle ends in the same recovered
-state (wordline, `w_en`, `s_en`, `sa_iso` and `rbl_delay` low, bitlines high,
-`PRE` on) and read/write pairs need no handover between cycles. That is why a
-clock period must cover access *and* recovery, which is what
-`sram_compiler/sizing/timing_lookup.json` budgets.
-
-Ordering is enforced by *observing physical terminals*, not by counting gate
-delays: the controller waits for the far precharge gate to be off, the far
-isolation terminal to be high and the far replica wordline to be low before it
-allows the next incompatible signal. `far` below means the terminal at the last
-column or the last row, past every real RC load.
-
-The diagrams are measured 0.5 VDD crossings of an 8x4 6T array at SS, 0.9 V,
-125 C with a 9 ns clock; one character is 150 ps. The order is the contract,
-the spacing is one array at one corner.
-
-```text
-  WRITE cycle (we = 1)
-                  capture                       clock fall         next capture
-                  |---- access (clock high) ----|--- recovery (clock low) ----|
-  ns              0     1      2      3     4      5      6     7      8      9
-                  |     |      |      |     |      |      |     |      |      |
-  clk             /-----------------------------\_______________________________
-  cs, we          _/------------------------------------------------------------
-  PRE_far (low=on)_/--------------------------------------\_____________________
-  pre_off_ready   ___/------------------------------------\_____________________
-  access_request  ____/---------------------------\_____________________________
-  sa_iso_far      _____/---------------------------------\______________________
-  iso_ready       ________/-------------------------------\_____________________
-  w_en_far        ________/----------------------------\________________________
-  access_settled  ____________/----------------------\__________________________
-  wl_en           _____________/-------------------\____________________________
-  WL_far          ______________/-------------------\___________________________
-  wordline_busy   _____________/----------------------\_________________________
-  enables_off     ---------\_____________________________/----------------------
-  BLB_far (data 1)---------\______________________________/---------------------
-                   1 2 3   4  5   6      7          8  9 10 11 12 13
-```
-
-```text
-  READ cycle (we = 0)
-                  capture                       clock fall         next capture
-                  |---- access (clock high) ----|--- recovery (clock low) ----|
-  ns              0     1      2      3     4      5      6     7      8      9
-                  |     |      |      |     |      |      |     |      |      |
-  clk             /-----------------------------\_______________________________
-  cs (we=0)       _/------------------------------------------------------------
-  PRE_far (low=on)_/----------------------------------\_________________________
-  pre_off_ready   ___/---------------------------------\________________________
-  access_request  ____/---------------------------\_____________________________
-  access_settled  _______/---------------------------\__________________________
-  wl_en           ________/------\______________________________________________
-  WL_far          _________/------\_____________________________________________
-  RBL             ----------\_________________________/-------------------------
-  rbl_delay       _____________/-------------------------\______________________
-  read_done       ______________/-----------------\_____________________________
-  sa_iso_far      _______________/--------------------\_________________________
-  wordline_busy   ________/---------\___________________________________________
-  iso_ready       _________________/------------------\_________________________
-  s_en_far        ___________________/-------------\____________________________
-  OUT (reads 1)   ___________________/------------------------------------------
-  enables_off     -------------------\_______________/--------------------------
-  BLB_far         ----------\_________________________/-------------------------
-                   1 2 3     7    14 15 16 17 18      8      19 20 21 12 13
-```
-
-| Number | Write | Read |
-|---|---|---|
-| 1-3 | capture deasserts `PRE`; the far PRE gate is observed off and settles (`pre_off_ready`); `access_request` rises | same |
-| 4-6 | `write_prepare` isolates the sense inputs, the far ISO terminal is observed high (`iso_ready`), `w_en` turns the drivers on | - |
-| 7 | the far write enable starts the setup chain, `access_settled` rises and the wordline opens | the setup chain starts at `access_request` and the wordline opens |
-| 14-18 | - | cell and replica discharge their bitlines, `rbl_delay` trips, `read_done` isolates the developed differential and releases the wordline, then `s_en` regenerates into the output latch |
-| 8 | the falling edge clears the request and the wordline releases | the falling edge clears the request and `read_done` |
-| 9-10 | the far replica wordline is observed low, so the write window closes and `w_en` releases *after* the physical wordline | 19: `s_en` releases and the latch holds `OUT` |
-| 11-13 | both far enables are observed off, `sa_iso` releases and `PRE` turns on, and the bitlines restore before the next capture | same (20-21) |
-
-Required overlaps: write drivers with the wordline, and `s_en` with the open
-output latch. Forbidden overlaps, each enforced by an observed terminal:
-precharge with the wordline, the drivers or the sense footer; `w_en` with
-`s_en`; a read wordline with `s_en`; any enable before its input isolation.
-
-A measured eight-access trace of a 16x8 6T array under per-device mismatch at
-SS, 0.9 V, 125 C — write, write, read, read, write, read, write, read across
-two rows — is part of the release record:
-
-![Eight accesses with recovery between captures](docs/design/PHASED_CONTROL_V2_2_2.svg)
-
-The full port and node glossary, the complete causal chain and the boundary
-rules are the module docstring of
-[`sram_compiler/subcircuits/time_generate.py`](sram_compiler/subcircuits/time_generate.py);
-the contract and its evidence are the
-[V2.2.2 record](docs/design/PHASED_CONTROL_V2_2_2.md).
-
-## Key Features
-
-* **Xyce Integration:** Utilizes the Xyce parallel circuit simulator for transistor-level simulations.
-* **Monte Carlo Simulation Support:**
-  * Built-in Monte Carlo simulations within Xyce.
-  * Support for user-defined Monte Carlo simulations, allowing for custom process parameter generation.
-* **SRAM Cell Types:** Supports 6T and 10T SRAM cells.
-* **Equivalent Circuit Modeling:** Fast approximate equivalent circuits for unused SRAM cells (5-capacitor parasitic model: `c_bl`, `c_blb`, `c_wl`, `c_wl_bl`, `c_wl_blb`) to speed up large-array simulation.
-* **Performance Metrics Analysis:** Evaluates critical SRAM performance metrics:
-  * Hold / Read / Write Static Noise Margin (SNM)
-  * Read and Write Delay
-  * Static and Dynamic Power
-* **SRAM Sizing Optimization:** Integrated two-stage optimization for transistor sizing and architecture configuration.
-* **Output Parsing and Waveform Plotting:** Includes parsers to extract simulation results and tools to visualize signal waveforms.
-* **OpenYield V2 optimizers:** An isolated offline optimizer package under `size_optimization/openyield_v2/` with evolutionary, Bayesian, and surrogate-based methods.
-
-![](img/openyield_all-overall.drawio.png)
-
-## Dependencies
-
-* **[FreePDK45](https://eda.ncsu.edu/freepdk/freepdk45/):** Required by SRAM circuit generator and Xyce simulator.
-* **[PySpice](https://pyspice.fabrice-salvaire.fr/releases/v1.4/overview.html):** Required by SRAM circuit generator:
-
-  ```bash
-  pip install PySpice
-  ```
-* **[Xyce](https://xyce.sandia.gov/about-xyce/):** A SPICE simulator for fast simulation. Install using conda through vlsida channel (built for [OpenRAM](https://github.com/VLSIDA/OpenRAM.git)):
-
-  ```bash
-  conda install -q -y -c vlsida-eda trilinos
-  conda install -q -y -c vlsida-eda xyce
-  ```
-
-  For building your own Xyce please refer to this [guide](https://xyce.sandia.gov/documentation-tutorials/building-guide/)
-* **Python packages for the bundled circuit-backed optimizers** (install via pip; tSS-BO still needs its separate repository):
-
-  ```bash
-  pip install numpy scipy matplotlib pandas torch botorch gpytorch \
-    smac ConfigSpace cma gymnasium scikit-learn tqdm tabpfn PyYAML
-  ```
-* **OpenYield V2 extras** (only needed for `size_optimization/openyield_v2/`):
-
-  ```bash
-  pip install -r size_optimization/openyield_v2/requirements.txt
-  ```
-
-## Usage Examples
-
-### 0. Conda Environment Creation
-
-Create the conda environment from the `yml` file:
+Run commands from the repository root. The supplied Conda environment includes Python, PySpice, and Xyce:
 
 ```bash
 conda env create -f environment.yml
 conda activate openyield
+command -v Xyce
 ```
 
-Or update an existing environment:
-
-```bash
-conda env update -f environment.yml
-```
-
-### 1. SRAM Circuit Generator
-
-The generation modules of each sub-circuit are located in `sram_compiler/subcircuits/`.
-
-The simulation code is in `sram_compiler/testbenches/`.
-
-Circuit and simulation parameters are configured through YAML files in `sram_compiler/config_yaml/`.
-
-`main_sram.py` is the main entrance: edit its settings block and run
-`python main_sram.py` to generate one array and simulate it with Xyce. It reads
-the YAML files in memory and defaults to seeded per-device local mismatch over
-the full transistor array. `python -m sram_compiler.per_device_mc.run` exposes
-the same defaults as command-line options for scripted generation; add
-`--run-xyce` to simulate. See the [compiler guide](sram_compiler/README.md)
-for both workflows.
-
-#### Configuration via YAML
-
-Key parameters in `sram_compiler/config_yaml/global.yaml`:
-
-```yaml
-vdd: 1.0            # Supply voltage (V)
-temperature: 27     # Temperature (Celsius)
-num_rows: 16        # Number of SRAM rows
-num_cols: 16        # Number of SRAM columns
-monte_carlo_runs: 2 # Monte Carlo simulation runs
-corner: TT          # Process corner (TT/FF/SS/FS/SF)
-```
-
-Transistor widths and models for each cell type are in:
-
-- `sram_compiler/config_yaml/sram_6t_cell.yaml`
-- `sram_compiler/config_yaml/sram_10t_cell.yaml`
-- `sram_compiler/config_yaml/precharge.yaml`, `wordline_driver.yaml`, etc.
-
-#### Running a Simulation
-
-```bash
-# Main entrance: edit the settings block at the top of the script first
-python main_sram.py
-# Command-line runner with the same defaults
-python -m sram_compiler.per_device_mc.run --rows 8 --cols 4 --mc-runs 2 --run-xyce
-```
-
-Or programmatically:
-
-```python
-from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
-from config import SRAM_CONFIG
-from PySpice.Unit import u_Ohm, u_pF
-
-sram_config = SRAM_CONFIG()
-sram_config.load_all_configs(
-    global_file="sram_compiler/config_yaml/global.yaml",
-    circuit_configs={
-        "SRAM_6T_CELL": "sram_compiler/config_yaml/sram_6t_cell.yaml",
-        "SRAM_10T_CELL": "sram_compiler/config_yaml/sram_10t_cell.yaml",
-        "WORDLINEDRIVER": "sram_compiler/config_yaml/wordline_driver.yaml",
-        "PRECHARGE": "sram_compiler/config_yaml/precharge.yaml",
-        "COLUMNMUX": "sram_compiler/config_yaml/mux.yaml",
-        "SENSEAMP": "sram_compiler/config_yaml/sa.yaml",
-        "WRITEDRIVER": "sram_compiler/config_yaml/write_driver.yaml",
-        "DECODER": "sram_compiler/config_yaml/decoder.yaml",
-    }
-)
-
-mc_testbench = Sram6TCoreMcTestbench(
-    sram_config,
-    sram_cell_type="SRAM_6T_CELL",  # or "SRAM_10T_CELL"
-    w_rc=True,
-    pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-    vth_std=0.05,                  # relative sigma of vth0/u0/voff
-    variation_mode='per-device',   # the default; 'nominal', 'shared', 'custom' are explicit
-    mc_seed=20260711,              # reproducible sampling; None draws a new seed per run
-    real_cell_mode=0,              # full array; 1-4 use the equivalent circuit for unused cells
-                                   # (None, the default, takes global.yaml's `equivalent` block)
-    corner='TT',
-    sim_path='sim/',
-)
-
-# Transient analysis: 'write', 'read', or 'read&write'
-delay, pavg, pstc, pdyn = mc_testbench.run_mc_simulation(
-    operation='write',
-    target_row=15, target_col=15,
-    mc_runs=10,
-    temperature=27,
-)
-
-# DC analysis: 'write_snm', 'hold_snm', 'read_snm'
-snm = mc_testbench.run_mc_simulation(
-    operation='read_snm',
-    target_row=15, target_col=15,
-    mc_runs=10,
-    temperature=27,
-)
-```
-
-Simulation outputs (netlists, waveforms, results) are saved to the `sim_path` directory.
-
-### 2. Equivalent Circuit Modeling
-
-For large arrays, unused SRAM cells can be replaced with a compact 5-capacitor equivalent circuit to reduce simulation time.
-
-V2.1.5 makes this a simulation input. `global.yaml` carries the default:
-
-```yaml
-equivalent:
-  mode: 0        # 0 = full transistor array (reference); 1-4 = equivalent cells
-```
-
-`--real-cell-mode` on the command line, the `real_cell_mode` testbench argument
-and `REAL_CELL_MODE` in `main_sram.py` override it; `None` keeps the YAML value.
-Mode `0` keeps the complete transistor array and is the only mode whose
-per-device mismatch covers every cell, so modes 1–4 never carry qualification
-evidence. Modes 1–4 call Xyce during netlist generation to extract the cell
-parasitics, so Xyce must be on PATH even to build the deck.
-
-To measure the approximation against the full transistor array:
-
-```bash
-python3 -m sram_compiler.equivalent_modeling.compare --sizes 16x16,32x32 --modes 0,1,4 --plot
-```
-
-Results land in `outputs/equivalent_modeling/<timestamp>/` (`result.csv`,
-`result_diff.csv`, `settings.json`). See
-[`sram_compiler/equivalent_modeling/README.md`](sram_compiler/equivalent_modeling/README.md)
-for the model description and
-[the V2.1.5 record](docs/design/EQUIVALENT_MODEL_V2_1_5.md) for measured errors.
-
-#### Per-device process variation
-
-The compiler's [per-device runner](sram_compiler/per_device_mc/README.md)
-defaults to independent local mismatch and keeps circuit topology and process
-variation as separate options:
+Generate a small full-transistor array without invoking Xyce:
 
 ```bash
 python -m sram_compiler.per_device_mc.run \
-  --rows 16 --cols 16 \
-  --real-cell-mode 1 \
-  --variation-mode per-device \
-  --mc-runs 100 \
-  --operation read \
-  --output-dir outputs/per_device_mc \
-  --run-xyce
+  --rows 8 --cols 4 --operation read \
+  --variation-mode nominal --mc-runs 1 \
+  --real-cell-mode 0 --output-dir outputs/first_run
 ```
 
-Variation modes:
-
-| Mode                     | Behavior                                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `nominal`              | No process variation                                                                                                           |
-| `shared`               | Existing model-card Monte Carlo; devices sharing a base model share its random parameters                                      |
-| `custom`               | Parameter-table flow using`process_parameters.vars` from the cell YAML; a one-dimensional 10T table is treated as one sample |
-| `per-device` (default) | Independent`vth0`, `u0`, and `voff` expressions for every MOS retained in the generated netlist                          |
-
-`--vth-std` is the relative standard deviation used for all three varied parameters; the default is `0.05`.
-
-`real-cell-mode` is `0` (full array), `1` (target-row/target-column cross), `2` (target row), `3` (target column), or `4` (target cell); omitted, it takes the `equivalent` block of `global.yaml`, and the resolved mode is recorded in `summary.json`. In modes 1–4, replaced cells are represented by the existing equivalent circuit; retained cells and peripheral MOS devices receive per-device variation. Write simulation is available in all five modes. In modes 3 and 4, the target cell write transition remains transistor-level, while replaced cells contribute the equivalent RC and WL-controlled static-power model. Their internal write state and whole-row dynamic write power should therefore be treated as approximations rather than full-array transistor-level results.
-
-Generation is the default. Add `--run-xyce` to simulate or `--audit` to save model counts and hierarchy details. The runner accepts `read`, `write`, `read&write`, `hold_snm`, `read_snm`, and `write_snm`.
-
-`.PRINT` output is retained by default. After a successful Xyce run, the same directory contains `deck.sp.prn` and `waveform.png`. `--no-waveform` is available for transient operations; SNM calculations require the DC waveform and reject that option.
-
-Each parameter set gets a deterministic subdirectory under `--output-dir`. Different circuit and variation modes remain separate. Repeating the same configuration refreshes only runner-generated files in that directory, so old PRN or measurement files cannot be mistaken for the current run.
-
-### 3. SRAM Sizing Optimization
-
-OpenYield includes a suite of optimization algorithms for SRAM transistor sizing and architecture configuration. All algorithms share a common interface via `size_optimization/exp_utils.py`.
-
-#### Available Algorithms
-
-| Algorithm | Script              | Description                                                    |
-| --------- | ------------------- | -------------------------------------------------------------- |
-| SA        | `demo_sa.py`      | Simulated Annealing                                            |
-| PSO       | `demo_pso.py`     | Particle Swarm Optimization                                    |
-| CBO       | `demo_cbo.py`     | Constrained Bayesian Optimization                              |
-| RoSE-Opt  | `demo_roseopt.py` | Reinforcement Learning Enhanced BO                             |
-| CMA-ES    | `demo_cmaes.py`   | Covariance Matrix Adaptation Evolution Strategy                |
-| SMAC      | `demo_smac.py`    | Sequential Model-based Algorithm Configuration                 |
-| NSGA-II   | `demo_nsgaii.py`  | Multi-Objective Genetic Algorithm                              |
-| MOEAD     | `demo_moead.py`   | Multi-Objective Evolutionary Algorithm based on Decomposition  |
-| MOBO      | `demo_mobo.py`    | Multi-Objective Bayesian Optimization                          |
-| CPN       | `demo_cpn.py`     | TabPFN-based Bayesian Optimization (requires`tabpfn`)        |
-| tSS-BO    | `demo_tssbo.py`   | Truncated Subspace Sampling BO (requires separate tSS-BO repo) |
-| Random    | `demo_random.py`  | Random Search (baseline)                                       |
-
-#### Running an Optimization
+Add `--run-xyce` to execute the deck and save measurements and a waveform. For a reproducible local-mismatch run, use `--variation-mode per-device --mc-runs 2 --seed 3 --run-xyce`. A single per-device run without a seed is a random draw; use `nominal` when you want no variation. Outputs are placed in a configuration-specific directory under the selected output root.
 
 ```bash
-cd /path/to/OpenYield
-python size_optimization/demo_sa.py        # Simulated Annealing
-python size_optimization/demo_pso.py       # PSO
-python size_optimization/demo_cbo.py       # Constrained BO
+python -m sram_compiler.per_device_mc.run \
+  --rows 8 --cols 4 --operation write \
+  --variation-mode per-device --mc-runs 2 --seed 3 \
+  --real-cell-mode 0 --output-dir outputs/first_run --run-xyce
 ```
 
-#### Architecture + Sizing Optimization
+The CLI also accepts `read&write`, `hold_snm`, `read_snm`, and `write_snm`. Use `python -m sram_compiler.per_device_mc.run --help` for all options. The [runner guide](sram_compiler/per_device_mc/README.md) explains modes, files, and sample provenance.
+
+## Configure an array
+
+`main_sram.py` is the editable one-run entrance. Its settings block controls `ARRAY = [rows, cols, column_mux]`, corner, 6T cell widths, operation, variation, seed, and target cell. Running `python main_sram.py` generates and simulates the configured array. It loads YAML into memory; it does not rewrite the tracked configuration files.
+
+Circuit defaults live in `sram_compiler/config_yaml/`. `global.yaml` sets supply, temperature, geometry, cell type, timing, wiring, and equivalent mode. Cell and peripheral YAMLs define transistor sizes in **metres**. Clocks come from [timing_lookup.json](sram_compiler/sizing/timing_lookup.json), and critical driver sizes from [sizing_lookup.json](sram_compiler/sizing/sizing_lookup.json). Freeze both across candidate cells and PVT samples. The default wire geometry is illustrative rather than extracted metal; pass an interconnect YAML through `--interconnect-config` when you have measured geometry. The [compiler tutorial](sram_compiler/README.md) covers the configuration and Python API.
+
+| Variation mode | Meaning |
+|---|---|
+| `nominal` | One fixed PDK corner, no Monte Carlo draw |
+| `per-device` | Independent `vth0`, `u0`, and `voff` draws per retained MOS; default |
+| `shared` | One random model card per base model |
+| `custom` | Explicit parameter table from the cell YAML |
+
+`--real-cell-mode 0` keeps every transistor and is the reference for per-device coverage. Modes 1–4 replace selected unused cells with approximate equivalent loads and need Xyce even during netlist generation. Compare them against mode 0 using the [equivalent-model guide](sram_compiler/equivalent_modeling/README.md). A write currently drives every column in the selected row; half-select writes remain open work.
+
+## Sizing and yield workflows
+
+Circuit-backed optimization is under [`size_optimization/`](size_optimization/README.md). For example, after installing its optional dependencies:
 
 ```bash
+python size_optimization/demo_sa.py
 python size_optimization/experiment.py
 ```
 
-The script asks for a mode:
-
-1. Joint (default): architecture (rows, cols, arrays) and transistor sizing in
-   one search, with a selectable algorithm (SA, PSO, SMAC, CBO, RoSE-Opt, MOEAD,
-   MOBO, NSGA-II, tSS-BO, CMA-ES, CPN).
-2. Fixed configurations: transistor sizing (SA, PSO, RoSE-Opt, CBO or SMAC) on
-   one or all of five fixed array configurations of the same total capacity.
-
-#### Optimization Parameter Space
-
-The parameter space is defined in `size_optimization/exp_utils.py`:
-
-- **`ModifiedSRAMParameterSpace`**: 7-dimensional bitcell transistor sizing space.
-- **`CompositeSRAMParameterSpace`**: 24-dimensional joint space (bitcell + peripheral circuits).
-
-#### OpenYield V2 offline optimizers
-
-`size_optimization/openyield_v2/` adds a separate surrogate-optimization path without changing the circuit generator or the existing optimization scripts. It includes NSGA2, SPEA2, UNSGA3, CTAEA, GPBO, PAREGO, MACE, and the proposed coarse-search/refinement method.
-
-The package reads `datasets/train_6t.csv` and `datasets/train_10t.csv`. These are static TT/25 °C samples generated with the equivalent circuit enabled and per-device variation disabled; they are not current per-device Monte Carlo results.
-
-`train_10t.csv` also predates the V2.1.5 10T pull-down resize: its `pd_width` column spans 164-246 nm, the old YAML bounds, while the tracked 10T cell is now 287 nm with bounds 230-344 nm. The offline 10T surrogate therefore describes a design space that barely overlaps the current default, and a 10T run of this package must either regenerate the dataset or be read as a study of the old cell. The 6T dataset is unaffected.
+`experiment.py` offers joint architecture and transistor sizing or sizing at fixed configurations. The separate [OpenYield V2 offline package](size_optimization/openyield_v2/README.md) trains on bundled static data and does not call Xyce during optimization:
 
 ```bash
+python -m pip install -r size_optimization/openyield_v2/requirements.txt
 python -m size_optimization.openyield_v2.run_experiment --dry-run
-python -m size_optimization.openyield_v2.run_experiment
 ```
 
-See [`size_optimization/openyield_v2/README.md`](size_optimization/openyield_v2/README.md) for algorithm selection, budgets, and output files.
+Legacy importance-sampling estimators are retained in [`yield_estimation/`](yield_estimation/README.md), but they are not a validated V2.2.4 yield workflow. Use the compiler's per-device runner for current sampling, and read the [open items](docs/README.md#open-items) before reporting a yield estimate.
 
-### 4. SRAM Yield Estimation Algorithms
+## Validate changes
 
-OpenYield includes SRAM yield estimators based on Monte Carlo and importance sampling.
-
-#### Available Algorithms
-
-- **MC**: Monte Carlo
-- **MNIS**: Mean-shifted Importance Sampling
-- **ACS**: Adaptive Compressed Sampling
-- **AIS**: Adaptive Importance Sampling
-- **HSCS**: High-dimensional Sparse Compressed Sampling
-
-## Project Structure
-
-```
-OpenYield/
-├── main_sram.py                  # Main entrance: one array, seeded per-device mismatch, YAML read in memory
-├── config.py                     # Compatibility re-export of the YAML loader
-├── utils/                        # Shared runtime utilities (legacy imports preserved)
-│   ├── measurements.py           # Monte Carlo measurement parsing and statistics
-│   ├── waveforms.py              # Xyce PRN loading and sample splitting
-│   ├── plotting.py               # Waveforms, SRAM comparisons, and optimizer plots
-│   ├── area.py                   # Bitcell, array, and macro area estimates
-│   └── spice.py                  # SPICE model parsing and writing
-├── environment.yml               # Conda environment specification
-├── docs/
-│   ├── README.md                 # Plans and release history index
-│   ├── DRIVER_SIZING_PROPOSAL.md # Full working design and qualification status
-│   ├── TIMING_AUTOCONFIG.md      # Original timing proposal
-│   ├── CHANGELOG.md              # Release history
-│   ├── DEVELOPMENT.md            # Regression checks and local development tools
-│   └── design/                  # Archived original design proposal
-├── sram_compiler/
-│   ├── README.md                 # Compiler and simulation guide
-│   ├── CIRCUIT_REVIEW.md         # Circuit review and verification evidence
-│   ├── config_yaml/              # YAML configuration files for all circuits
-│   ├── per_device_mc/            # Default local mismatch generation and execution
-│   │   ├── run.py                # CLI and in-memory configuration helper
-│   │   ├── netlist.py            # Independent model cards for retained MOS devices
-│   │   └── sampling.py           # Materialized local draws for MPI runs
-│   ├── sizing/                  # Driver rules, timing, and qualified-table lookup
-│   ├── subcircuits/              # Circuit generation modules (6T, 10T, peripherals)
-│   └── testbenches/              # Simulation testbench classes
-├── tests/                       # Reusable compiler regression tests
-├── dev/                         # Local experiments and qualification tools (ignored)
-├── size_optimization/
-│   ├── README.md                 # Optimization entry points
-│   ├── 电路算法说明文档.md        # Detailed sizing algorithm guide
-│   ├── exp_utils.py              # Shared optimization utilities and parameter spaces
-│   ├── experiment.py             # Two-stage optimization driver
-│   ├── demo_sa.py                # Simulated Annealing
-│   ├── demo_pso.py               # Particle Swarm Optimization
-│   ├── demo_cbo.py               # Constrained Bayesian Optimization
-│   ├── demo_roseopt.py           # RoSE-Opt
-│   ├── demo_cmaes.py             # CMA-ES
-│   ├── demo_smac.py              # SMAC
-│   ├── demo_nsgaii.py            # NSGA-II
-│   ├── demo_moead.py             # MOEAD
-│   ├── demo_mobo.py              # Multi-Objective BO
-│   ├── demo_cpn.py               # CPN (TabPFN-based BO)
-│   ├── demo_tssbo.py             # tSS-BO
-│   ├── demo_random.py            # Random search baseline
-│   ├── NSGA-II/                  # NSGA-II implementation
-│   ├── MOBO/                     # MOBO implementation
-│   ├── moead/                    # MOEAD implementation
-│   └── openyield_v2/             # Offline evolutionary/Bayesian optimizer package and datasets
-├── tran_models/                  # FreePDK45 transistor model files
-└── yield_estimation/             # Yield estimation algorithms
+```bash
+python -m compileall -q sram_compiler utils size_optimization yield_estimation
+python -m sram_compiler.per_device_mc.run --rows 8 --cols 4 \
+  --operation read --variation-mode nominal --mc-runs 1 \
+  --real-cell-mode 0 --output-dir outputs/smoke
 ```
 
-## Important Notes
+The regression and waveform Python scripts are retained only in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the pending V2.2.4 screen. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
 
-* Ensure Xyce is installed and available in your system PATH.
-* The circuit generator, per-device runner, equivalent-model scripts, and OpenYield V2 package resolve repository data from the project root. Legacy `yield_estimation/` demos still contain their original machine-local paths and were not changed in this integration.
-* FreePDK45 model files are included in `tran_models/`.
-* Simulation output directories (`sim/`, `sim1/`, `outputs/`) are created automatically and are excluded from git.
+## Guides and project map
 
-## Contributing
+| Path | Start here for |
+|---|---|
+| [Compiler tutorial](sram_compiler/README.md) | Configuration, testbenches, results, and common failures |
+| [Sizing and timing](sram_compiler/sizing/README.md) | Frozen driver classes and clock budgets |
+| [Equivalent models](sram_compiler/equivalent_modeling/README.md) | Modes 0–4 and accuracy comparison |
+| [Sizing optimization](size_optimization/README.md) | Circuit-backed and offline optimizer entry points |
+| [Shared utilities](utils/README.md) | Measurement, waveform, plot, area, and SPICE helpers |
+| [Local checks](tests/README.md) | Retained manifests and optional local regression scripts |
+| [Documentation index](docs/README.md) | Release records, evidence, and remaining work |
+| [Changelog](docs/CHANGELOG.md) | Version history |
 
-Contributions and reproducible issue reports are welcome.
+The main flow is YAML → `SRAM_CONFIG` → subcircuit factories → `Sram6TCoreMcTestbench` → Xyce measurements and waveforms → optimization or analysis. Generated decks and results belong under ignored `outputs/`.
 
-# Cite Us
+## Cite us
 
-```LaTeX
+```bibtex
 @INPROCEEDINGS{OpenYield,
   author={Shen, Shan and Li, Xingyang and Liu, Zhuohua and Ma, Junhao and Wang, Yikai and Wu, Yiheng and Sun, Yuquan and Xing, Wei W.},
   booktitle={2025 IEEE 43rd International Conference on Computer Design (ICCD)},
   title={OpenYield: An Open-Source SRAM Yield Analysis and Optimization Benchmark Suite},
   year={2025},
-  volume={},
-  number={},
   pages={167-175},
   doi={10.1109/ICCD65941.2025.00030}
 }
-
 ```
