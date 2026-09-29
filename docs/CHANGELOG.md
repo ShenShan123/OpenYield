@@ -15,9 +15,15 @@ writes a summary for successful deck-only runs. Invalid targets, operations,
 sample controls, and main-entrance dimensions now fail before a misleading deck
 or result can be reported. Current tutorials describe this flow.
 
-No V2.2.5 waveform screen has run. The V2.2.4 timing table and historical
+No V2.2.5 waveform screen has completed. The V2.2.4 timing table and historical
 manifests keep their original versions; 256x256 remains unresolved. The last
 assembled screen is V2.2.2 and does not certify V2.2.5.
+
+Subsequent V2.2.5 diagnostic work added eight matched short-clock negative
+controls, spanning read, write, row change, mux selection, 10T, and local
+mismatch. All eight and the six preserved controls failed the intended waveform
+checks with successful Xyce exits; the [evaluation](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)
+does not promote the still-running positive screen.
 
 ## V2.2.4 — 2026-09-26 — replica load cells that do not leak, and the V2.2.3 review fixes
 

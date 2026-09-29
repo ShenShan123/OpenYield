@@ -2,7 +2,7 @@
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
 
-**Release status:** V2.2.5 makes `main_sram.py` the documented macro entrance and tightens generation input checks. No V2.2.5 waveform screen has run. The configured limit is 512 rows by 256 columns, but 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree. See the [V2.2.5 record](docs/design/COMPILER_ENTRY_V2_2_5.md) before treating a generated deck or passing measurement as functional evidence.
+**Release status:** V2.2.5 makes `main_sram.py` the documented macro entrance and tightens generation input checks. The [V2.2.5 waveform campaign](docs/V2_2_5_FULL_COVERAGE_EVALUATION.md) is in progress, not complete. The configured limit is 512 rows by 256 columns, but 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree. See the [V2.2.5 record](docs/design/COMPILER_ENTRY_V2_2_5.md) before treating a generated deck or passing measurement as functional evidence.
 
 ## Quick start
 
@@ -64,7 +64,7 @@ python -m compileall -q sram_compiler utils size_optimization yield_estimation
 python main_sram.py  # set RUN_XYCE=False for deck generation without Xyce
 ```
 
-The regression and waveform Python scripts are retained only in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the unrun V2.2.4 plan; no V2.2.5 screen has run. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
+The regression and waveform Python scripts are retained only in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the V2.2.4 plan now being run on V2.2.5; no V2.2.5 screen has completed. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
 
 ## Guides and project map
 

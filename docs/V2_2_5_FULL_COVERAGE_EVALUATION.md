@@ -29,19 +29,20 @@ Waveform scoring checks read and write data, retention, sensing, physical far-en
 | 2026-09-28 08:39 UTC, dynamic queue complete | 4 / 1,778 | 1 / 6 | All four dynamic mux-column reads passed. The other positive queues have active Xyce cases and no scored failures yet. The negative queue has five controls pending or running. |
 | 2026-09-28 12:32 UTC, four-hour check | 178 / 1,778 | 5 / 6 | Small 171, mid 3, dynamic 4 passed; no positive failures or solver/checker errors. Five controls produced waveform failures with Xyce return code 0. The last control, `negative_512x4_SS_14ns`, is active. Hero and big have no completed cases yet. |
 | 2026-09-29 06:33 UTC, 22-hour check | 1,556 / 1,778 | 6 / 6 | Small 1,445/1,445 and dynamic 4/4 complete; mid 83/157 and big 24/164 pass, with no positive failures or solver/checker errors. Every negative control failed waveform checks with Xyce return code 0. Hero 0/8; both first cases remain active. |
+| 2026-09-29, expanded negative controls | — | 14 / 14 total | Eight additional V2.2.5 short-clock scenarios passed their diagnostic rejection criteria in a separate run. See the [negative-control evaluation](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md); the main positive screen is still running. |
 
 ## Live queue snapshot
 
 The local monitor reads saved `result.json` and `metadata.json` files and refreshes this table while the campaign runs. It does not treat a started case as a pass.
 
 <!-- v225-progress-start -->
-Updated 2026-09-29 07:02:41 UTC.
+Updated 2026-09-29 07:12:43 UTC.
 
 | Queue | Expected | Passed | Expected negative rejections | Failed | Solver/checker errors | Active | Pending |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | hero | 8 | 0 | 0 | 0 | 0 | 2 | 6 |
-| big | 164 | 25 | 0 | 0 | 0 | 8 | 131 |
-| mid | 157 | 86 | 0 | 0 | 0 | 8 | 63 |
+| big | 164 | 27 | 0 | 0 | 0 | 8 | 129 |
+| mid | 157 | 91 | 0 | 0 | 0 | 8 | 58 |
 | small | 1445 | 1445 | 0 | 0 | 0 | 0 | 0 |
 | dynamic | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
 | negative | 6 | 0 | 6 | 0 | 0 | 0 | 0 |

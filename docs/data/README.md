@@ -1,4 +1,10 @@
-# Supplied characterisation data
+# Characterisation and diagnostic data
+
+`V2_2_5_NEGATIVE_CONTROLS.json` is a new **diagnostic** record for 14 short-clock
+negative controls. It stores each case's solver outcome, waveform failures,
+expected-check matches, model and source hashes, and the eight passing matched
+references. It is described in the [V2.2.5 negative-control evaluation](../V2_2_5_NEGATIVE_CONTROL_EVALUATION.md).
+It is not an assembled positive screen or a qualification record.
 
 `PHASED_CONTROL_V2_2_2.json` is the assembled V2.2.2 functional screen: one
 record per case with its clock, corner, seed, solver, deck, waveform and

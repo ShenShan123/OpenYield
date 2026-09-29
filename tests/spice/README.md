@@ -9,10 +9,22 @@ eight V2.2.5 short-clock cases with passing reference names and exact expected
 waveform failures. The [negative-control evaluation](../../docs/V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)
 records their Xyce outcomes. The active full-screen queue still uses its frozen
 six-case V2.2.4 manifest; the eight additions run separately.
+To repeat all fourteen from the repository root, select a fresh output root:
+
+```bash
+python3 -m tests.spice.phased_access \
+  --cases tests/spice/v225_negative_cases.json \
+  --output outputs/validation/my-v225-negative-recheck \
+  --xyce "$(command -v Xyce)" --workers 4
+```
+
+The runner exits nonzero when these controls fail waveform checks as intended.
+Check `expected_failure_checks` against each saved `result.json`; a solver
+failure does not count as a successful negative control.
 
 These opt-in tests contain the V2.2.4 waveform plan, preserved for the V2.2.5 tree. They are separate
 from `python3 -m unittest discover -s tests`, which does not launch this screen.
-**The V2.2.4 manifests have not been run**, and `256x256_6t_SS_read_write`
+**The V2.2.4 manifests are being run on V2.2.5 but are incomplete**, and `256x256_6t_SS_read_write`
 has no working operating point yet; the last assembled screen is V2.2.2's, and
 it certifies the V2.2.2 tree, not this one.
 Run from the repository root with the normal OpenYield Python dependencies and

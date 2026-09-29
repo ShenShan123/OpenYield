@@ -12,7 +12,7 @@ python main_sram.py
 
 Use mode 0 for full device coverage and record the corner, VDD, temperature, wire model, timing table, driver baseline, model cards, and seed with the results. The main entrance writes measurement data under `outputs/main_sram/`. Set `VARIATION_MODE = "nominal"` and `MC_RUNS = 1` for a fixed-corner diagnostic reference. See the [batch runner tutorial](../sram_compiler/per_device_mc/README.md) for sample and output semantics.
 
-This command produces circuit results, not a qualified failure probability. A yield study must define failure using waveform-based read, write, retention, sensing, and recovery checks, count numerical non-completion separately, and establish coverage across PVT and mismatch. The [V2.2.5 screen](../docs/design/COMPILER_ENTRY_V2_2_5.md) has not run. The [open items](../docs/README.md#open-items) describe the work needed to connect samples to release checks and validate the estimators.
+This command produces circuit results, not a qualified failure probability. A yield study must define failure using waveform-based read, write, retention, sensing, and recovery checks, count numerical non-completion separately, and establish coverage across PVT and mismatch. The [V2.2.5 screen](../docs/V2_2_5_FULL_COVERAGE_EVALUATION.md) has not completed. The [open items](../docs/README.md#open-items) describe the work needed to connect samples to release checks and validate the estimators.
 
 ## Legacy algorithm modules
 

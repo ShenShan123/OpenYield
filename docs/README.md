@@ -37,9 +37,9 @@ The carried Phase 6 scope. The working plans that defined it
   V2.2.2 tree only. The V2.2.3 screen ran 284 of 285 cases and was never
   assembled, and V2.2.4 changed the replica column of every deck. V2.2.5
   changes the compiler entrance and validation. The V2.2.4 manifests (334 main
-  cases, 1,444 per-device draws, 6 negative controls) remain the unrun plan
-  ([how](design/PHASED_CONTROL_V2_2_4.md#the-screen), about 1,400 solver-hours);
-  no V2.2.5 screen or qualification has been assembled.
+  cases, 1,444 per-device draws, 6 negative controls) are being run on V2.2.5
+  ([live progress](V2_2_5_FULL_COVERAGE_EVALUATION.md), about 1,400 estimated
+  solver-hours); no V2.2.5 screen or qualification has been assembled.
 - **The 256x256 operating point.** Plain Newton did not converge in 92 h in
   the V2.2.3 screen, MOSFET homotopy is erratic, and the V2.2.4 seeded
   operating point, which solves 128x128 and 256x128 in minutes, had not
