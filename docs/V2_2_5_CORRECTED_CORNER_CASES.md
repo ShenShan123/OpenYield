@@ -1,6 +1,6 @@
 # V2.2.5 corrected-model corner cases
 
-**Status: 22 of 22 selected positives passed; diagnostic only.** This run exercises boundary and unusual SRAM configurations on the corrected V2.2.5 model-card hashes. It is separate from the stopped [full-coverage campaign](V2_2_5_FULL_COVERAGE_EVALUATION.md), whose results used the original model files and cannot certify this tree. [Machine-readable case evidence](data/V2_2_5_CORRECTED_CORNER_CASES.json) records result and source hashes, model hashes, seeds, and the eight corrected-model negative controls.
+**Status: 22 of 22 small and irregular positives passed; a four-case medium tranche is running. Diagnostic only.** This run exercises boundary and unusual SRAM configurations on the corrected V2.2.5 model-card hashes. It is separate from the stopped [full-coverage campaign](V2_2_5_FULL_COVERAGE_EVALUATION.md), whose results used the original model files and cannot certify this tree. [Machine-readable case evidence](data/V2_2_5_CORRECTED_CORNER_CASES.json) records the completed first tranche's result and source hashes, model hashes, seeds, and eight corrected-model negative controls.
 
 ## Frozen inputs and acceptance
 
@@ -34,3 +34,20 @@ The eight added controls in [`tests/spice/v225_negative_cases.json`](../tests/sp
 | 2026-09-29 14:43 UTC | 17 / 22 | 0 | All 22 cases started. Passing results now include static and dynamic mux selection, TT no-stub read, SS local-mismatch read, SF 10T mux write, and 12×5 10T read/write. |
 | 2026-09-29 14:51 UTC | 21 / 22 | 0 | The 16×8 6T SS per-device muxed column-0 sequence passed. Eight of eight added negative controls produced waveform rejections; two of three extra positive references passed. The 16×8 10T FS per-device case and one reference remain active. |
 | 2026-09-29, completed diagnostic | 22 / 22 | 0 | The 16×8 10T FS per-device sequence and the last matched reference passed. Eight of eight corrected-model negative controls met their expected failure checks. Evidence assembled; no full-screen qualification claimed. |
+
+## Medium class-boundary tranche
+
+Four unchanged tracked cases are running from a source worktree pinned at commit `744c6a41fc2d5251aa9a0f908e3677ee54f96d87`, after the model-card correction. The frozen subset is `outputs/validation/V2.2.5-corrected-medium/cases.json` (SHA-256 `c6f508b5e2a79d1b67458701b74c9a1688ae642e4deaba67265124bad13bac0a`); per-case outputs go to `outputs/validation/V2.2.5-corrected-medium/results/`. Conda Xyce 7.4 runs four workers in the persistent `openyield_v225_medium` tmux session. A case remains incomplete until its Xyce result and independent waveform score are saved.
+
+| Case | Boundary under test |
+|---|---|
+| `33x33_6t_SShot_read_write` | One past the 32-row and 32-column classes |
+| `65x9_10t_SShot_read_write` | One past the 64-row and 8-column classes |
+| `8x256_6t_mux_SS_read_write_col0` | Supported maximum column count, mux input 0 |
+| `257x4_10t_mux_FFcold_read_write` | One past the 256-row class at FF cold |
+
+These four cases extend the diagnostic toward the size-class edges. They do not include 512×256 or resolve the 256×256 operating point.
+
+| Checkpoint | Scored passes | Failures or errors | Note |
+|---|---:|---:|---|
+| 2026-09-29 14:59 UTC, launch | 0 / 4 | 0 | All four cases started; results pending. |
