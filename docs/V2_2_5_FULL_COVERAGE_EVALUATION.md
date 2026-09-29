@@ -4,7 +4,7 @@
 
 ## Scope and acceptance
 
-The campaign uses the preserved V2.2.4 case definitions against compiler commit `206fbd8f73786d546203dedbdd6638707d1df21a` (V2.2.5). The manifests contain 334 main cases, 1,444 per-device draws, and six negative controls. The `dev/v224/{hero,big,mid,small}.json` launch queues cover 1,774 positive cases; four later dynamic mux-column reads are absent from those queues and will run as an additional queue. A full positive screen requires 1,778 scored passing cases. All six negative controls must fail for their intended waveform reasons. Source changes, missing or invalid measurements, and numerical non-completion count separately and prevent qualification.
+The campaign uses the preserved V2.2.4 case definitions against compiler commit `206fbd8f73786d546203dedbdd6638707d1df21a` (V2.2.5). The original manifests contain 334 main cases, 1,444 per-device draws, and six negative controls. The `dev/v224/{hero,big,mid,small}.json` launch queues cover 1,774 positive cases; four later dynamic mux-column reads are absent from those queues and run as an additional queue. A full positive screen requires 1,778 scored passing cases. All six original negative controls must fail for their intended waveform reasons; a [V2.2.5 supplement](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md) adds eight matched scenarios under a separate result root. Source changes, missing or invalid measurements, and numerical non-completion count separately and prevent qualification.
 
 Waveform scoring checks read and write data, retention, sensing, physical far-end wordline and bitline timing, precharge, isolation, and clock-low recovery. The runner records per-case model, seed, corner, VDD, temperature, RC, equivalent mode, source hashes, solver output, measures, and raw waveform. A passing campaign would still use illustrative distributed wire geometry and would not establish extracted-metal timing or a yield probability.
 
@@ -35,13 +35,13 @@ Waveform scoring checks read and write data, retention, sensing, physical far-en
 The local monitor reads saved `result.json` and `metadata.json` files and refreshes this table while the campaign runs. It does not treat a started case as a pass.
 
 <!-- v225-progress-start -->
-Updated 2026-09-29 06:32:33 UTC.
+Updated 2026-09-29 07:02:41 UTC.
 
 | Queue | Expected | Passed | Expected negative rejections | Failed | Solver/checker errors | Active | Pending |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | hero | 8 | 0 | 0 | 0 | 0 | 2 | 6 |
-| big | 164 | 24 | 0 | 0 | 0 | 8 | 132 |
-| mid | 157 | 83 | 0 | 0 | 0 | 8 | 66 |
+| big | 164 | 25 | 0 | 0 | 0 | 8 | 131 |
+| mid | 157 | 86 | 0 | 0 | 0 | 8 | 63 |
 | small | 1445 | 1445 | 0 | 0 | 0 | 0 | 0 |
 | dynamic | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
 | negative | 6 | 0 | 6 | 0 | 0 | 0 | 0 |

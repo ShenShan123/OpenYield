@@ -1,0 +1,206 @@
+[
+ {
+  "name": "negative_8x4_SS_2ns",
+  "rows": 8,
+  "cols": 4,
+  "period": 2e-09,
+  "timeout": 1800
+ },
+ {
+  "name": "negative_32x32_SS_5ns",
+  "rows": 32,
+  "cols": 32,
+  "period": 5e-09,
+  "timeout": 5051
+ },
+ {
+  "name": "negative_64x64_SS_6ns",
+  "rows": 64,
+  "cols": 64,
+  "period": 6e-09,
+  "mpi_ranks": 4,
+  "timeout": 24246
+ },
+ {
+  "name": "negative_128x8_SS_8ns",
+  "rows": 128,
+  "cols": 8,
+  "period": 8e-09,
+  "timeout": 8082
+ },
+ {
+  "name": "negative_8x256_SS_8ns",
+  "rows": 8,
+  "cols": 256,
+  "period": 8e-09,
+  "timeout": 16164
+ },
+ {
+  "name": "negative_512x4_SS_14ns",
+  "rows": 512,
+  "cols": 4,
+  "period": 1.4e-08,
+  "timeout": 28287
+ },
+ {
+  "name": "negative_8x4_6t_SS_read_4ns",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read",
+  "timeout": 1800,
+  "period": 4e-09,
+  "positive_reference": "8x4_6t_SS_read",
+  "negative_scenario": "slow-corner read misses sense and output deadline",
+  "expected_failure_checks": [
+   "cycle0_read_c0_sense_once",
+   "cycle0_read_output"
+  ],
+  "added_in": "V2.2.5"
+ },
+ {
+  "name": "negative_8x4_6t_SS_write_4ns",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "write",
+  "timeout": 1800,
+  "period": 4e-09,
+  "positive_reference": "8x4_6t_SS_write",
+  "negative_scenario": "slow-corner write loses retention and bitline restore",
+  "expected_failure_checks": [
+   "cycle0_write_cell7,0_retention",
+   "cycle0_write_restore_BL0"
+  ],
+  "added_in": "V2.2.5"
+ },
+ {
+  "name": "negative_8x4_6t_SS_write_nextrow_4ns",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "operation": "write",
+  "next_row": 0,
+  "background": 1,
+  "timeout": 1800,
+  "period": 4e-09,
+  "positive_reference": "8x4_6t_SS_write_nextrow",
+  "negative_scenario": "changed-row write loses next-row retention and restore",
+  "expected_failure_checks": [
+   "cycle1_write_cell0,0_retention",
+   "cycle0_write_restore_BL0"
+  ],
+  "added_in": "V2.2.5"
+ },
+ {
+  "name": "negative_8x4_6t_mux_SS_read_col0_bg1_4ns",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": true,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read",
+  "variation": "nominal",
+  "col": 0,
+  "background": 1,
+  "timeout": 1800,
+  "added_in": "V2.2.5",
+  "period": 4e-09,
+  "positive_reference": "8x4_6t_mux_SS_read_col0_bg1",
+  "negative_scenario": "mux input zero read misses isolation and output",
+  "expected_failure_checks": [
+   "cycle0_read_c0_isolation_pulse",
+   "cycle0_read_output"
+  ]
+ },
+ {
+  "name": "negative_8x4_6t_SF_write_2p5ns",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SF",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "write",
+  "timeout": 1800,
+  "period": 2.5e-09,
+  "positive_reference": "8x4_6t_SF_write",
+  "negative_scenario": "skewed-corner 6T write loses logical retention and wordline pulse",
+  "expected_failure_checks": [
+   "cycle1_write_cell7,0_logical_retention",
+   "cycle0_write_wl7_0_pulse"
+  ],
+  "added_in": "V2.2.5"
+ },
+ {
+  "name": "negative_8x4_10t_mux_SF_write_2p5ns",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_10T_CELL",
+  "mux": true,
+  "corner": "SF",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "write",
+  "timeout": 1800,
+  "period": 2.5e-09,
+  "positive_reference": "8x4_10t_mux_SF_write",
+  "negative_scenario": "skewed-corner muxed 10T write loses logical retention and wordline pulse",
+  "expected_failure_checks": [
+   "cycle1_write_cell7,0_logical_retention",
+   "cycle0_write_wl7_0_pulse"
+  ],
+  "added_in": "V2.2.5"
+ },
+ {
+  "name": "negative_8x4_6t_SS_read_pd_4ns",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "operation": "read",
+  "variation": "per-device",
+  "seed": 202609191,
+  "timeout": 1800,
+  "period": 4e-09,
+  "positive_reference": "8x4_6t_SS_read_pd202609191",
+  "negative_scenario": "seeded local-mismatch read misses sense and output deadline",
+  "expected_failure_checks": [
+   "cycle0_read_c0_sense_once",
+   "cycle0_read_output"
+  ],
+  "added_in": "V2.2.5"
+ },
+ {
+  "name": "negative_8x4_6t_SS_read_write_4ns",
+  "rows": 8,
+  "cols": 4,
+  "cell": "SRAM_6T_CELL",
+  "mux": false,
+  "corner": "SS",
+  "vdd": 0.9,
+  "temperature": 125,
+  "operation": "read&write",
+  "timeout": 1800,
+  "period": 4e-09,
+  "positive_reference": "8x4_6t_SS_read_write",
+  "negative_scenario": "alternating write/read loses retention and replica reset",
+  "expected_failure_checks": [
+   "cycle0_write_cell7,0_retention",
+   "cycle1_read_capture_reset_RBL_DELAY"
+  ],
+  "added_in": "V2.2.5"
+ }
+]

@@ -4,6 +4,12 @@ The case manifests are tracked; the Python runner and waveform checker are
 local ignored scripts. The commands below apply only to a workspace retaining
 those scripts. A fresh clone does not include the runner.
 
+`v225_negative_cases.json` preserves the six V2.2.4 negative controls and adds
+eight V2.2.5 short-clock cases with passing reference names and exact expected
+waveform failures. The [negative-control evaluation](../../docs/V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)
+records their Xyce outcomes. The active full-screen queue still uses its frozen
+six-case V2.2.4 manifest; the eight additions run separately.
+
 These opt-in tests contain the V2.2.4 waveform plan, preserved for the V2.2.5 tree. They are separate
 from `python3 -m unittest discover -s tests`, which does not launch this screen.
 **The V2.2.4 manifests have not been run**, and `256x256_6t_SS_read_write`
