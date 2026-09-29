@@ -81,7 +81,8 @@ The carried Phase 6 scope. The working plans that defined it
 | Document | Purpose |
 |---|---|
 | [Changelog](CHANGELOG.md) | Release history, one entry per release with its record |
-| [V2.2.5 full-coverage evaluation](V2_2_5_FULL_COVERAGE_EVALUATION.md) | Live Xyce campaign plan, provenance, progress, and unresolved cases |
+| [V2.2.5 full-coverage evaluation](V2_2_5_FULL_COVERAGE_EVALUATION.md) | Stopped partial screen, provenance, and unresolved cases on old model hashes |
+| [V2.2.5 corrected-model corner cases](V2_2_5_CORRECTED_CORNER_CASES.md) | Boundary configurations and waveform checks on corrected model hashes |
 | [V2.2.5 negative controls](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md) | Expanded failure scenarios, matched positive references, and Xyce results |
 | [Development guide](DEVELOPMENT.md) | Optional local regression and qualification tools |
 | [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Working proposal and qualification status of the driver classes |

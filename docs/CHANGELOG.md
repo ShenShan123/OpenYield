@@ -35,6 +35,12 @@ read/write waveform cases passed on the corrected model hashes. The partial
 screen used the old hashes and does not qualify this correction; see the
 [model-card follow-up](design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up).
 
+A [corrected-model corner-case diagnostic](V2_2_5_CORRECTED_CORNER_CASES.md)
+then passed 22 of 22 selected waveform cases (20,960 checks) across five
+corners, 6T/10T, unusual geometry, mux selection, and seeded local mismatch.
+Eight matched negative controls failed their named checks with successful Xyce
+exits. This targeted set does not replace the incomplete full screen.
+
 ## V2.2.4 — 2026-09-26 — replica load cells that do not leak, and the V2.2.3 review fixes
 
 [Design record](design/PHASED_CONTROL_V2_2_4.md). **No V2.2.4 screen has been

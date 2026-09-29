@@ -12,6 +12,12 @@ outcomes, and eight targeted waveform cases on the corrected model hashes.
 It is [described in the V2.2.5 design record](../design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up)
 and does not replace the incomplete full waveform screen.
 
+`V2_2_5_CORRECTED_CORNER_CASES.json` records 22 passing boundary and PVT
+waveform cases on the corrected V2.2.5 model hashes, eight intended negative
+rejections, paired old-run metric comparisons, and per-case provenance. The
+[corner-case evaluation](../V2_2_5_CORRECTED_CORNER_CASES.md) explains its
+coverage limits; it is a targeted diagnostic, not a full-screen record.
+
 `PHASED_CONTROL_V2_2_2.json` is the assembled V2.2.2 functional screen: one
 record per case with its clock, corner, seed, solver, deck, waveform and
 scorer hashes and the worst value of every ordering and budget margin, the
