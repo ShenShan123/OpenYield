@@ -243,8 +243,9 @@
 * parameters customized by the user
 +toxe = 1.58e-09    toxp = 1.0e-09    toxm = 1.58e-09    toxref = 1.58e-09
 +dtox = 5.8e-10    lint = 4.275e-09 
-+vth0 = 0.5828   k1 = 0.4   u0 = 0.05    vsat = 170000  
++vth0 = 0.5828   k1 = 0.4     vsat = 170000
 +rdsw = 155    ndep = 3.24e+018   xj = 1.9e-08
+* u0 = 0.05
 
 
 

@@ -6,6 +6,12 @@ expected-check matches, model and source hashes, and the eight passing matched
 references. It is described in the [V2.2.5 negative-control evaluation](../V2_2_5_NEGATIVE_CONTROL_EVALUATION.md).
 It is not an assembled positive screen or a qualification record.
 
+`V2_2_5_NMOS_VTH_U0.json` records the V2.2.5 SS/FF/FS/SF `NMOS_VTH u0`
+duplicate correction: old and corrected model hashes, direct Xyce parse and DC
+outcomes, and eight targeted waveform cases on the corrected model hashes.
+It is [described in the V2.2.5 design record](../design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up)
+and does not replace the incomplete full waveform screen.
+
 `PHASED_CONTROL_V2_2_2.json` is the assembled V2.2.2 functional screen: one
 record per case with its clock, corner, seed, solver, deck, waveform and
 scorer hashes and the worst value of every ordering and budget margin, the

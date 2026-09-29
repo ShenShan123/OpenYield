@@ -24,7 +24,7 @@ failure does not count as a successful negative control.
 
 These opt-in tests contain the V2.2.4 waveform plan, preserved for the V2.2.5 tree. They are separate
 from `python3 -m unittest discover -s tests`, which does not launch this screen.
-**The V2.2.4 manifests are being run on V2.2.5 but are incomplete**, and `256x256_6t_SS_read_write`
+**The V2.2.4 manifests were partially run on V2.2.5 but stopped incomplete**, and `256x256_6t_SS_read_write`
 has no working operating point yet; the last assembled screen is V2.2.2's, and
 it certifies the V2.2.2 tree, not this one.
 Run from the repository root with the normal OpenYield Python dependencies and

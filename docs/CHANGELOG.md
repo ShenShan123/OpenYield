@@ -23,7 +23,17 @@ Subsequent V2.2.5 diagnostic work added eight matched short-clock negative
 controls, spanning read, write, row change, mux selection, 10T, and local
 mismatch. All eight and the six preserved controls failed the intended waveform
 checks with successful Xyce exits; the [evaluation](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)
-does not promote the still-running positive screen.
+does not promote the positive screen, which later stopped incomplete.
+
+A later V2.2.5 model-card audit found duplicate `NMOS_VTH u0` assignments in
+SS, FF, FS, and SF. The earlier `0.05` is commented out so each card retains
+the later `0.049`, as TT already did. All 30 shipped model cards now have
+unique parameters and names. Xyce rejected each old card when `NMOS_VTH` was
+instantiated and solved with the corrected card; a compiler guard now rejects
+future duplicates before nominal or per-device deck generation. Eight targeted
+read/write waveform cases passed on the corrected model hashes. The partial
+screen used the old hashes and does not qualify this correction; see the
+[model-card follow-up](design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up).
 
 ## V2.2.4 — 2026-09-26 — replica load cells that do not leak, and the V2.2.3 review fixes
 

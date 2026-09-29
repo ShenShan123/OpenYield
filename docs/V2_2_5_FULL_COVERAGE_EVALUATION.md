@@ -1,6 +1,6 @@
-# V2.2.5 full-coverage evaluation — live record
+# V2.2.5 full-coverage evaluation — partial record
 
-**Status: in progress, not a qualification record.** This record tracks an Xyce waveform campaign on the V2.2.5 source. Update the counts and failures from saved case results; never count a generated deck, a running case, or a failed solver as a pass. The last assembled screen remains V2.2.2, and 256x256 has no working operating point.
+**Status: stopped and incomplete; not a qualification record.** This record tracks an Xyce waveform campaign on the original V2.2.5 model files. Count only saved case results as passes. The last assembled screen remains V2.2.2, and 256x256 has no working operating point. A later V2.2.5 model-card correction changed four PDK hashes, so this partial campaign cannot certify the corrected tree.
 
 ## Scope and acceptance
 
@@ -30,25 +30,27 @@ Waveform scoring checks read and write data, retention, sensing, physical far-en
 | 2026-09-28 12:32 UTC, four-hour check | 178 / 1,778 | 5 / 6 | Small 171, mid 3, dynamic 4 passed; no positive failures or solver/checker errors. Five controls produced waveform failures with Xyce return code 0. The last control, `negative_512x4_SS_14ns`, is active. Hero and big have no completed cases yet. |
 | 2026-09-29 06:33 UTC, 22-hour check | 1,556 / 1,778 | 6 / 6 | Small 1,445/1,445 and dynamic 4/4 complete; mid 83/157 and big 24/164 pass, with no positive failures or solver/checker errors. Every negative control failed waveform checks with Xyce return code 0. Hero 0/8; both first cases remain active. |
 | 2026-09-29, expanded negative controls | — | 14 / 14 total | Eight additional V2.2.5 short-clock scenarios passed their diagnostic rejection criteria in a separate run. See the [negative-control evaluation](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md); the main positive screen is still running. |
+| 2026-09-29 14:22 UTC, interrupted screen audit | 1,594 / 1,778 | 6 / 6 | Small 1,445, dynamic 4, mid 113, and big 32 passed; hero 0. No runner or monitor process remained. No scored positive failures or recorded solver/checker errors; 184 positives have no result. Treat this as incomplete, not a pass. |
 
-## Live queue snapshot
+## Frozen partial queue snapshot
 
-The local monitor reads saved `result.json` and `metadata.json` files and refreshes this table while the campaign runs. It does not treat a started case as a pass.
+The local monitor updated this section while the campaign ran. It and the campaign workers had stopped by the 2026-09-29 14:22 UTC audit; the table below reflects saved results only. Cases without a `result.json` are incomplete, including previously started solves.
 
 <!-- v225-progress-start -->
-Updated 2026-09-29 07:12:43 UTC.
+Frozen 2026-09-29 14:22 UTC. No campaign worker or monitor process was running.
 
-| Queue | Expected | Passed | Expected negative rejections | Failed | Solver/checker errors | Active | Pending |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| hero | 8 | 0 | 0 | 0 | 0 | 2 | 6 |
-| big | 164 | 27 | 0 | 0 | 0 | 8 | 129 |
-| mid | 157 | 91 | 0 | 0 | 0 | 8 | 58 |
-| small | 1445 | 1445 | 0 | 0 | 0 | 0 | 0 |
-| dynamic | 4 | 4 | 0 | 0 | 0 | 0 | 0 |
-| negative | 6 | 0 | 6 | 0 | 0 | 0 | 0 |
+| Queue | Expected | Passed | Expected negative rejections | Failed | Solver/checker errors | Incomplete |
+|---|---:|---:|---:|---:|---:|---:|
+| hero | 8 | 0 | 0 | 0 | 0 | 8 |
+| big | 164 | 32 | 0 | 0 | 0 | 132 |
+| mid | 157 | 113 | 0 | 0 | 0 | 44 |
+| small | 1445 | 1445 | 0 | 0 | 0 | 0 |
+| dynamic | 4 | 4 | 0 | 0 | 0 | 0 |
+| negative | 6 | 0 | 6 | 0 | 0 | 0 |
 <!-- v225-progress-end -->
 
 ## Open outcomes
 
-- Small, dynamic, and negative queues are complete; hero, big, and mid remain active. At the 22-hour check, 256x256 had spent about 20 h 25 min in its DC operating-point calculation without a result. The 256x128 transient last reported 63.2% complete at 2026-09-28 23:31 UTC; its Xyce ranks were still using CPU seven hours later, but the log had no newer progress report. These are active solves, not passes. The preserved 256x256 manifest timeout is 1,697,233 s (about 19.6 days), not evidence that the operating point will converge. Report it as incomplete if it cannot converge within a bounded diagnostic window.
-- Do not assemble or promote a V2.2.5 evidence record until every required case finishes and the negative controls show their intended failures.
+- Model-card audit (2026-09-29): the as-run SS/FF/FS/SF `NMOS_VTH` cards had duplicate active `u0=0.05` and `u0=0.049` assignments. Saved campaign `model_sha256` values match those old files. Direct Xyce later rejected each old card when an `NMOS_VTH` device was instantiated; the corrected files now pass that device test. The [correction record](design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up) lists the new hashes and targeted checks. This campaign ran on the old model hashes and cannot qualify the corrected tree.
+- At the last live check, 256x256 had spent about 20 h 25 min in its DC operating-point calculation without a result. The 256x128 transient last reported 63.2% complete at 2026-09-28 23:31 UTC. Neither hero case produced a scored result before the campaign stopped. The preserved 256x256 manifest timeout is 1,697,233 s (about 19.6 days), not evidence that the operating point will converge.
+- Do not assemble or promote a V2.2.5 evidence record from this partial campaign. A fresh screen on the corrected model hashes is required before qualification.

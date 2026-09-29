@@ -20,4 +20,4 @@ The [SPICE guide](spice/README.md) describes the optional local waveform runner 
 | `spice/v224_mc_cases.json` | 1,444 per-device draws |
 | `spice/v224_negative_cases.json` | 6 negative controls |
 
-The V2.2.4 manifests are being run as an unfinished V2.2.5 screen, and 256x256 still lacks a working operating point. The [V2.2.5 evaluation](../docs/V2_2_5_FULL_COVERAGE_EVALUATION.md) records live progress; the [V2.2.2 record](../docs/design/PHASED_CONTROL_V2_2_2.md) describes the last assembled screen, which certifies only that older tree.
+The V2.2.4 manifests were partially run as an unfinished V2.2.5 screen, and 256x256 still lacks a working operating point. The [V2.2.5 evaluation](../docs/V2_2_5_FULL_COVERAGE_EVALUATION.md) records the stopped campaign and its old model hashes; the [V2.2.2 record](../docs/design/PHASED_CONTROL_V2_2_2.md) describes the last assembled screen, which certifies only that older tree.

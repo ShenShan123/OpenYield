@@ -58,15 +58,21 @@ def _convert_value(value: str) -> Any:
 def _parse_parameters(text: str) -> dict[str, Any]:
     text = re.sub(r"^\+", " ", text, flags=re.MULTILINE)
     text = re.sub(r"\n\+", "\n ", text)
-    return {
-        match.group(1): _convert_value(match.group(2))
-        for match in re.finditer(r"(\w+)\s*=\s*([^\s]+)", text)
-    }
+    parameters: dict[str, Any] = {}
+    seen: set[str] = set()
+    for match in re.finditer(r"(\w+)\s*=\s*([^\s]+)", text):
+        name = match.group(1)
+        if name.lower() in seen:
+            raise SpiceParseError(f"Duplicate model parameter {name}")
+        seen.add(name.lower())
+        parameters[name] = _convert_value(match.group(2))
+    return parameters
 
 
 def parse_spice_models(path: Path) -> dict[str, dict[str, Any]]:
     content = path.read_text(encoding="utf-8")
     models: dict[str, dict[str, Any]] = {}
+    seen_models: set[str] = set()
     for section in re.split(r"\.model\s+", content, flags=re.IGNORECASE)[1:]:
         lines = section.strip().split("\n", 1)
         if not lines or not lines[0].strip():
@@ -75,13 +81,20 @@ def parse_spice_models(path: Path) -> dict[str, dict[str, Any]]:
         if len(parts) < 2:
             continue
         name, model_type = parts[0], parts[1]
+        if name.lower() in seen_models:
+            raise SpiceParseError(f"{path}: Duplicate model name {name}")
+        seen_models.add(name.lower())
         param_text = " ".join(parts[2:])
         if len(lines) > 1:
             param_text += " " + lines[1]
+        try:
+            parameters = _parse_parameters(_remove_comments(param_text))
+        except SpiceParseError as exc:
+            raise SpiceParseError(f"{path}: model {name}: {exc}") from exc
         models[name] = {
             "name": name,
             "type": model_type,
-            "parameters": _parse_parameters(_remove_comments(param_text)),
+            "parameters": parameters,
         }
     if not models:
         raise SpiceParseError(f"No .model statements found in {path}")

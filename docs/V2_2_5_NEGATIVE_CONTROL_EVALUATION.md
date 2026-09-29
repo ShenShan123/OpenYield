@@ -4,7 +4,7 @@
 
 ## Acceptance rule
 
-Each added case starts from a V2.2.5 positive case that passed in the active full screen. Only its clock period is shortened; cell type, mux, target, PVT, stimulus, mismatch seed, and physical RC remain the same. The negative case counts as a valid control only when Xyce exits successfully, waveform scoring returns `passed: false`, and **every** `expected_failure_checks` entry in the manifest appears in `result.json`. A solver timeout, missing waveform, or checker exception is inconclusive. The original six controls retain their V2.2.4 case definitions and must fail waveform checks with a successful solver exit.
+Each added case starts from a V2.2.5 positive case that passed in the partial full screen on the original model hashes. Only its clock period is shortened; cell type, mux, target, PVT, stimulus, mismatch seed, and physical RC remain the same. The negative case counts as a valid control only when Xyce exits successfully, waveform scoring returns `passed: false`, and **every** `expected_failure_checks` entry in the manifest appears in `result.json`. A solver timeout, missing waveform, or checker exception is inconclusive. The original six controls retain their V2.2.4 case definitions and must fail waveform checks with a successful solver exit. These diagnostic results do not qualify the corrected model files.
 
 | New control | Passing reference | Clock | Expected waveform failure |
 |---|---|---:|---|

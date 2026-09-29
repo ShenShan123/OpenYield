@@ -11,7 +11,9 @@ from utils import parse_spice_models  # type: ignore
 from sram_compiler.testbenches.base_testbench import BaseTestbench  # type: ignore
 from math import ceil, log2
 from numbers import Integral
+from pathlib import Path
 from copy import copy
+from sram_compiler.per_device_mc.netlist import parse_spice_models as audit_spice_models
 from sram_compiler.interconnect import resolve_interconnect, add_tapped_line, cell_wire_nodes
 from sram_compiler.equivalent_modeling import resolve_equivalent
 from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
@@ -976,6 +978,10 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             raise ValueError(f'target_col must be in [0, {self.num_cols - 1}]')
         if self.choose_columnmux and self.num_cols % 2:
             raise ValueError('Column mux requires an even number of columns (fan-in 2)')
+        # Xyce may not validate an unused model card. Reject duplicate PDK
+        # parameters before either nominal or per-device deck construction.
+        audit_spice_models(Path(getattr(self.sram_config.global_config,
+                                     f'pdk_path_{self.corner}')))
         # Extraction consumes the actual operating point without mutating the
         # baseline configuration shared by optimizer/PVT callers.
         operating_config = copy(self.sram_config.global_config)
