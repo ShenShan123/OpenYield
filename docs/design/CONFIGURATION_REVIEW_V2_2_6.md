@@ -72,6 +72,58 @@ The [diagnostic evidence](../data/V2_2_6_CONFIGURATION_REVIEW.json) records
 model/source/scorer hashes, solver, seed, RC, equivalent mode, cases and margins.
 The tracked `tests/spice/v226_review_cases.json` contains the four-case manifest.
 
+## Follow-up: model-card builder and coverage rule
+
+A post-commit review of `38312cb` found that the parser fix reached only the
+audit. `utils.parse_spice_models` still built the cards for shared-mode
+`AGAUSS` libraries and custom-mode `model_dict` cells. It read the commented
+model, the semicolon comment, and the following `.param` from the P2 examples
+as parameters, and the last value won. It also truncated `{0.4*1.0}` at `*`.
+V2.2.5 rejected these libraries in the audit, but V2.2.6 accepted them, so
+shared and custom decks could simulate values that Xyce does not read. Xyce 7.4
+reads the active value: a semicolon probe gave −97 µA at `vth0=0.40`, compared
+with 5e-11 A when 0.99 was active. Nominal and per-device decks were correct.
+
+`utils.parse_spice_models` now delegates to the audit parser. Duplicate active
+models or parameters therefore raise `SpiceParseError` instead of keeping the
+last value. Xyce 7.4 rejects `$` inline comments, and the audit does too. The
+unused `size_optimization/model_lib/models.spice` sets `toxref` twice in
+`PMOS_VTL`, so the strict parser rejects it. The optimizer simulates
+`tran_models/models_TT.spice`, and the compiler audit already rejected that
+library. The file is unchanged.
+
+Before this change, `full_device_coverage` was written three ways: a
+transient-operation tuple in `main_sram.py`, `not in SNM_OPERATIONS` in the CLI,
+and a literal in the simulation record. All three now call
+`full_device_coverage()` and use `TRANSIENT_OPERATIONS` from
+`sram_6t_core_MC_testbench.py`. The positive transient list fails closed if a
+new operation is added.
+
+Checks on the follow-up, using Xyce 7.4 in the same environment:
+
+- The two parsers return identical results for all 30 shipped corner cards.
+  Deck generation was repeated for 48 configurations: 2×2 and 8×4; all six
+  operations; and nominal, shared (3 runs), custom, and per-device (seed 7)
+  modes. The 144 generated decks, model files, summaries and data files are
+  byte-identical to `38312cb`'s once the output root is normalized. Coverage
+  flags are true only for the six per-device transient decks.
+- `tests/test_v226_review.py` has three new methods. They cover parser
+  agreement on the examples, a shared-mode library with a trailing commented
+  `NMOS_VTG` card, and the coverage rule across all modes, equivalent modes
+  and operations. With the old `utils` parser they fail with five assertion
+  failures. All 198 local regression tests and six offline optimizer tests
+  pass, and Python compilation succeeds.
+- `run_mc_simulation` returned finite hold SNM with
+  `full_device_coverage=false` for 6T shared (2 runs), 6T custom (2 rows),
+  10T custom (1 row) and 6T per-device (2 samples, seed 20261001). A 2×2
+  per-device read recorded `true` and passed its runtime access checks.
+
+The evidence JSON's source hashes identify the `38312cb` tree. This follow-up
+changes `main_sram.py`, `utils/spice.py`, `per_device_mc/run.py` and
+`sram_6t_core_MC_testbench.py`. The generated decks for the shipped models are
+identical, so the recorded diagnostics still describe the decks this tree
+generates. The version label remains V2.2.6.
+
 ## Remaining limits
 
 No full V2.2.6 waveform screen has completed. The targeted checks do not resolve

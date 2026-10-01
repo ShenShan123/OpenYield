@@ -13,6 +13,9 @@ construction now passes valid factory keywords. The model audit distinguishes
 active model parameters from comments and subsequent directives. Sample counts
 are validated before the main entrance can truncate them. Single-cell SNM
 exports and simulation records no longer claim full-array mismatch coverage.
+Shared and custom model cards use the same active-statement parser as the
+audit. Deck exports, CLI summaries and simulation records share one coverage
+rule.
 
 The shipped model values, transistor circuits, driver sizes and timing tables
 are unchanged. No full V2.2.6 waveform screen is complete; the 256x256 operating

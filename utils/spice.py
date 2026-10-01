@@ -1,49 +1,17 @@
 """Parse and write SPICE transistor model libraries."""
 
 import re
+from pathlib import Path
 from typing import Any, Dict, Union
+
+from sram_compiler.per_device_mc.netlist import parse_spice_models as _parse_active_models
+
 
 def parse_spice_models(filepath: str) -> Dict[str, Dict[str, Any]]:
     """Parse SPICE transistor model library file into Python dictionary."""
-    with open(filepath, 'r') as f:
-        content = f.read()
-
-    models = {}
-
-    # Split content by .model statements
-    model_sections = re.split(r'\.model\s+', content, flags=re.IGNORECASE)
-
-    # Skip first empty section
-    for section in model_sections[1:]:
-        if section.strip():
-            # Split first line to get model name and type
-            lines = section.strip().split('\n', 1)
-            first_line = lines[0].strip()
-
-            # Extract model name and type from first line
-            parts = first_line.split()
-            if len(parts) >= 2:
-                model_name = parts[0]
-                model_type = parts[1]
-
-                # Get parameter text (rest of first line + remaining lines)
-                param_text = ' '.join(parts[2:])
-                if len(lines) > 1:
-                    param_text += ' ' + lines[1]
-
-                # Remove comments and clean up the parameter text
-                cleaned_text = remove_comments(param_text)
-
-                # Parse parameters
-                parameters = parse_parameters(cleaned_text)
-
-                models[model_name] = {
-                    'name': model_name,
-                    'type': model_type,
-                    'parameters': parameters
-                }
-
-    return models
+    # Generated model cards must carry the values Xyce reads: only active
+    # .model statements, with comments and later directives excluded.
+    return _parse_active_models(Path(filepath))
 
 def remove_comments(text: str) -> str:
     """Remove comments (lines starting with * or inline comments)."""

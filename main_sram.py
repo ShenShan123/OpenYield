@@ -31,7 +31,8 @@ from sram_compiler.config_yaml.config import SRAM_CONFIG
 from sram_compiler.equivalent_modeling import resolve_equivalent
 from sram_compiler.interconnect import load_interconnect, resolve_interconnect
 from sram_compiler.per_device_mc.run import get_custom_vars, load_config, resolve_mc_runs
-from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTestbench
+from sram_compiler.testbenches.sram_6t_core_MC_testbench import (
+    TRANSIENT_OPERATIONS, Sram6TCoreMcTestbench, full_device_coverage)
 from sram_compiler.version import VERSION
 from utils import estimate_bitcell_area  # type: ignore
 
@@ -60,8 +61,6 @@ W_RC = True                     # Local storage/peripheral series RC (100 ohm / 
 INTERCONNECT_CONFIG: Optional[str] = None
 TARGET: Optional[Sequence[int]] = None  # (row, col); None: last row, last column
 # ==================================================================
-
-_TRANSIENT_OPERATIONS = ("read", "write", "read&write")
 
 
 def configure(rows: int, cols: int, choose_columnmux: bool, corner: str,
@@ -171,9 +170,8 @@ def write_deck(testbench: Sram6TCoreMcTestbench, operation: str,
         'cell_type': testbench.sram_cell_type, 'corner': testbench.corner,
         'temperature': testbench.temperature, 'vdd': float(testbench.vdd),
         'variation_mode': testbench.variation_mode, 'mc_runs': mc_runs,
-        'full_device_coverage': testbench.variation_mode == 'per-device'
-                                and testbench.real_cell_mode == 0
-                                and operation in _TRANSIENT_OPERATIONS,
+        'full_device_coverage': full_device_coverage(
+            testbench.variation_mode, testbench.real_cell_mode, operation),
         'seed': testbench.mc_seed, 'model_sha256': hashlib.sha256(model_path.read_bytes()).hexdigest(),
         'equivalent': testbench.equivalent.to_dict(),
         'interconnect': testbench.interconnect.to_dict(),
@@ -225,7 +223,7 @@ def main() -> None:
         print(f"[OUTPUT] deck: {deck_path}")
         return
 
-    if OPERATION in _TRANSIENT_OPERATIONS:
+    if OPERATION in TRANSIENT_OPERATIONS:
         delay, pavg, pstc, pdyn = testbench.run_mc_simulation(
             operation=OPERATION, target_row=target_row, target_col=target_col,
             mc_runs=mc_runs, temperature=temperature, vars=custom_vars,

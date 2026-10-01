@@ -28,6 +28,7 @@ from sram_compiler.sizing.table import physical_context
 from sram_compiler.version import VERSION
 from sram_compiler.testbenches.sram_6t_core_MC_testbench import (  # type: ignore  # noqa: E402
     Sram6TCoreMcTestbench,
+    full_device_coverage,
 )
 
 
@@ -349,8 +350,8 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         "model_sha256": hashlib.sha256(Path(getattr(
             config.global_config, f'pdk_path_{args.corner}')).read_bytes()).hexdigest(),
         "cell_type": cell_type,
-        "full_device_coverage": args.real_cell_mode == 0 and args.variation_mode == "per-device"
-                                and args.operation not in SNM_OPERATIONS,
+        "full_device_coverage": full_device_coverage(
+            args.variation_mode, args.real_cell_mode, args.operation),
         "seed": args.seed,
         "driver_sizes": testbench.driver_sizes.to_dict(),
         "timing": testbench.timing_config.to_dict(),

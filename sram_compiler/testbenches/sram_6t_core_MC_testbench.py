@@ -26,6 +26,19 @@ from numbers import Integral
 # number, so a runtime pass and a screen pass mean the same thing.
 ACCESS_DEADLINE = 0.68
 
+# Operations that simulate the assembled array. SNM operations build one cell.
+TRANSIENT_OPERATIONS = ('read', 'write', 'read&write')
+
+
+def full_device_coverage(variation_mode: str, real_cell_mode: int, operation: str) -> bool:
+    """Whether a deck samples independent mismatch for every array transistor.
+
+    Only per-device mode on a full-transistor (mode 0) transient array qualifies;
+    equivalent modes omit cells and SNM decks contain a single cell.
+    """
+    return (variation_mode == 'per-device' and real_cell_mode == 0
+            and operation in TRANSIENT_OPERATIONS)
+
 
 def cycle_plan(operation, select_every=1, cycles=None):
     """Clock cycles of a transient deck: (transient length in periods, [(kind, data), ...]).
@@ -1286,9 +1299,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                        'driver_sizes': self.driver_sizes.to_dict(),
                        'timing': self.timing_config.to_dict(),
                        'equivalent': self.equivalent.to_dict(),
-                       'full_device_coverage': self.variation_mode == 'per-device'
-                                               and self.real_cell_mode == 0
-                                               and operation in ('read', 'write', 'read&write')}, f, indent=2)
+                       'full_device_coverage': full_device_coverage(
+                           self.variation_mode, self.real_cell_mode, operation)}, f, indent=2)
         # assert 0
         # Execute Xyce and parse results
         try:
