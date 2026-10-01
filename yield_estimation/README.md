@@ -1,4 +1,4 @@
-# Yield estimation in OpenYield V2.2.5
+# Yield estimation in OpenYield V2.2.6
 
 The current compiler can generate reproducible, independent per-device process samples. The legacy importance-sampling implementations in `model_lib/` are research code and are **not a validated V2.2.5 yield flow**. They still depend on machine-local paths, optional ML packages absent from `environment.yml`, and the older custom-variation interface. The old root debug driver was removed because it did not provide a working current-release tutorial.
 

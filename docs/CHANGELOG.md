@@ -6,6 +6,18 @@ before V2.1.10 were condensed in the V2.1.10 cleanup; the full text is at
 `git show c3f6f44:CHANGELOG.md` and in `sram_compiler/CIRCUIT_REVIEW.md` Parts II
 and III.
 
+## V2.2.6 — 2026-10-01 — configuration review fixes
+
+[Review record](design/CONFIGURATION_REVIEW_V2_2_6.md). Custom 6T/10T SNM
+construction now passes valid factory keywords. The model audit distinguishes
+active model parameters from comments and subsequent directives. Sample counts
+are validated before the main entrance can truncate them. Single-cell SNM
+exports and simulation records no longer claim full-array mismatch coverage.
+
+The shipped model values, transistor circuits, driver sizes and timing tables
+are unchanged. No full V2.2.6 waveform screen is complete; the 256x256 operating
+point remains unresolved. Historical evidence keeps its original versions.
+
 ## V2.2.5 — 2026-09-28 — macro entrance and generation checks
 
 [Design record](design/COMPILER_ENTRY_V2_2_5.md). `main_sram.py` is the documented

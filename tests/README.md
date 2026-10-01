@@ -1,4 +1,4 @@
-# Local checks for V2.2.5 and preserved V2.2.4 manifests
+# Local checks for V2.2.6 and preserved V2.2.4 manifests
 
 Python regression and waveform scripts are kept in local workspaces and ignored by Git. A fresh clone includes this guide and the JSON case manifests under `spice/`, but does not include the Python runner. The manifests preserve the planned V2.2.4 cases; they are not results or qualification evidence.
 

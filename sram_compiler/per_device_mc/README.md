@@ -1,4 +1,4 @@
-# Batch simulation runner — V2.2.5
+# Batch simulation runner — V2.2.6
 
 Use [`main_sram.py`](../../main_sram.py) for one SRAM macro. This runner accepts command-line options for batches and automated experiments. From the repository root, generate a full-transistor deck without Xyce:
 
@@ -36,6 +36,10 @@ In the Python API, `mc_seed=None` makes even a single run a random sample. The s
 `--corner` accepts `TT`, `FF`, `SS`, `FS`, or `SF`. `--vdd` is in volts, `--temperature` in Celsius, and `--period` in seconds. `--period` is a diagnostic clock override; the default is the frozen lookup clock. `--timing-lookup` loads another class table. `--interconnect-config` loads a wire YAML mapping without rewriting `global.yaml`. The only supported topology is distributed. The supported array envelope is 512 rows by 256 columns.
 
 The runner supports `read`, `write`, `read&write`, `hold_snm`, `read_snm`, and `write_snm`. `--target-row` and `--target-col` select the accessed cell. An omitted target defaults to the last row and column. Per-device mode cannot be combined with legacy `.STEP` geometry sweeps.
+
+SNM operations construct a single cell, even when larger array dimensions are
+configured. Their metadata reports `full_device_coverage=false`; use transient
+mode 0 arrays for full-array mismatch coverage.
 
 For Python callers:
 

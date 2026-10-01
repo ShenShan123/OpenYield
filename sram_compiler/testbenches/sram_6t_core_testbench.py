@@ -787,8 +787,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     # This function returns a Dict of MOS models
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                     suffix='_0_0',
-                    pmos_modle_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
-                    nmos_modle_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
+                    pmos_choices = self.sram_config.sram_6t_cell.pmos_model.choices,
+                    nmos_choices = self.sram_config.sram_6t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                 ).create()
             else:
@@ -828,8 +828,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                     yield_mode=True,
                     model_dict=parse_spice_models(getattr(self.sram_config.global_config, f"pdk_path_{self.corner}")),
                     suffix='_0_0',
-                    pmos_modle_choices = self.sram_config.sram_10t_cell.pmos_model.choices,
-                    nmos_modle_choices = self.sram_config.sram_10t_cell.nmos_model.choices,
+                    pmos_choices = self.sram_config.sram_10t_cell.pmos_model.choices,
+                    nmos_choices = self.sram_config.sram_10t_cell.nmos_model.choices,
                     param_model_file =self.sim_path + '/param_sweep_models.data',
                 ).create()
             else:

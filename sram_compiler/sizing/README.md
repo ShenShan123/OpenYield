@@ -1,4 +1,4 @@
-# Driver sizing and timing — V2.2.5
+# Driver sizing and timing — V2.2.6
 
 The compiler resolves critical driver widths and the clock **before** a cell candidate or PVT sample is evaluated. Keep that baseline fixed across those evaluations. A changed peripheral, model file, physical RC context, or control architecture needs a new baseline and functional evidence; stale qualified records are rejected.
 

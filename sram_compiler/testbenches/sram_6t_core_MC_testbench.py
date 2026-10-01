@@ -1287,7 +1287,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                        'timing': self.timing_config.to_dict(),
                        'equivalent': self.equivalent.to_dict(),
                        'full_device_coverage': self.variation_mode == 'per-device'
-                                               and self.real_cell_mode == 0}, f, indent=2)
+                                               and self.real_cell_mode == 0
+                                               and operation in ('read', 'write', 'read&write')}, f, indent=2)
         # assert 0
         # Execute Xyce and parse results
         try:

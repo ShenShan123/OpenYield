@@ -1,0 +1,530 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.6",
+  "reviewed_head": "ae53050",
+  "status": "targeted diagnostics only; no complete release screen or yield qualification",
+  "solver": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+  "sources": {
+    "sram_compiler/config_yaml/config.py": "3a8edb2f9aea0535b733bdca4711a4838581d6ebe1180e5f2d41fc15370c9716",
+    "sram_compiler/config_yaml/decoder.yaml": "40ca16d881ccf85a54bba64ffd19f9c08f762fb35e91f3a980d9ef18ba47bb78",
+    "sram_compiler/config_yaml/global.yaml": "7b4a8cf2adf2a73a3186699eb3c3bb3e74eab34ee04b48f79ab0d314078d2437",
+    "sram_compiler/config_yaml/interconnect_example.yaml": "d87ac00a5a16a313701a902f6c25f4017177aa925c82ddb378bb5d3ac9ceaac7",
+    "sram_compiler/config_yaml/mux.yaml": "4eb76e2d863bb5794c57e8fe722b2c948bc217763d418083b128d8a9edf3729f",
+    "sram_compiler/config_yaml/precharge.yaml": "3845b5951a9c69efa32efcce9bec44cc264f74cc89280343d0ead84206906311",
+    "sram_compiler/config_yaml/sa.yaml": "a196524878d7fda70fa344eb1c7f24607f9667073605f9df828d82be4a6efdcc",
+    "sram_compiler/config_yaml/sram_10t_cell.yaml": "e516d5a22dd42b70e76063c7060b106957e1c103cb54793868f3af69acf5dffe",
+    "sram_compiler/config_yaml/sram_6t_cell.yaml": "9ea69adf05756871c05887cc08f7519f78fbdeb1af45ab186e171932ede643ce",
+    "sram_compiler/config_yaml/sweep_config.py": "8f10b86cdd8abbd97395f8e70ad59d29d02607f686f203a1803a36d1604b2dec",
+    "sram_compiler/config_yaml/wordline_driver.yaml": "b5e5856c9b5cee671b4718592638be416cda21558618ac6856ac01854249862c",
+    "sram_compiler/config_yaml/write_driver.yaml": "e1b83b14b9f71a667c3413d06b623810d87bd161cae9564b53987bdadf2255f2",
+    "sram_compiler/equivalent_modeling/__init__.py": "086c6d6d8e0db15ce8ee9bc09af65dc347ef402e55176b36e2bbc47d80419b7d",
+    "sram_compiler/equivalent_modeling/compare.py": "68b5da3048a1712cc4d396ce410dd50228ad1062bca8365c4ee7531c0cb26f8c",
+    "sram_compiler/interconnect.py": "2029d7e248af0f6f8e304692e868d0aa7a94a28c61e2e84d357cf2e5da3514ec",
+    "sram_compiler/per_device_mc/__init__.py": "c3b24893175852e4dd21f9d4e2264f938a2463b6d1123c4c742e7ee07ce49a30",
+    "sram_compiler/per_device_mc/netlist.py": "1fa6c709a1c1ebd034f8790be1f04792fe3aa333a9d465abe3205521f81d56c8",
+    "sram_compiler/per_device_mc/run.py": "c798fc554e096cc2671456a050ec1a5f6021bd53ba69f24f4dd95e2a6475d2e9",
+    "sram_compiler/per_device_mc/sampling.py": "f61c3be8fe2d98840d021a899b9120df9dbf3eb850e91ded42339a4140182fa0",
+    "sram_compiler/sizing/__init__.py": "892a02673bc022e83e0a2736988edfdd9da4810403fc4bd4a329d26bb5a54052",
+    "sram_compiler/sizing/driver_sizing.py": "95d930abf3d20bac3d4d4d02c3484176d6700f4710919925366475e2348a8866",
+    "sram_compiler/sizing/scoring_sources.json": "42c902014ef41ca7cd3614265cc552b791346c37ed0831eae460525af9bbd260",
+    "sram_compiler/sizing/sizing_lookup.json": "23b58e6b08afa859300d23b4bcac444c502dde515546c04f0a526482310ca92c",
+    "sram_compiler/sizing/sizing_rules.json": "fc39a2b7cb2ce1b8e6869f4e464d8d70ad45c3c7a7a6267398e56a14484efc6d",
+    "sram_compiler/sizing/sizing_table.json": "c39216090c9b35ccae7afb49923cdae10b72d8df95b5acad7ad560524c2a68d9",
+    "sram_compiler/sizing/table.py": "9e527890ddc96d7adc5b72258391ccbccb7b46b38fe9cad73242c7b51c04b197",
+    "sram_compiler/sizing/timing.py": "5a024c4f21abd153b188f07262c0b87a927b6528ebb8b29bc9fd1646c537362b",
+    "sram_compiler/sizing/timing_lookup.json": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+    "sram_compiler/subcircuits/base_subcircuit.py": "535074a832a6ce9010b293e9566dbc205b2176be3b1502fc3bdd77107263252f",
+    "sram_compiler/subcircuits/decoder.py": "2925097643ed5e1ed59ad95623d5873adac0c482eee6282028abb32ee616a461",
+    "sram_compiler/subcircuits/dummy_row_or_column.py": "699e31863911f202336aad0b1e994616af25e615d1a71052f7664deef7604491",
+    "sram_compiler/subcircuits/mux_and_sa.py": "457f773f7e4aa4b6da06a7bb683c18f6c119780ce789294d8b00ead51ef286c4",
+    "sram_compiler/subcircuits/precharge_and_write_driver.py": "8b087abbce8d1ba4beba1e9af8d75cde99077d4b5d56a48b0ba9826ec109ab6f",
+    "sram_compiler/subcircuits/replica_column.py": "7e90958390390f9d18d518b45d416e714dbec0e4ea6eaf5ce96c7339d35e4882",
+    "sram_compiler/subcircuits/sram_10t_core.py": "a335b2add819a8e3602fa5d023a78270f5fcd9d5421e6e7b8bef7df5e1987da0",
+    "sram_compiler/subcircuits/sram_6t_core.py": "1fe00d4f936a1d5bed62385400bec6199bfa4268b74f1aa0cccee3387a2297cd",
+    "sram_compiler/subcircuits/sram_cell_add_equivalent.py": "0439b63b50bf7e754ecb71590d0784a9f4f550db7ff4486800d45fc91399c2ad",
+    "sram_compiler/subcircuits/standard_cell.py": "e9cd5fcba148fb706e01e55998d5adcea9cb3ec3ef31397f3e03d383b114d63f",
+    "sram_compiler/subcircuits/time_generate.py": "c8cb82a00ef4a91ee310ab1b4b66c296099b8659aeb4ea135ab0712eb635c680",
+    "sram_compiler/subcircuits/wordline_driver.py": "29c95d280842df61002a1ff3293e4ea780f15567435ec65c2d05c1b63c79dd2b",
+    "sram_compiler/testbenches/base_testbench.py": "b78bcce96643d84db868715eab7a76b8279bb8b41a8c26c50172f54643ee0d4f",
+    "sram_compiler/testbenches/parameter_factor.py": "5e023cc96f5be2fc161b199e85b8b72e049c4f9642c7fbee8181a38f7d7de049",
+    "sram_compiler/testbenches/snm.py": "60d9ed88c0d6b9bb469134689ce0e739bf3b54dd42117bcc1ba54f901aa524df",
+    "sram_compiler/testbenches/sram_6t_core_MC_testbench.py": "b3b2c7304f675d31c9a3b723d879bcf1266ddc8b7e7ee193ebd81763e796fbd9",
+    "sram_compiler/testbenches/sram_6t_core_testbench.py": "d342cc47d7e40cf8fbbccbbdf6eaa859af5d7b338b76e8801edea2e2070c6df7",
+    "sram_compiler/version.py": "1c5e5abfcbf5aeedb7216cefc0b02b8e88f7554bf370d3043ff0c4ec2e818cc8",
+    "tests/spice/__init__.py": "20e969d16e15e69113278f1f431598f855ec982f6905939ab704f3eee863e838",
+    "tests/spice/execution.py": "1f20f21b76ec1953cc68588af13f08307e24f0c7623991d1d5e4097e32768311",
+    "tests/spice/phased_access.py": "babe3f60e52962925521488205e5ea09fc7397203d53d94cb2e38413cb828537",
+    "tests/spice/phased_waveforms.py": "fd955d4f55c247d0a575b6b8a54bc9357694dba132c469171efb95ed70f13d00",
+    "tests/spice/v224_cases.json": "ca87d022cb108ef5a715044679025235d277da43b4c642af1fb8849e63d659de",
+    "tests/spice/v224_mc_cases.json": "d14a83738165c2269ffc1061d6e49c53706e124324f91b58611dd16c58f295f0",
+    "tests/spice/v224_negative_cases.json": "7c636fdb492ec5490017d662b6e46c2d7b20e2ffd76c42703ad0ecd31a6c2234",
+    "tests/spice/v225_negative_cases.json": "47b292d6d21a0daf2ff313953b2ff8127a4962955ea71d8229d0a4c12a746144",
+    "tests/spice/v226_review_cases.json": "caaa091181eab501afdf6206585b0a210e1e0c1f943faec1992275123973ad1d",
+    "tran_models/models_FF.spice": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+    "tran_models/models_FS.spice": "a52b2628861d90234cbac3b3a563936b3b6a7ac7aa06c4c79d8b0d5572793817",
+    "tran_models/models_SF.spice": "6d98211e064cd92931321e73404e145cafcc47f5f75a417f239292504e579f0f",
+    "tran_models/models_SS.spice": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+    "tran_models/models_TT.spice": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+    "utils/__init__.py": "7173d080e8fbc9028b0cc686537875db7130685d47423a5e11d92c0f358bc510",
+    "utils/area.py": "8171df9bb92ca4b4ce5ba8799234b6c23fd78ad9ddf262d967c6d80bacedeef0",
+    "utils/measurements.py": "2c844dbe1e69ecec62bff3bb5fc5fd2b1444d23289e58448d1587f7071999ee9",
+    "utils/plotting.py": "b8bb7a1326faa59fe40491499229c5cc2b67d07d4ac0e65c243edeceef355f2e",
+    "utils/spice.py": "b78a328dad36f18287d4f184085d2e8368b8c3a2bd3fe120736e191b1e0a952f",
+    "utils/waveforms.py": "87c1484ecaed70a95ab27c4c321cf2cec546d5d410789f06a6185ba302f375b6",
+    "utils/xyce.py": "30c06aab4d166fa92df0d885aa2a206e464dcb8a6fa4d3ccc1576681fd15c8ac",
+    "main_sram.py": "1df7c46858168428d82a1929c1c8c113b07d0045ea8c887461316b4cfc584485",
+    "tests/test_v226_review.py": "b288b3a211a37b596ba5ae76cc0d3a49f8b98d759fd38a2b410de2ace9ecb7b3",
+    "dev/v226_snm_review.py": "f23f86ffe35b6c1b45a0cd2710cb24eb33696feb2aacda4dd22a9917440c62b5"
+  },
+  "software_checks": {
+    "baseline_tests": 189,
+    "post_fix_tests": 195,
+    "offline_tests": 6,
+    "focused_before": {
+      "methods": 6,
+      "failures": 19,
+      "errors": 11
+    },
+    "compileall_passed": true,
+    "shipped_model_cards_identical": 30
+  },
+  "model_syntax_probes": [
+    {
+      "case": "commented_model",
+      "xyce_exit": 0
+    },
+    {
+      "case": "inline_comment",
+      "xyce_exit": 0
+    },
+    {
+      "case": "trailing_param",
+      "xyce_exit": 0
+    }
+  ],
+  "dc_provenance": {
+    "corner": "TT",
+    "vdd": 1.0,
+    "temperature_c": 25,
+    "equivalent_mode": 0,
+    "w_rc": true,
+    "pi_res_ohm": 100,
+    "pi_cap_f": 1e-15,
+    "analysis_scope": "single cell",
+    "configured_geometry": [
+      2,
+      2
+    ],
+    "seed": 20261001,
+    "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+    "custom_values_source": "sram_compiler/config_yaml/sram_{6t,10t}_cell.yaml"
+  },
+  "dc": [
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "nominal",
+      "operation": "hold_snm",
+      "xyce_exit": 0,
+      "expected_samples": 1,
+      "samples": 1,
+      "rows": 1421,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "nominal",
+      "operation": "read_snm",
+      "xyce_exit": 0,
+      "expected_samples": 1,
+      "samples": 1,
+      "rows": 1421,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "nominal",
+      "operation": "write_snm",
+      "xyce_exit": 0,
+      "expected_samples": 1,
+      "samples": 1,
+      "rows": 1421,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "custom",
+      "operation": "hold_snm",
+      "xyce_exit": 0,
+      "expected_samples": 2,
+      "samples": 2,
+      "rows": 2842,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "custom",
+      "operation": "read_snm",
+      "xyce_exit": 0,
+      "expected_samples": 2,
+      "samples": 2,
+      "rows": 2842,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "custom",
+      "operation": "write_snm",
+      "xyce_exit": 0,
+      "expected_samples": 2,
+      "samples": 2,
+      "rows": 2842,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "per-device",
+      "operation": "hold_snm",
+      "xyce_exit": 0,
+      "expected_samples": 2,
+      "samples": 2,
+      "rows": 2842,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "per-device",
+      "operation": "read_snm",
+      "xyce_exit": 0,
+      "expected_samples": 2,
+      "samples": 2,
+      "rows": 2842,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "per-device",
+      "operation": "write_snm",
+      "xyce_exit": 0,
+      "expected_samples": 2,
+      "samples": 2,
+      "rows": 2842,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "nominal",
+      "operation": "hold_snm",
+      "xyce_exit": 0,
+      "expected_samples": 1,
+      "samples": 1,
+      "rows": 1421,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "nominal",
+      "operation": "read_snm",
+      "xyce_exit": 0,
+      "expected_samples": 1,
+      "samples": 1,
+      "rows": 1421,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "nominal",
+      "operation": "write_snm",
+      "xyce_exit": 0,
+      "expected_samples": 1,
+      "samples": 1,
+      "rows": 1421,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "custom",
+      "operation": "hold_snm",
+      "xyce_exit": 0,
+      "expected_samples": 1,
+      "samples": 1,
+      "rows": 1421,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "custom",
+      "operation": "read_snm",
+      "xyce_exit": 0,
+      "expected_samples": 1,
+      "samples": 1,
+      "rows": 1421,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "custom",
+      "operation": "write_snm",
+      "xyce_exit": 0,
+      "expected_samples": 1,
+      "samples": 1,
+      "rows": 1421,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "per-device",
+      "operation": "hold_snm",
+      "xyce_exit": 0,
+      "expected_samples": 2,
+      "samples": 2,
+      "rows": 2842,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "per-device",
+      "operation": "read_snm",
+      "xyce_exit": 0,
+      "expected_samples": 2,
+      "samples": 2,
+      "rows": 2842,
+      "finite_complete_dc": true
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "per-device",
+      "operation": "write_snm",
+      "xyce_exit": 0,
+      "expected_samples": 2,
+      "samples": 2,
+      "rows": 2842,
+      "finite_complete_dc": true
+    }
+  ],
+  "runtime_snm": [
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "custom",
+      "samples": 2,
+      "snm_volts": [
+        0.34790962771872824,
+        0.3525366961998277
+      ]
+    },
+    {
+      "cell": "SRAM_10T_CELL",
+      "mode": "custom",
+      "samples": 1,
+      "snm_volts": [
+        0.485206309186117
+      ]
+    },
+    {
+      "cell": "SRAM_6T_CELL",
+      "mode": "per-device",
+      "samples": 2,
+      "snm_volts": [
+        0.3337579680737615,
+        0.34774301639051797
+      ]
+    }
+  ],
+  "coverage_checks": {
+    "main_export_snm": false,
+    "cli_snm": false,
+    "runtime_snm": false,
+    "main_and_cli_full_array_transient": true
+  },
+  "transient_checks": 1467,
+  "transient": [
+    {
+      "name": "8x4_10t_mux_FF_dynamic_column_read",
+      "passed": true,
+      "checks": 369,
+      "failures": [],
+      "metrics": {
+        "min_sense_margin_v": 1.1100185423296103,
+        "min_wl_off_before_capture_ps": 9252.19020439339,
+        "min_wl_off_before_sense_ps": 100.05317094850169,
+        "min_isolation_before_enable_ps": 128.5352648752491,
+        "min_enable_off_before_precharge_ps": 92.89132788765453,
+        "min_storage_polarity_margin_v": 0.37668812000000007,
+        "min_read_output_margin_ps": 3925.232714419889,
+        "min_restore_before_capture_ps": 4596.695487176411,
+        "min_precharge_on_before_capture_ps": 4638.106375949826
+      },
+      "case": {
+        "name": "8x4_10t_mux_FF_dynamic_column_read",
+        "rows": 8,
+        "cols": 4,
+        "cell": "SRAM_10T_CELL",
+        "mux": true,
+        "corner": "FF",
+        "vdd": 1.1,
+        "temperature": -40,
+        "operation": "read",
+        "col": 0,
+        "background": 1,
+        "column_sequence": [
+          0,
+          1
+        ],
+        "timeout": 7200,
+        "added_in": "V2.2.4"
+      },
+      "period_s": 1e-08,
+      "sample_interval_s": 5e-12,
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "deck_sha256": "fc37f8e7105930d5fbe485f1d25735fd51dae6542eeef25f93799d37a3591cb6",
+      "execution": {
+        "mpi_ranks": 1,
+        "blas_threads_per_rank": 1,
+        "linear_solver": "KLU"
+      },
+      "xyce_exit": 0,
+      "scorer_sha256": "fd955d4f55c247d0a575b6b8a54bc9357694dba132c469171efb95ed70f13d00"
+    },
+    {
+      "name": "8x4_6t_SS_read",
+      "passed": true,
+      "checks": 369,
+      "failures": [],
+      "metrics": {
+        "min_sense_margin_v": 0.9132820432245244,
+        "min_wl_off_before_capture_ps": 6538.057567466694,
+        "min_wl_off_before_sense_ps": 397.1006295708226,
+        "min_isolation_before_enable_ps": 490.4748218394398,
+        "min_enable_off_before_precharge_ps": 364.8532700480099,
+        "min_storage_polarity_margin_v": 0.325165718,
+        "min_read_output_margin_ps": 1354.6466745347363,
+        "min_restore_before_capture_ps": 3358.654697650947,
+        "min_precharge_on_before_capture_ps": 3586.7515749615154
+      },
+      "case": {
+        "name": "8x4_6t_SS_read",
+        "rows": 8,
+        "cols": 4,
+        "cell": "SRAM_6T_CELL",
+        "mux": false,
+        "corner": "SS",
+        "vdd": 0.9,
+        "temperature": 125,
+        "operation": "read",
+        "timeout": 7200
+      },
+      "period_s": 9e-09,
+      "sample_interval_s": 5e-12,
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "deck_sha256": "54f74f95f7cc58841ecad7c78f2d7eef0e3daa7ab00c66426813bb6886e27bc5",
+      "execution": {
+        "mpi_ranks": 1,
+        "blas_threads_per_rank": 1,
+        "linear_solver": "KLU"
+      },
+      "xyce_exit": 0,
+      "scorer_sha256": "fd955d4f55c247d0a575b6b8a54bc9357694dba132c469171efb95ed70f13d00"
+    },
+    {
+      "name": "8x4_6t_SS_write",
+      "passed": true,
+      "checks": 360,
+      "failures": [],
+      "metrics": {
+        "min_wl_off_before_capture_ps": 3821.492694185076,
+        "min_driver_release_after_wl_ps": 385.97070097535834,
+        "min_isolation_before_enable_ps": 434.779984974057,
+        "min_driver_on_before_wl_ps": 702.3495979392177,
+        "min_enable_off_before_precharge_ps": 345.8684132737256,
+        "min_storage_polarity_margin_v": 0.4476838743593247,
+        "min_write_wl_after_flip_ps": 2981.093008581964,
+        "min_restore_before_capture_ps": 2853.7312888497086,
+        "min_precharge_on_before_capture_ps": 3021.2876221809324
+      },
+      "case": {
+        "name": "8x4_6t_SS_write",
+        "rows": 8,
+        "cols": 4,
+        "cell": "SRAM_6T_CELL",
+        "mux": false,
+        "corner": "SS",
+        "vdd": 0.9,
+        "temperature": 125,
+        "operation": "write",
+        "timeout": 7200
+      },
+      "period_s": 9e-09,
+      "sample_interval_s": 5e-12,
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "deck_sha256": "474604662c3aabc5d2445a01d6863ede60b14511343466e922a926553135158e",
+      "execution": {
+        "mpi_ranks": 1,
+        "blas_threads_per_rank": 1,
+        "linear_solver": "KLU"
+      },
+      "xyce_exit": 0,
+      "scorer_sha256": "fd955d4f55c247d0a575b6b8a54bc9357694dba132c469171efb95ed70f13d00"
+    },
+    {
+      "name": "8x4_6t_mux_SS_dynamic_column_read",
+      "passed": true,
+      "checks": 369,
+      "failures": [],
+      "metrics": {
+        "min_sense_margin_v": 0.9157852412314856,
+        "min_wl_off_before_capture_ps": 6949.314938539021,
+        "min_wl_off_before_sense_ps": 392.68609711579967,
+        "min_isolation_before_enable_ps": 496.67289821117663,
+        "min_enable_off_before_precharge_ps": 364.56330055311093,
+        "min_storage_polarity_margin_v": 0.32819006700000003,
+        "min_read_output_margin_ps": 1511.0714014104256,
+        "min_restore_before_capture_ps": 3679.1738616949206,
+        "min_precharge_on_before_capture_ps": 3833.8004391864115
+      },
+      "case": {
+        "name": "8x4_6t_mux_SS_dynamic_column_read",
+        "rows": 8,
+        "cols": 4,
+        "cell": "SRAM_6T_CELL",
+        "mux": true,
+        "corner": "SS",
+        "vdd": 0.9,
+        "temperature": 125,
+        "operation": "read",
+        "col": 0,
+        "background": 1,
+        "column_sequence": [
+          0,
+          1
+        ],
+        "timeout": 7200,
+        "added_in": "V2.2.4"
+      },
+      "period_s": 9.5e-09,
+      "sample_interval_s": 5e-12,
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "deck_sha256": "96c757fedbda5a209a3b79780bae0be7f156c199b538489e6ff239146d8bf388",
+      "execution": {
+        "mpi_ranks": 1,
+        "blas_threads_per_rank": 1,
+        "linear_solver": "KLU"
+      },
+      "xyce_exit": 0,
+      "scorer_sha256": "fd955d4f55c247d0a575b6b8a54bc9357694dba132c469171efb95ed70f13d00"
+    }
+  ],
+  "transient_provenance": {
+    "equivalent_mode": 0,
+    "variation_mode": "nominal",
+    "seed": 20260919,
+    "w_rc": true,
+    "pi_res_ohm": 100,
+    "pi_cap_f": 1e-15,
+    "wire_geometry": "global.yaml illustrative distributed 1 ohm / 0.1 fF per pitch"
+  },
+  "raw_outputs": "outputs/validation/V2.2.6-review-*",
+  "limits": [
+    "No complete V2.2.6 screen",
+    "256x256 operating point unresolved",
+    "No equivalent-mode, arbitrary PVT/RC, or yield qualification"
+  ]
+}

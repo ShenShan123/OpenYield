@@ -172,7 +172,8 @@ def write_deck(testbench: Sram6TCoreMcTestbench, operation: str,
         'temperature': testbench.temperature, 'vdd': float(testbench.vdd),
         'variation_mode': testbench.variation_mode, 'mc_runs': mc_runs,
         'full_device_coverage': testbench.variation_mode == 'per-device'
-                                and testbench.real_cell_mode == 0,
+                                and testbench.real_cell_mode == 0
+                                and operation in _TRANSIENT_OPERATIONS,
         'seed': testbench.mc_seed, 'model_sha256': hashlib.sha256(model_path.read_bytes()).hexdigest(),
         'equivalent': testbench.equivalent.to_dict(),
         'interconnect': testbench.interconnect.to_dict(),
@@ -190,7 +191,7 @@ def main() -> None:
     config = configure(rows, cols, choose_columnmux, CORNER, CELL_6T)
     cell_type = config.global_config.sram_cell_type
     custom_vars = get_custom_vars(config, cell_type) if VARIATION_MODE == "custom" else None
-    requested = int(config.global_config.monte_carlo_runs) if MC_RUNS is None else int(MC_RUNS)
+    requested = config.global_config.monte_carlo_runs if MC_RUNS is None else MC_RUNS
     mc_runs = resolve_mc_runs(requested, VARIATION_MODE, custom_vars)
     target_row, target_col = (rows - 1, cols - 1) if TARGET is None else TARGET
     equivalent = resolve_equivalent(config.global_config.equivalent

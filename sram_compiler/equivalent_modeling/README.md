@@ -1,4 +1,4 @@
-# Equivalent array cells — V2.2.5
+# Equivalent array cells — V2.2.6
 
 Mode 0 keeps every transistor in the SRAM array. Modes 1–4 replace progressively more cells outside the addressed access path with local equivalent loads. Every mode retains all distributed wire segments and their taps. The approximations shorten large-array solves, but only mode 0 gives full-array per-device mismatch coverage.
 

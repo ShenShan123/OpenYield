@@ -1,5 +1,11 @@
 # Characterisation and diagnostic data
 
+[`V2_2_6_CONFIGURATION_REVIEW.json`](V2_2_6_CONFIGURATION_REVIEW.json) records
+targeted software, DC and four-case waveform diagnostics for the
+[configuration fixes](../design/CONFIGURATION_REVIEW_V2_2_6.md). It is not a
+complete release screen or qualification record. Older evidence below retains
+its original version and scope.
+
 `V2_2_5_NEGATIVE_CONTROLS.json` is a new **diagnostic** record for 14 short-clock
 negative controls. It stores each case's solver outcome, waveform failures,
 expected-check matches, model and source hashes, and the eight passing matched

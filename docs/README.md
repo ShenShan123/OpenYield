@@ -1,4 +1,4 @@
-# OpenYield V2.2.5 documentation
+# OpenYield V2.2.6 documentation
 
 Design and validation records (`design/`), the supplied evidence (`data/`,
 `qualification/`) and the release history live here; usage
@@ -41,7 +41,8 @@ The carried Phase 6 scope. The working plans that defined it
   V2.2.5 before the campaign stopped ([record](V2_2_5_FULL_COVERAGE_EVALUATION.md),
   about 1,400 estimated solver-hours for the full plan). Four corner model files
   were then corrected; a fresh screen on their new hashes is needed. No V2.2.5
-  screen or qualification has been assembled.
+  screen or qualification has been assembled. V2.2.6 has targeted review checks
+  only; its full screen is also pending.
 - **The 256x256 operating point.** Plain Newton did not converge in 92 h in
   the V2.2.3 screen, MOSFET homotopy is erratic, and the V2.2.4 seeded
   operating point, which solves 128x128 and 256x128 in minutes, had not
@@ -88,7 +89,8 @@ The carried Phase 6 scope. The working plans that defined it
 | [Development guide](DEVELOPMENT.md) | Optional local regression and qualification tools |
 | [Historical driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Original measured basis and research stages; shipped classes are in the compiler guide |
 | [Historical timing proposal](TIMING_AUTOCONFIG.md) | Earlier clock fits and measured basis; current clocks are in the compiler guide |
-| [V2.2.5 compiler entrance](design/COMPILER_ENTRY_V2_2_5.md) | Current release: macro entrance, model-card correction, input checks, and validation limits |
+| [V2.2.6 configuration review](design/CONFIGURATION_REVIEW_V2_2_6.md) | Current release: custom SNM, model audit, sample counts, coverage metadata |
+| [V2.2.5 compiler entrance](design/COMPILER_ENTRY_V2_2_5.md) | Macro entrance, model-card correction, input checks, and validation limits |
 | [V2.2.4 replica loads and review fixes](design/PHASED_CONTROL_V2_2_4.md) | Passive replica load cells, V2.2.3 review fixes, seeded operating point, pending screen |
 | [V2.2.3 envelope and clocks](design/PHASED_CONTROL_V2_2_3.md) | Array envelope, joint-dimension clocks, shared access deadline |
 | [V2.2.2 review and screen](design/PHASED_CONTROL_V2_2_2.md) | Executed screen, reported margins, and the coverage it does not reach |
@@ -100,6 +102,7 @@ The carried Phase 6 scope. The working plans that defined it
 
 | Release | Record |
 |---|---|
+| V2.2.6 | [configuration review and fixes](design/CONFIGURATION_REVIEW_V2_2_6.md) |
 | V2.2.5 | [macro entrance and generation checks](design/COMPILER_ENTRY_V2_2_5.md) |
 | V2.2.4 | [replica load cells that do not leak, review fixes](design/PHASED_CONTROL_V2_2_4.md) |
 | V2.2.3 | [envelope, joint-dimension clocks, one access deadline](design/PHASED_CONTROL_V2_2_3.md) |

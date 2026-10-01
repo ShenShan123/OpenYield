@@ -1,4 +1,4 @@
-# SRAM compiler tutorial — V2.2.5
+# SRAM compiler tutorial — V2.2.6
 
 The compiler builds 6T or 10T transistor-level SRAM arrays with distributed wordline and bitline RC, a replica column, address and control logic, and column periphery. Generate SRAM macros through [`main_sram.py`](../main_sram.py). Run commands from the repository root.
 

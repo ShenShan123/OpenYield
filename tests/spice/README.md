@@ -1,5 +1,9 @@
 # Phased SRAM access integration checks
 
+`v226_review_cases.json` selects four existing cases for the V2.2.6
+configuration-fix diagnostic. See the [review record](../../docs/design/CONFIGURATION_REVIEW_V2_2_6.md)
+for results and limits; this subset is not the full release screen.
+
 The case manifests are tracked; the Python runner and waveform checker are
 local ignored scripts. The commands below apply only to a workspace retaining
 those scripts. A fresh clone does not include the runner.

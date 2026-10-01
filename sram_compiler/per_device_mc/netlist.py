@@ -36,16 +36,6 @@ class ModelClone:
     subckt_name: str
 
 
-def _remove_comments(text: str) -> str:
-    lines: list[str] = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("*"):
-            continue
-        lines.append(stripped)
-    return " ".join(lines)
-
-
 def _convert_value(value: str) -> Any:
     try:
         if "." not in value and "e" not in value.lower():
@@ -70,14 +60,32 @@ def _parse_parameters(text: str) -> dict[str, Any]:
 
 
 def parse_spice_models(path: Path) -> dict[str, dict[str, Any]]:
-    content = path.read_text(encoding="utf-8")
+    # Only an active .model statement and its continuation lines belong to a
+    # card. Comments and subsequent directives must not invent duplicates.
+    statements: list[str] = []
+    current: list[str] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith('*'):
+            continue
+        line = line.split(';', 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith('+'):
+            if current:
+                current.append(line[1:].strip())
+            continue
+        if current:
+            statements.append(' '.join(current))
+            current = []
+        if re.match(r'\.model\s+', line, flags=re.IGNORECASE):
+            current.append(line)
+    if current:
+        statements.append(' '.join(current))
     models: dict[str, dict[str, Any]] = {}
     seen_models: set[str] = set()
-    for section in re.split(r"\.model\s+", content, flags=re.IGNORECASE)[1:]:
-        lines = section.strip().split("\n", 1)
-        if not lines or not lines[0].strip():
-            continue
-        parts = lines[0].split()
+    for statement in statements:
+        parts = statement.split()[1:]
         if len(parts) < 2:
             continue
         name, model_type = parts[0], parts[1]
@@ -85,10 +93,8 @@ def parse_spice_models(path: Path) -> dict[str, dict[str, Any]]:
             raise SpiceParseError(f"{path}: Duplicate model name {name}")
         seen_models.add(name.lower())
         param_text = " ".join(parts[2:])
-        if len(lines) > 1:
-            param_text += " " + lines[1]
         try:
-            parameters = _parse_parameters(_remove_comments(param_text))
+            parameters = _parse_parameters(param_text)
         except SpiceParseError as exc:
             raise SpiceParseError(f"{path}: model {name}: {exc}") from exc
         models[name] = {

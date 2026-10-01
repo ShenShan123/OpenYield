@@ -9,6 +9,7 @@ import json
 import math
 import shutil
 import sys
+from numbers import Integral
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +83,10 @@ def resolve_mc_runs(
     variation_mode: str,
     custom_vars: list[list[float]] | None,
 ) -> int:
+    if requested is not None and (isinstance(requested, bool)
+                                 or not isinstance(requested, Integral)
+                                 or requested <= 0):
+        raise ValueError("mc_runs must be a positive integer")
     if variation_mode == "nominal":
         if requested not in (None, 1):
             raise ValueError("nominal variation uses exactly one run")
@@ -99,9 +104,7 @@ def resolve_mc_runs(
             )
         return sample_count
     if requested is not None:
-        if requested <= 0:
-            raise ValueError("mc_runs must be positive")
-        return requested
+        return int(requested)
     return 100
 
 
@@ -346,7 +349,8 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         "model_sha256": hashlib.sha256(Path(getattr(
             config.global_config, f'pdk_path_{args.corner}')).read_bytes()).hexdigest(),
         "cell_type": cell_type,
-        "full_device_coverage": args.real_cell_mode == 0 and args.variation_mode == "per-device",
+        "full_device_coverage": args.real_cell_mode == 0 and args.variation_mode == "per-device"
+                                and args.operation not in SNM_OPERATIONS,
         "seed": args.seed,
         "driver_sizes": testbench.driver_sizes.to_dict(),
         "timing": testbench.timing_config.to_dict(),

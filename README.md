@@ -1,8 +1,8 @@
-# OpenYield V2.2.5
+# OpenYield V2.2.6
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
 
-**Release status:** V2.2.5 makes `main_sram.py` the documented macro entrance and tightens generation input checks. The [V2.2.5 waveform campaign](docs/V2_2_5_FULL_COVERAGE_EVALUATION.md) stopped incomplete on the original model hashes; [corrected-model diagnostics](docs/V2_2_5_SIMULATION_SUMMARY.md) have passed, but a fresh full screen is still needed. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree. See the [V2.2.5 record](docs/design/COMPILER_ENTRY_V2_2_5.md) before treating a generated deck or passing measurement as functional evidence.
+**Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The [V2.2.5 campaign](docs/V2_2_5_FULL_COVERAGE_EVALUATION.md) stopped incomplete; its [corrected-model diagnostics](docs/V2_2_5_SIMULATION_SUMMARY.md) retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
 
 ## Quick start
 
@@ -21,6 +21,9 @@ python main_sram.py
 ```
 
 Set `RUN_XYCE = True` to simulate the configured macro. The default seed makes the local process sample repeatable; set `MC_RUNS` to draw more samples. Decks and results go under `outputs/main_sram/`. Xyce is also needed during deck construction if you select equivalent mode 1–4.
+
+`MC_RUNS` must be a positive integer, or `None` to use the YAML setting.
+SNM operations simulate one cell and do not provide full-array mismatch coverage.
 
 The optional [command-line runner](sram_compiler/per_device_mc/README.md) supports batch generation and explicit overrides. It uses the same local variation default.
 
@@ -55,7 +58,7 @@ python -m pip install -r size_optimization/openyield_v2/requirements.txt
 python -m size_optimization.openyield_v2.run_experiment --dry-run
 ```
 
-Legacy importance-sampling estimators are retained in [`yield_estimation/`](yield_estimation/README.md), but they are not a validated V2.2.5 yield workflow. Use `MC_RUNS` in `main_sram.py` for current sampling, and read the [open items](docs/README.md#open-items) before reporting a yield estimate.
+Legacy importance-sampling estimators are retained in [`yield_estimation/`](yield_estimation/README.md), but they are not a validated V2.2.6 yield workflow. Use `MC_RUNS` in `main_sram.py` for current sampling, and read the [open items](docs/README.md#open-items) before reporting a yield estimate.
 
 ## Validate changes
 
@@ -64,7 +67,7 @@ python -m compileall -q sram_compiler utils size_optimization yield_estimation
 python main_sram.py  # set RUN_XYCE=False for deck generation without Xyce
 ```
 
-The regression and waveform Python scripts are retained only in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the unfinished V2.2.5 screen; no V2.2.5 screen has completed. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
+The regression and waveform Python scripts are retained only in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the unfinished V2.2.5 screen; no V2.2.5 or V2.2.6 full screen has completed. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
 
 ## Guides and project map
 
