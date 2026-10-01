@@ -1,7 +1,7 @@
 # OpenYield V2.2.5 documentation
 
 Design and validation records (`design/`), the supplied evidence (`data/`,
-`qualification/`, `issue_reports/`) and the release history live here; usage
+`qualification/`) and the release history live here; usage
 guides live beside the code they describe. Paths are relative to the
 repository root unless stated otherwise. Every release entry of the
 [changelog](CHANGELOG.md) names its record; earlier entries, snapshots and
@@ -81,12 +81,13 @@ The carried Phase 6 scope. The working plans that defined it
 | Document | Purpose |
 |---|---|
 | [Changelog](CHANGELOG.md) | Release history, one entry per release with its record |
+| [V2.2.5 simulation summary](V2_2_5_SIMULATION_SUMMARY.md) | Reconciled old-hash, corrected-hash, negative-control, and corner-case results |
 | [V2.2.5 full-coverage evaluation](V2_2_5_FULL_COVERAGE_EVALUATION.md) | Stopped partial screen, provenance, and unresolved cases on old model hashes |
 | [V2.2.5 corrected-model corner cases](V2_2_5_CORRECTED_CORNER_CASES.md) | Boundary configurations and waveform checks on corrected model hashes |
 | [V2.2.5 negative controls](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md) | Expanded failure scenarios, matched positive references, and Xyce results |
 | [Development guide](DEVELOPMENT.md) | Optional local regression and qualification tools |
-| [Driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Working proposal and qualification status of the driver classes |
-| [Automatic timing proposal](TIMING_AUTOCONFIG.md) | Timing design, measured basis and the per-signal phase table |
+| [Historical driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Original measured basis and research stages; shipped classes are in the compiler guide |
+| [Historical timing proposal](TIMING_AUTOCONFIG.md) | Earlier clock fits and measured basis; current clocks are in the compiler guide |
 | [V2.2.5 compiler entrance](design/COMPILER_ENTRY_V2_2_5.md) | Current release: macro entrance, model-card correction, input checks, and validation limits |
 | [V2.2.4 replica loads and review fixes](design/PHASED_CONTROL_V2_2_4.md) | Passive replica load cells, V2.2.3 review fixes, seeded operating point, pending screen |
 | [V2.2.3 envelope and clocks](design/PHASED_CONTROL_V2_2_3.md) | Array envelope, joint-dimension clocks, shared access deadline |
@@ -112,7 +113,7 @@ The carried Phase 6 scope. The working plans that defined it
 | V2.1.5 | [10T round](design/TIMING_10T_BUDGET_V2_1_5.md), [equivalent model](design/EQUIVALENT_MODEL_V2_1_5.md) |
 | V2.1.4 | [6T timing budget](design/TIMING_6T_BUDGET_V2_1_4.md) |
 | V2.1.3 | [10T timing budget](design/TIMING_10T_BUDGET_V2_1_3.md) |
-| V2.1.2 | [timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md), [first-500 write-failure inventory](issue_reports/write_failure_cases_first_500.md) |
+| V2.1.2 | [timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md); the resolved first-500 write-failure audit is archived in Git history |
 | V2.1.1 | [distributed-only wiring](design/DISTRIBUTED_ONLY_V2_1_1.md) |
 | V2.1.0 | [timing lookup](design/TIMING_LOOKUP_V2_1_0.md) |
 | V2.0.11 | [audit and write screen](design/WRITE_VALIDATION_V211.md) |

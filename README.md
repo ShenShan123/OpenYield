@@ -2,7 +2,7 @@
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
 
-**Release status:** V2.2.5 makes `main_sram.py` the documented macro entrance and tightens generation input checks. The [V2.2.5 waveform campaign](docs/V2_2_5_FULL_COVERAGE_EVALUATION.md) stopped incomplete on the original model hashes; corrected `NMOS_VTH` cards need a fresh screen. The configured limit is 512 rows by 256 columns, but 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree. See the [V2.2.5 record](docs/design/COMPILER_ENTRY_V2_2_5.md) before treating a generated deck or passing measurement as functional evidence.
+**Release status:** V2.2.5 makes `main_sram.py` the documented macro entrance and tightens generation input checks. The [V2.2.5 waveform campaign](docs/V2_2_5_FULL_COVERAGE_EVALUATION.md) stopped incomplete on the original model hashes; [corrected-model diagnostics](docs/V2_2_5_SIMULATION_SUMMARY.md) have passed, but a fresh full screen is still needed. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree. See the [V2.2.5 record](docs/design/COMPILER_ENTRY_V2_2_5.md) before treating a generated deck or passing measurement as functional evidence.
 
 ## Quick start
 

@@ -1,12 +1,18 @@
 # Automatic timing configuration — V2.1.4 guide and historical proposal
 
+Historical timing proposal: the current V2.2.5 clock policy and supported
+512×256 envelope are described in the
+[sizing/timing guide](../sram_compiler/sizing/README.md) and
+[V2.2.5 record](design/COMPILER_ENTRY_V2_2_5.md). The older numeric schedules
+and fit below explain previous releases; they are not current clock settings.
+
 **V2.2.1 update:** access is now clock-high and recovery is clock-low. The
 current `v2.2.0-timing-3` budgets are twice the V2.1.10 values below, with
 threefold 128–512-row budgets and the wider 512-column class (24 ns for 6T, 25.5 ns for muxed 6T and 10T). Read
 sensing also waits for physical wordline release and isolation. The
-[current record](design/PHASED_CONTROL_V2_2_2.md) is authoritative
-for present timing, measurements, and validation; the following numeric history
-explains the previous architecture.
+[V2.2.2 record](design/PHASED_CONTROL_V2_2_2.md) is the last assembled screen
+and certifies only its own tree; the following numeric history explains the
+previous architecture.
 
 
 V2.1.1 retains the timing table introduced in V2.1.0: **a fixed lookup table with

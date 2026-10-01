@@ -39,7 +39,16 @@ A [corrected-model corner-case diagnostic](V2_2_5_CORRECTED_CORNER_CASES.md)
 then passed 22 of 22 selected waveform cases (20,960 checks) across five
 corners, 6T/10T, unusual geometry, mux selection, and seeded local mismatch.
 Eight matched negative controls failed their named checks with successful Xyce
-exits. This targeted set does not replace the incomplete full screen.
+exits. A separate medium tranche passed 4 of 4 class-boundary cases (87,975
+checks), including 8×256 mux input 0 and 257×4 FF cold. The
+[simulation summary](V2_2_5_SIMULATION_SUMMARY.md) reconciles these with the
+old-hash campaign; none replaces the incomplete full screen.
+
+Documentation cleanup removed the resolved first-500 write-failure inventory
+from the current tree and kept its audited snapshot retrievable with
+`git show 39ccae8:docs/issue_reports/write_failure_cases_first_500.md`.
+Historical sizing and timing proposals now point to the current V2.2.5 guides;
+their still-open research stages and measured basis remain available.
 
 ## V2.2.4 — 2026-09-26 — replica load cells that do not leak, and the V2.2.3 review fixes
 
@@ -433,8 +442,10 @@ on again.
 
 - CLI `--vdd` / `--temperature` enter the run identity; the resolved Xyce
   installation is recorded; the bounded-step retry covers every coarse `.TRAN`.
-- The supplied [first-500 write-failure inventory](issue_reports/write_failure_cases_first_500.md)
-  records no electrical write failure (solver warnings and an Open MPI error).
+- The first-500 write-failure inventory recorded no electrical write failure
+  (solver warnings and an Open MPI error). The resolved report was removed from
+  the current docs; retrieve the original audit with
+  `git show 39ccae8:docs/issue_reports/write_failure_cases_first_500.md`.
 - The supplied CSVs move to `docs/data/` ([audit](data/README.md)); misprinted
   document values are corrected from them. Dead helpers removed.
 - Phase 4/5 [follow-up](design/TIMING_FOLLOWUP_V2_1_2.md): the shared 4 ns class

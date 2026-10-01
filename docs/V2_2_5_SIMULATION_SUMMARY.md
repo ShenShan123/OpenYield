@@ -1,0 +1,17 @@
+# V2.2.5 simulation results
+
+**Status: targeted diagnostics passed; no completed V2.2.5 full screen or qualification.** This index separates results by model hash and source snapshot. The last assembled functional screen is V2.2.2, which certifies only that older tree. The 256×256 operating point remains unresolved.
+
+| Result set | Model/source identity | Scored outcome | Record |
+|---|---|---|---|
+| Stopped full campaign | Original SS/FF/FS/SF model hashes, source `206fbd8` | 1,594 / 1,778 positives passed, 6 / 6 original negative controls rejected; 184 positives have no result. The positives contain 6,277,990 passed waveform checks. | [Partial campaign](V2_2_5_FULL_COVERAGE_EVALUATION.md) |
+| Expanded negative controls on original cards | Same pre-correction models; six original controls plus eight selected probes | 14 / 14 intended waveform rejections, 143,717 checks evaluated and 5,168 failed. Includes the six controls in the row above, so do not add those counts twice. | [Negative evaluation](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md), [data](data/V2_2_5_NEGATIVE_CONTROLS.json) |
+| NMOS_VTH card correction | Four corrected corner hashes, TT unchanged | Four old cards fail direct Xyce parsing when `NMOS_VTH` is instantiated; four corrected cards solve. Eight distinct read/write waveform cases pass 2,916 checks on final hashes. Two later guard smoke runs repeat two of those names and are not counted again. | [Design follow-up](design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up), [data](data/V2_2_5_NMOS_VTH_U0.json) |
+| Corrected small and irregular cases | Corrected model hashes, source `8a8bd77` | 22 / 22 selected positives pass 20,960 checks; three extra matched positive references pass 2,182 checks; eight new negative controls fail their named checks with successful Xyce exits (3,943 checks evaluated). | [Corner evaluation](V2_2_5_CORRECTED_CORNER_CASES.md), [data](data/V2_2_5_CORRECTED_CORNER_CASES.json) |
+| Corrected medium class boundaries | Corrected SS/FF hashes, pinned source `744c6a4` | 4 / 4 positives pass 87,975 checks, including 8×256 mux input 0 and 257×4 FF cold. | [Corner evaluation](V2_2_5_CORRECTED_CORNER_CASES.md#medium-class-boundary-tranche), [data](data/V2_2_5_CORRECTED_MEDIUM_CASES.json) |
+
+The corrected-model positive diagnostics comprise **37 unique cases and 114,033 passed waveform checks** across the three corrected positive result sets above. Their cases do not overlap. The medium worktree's source-hash inventory omitted an ignored, unused `sram_compiler/equivalent_modeling/compare.py`; its aggregate source hash therefore differs from the root diagnostic even though the tracked runtime and model hashes match. Each result retains its own source hash. These counts summarize separate diagnostics, not one screen.
+
+Exploratory negative probes and the first corrected-model run before a whitespace-only card cleanup are retained under ignored `outputs/validation/`, but their cases were rerun as reported above. They are not additional independent passes. The old partial campaign remains preserved on its original hashes and cannot be combined with corrected-model results for qualification.
+
+All waveform scores use the illustrative distributed wire configuration in equivalent mode 0. A passing `.MEASURE` card, one variation seed, or these selected configurations do not establish arbitrary-array operation, extracted-metal timing, or yield. A fresh complete waveform screen on the corrected model hashes is still required before promoting V2.2.5 evidence.

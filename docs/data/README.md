@@ -18,6 +18,13 @@ rejections, paired old-run metric comparisons, and per-case provenance. The
 [corner-case evaluation](../V2_2_5_CORRECTED_CORNER_CASES.md) explains its
 coverage limits; it is a targeted diagnostic, not a full-screen record.
 
+`V2_2_5_CORRECTED_MEDIUM_CASES.json` records four passing medium class-boundary
+waveform cases (87,975 checks) on corrected SS/FF model hashes. It includes
+the pinned source identity, frozen manifest hash, per-case result hashes and
+timing margins. See the [simulation summary](../V2_2_5_SIMULATION_SUMMARY.md)
+for how it relates to the first corner-case tranche and the stopped old-hash
+campaign. It is diagnostic, not qualification.
+
 `PHASED_CONTROL_V2_2_2.json` is the assembled V2.2.2 functional screen: one
 record per case with its clock, corner, seed, solver, deck, waveform and
 scorer hashes and the worst value of every ordering and budget margin, the

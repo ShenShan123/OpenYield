@@ -38,6 +38,8 @@ The six preserved results are under `outputs/validation/V2.2.5-phased/negative/`
 
 The new cases exercise more failure families and contexts, but all use clock compression. They do not inject faults into the circuit or prove that every checker family is sensitive to an independent defect. The original six controls cover larger geometries, including 512x4; no new large-array control is needed to establish that the small-array scenarios fail.
 
+After the `NMOS_VTH` card correction, the eight added controls were rerun on the corrected model hashes. All eight again had successful Xyce exits, failed waveform scoring, and triggered their two named expected checks; their eight matched positive references passed on corrected hashes. The [corrected-model corner evaluation](V2_2_5_CORRECTED_CORNER_CASES.md) and [case evidence](data/V2_2_5_CORRECTED_CORNER_CASES.json) record that retest. The six larger preserved controls were not rerun on corrected hashes, so the 14/14 result above remains evidence for the original model snapshot only.
+
 ## Progress
 
 | Checkpoint | Result |

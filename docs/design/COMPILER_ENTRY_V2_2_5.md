@@ -19,3 +19,8 @@ Direct Xyce 7.4 DC probes that instantiate `NMOS_VTH` aborted on each old SS/FF/
 The prior V2.2.5 campaign stopped at 1,594 of 1,778 positive passes, with its source snapshot and old model hashes preserved. No result from that partial run is promoted or silently reused for the corrected libraries. A fresh waveform screen is required for qualification. The release identifier remains V2.2.5.
 
 A subsequent [corrected-model corner-case diagnostic](../V2_2_5_CORRECTED_CORNER_CASES.md) passed 22 selected positive cases with 20,960 waveform checks and confirmed eight matched negative rejections. It covers unusual small geometry, all five corners, mux selection, local mismatch, and TT no-stub wiring. It does not fill the remaining full-screen or 256×256 gaps.
+
+Four additional medium class-boundary cases passed 87,975 waveform checks on
+corrected SS/FF model hashes. The [V2.2.5 simulation summary](../V2_2_5_SIMULATION_SUMMARY.md)
+separates those results from the stopped old-hash screen and other targeted
+diagnostics; no full-screen qualification is claimed.

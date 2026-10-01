@@ -1,6 +1,10 @@
 # Automatic driver sizing for all array sizes — proposal (V2.0.6)
 
-Current release: **V2.1.2** uses distributed signal wiring only. The
+Historical proposal: this document preserves the V2.0.4–V2.1.2 sizing
+investigation and its unresolved research stages. The current release is
+**V2.2.5**; use the [sizing guide](../sram_compiler/sizing/README.md) for shipped
+classes and [open items](README.md#open-items) for current gaps. V2.1.2 used
+distributed signal wiring only. The
 V2.0.9 transistor classes, V2.0.5 `rules_only` identity and qualification
 format remain unchanged; V2.1.0 fixed clock budgets remain unqualified for
 unmeasured routing/PVT combinations. The

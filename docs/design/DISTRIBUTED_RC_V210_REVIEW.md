@@ -159,11 +159,11 @@ counts and metrics are collected in the local
 the original review label because the work began against V2.0.9. The solver
 binary SHA-256 is `13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e`.
 
-Waveform figures retained locally:
-[512-column release before/after](../../outputs/validation/V2.0.9-review/V2.0.10-precharge-guard.png)
-and [final 512-row sequence](../../outputs/validation/V2.0.9-review/V2.0.10-512x4-sequence.png),
-with PDF versions alongside them. No incomplete or failed run is promoted to
-qualification, and `sizing_table.json` remains empty.
+The 512-column precharge and final 512-row sequence figures were generated in
+ignored `outputs/validation/V2.0.9-review/` and are no longer present in the
+current workspace. The recorded metrics above remain the available evidence.
+No incomplete or failed run is promoted to qualification, and
+`sizing_table.json` remains empty.
 
 
 The 10-ps versus 50-ps maximum-step comparison on the 16×64 10T FF muxed read

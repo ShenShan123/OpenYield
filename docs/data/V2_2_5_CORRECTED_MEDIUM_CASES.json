@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "version": "V2.2.5",
+  "status": "targeted medium corner diagnostic; not full-screen qualification",
+  "source_commit": "744c6a41fc2d5251aa9a0f908e3677ee54f96d87",
+  "manifest_sha256": "c6f508b5e2a79d1b67458701b74c9a1688ae642e4deaba67265124bad13bac0a",
+  "source_hashes_sha256": "5ca23288eab9690b11afb902efc20932fa3b8272c0b2f3374debf7b84ab3f1a7",
+  "solver": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+  "model_sha256": {
+    "SS": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+    "FF": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86"
+  },
+  "summary": {
+    "passed": 4,
+    "expected": 4,
+    "checks": 87975,
+    "solver_or_scorer_failures": 0
+  },
+  "minimum_metrics": {
+    "min_sense_margin_v": {
+      "value": 0.8712577305504716,
+      "case": "257x4_10t_mux_FFcold_read_write"
+    },
+    "min_wl_off_before_capture_ps": {
+      "value": 4560.8380954305885,
+      "case": "33x33_6t_SShot_read_write"
+    },
+    "min_driver_release_after_wl_ps": {
+      "value": 117.35734517193296,
+      "case": "257x4_10t_mux_FFcold_read_write"
+    },
+    "min_wl_off_before_sense_ps": {
+      "value": 102.84333625148383,
+      "case": "257x4_10t_mux_FFcold_read_write"
+    },
+    "min_isolation_before_enable_ps": {
+      "value": 131.66197001959532,
+      "case": "257x4_10t_mux_FFcold_read_write"
+    },
+    "min_driver_on_before_wl_ps": {
+      "value": 714.2494805806298,
+      "case": "33x33_6t_SShot_read_write"
+    },
+    "min_enable_off_before_precharge_ps": {
+      "value": 102.81868909755218,
+      "case": "257x4_10t_mux_FFcold_read_write"
+    },
+    "min_storage_polarity_margin_v": {
+      "value": 0.291189844,
+      "case": "65x9_10t_SShot_read_write"
+    },
+    "min_read_output_margin_ps": {
+      "value": 1795.3328762131434,
+      "case": "33x33_6t_SShot_read_write"
+    },
+    "min_write_wl_after_flip_ps": {
+      "value": 3533.0096729825646,
+      "case": "33x33_6t_SShot_read_write"
+    },
+    "min_restore_before_capture_ps": {
+      "value": 3473.2461902585883,
+      "case": "33x33_6t_SShot_read_write"
+    },
+    "min_precharge_on_before_capture_ps": {
+      "value": 3615.8115729811348,
+      "case": "33x33_6t_SShot_read_write"
+    }
+  },
+  "cases": [
+    {
+      "name": "33x33_6t_SShot_read_write",
+      "rows": 33,
+      "cols": 33,
+      "cell": "SRAM_6T_CELL",
+      "mux": false,
+      "operation": "read&write",
+      "corner": "SS",
+      "vdd": 0.9,
+      "temperature_c": 125,
+      "variation": "nominal",
+      "seed": 20260919,
+      "w_rc": true,
+      "equivalent_mode": 0,
+      "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "xyce_returncode": 0,
+      "passed": true,
+      "checks": 9049,
+      "elapsed_seconds": 2000.665513753891,
+      "metrics": {
+        "min_sense_margin_v": 0.9051923819291658,
+        "min_wl_off_before_capture_ps": 4560.8380954305885,
+        "min_driver_release_after_wl_ps": 459.4798013455417,
+        "min_wl_off_before_sense_ps": 525.4278732074235,
+        "min_isolation_before_enable_ps": 494.6504289444259,
+        "min_driver_on_before_wl_ps": 714.2494805806298,
+        "min_enable_off_before_precharge_ps": 413.93611060887,
+        "min_storage_polarity_margin_v": 0.321579464,
+        "min_read_output_margin_ps": 1795.3328762131434,
+        "min_write_wl_after_flip_ps": 3533.0096729825646,
+        "min_restore_before_capture_ps": 3473.2461902585883,
+        "min_precharge_on_before_capture_ps": 3615.8115729811348
+      },
+      "source_hashes_sha256": "5ca23288eab9690b11afb902efc20932fa3b8272c0b2f3374debf7b84ab3f1a7",
+      "result_path": "outputs/validation/V2.2.5-corrected-medium/results/33x33_6t_SShot_read_write/result.json",
+      "result_sha256": "268048915290e4021719884f1ef83e26d6296dd1045b78e3aeafdd05a06b793b"
+    },
+    {
+      "name": "65x9_10t_SShot_read_write",
+      "rows": 65,
+      "cols": 9,
+      "cell": "SRAM_10T_CELL",
+      "mux": false,
+      "operation": "read&write",
+      "corner": "SS",
+      "vdd": 0.9,
+      "temperature_c": 125,
+      "variation": "nominal",
+      "seed": 20260919,
+      "w_rc": true,
+      "equivalent_mode": 0,
+      "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "xyce_returncode": 0,
+      "passed": true,
+      "checks": 13476,
+      "elapsed_seconds": 2347.453727245331,
+      "metrics": {
+        "min_sense_margin_v": 0.8733802128202818,
+        "min_wl_off_before_capture_ps": 8185.037994779413,
+        "min_driver_release_after_wl_ps": 449.1456147198177,
+        "min_wl_off_before_sense_ps": 435.83715785563993,
+        "min_isolation_before_enable_ps": 449.84467278918817,
+        "min_driver_on_before_wl_ps": 1127.057220744894,
+        "min_enable_off_before_precharge_ps": 396.7412224179681,
+        "min_storage_polarity_margin_v": 0.291189844,
+        "min_read_output_margin_ps": 4813.168939518521,
+        "min_write_wl_after_flip_ps": 7001.652967697985,
+        "min_restore_before_capture_ps": 7152.975943106091,
+        "min_precharge_on_before_capture_ps": 7271.817589443728
+      },
+      "source_hashes_sha256": "5ca23288eab9690b11afb902efc20932fa3b8272c0b2f3374debf7b84ab3f1a7",
+      "result_path": "outputs/validation/V2.2.5-corrected-medium/results/65x9_10t_SShot_read_write/result.json",
+      "result_sha256": "7e9f83a4db5d40de79a6049d0682048886fd538b56c18eddf88360d2f5266975"
+    },
+    {
+      "name": "8x256_6t_mux_SS_read_write_col0",
+      "rows": 8,
+      "cols": 256,
+      "cell": "SRAM_6T_CELL",
+      "mux": true,
+      "operation": "read&write",
+      "corner": "SS",
+      "vdd": 0.9,
+      "temperature_c": 125,
+      "variation": "nominal",
+      "seed": 20260919,
+      "w_rc": true,
+      "equivalent_mode": 0,
+      "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "xyce_returncode": 0,
+      "passed": true,
+      "checks": 55674,
+      "elapsed_seconds": 7176.278583526611,
+      "metrics": {
+        "min_sense_margin_v": 0.9140441723557013,
+        "min_wl_off_before_capture_ps": 6178.9768586850605,
+        "min_driver_release_after_wl_ps": 460.8819093139283,
+        "min_wl_off_before_sense_ps": 745.0642654332108,
+        "min_isolation_before_enable_ps": 662.9052980806517,
+        "min_driver_on_before_wl_ps": 986.0341291349421,
+        "min_enable_off_before_precharge_ps": 648.246453112532,
+        "min_storage_polarity_margin_v": 0.33483005800000004,
+        "min_read_output_margin_ps": 2440.3942678472436,
+        "min_write_wl_after_flip_ps": 4231.844533251581,
+        "min_restore_before_capture_ps": 4611.663320108712,
+        "min_precharge_on_before_capture_ps": 4826.952003990791
+      },
+      "source_hashes_sha256": "5ca23288eab9690b11afb902efc20932fa3b8272c0b2f3374debf7b84ab3f1a7",
+      "result_path": "outputs/validation/V2.2.5-corrected-medium/results/8x256_6t_mux_SS_read_write_col0/result.json",
+      "result_sha256": "cf2669dc1cf78199aef06f13ffa7738fd80de726edeb7f168b927ac733b48098"
+    },
+    {
+      "name": "257x4_10t_mux_FFcold_read_write",
+      "rows": 257,
+      "cols": 4,
+      "cell": "SRAM_10T_CELL",
+      "mux": true,
+      "operation": "read&write",
+      "corner": "FF",
+      "vdd": 1.1,
+      "temperature_c": -40,
+      "variation": "nominal",
+      "seed": 20260919,
+      "w_rc": true,
+      "equivalent_mode": 0,
+      "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "xyce_returncode": 0,
+      "passed": true,
+      "checks": 9776,
+      "elapsed_seconds": 7462.39733839035,
+      "metrics": {
+        "min_sense_margin_v": 0.8712577305504716,
+        "min_wl_off_before_capture_ps": 15380.245377125284,
+        "min_driver_release_after_wl_ps": 117.35734517193296,
+        "min_wl_off_before_sense_ps": 102.84333625148383,
+        "min_isolation_before_enable_ps": 131.66197001959532,
+        "min_driver_on_before_wl_ps": 905.848838865908,
+        "min_enable_off_before_precharge_ps": 102.81868909755218,
+        "min_storage_polarity_margin_v": 0.3691513930000001,
+        "min_read_output_margin_ps": 13331.576497277532,
+        "min_write_wl_after_flip_ps": 15308.891293329147,
+        "min_restore_before_capture_ps": 15074.172081825429,
+        "min_precharge_on_before_capture_ps": 15134.23117695524
+      },
+      "source_hashes_sha256": "5ca23288eab9690b11afb902efc20932fa3b8272c0b2f3374debf7b84ab3f1a7",
+      "result_path": "outputs/validation/V2.2.5-corrected-medium/results/257x4_10t_mux_FFcold_read_write/result.json",
+      "result_sha256": "e19d34529452a7073c804268ca11b683332266cc4fbd7451ef7d77a5de1b8021",
+      "old_partial_comparison": {
+        "result_path": "outputs/validation/V2.2.5-phased/mid/257x4_10t_mux_FFcold_read_write/result.json",
+        "reported_metrics_and_checks_equal": true
+      }
+    }
+  ]
+}
