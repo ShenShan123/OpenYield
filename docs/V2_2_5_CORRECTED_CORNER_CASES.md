@@ -1,6 +1,6 @@
 # V2.2.5 corrected-model corner cases
 
-**Status: both corrected-model tranches complete; diagnostic only.** The first tranche passed 22 of 22 small and irregular positives and eight matched negative controls; the medium class-boundary tranche passed 4 of 4. These runs are separate from the stopped [full-coverage campaign](V2_2_5_FULL_COVERAGE_EVALUATION.md), whose results used the original model files and cannot certify this tree. The [first-tranche evidence](data/V2_2_5_CORRECTED_CORNER_CASES.json) and [medium-tranche evidence](data/V2_2_5_CORRECTED_MEDIUM_CASES.json) record per-case results and provenance.
+**Status: both corrected-model tranches complete; diagnostic only.** The first tranche passed 22 of 22 small and irregular positives and eight matched negative controls; the medium class-boundary tranche passed 4 of 4. These runs are separate from the stopped full-coverage campaign ([summary](V2_2_5_SIMULATION_SUMMARY.md)), whose results used the original model files and cannot certify this tree. The [first-tranche evidence](data/V2_2_5_CORRECTED_CORNER_CASES.json) and [medium-tranche evidence](data/V2_2_5_CORRECTED_MEDIUM_CASES.json) record per-case results and provenance.
 
 ## Frozen inputs and acceptance
 

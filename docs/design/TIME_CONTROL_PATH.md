@@ -12,7 +12,7 @@ lists the signals; this document holds what the code comments used to carry:
 why each stage exists, the measurements that led to it, the sizing policy,
 and the naming contract a refactor must keep. Release numbers refer to
 `CHANGELOG.md`; the D-numbered items are the review findings in
-`sram_compiler/CIRCUIT_REVIEW.md`.
+`git show b4987df:sram_compiler/CIRCUIT_REVIEW.md`.
 
 ## 1. Ports
 
@@ -142,7 +142,7 @@ odd, so `rbl_delay` rises once the replica bitline has discharged) ->
 `rbl_delay_bar`.
 `K` active replica cells and `N` stages set the sensing margin; `K = 1`,
 `N = 9` deliberately keeps margin at the cost of the 200 ps YAML access limit
-(`docs/DRIVER_SIZING_PROPOSAL.md`).
+(`git show b4987df:docs/DRIVER_SIZING_PROPOSAL.md`).
 
 ### 2.9 Write-request hold (`_add_write_request_hold`)
 

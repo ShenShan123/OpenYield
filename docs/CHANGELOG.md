@@ -4,8 +4,10 @@ One entry per release, newest first, each naming its design record. Entries
 were condensed after V2.2.6; the previous full text is at
 `git show df3fab4:docs/CHANGELOG.md`, the text before the V2.1.10 condensation at
 `git show 945815a:docs/CHANGELOG.md`, and the V2.0.1 / V2.0.2 evidence tables at
-`git show c3f6f44:CHANGELOG.md` and in `sram_compiler/CIRCUIT_REVIEW.md` Parts II
-and III.
+`git show c3f6f44:CHANGELOG.md` and in Parts II and III of
+`git show b4987df:sram_compiler/CIRCUIT_REVIEW.md`. The historical sizing and timing
+proposals and that circuit review were purged after V2.2.6; retrieve them with
+`git show b4987df:<path>`.
 
 ## V2.2.6 — 2026-10-01 — configuration review fixes
 
@@ -272,12 +274,12 @@ Per-device `vth0` / `u0` / `voff` mismatch is the default.
 
 ## V2.0.4 — 2026-09-07 — baseline driver sizing and measured timing
 
-[Proposal](DRIVER_SIZING_PROPOSAL.md). Baseline driver sizing is immutable, with
+Proposal: `git show b4987df:docs/DRIVER_SIZING_PROPOSAL.md`. Baseline driver sizing is immutable, with
 a matched replica and tapered control buffers.
 
 ## V2.0.3 — 2026-09-06 — timing configuration proposal
 
-[`TIMING_AUTOCONFIG.md`](TIMING_AUTOCONFIG.md) gives worst-case PVT factors
+`git show b4987df:docs/TIMING_AUTOCONFIG.md` gives worst-case PVT factors
 (2.1-2.3x at SS 125 C 0.9 V) and the phase model.
 
 ## V2.0.2 — 2026-09-05 — periphery fan-out, address hold, precharge control
@@ -288,4 +290,4 @@ full-phase precharge.
 ## V2.0.1 — 2026-09-05 — transient / Monte Carlo circuit review
 
 The write pulse spans the wordline phase, and nominal runs are deterministic
-(`sram_compiler/CIRCUIT_REVIEW.md`).
+(`git show b4987df:sram_compiler/CIRCUIT_REVIEW.md`).

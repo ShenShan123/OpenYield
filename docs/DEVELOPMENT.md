@@ -297,7 +297,7 @@ Serial small-array checks use native Xyce sampling. Both backends record their
 provenance; saved MPI cards support exact reproduction on one or more cores.
 The four-core 64x64 execution check passes. The three-sample rule screen finished
 on 2026-09-08; its outcome (36 RC wordline-budget failures, timeouts and three
-DCOP aborts on materialized MPI samples) is in `docs/DRIVER_SIZING_PROPOSAL.md`.
+DCOP aborts on materialized MPI samples) is in `git show b4987df:docs/DRIVER_SIZING_PROPOSAL.md`.
 
 For a bounded representative-array diagnostic before the full campaign:
 
@@ -310,8 +310,8 @@ python3 -m dev.sizing.local_review --sizes 16x16 --rc-only --workers 4 --output-
 `--rc-only` keeps only the explicit-RC 16x16 architectures, for reruns after a
 change to the RC topology. Use a fresh `--output-dir` to keep earlier evidence.
 
-Half-select qualification remains open. The full working proposal and its
-historical evidence remain in [DRIVER_SIZING_PROPOSAL.md](DRIVER_SIZING_PROPOSAL.md).
+Half-select qualification remains open. The purged working proposal and its
+historical evidence are retrievable with `git show b4987df:docs/DRIVER_SIZING_PROPOSAL.md`.
 
 V2.0.7 adds the [distributed RC model](design/DISTRIBUTED_RC_MODEL.md).
 Local `Case` settings accept `interconnect`, `pi_res` (ohms) and `pi_cap`

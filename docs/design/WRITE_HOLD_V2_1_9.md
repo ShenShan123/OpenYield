@@ -535,7 +535,7 @@ and now takes 45 to 73 % of the clock-high phase:
 | w_512x4_6t_mux_SS_write | 5000 | 2230 | 45 % | 4000 | 3200 |
 
 Every slot fits its class budget, which is the documented period rule
-(`T/2 >= TWSLOT x (1 + margin)`, `docs/TIMING_AUTOCONFIG.md`), and the driven
+(`T/2 >= TWSLOT x (1 + margin)`, `git show b4987df:docs/TIMING_AUTOCONFIG.md`), and the driven
 bitline still reaches its rail at least 1.6 ns before the wordline rises.
 The qualification scorer's `restore_budget` (`dev/sizing/qualification.py`)
 is stricter, `TWSLOT <= 0.8 x budget`, and seven of these decks exceed it

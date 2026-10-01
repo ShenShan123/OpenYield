@@ -48,7 +48,7 @@ Use `timing: {mode: fixed, t_period: 1.0e-8}` or CLI `--period 1e-8` for an
 explicit diagnostic clock. `--timing-lookup` selects an alternative table.
 The 50% duty cycle, 1% rise/fall times, 1 ns startup offset and replica K=1/N=9
 are retained. The supplied timing proposal remains below its new implementation
-note in `docs/TIMING_AUTOCONFIG.md`, with its original measurement labels.
+note in `git show b4987df:docs/TIMING_AUTOCONFIG.md`, with its original measurement labels.
 
 The initial development table used a 1200 ps minimum budget (3 ns with margin).
 The SS / 125 C / 0.9 V 16x16 sequence wrote and retained the cells but read OUT

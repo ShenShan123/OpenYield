@@ -82,11 +82,11 @@ manifest pins, not to the CSVs.
 - `DRIVER_SIZING_data.csv` is the evidence named by
   `sram_compiler/sizing/sizing_rules.json` (the V2.0.5 `rules_only` rules from
   which the V2.0.9 lookup classes were derived) and by section 3 of
-  [the driver sizing proposal](../DRIVER_SIZING_PROPOSAL.md) and its
-  [V2.0.4 snapshot](../design/DRIVER_SIZING_PROPOSAL_V2.0.4.md). The rule file
+  the driver sizing proposal (`git show b4987df:docs/DRIVER_SIZING_PROPOSAL.md`) and its
+  V2.0.4 snapshot (`git show b4987df:docs/design/DRIVER_SIZING_PROPOSAL_V2.0.4.md`). The rule file
   keeps the bare file name: it is part of the frozen driver baseline digest.
 - `TIMING_AUTOCONFIG_data.csv` backs section 3 of
-  [the timing proposal](../TIMING_AUTOCONFIG.md) and the V2.0.2/V2.0.3
+  the timing proposal (`git show b4987df:docs/TIMING_AUTOCONFIG.md`) and the V2.0.2/V2.0.3
   changelog entries. The local `dev/sizing/campaign.py` reads its 27
   `v202_sweep` array sizes as the default campaign matrix. The compiler's
   `timing_lookup.json` is **not** derived from it (see
@@ -128,7 +128,7 @@ numbers of matching table cells are script results.
   sensing checks. The proposal reports all three as failures.
 - 681 table cells in proposal sections 3.1–3.4 were compared; the working copy's
   tables equalled the V2.0.4 snapshot. Nine cells differed. They are corrected
-  in `DRIVER_SIZING_PROPOSAL.md`, including the section 4.3 repeats; the
+  in the proposal (`git show b4987df:docs/DRIVER_SIZING_PROPOSAL.md`), including the section 4.3 repeats; the
   snapshot keeps the printed values:
 
 | Deck | Quantity | Printed | CSV | Corrected | Cause |

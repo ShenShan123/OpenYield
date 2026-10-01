@@ -38,7 +38,7 @@ The carried Phase 6 scope. The working plans that defined it
   assembled, and V2.2.4 changed the replica column of every deck. V2.2.5
   changes the compiler entrance and validation. The V2.2.4 manifests (334 main
   cases, 1,444 per-device draws, 6 negative controls) were partially run on
-  V2.2.5 before the campaign stopped ([record](V2_2_5_FULL_COVERAGE_EVALUATION.md),
+  V2.2.5 before the campaign stopped ([summary](V2_2_5_SIMULATION_SUMMARY.md),
   about 1,400 estimated solver-hours for the full plan). Four corner model files
   were then corrected; a fresh screen on their new hashes is needed. No V2.2.5
   screen or qualification has been assembled. V2.2.6 has targeted review checks
@@ -83,12 +83,9 @@ The carried Phase 6 scope. The working plans that defined it
 |---|---|
 | [Changelog](CHANGELOG.md) | Release history, one entry per release with its record |
 | [V2.2.5 simulation summary](V2_2_5_SIMULATION_SUMMARY.md) | Reconciled old-hash, corrected-hash, negative-control, and corner-case results |
-| [V2.2.5 full-coverage evaluation](V2_2_5_FULL_COVERAGE_EVALUATION.md) | Stopped partial screen, provenance, and unresolved cases on old model hashes |
 | [V2.2.5 corrected-model corner cases](V2_2_5_CORRECTED_CORNER_CASES.md) | Boundary configurations and waveform checks on corrected model hashes |
 | [V2.2.5 negative controls](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md) | Expanded failure scenarios, matched positive references, and Xyce results |
 | [Development guide](DEVELOPMENT.md) | Optional local regression and qualification tools |
-| [Historical driver sizing proposal](DRIVER_SIZING_PROPOSAL.md) | Original measured basis and research stages; shipped classes are in the compiler guide |
-| [Historical timing proposal](TIMING_AUTOCONFIG.md) | Earlier clock fits and measured basis; current clocks are in the compiler guide |
 | [V2.2.6 configuration review](design/CONFIGURATION_REVIEW_V2_2_6.md) | Current release: custom SNM, model audit, sample counts, coverage metadata |
 | [V2.2.5 compiler entrance](design/COMPILER_ENTRY_V2_2_5.md) | Macro entrance, model-card correction, input checks, and validation limits |
 | [V2.2.4 replica loads and review fixes](design/PHASED_CONTROL_V2_2_4.md) | Passive replica load cells, V2.2.3 review fixes, seeded operating point, pending screen |
@@ -96,7 +93,6 @@ The carried Phase 6 scope. The working plans that defined it
 | [V2.2.2 review and screen](design/PHASED_CONTROL_V2_2_2.md) | Executed screen, reported margins, and the coverage it does not reach |
 | [V2.2.1 control path](design/PHASED_CONTROL_V2_2_1.md) | Phase ordering and timing contract |
 | [V2.1.10 control path](design/TIME_CONTROL_PATH.md) | Preserved previous architecture and naming contract |
-| [Original V2.0.4 design](design/DRIVER_SIZING_PROPOSAL_V2.0.4.md) | Preserved design snapshot |
 
 ## Release records
 
@@ -138,7 +134,6 @@ The supplied evidence CSVs are kept unchanged in `data/`:
 | [Local compiler checks](../tests/README.md) | Tracked manifests and optional ignored regression scripts |
 | [Per-device mismatch](../sram_compiler/per_device_mc/README.md) | Default local mismatch, CLI, and in-memory configuration |
 | [Driver sizing](../sram_compiler/sizing/README.md) | Driver size classes, clock classes, and qualification workflows |
-| [Circuit review](../sram_compiler/CIRCUIT_REVIEW.md) | Circuit findings and verification evidence |
 | [Equivalent modeling](../sram_compiler/equivalent_modeling/README.md) | Equivalent circuit modes, usage, and accuracy boundaries |
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |
 | [Yield estimation](../yield_estimation/README.md) | Monte Carlo and importance-sampling algorithms |

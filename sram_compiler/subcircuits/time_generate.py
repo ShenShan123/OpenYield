@@ -370,7 +370,8 @@ class ReplicaDelayChain(BaseSubcircuit):
 
     Inverting, so `rbl_delay` rises once the replica bitline has discharged;
     the stage count `N` (with the replica cell count `K`) sets the sensing
-    margin (docs/DRIVER_SIZING_PROPOSAL.md).  Legacy instance names are kept.
+    margin (`git show b4987df:docs/DRIVER_SIZING_PROPOSAL.md`).
+    Legacy instance names are kept.
     """
     NAME = "REPLICA_DELAY_CHAIN"
     NODES = ('VDD', 'VSS', 'in', 'out')

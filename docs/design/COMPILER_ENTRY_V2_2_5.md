@@ -8,7 +8,7 @@ The cell, replica, peripheral, wire, driver, and clock circuits are unchanged. `
 
 Generation checks exercised 144 small configurations across 6T/10T, mux choices, and all six operations (108 valid decks; 36 intentionally rejected odd-column mux cases); 16 tall, wide, and non-power-of-two configurations; 20 configurations across all five corners; and 12 complete deck exports. Focused local regression checks passed 44 tests and 567 subtests. `git diff --check` and Python compilation passed. Xyce was not available in this environment, so no V2.2.5 transient or DC waveform validation ran. The V2.2.4 manifests have not been executed as a V2.2.5 screen. The V2.2.2 assembled screen certifies only that earlier tree, and 256x256 still has no working operating point.
 
-A later run located Xyce in the Conda environment and started a [V2.2.5 full-coverage evaluation](../V2_2_5_FULL_COVERAGE_EVALUATION.md). This design record retains the release-time validation statement above; the evaluation records subsequent results without promoting an incomplete screen.
+A later run located Xyce in the Conda environment and started a V2.2.5 full-coverage evaluation, which stopped incomplete. This design record retains the release-time validation statement above; the [simulation summary](../V2_2_5_SIMULATION_SUMMARY.md) records subsequent results without promoting an incomplete screen.
 
 ## NMOS_VTH model-card follow-up
 
