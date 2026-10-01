@@ -1,565 +1,291 @@
 # Changelog
 
 One entry per release, newest first, each naming its design record. Entries
-before V2.1.10 were condensed in the V2.1.10 cleanup; the full text is at
+were condensed after V2.2.6; the previous full text is at
+`git show df3fab4:docs/CHANGELOG.md`, the text before the V2.1.10 condensation at
 `git show 945815a:docs/CHANGELOG.md`, and the V2.0.1 / V2.0.2 evidence tables at
 `git show c3f6f44:CHANGELOG.md` and in `sram_compiler/CIRCUIT_REVIEW.md` Parts II
 and III.
 
 ## V2.2.6 — 2026-10-01 — configuration review fixes
 
-[Review record](design/CONFIGURATION_REVIEW_V2_2_6.md). Custom 6T/10T SNM
-construction now passes valid factory keywords. The model audit distinguishes
-active model parameters from comments and subsequent directives. Sample counts
-are validated before the main entrance can truncate them. Single-cell SNM
-exports and simulation records no longer claim full-array mismatch coverage.
-Shared and custom model cards use the same active-statement parser as the
-audit. Deck exports, CLI summaries and simulation records share one coverage
-rule.
+[Review record](design/CONFIGURATION_REVIEW_V2_2_6.md).
 
-The shipped model values, transistor circuits, driver sizes and timing tables
-are unchanged. No full V2.2.6 waveform screen is complete; the 256x256 operating
-point remains unresolved. Historical evidence keeps its original versions.
+- Custom 6T/10T SNM construction passes valid factory keywords.
+- The audit and the shared/custom model-card builder use one active-statement
+  parser. Comments and later directives no longer count as parameters.
+- Sample counts are validated before the main entrance can truncate them.
+- One coverage rule: single-cell SNM decks do not claim full-array mismatch
+  coverage.
+
+Models, circuits, driver sizes and timing tables are unchanged. No V2.2.6
+waveform screen is complete; 256x256 remains unresolved.
 
 ## V2.2.5 — 2026-09-28 — macro entrance and generation checks
 
 [Design record](design/COMPILER_ENTRY_V2_2_5.md). `main_sram.py` is the documented
-macro entrance, with deck-only generation, local process variation by default,
-and saved configuration provenance. The batch runner uses the same default and
-writes a summary for successful deck-only runs. Invalid targets, operations,
-sample controls, and main-entrance dimensions now fail before a misleading deck
-or result can be reported. Current tutorials describe this flow.
+macro entrance. It generates decks without Xyce, applies local variation by
+default, and saves configuration provenance. Invalid targets, operations, sample
+controls and dimensions fail before a deck or result is reported.
 
-No V2.2.5 waveform screen has completed. The V2.2.4 timing table and historical
-manifests keep their original versions; 256x256 remains unresolved. The last
-assembled screen is V2.2.2 and does not certify V2.2.5.
+- Model cards: SS, FF, FS and SF set `NMOS_VTH u0` twice. The earlier `0.05` is
+  commented out, so each card keeps `0.049`, as TT already did. A compiler
+  guard rejects future duplicates
+  ([follow-up](design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up)).
+- Diagnostics, not a screen:
+  - Eight new short-clock negative controls and the six preserved ones failed
+    as intended ([evaluation](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)).
+  - On the corrected model hashes, 22 of 22
+    [corner cases](V2_2_5_CORRECTED_CORNER_CASES.md) (20,960 checks) and 4 of 4
+    class-boundary cases (87,975 checks) passed.
+  - The positive screen ran on the old hashes and stopped incomplete; the
+    [simulation summary](V2_2_5_SIMULATION_SUMMARY.md) reconciles it with the
+    diagnostics.
+- Docs: the resolved first-500 write-failure inventory is retrievable with
+  `git show 39ccae8:docs/issue_reports/write_failure_cases_first_500.md`.
 
-Subsequent V2.2.5 diagnostic work added eight matched short-clock negative
-controls, spanning read, write, row change, mux selection, 10T, and local
-mismatch. All eight and the six preserved controls failed the intended waveform
-checks with successful Xyce exits; the [evaluation](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)
-does not promote the positive screen, which later stopped incomplete.
+## V2.2.4 — 2026-09-26 — passive replica loads and V2.2.3 review fixes
 
-A later V2.2.5 model-card audit found duplicate `NMOS_VTH u0` assignments in
-SS, FF, FS, and SF. The earlier `0.05` is commented out so each card retains
-the later `0.049`, as TT already did. All 30 shipped model cards now have
-unique parameters and names. Xyce rejected each old card when `NMOS_VTH` was
-instantiated and solved with the corrected card; a compiler guard now rejects
-future duplicates before nominal or per-device deck generation. Eight targeted
-read/write waveform cases passed on the corrected model hashes. The partial
-screen used the old hashes and does not qualify this correction; see the
-[model-card follow-up](design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up).
+[Design record](design/PHASED_CONTROL_V2_2_4.md). **Not screened; 256x256 has no
+working operating point.** The replica column changed, so no V2.2.3 result
+carries over.
 
-A [corrected-model corner-case diagnostic](V2_2_5_CORRECTED_CORNER_CASES.md)
-then passed 22 of 22 selected waveform cases (20,960 checks) across five
-corners, 6T/10T, unusual geometry, mux selection, and seeded local mismatch.
-Eight matched negative controls failed their named checks with successful Xyce
-exits. A separate medium tranche passed 4 of 4 class-boundary cases (87,975
-checks), including 8×256 mux input 0 and 257×4 FF cold. The
-[simulation summary](V2_2_5_SIMULATION_SUMMARY.md) reconciles these with the
-old-hash campaign; none replaces the incomplete full screen.
-
-Documentation cleanup removed the resolved first-500 write-failure inventory
-from the current tree and kept its audited snapshot retrievable with
-`git show 39ccae8:docs/issue_reports/write_failure_cases_first_500.md`.
-Historical sizing and timing proposals now point to the current V2.2.5 guides;
-their still-open research stages and measured basis remain available.
-
-## V2.2.4 — 2026-09-26 — replica load cells that do not leak, and the V2.2.3 review fixes
-
-[Design record](design/PHASED_CONTROL_V2_2_4.md). **No V2.2.4 screen has been
-run and 256x256 still has no working operating point**; the evidence on this
-tree is targeted (the seven failing tall draws, A/B cases, operating-point
-probes), not a screen.
-The controller, the array cells, the wires, the driver classes and every clock
-are unchanged. The replica column changed, so every generated deck differs
-from V2.2.3 and no V2.2.3 result carries over.
-
-- Tall-array sense failure: every tied-off replica load cell stored the
-  active cell's 0. At fast NMOS and 125 C, the leakage of 511 of them supplied
-  about 45 % of the replica bitline discharge and fired the sense enable early,
-  just as array leakage left a read of 1 against a column of 0s the least
-  differential. A per-device run of V2.2.3 failed 7 of the first 14 512x4 draws
-  at FS 0.9 V / FF 1.1 V, 125 C (worst 0.177 V against a 0.252 V bar). Load
-  cells are now passive, both storage nodes at VDD (`ReplicaColumn(active_rows=
-  replica_k)`), with the same bitline load and no leakage. The same seven draws
-  pass at 0.328-0.539 V. The read-output margin shrinks by 0.35-0.66 ns (still
-  3.19 ns at 512x4 SS); no ordering or recovery margin moves.
-- The first passive 6T cell shorted VDD to VSS through its right inverter
-  (52.4 mW static at 512x4 FS against 0.156 mW); only `PSTC` showed it, since
-  the rails are ideal. Fixed before the tall re-runs, with a structural test
-  that fails on it.
-- Write-register startup: `we`, `we_bar` and `write_ready` swung rail to rail
-  in the first nanosecond of every deck, because `.IC` forced `we` high against
-  a slave latch that held "no write". The register now starts consistently
-  (`we = 0`, `we_bar = VDD`, `Xdff_buf1:qint = VDD`); startup drift 0.3 mV.
-- The variant clock floor that V2.2.3 removed is restored for every size: under
-  the joint rule a variant raising only early classes would have clocked
-  128x128 at 19.5 against 20.5 ns. No shipped period changes. An injected
-  `timing_config` no longer bypasses the 512x256 envelope.
-- Screen tooling: the runner and checker take the target column (column-mux
-  input 0 was never read in any screen), probe the address bits of one-row
-  arrays, use `ACCESS_DEADLINE` everywhere, retry a failed nominal multi-rank
-  operating point once with line search, and append fallback options after a
-  deck's own. Nominal decks of 16,384 cells or more solve a seeded operating
-  point (settle transient → `.NODESET` guess → the deck's own DC solve,
-  checked against every `.IC` node): 128x128 in 17 min against 2.8 h plain,
-  equal on all 181,151 node voltages within 0.42 mV; 256x128 in 34 min
-  against about 13 h in V2.2.3. **256x256 is not solved**: the seeded solve
-  had not converged after 5.6 h. MOSFET homotopy, tried first, was erratic
-  and is not used.
-- Manifests at release: `tests/spice/v224_cases.json` (330: the 285 V2.2.3 cases plus
-  mux column 0, FF on tall arrays, odd and one-row sizes, adjacent-row address
-  flips), `tests/spice/v224_mc_cases.json` (1,444 per-device draws at each
-  failure mechanism's worst corner, corner-case patterns, and the 52 tall
-  draws), `tests/spice/v224_negative_cases.json` (6). Tracked tests: 188.
-- Evidence before this release: the V2.2.3 screen ran 284 of 285 (256x256 never
-  left its operating point; 6 of 6 negative controls failed as required), and a
-  1,487-case discovery campaign on V2.2.3 passed 1,474 (the 13 failures were
-  the one-row checker error and one operating point, both fixed here).
-  The V2.2.4 screen (about 1,400 solver-hours) has not been run.
-
-Post-release review, still numbered V2.2.4: four 8x4 mux-read cases now switch
-the external select from input 0 to input 1 between cycles. The checker follows
-the selected column per cycle and verifies both root and mux-tap selects during
-access. All four targeted Xyce cases pass 369 waveform checks each. The
-compiler's column decoder and the full V2.2.4 screen remain open;
-the main manifest now has 334 cases. No V2.2.5 qualification is claimed.
-
-Repository cleanup within V2.2.4: unused example and debug entry points,
-unreferenced implementation helpers, and obsolete optimization and yield
-utilities were removed. The Python regression, waveform, comparison, and
-sampling scripts were kept in local workspaces but removed from Git tracking;
-their paths are ignored. The V2.2.4 JSON case manifests and historical evidence
-remain tracked. Root and subdirectory READMEs now describe the current CLI,
-configuration, optimization entrances, and validation limits. `AGENTS.md` now
-holds working conventions and links to the release records instead of
-repeating their history. The historical tracked-test counts above describe
-the original release snapshot; this cleanup is not a new screen or release.
+- Replica load cells are passive (`ReplicaColumn(active_rows=replica_k)`).
+  - In V2.2.3, leakage from 511 tied-off load cells fired the 512-row sense
+    enable early. Seven of 14 512x4 per-device draws failed at FS 0.9 V and
+    FF 1.1 V, 125 C (worst 0.177 V against 0.252 V).
+  - The same draws now pass at 0.328-0.539 V.
+  - The first passive cell shorted VDD to VSS; `PSTC` exposed it, and it was
+    fixed before the re-runs.
+- Other fixes:
+  - The write register starts in a consistent state (`we = 0`).
+  - The variant clock floor is restored.
+  - An injected `timing_config` no longer bypasses the 512x256 envelope.
+- Screen tooling: the runner and checker take the target column, probe
+  one-row address bits, and use `ACCESS_DEADLINE`. Large arrays get a seeded
+  operating point: 128x128 in 17 min instead of 2.8 h, 256x128 in 34 min.
+  256x256 had not converged after 5.6 h.
+- Manifests and tests:
+  - `tests/spice/v224_cases.json` has 330 cases; later 8x4 mux-read cases that
+    switch select input bring it to 334.
+  - `v224_mc_cases.json` has 1,444 cases and `v224_negative_cases.json` has 6.
+  - 188 tracked tests.
+  - Prior evidence: the V2.2.3 screen ran 284 of 285 cases, and a discovery
+    campaign passed 1,474 of 1,487; both failure causes are fixed here.
+- Repository cleanup:
+  - Unused entry points and helpers were removed.
+  - Python regression and waveform scripts are now ignored and stay local;
+    JSON manifests and evidence remain tracked.
+  - `AGENTS.md` holds the working conventions.
 
 ## V2.2.3 — 2026-09-20 — supported envelope, joint-dimension clocks, one access deadline
 
-[Design record](design/PHASED_CONTROL_V2_2_3.md). **No V2.2.3 screen has been
-run; the V2.2.2 evidence certifies the V2.2.2 tree and not this one**, because
-the clock policy, the runtime data deadline and the waveform checker are all
-hashed sources of the screen. V2.2.3 closes the coverage and contract defects
-the V2.2.2 review recorded, except the stopped clock, which stays open. The
-controller, the cells, the replica column, the wires and the driver classes are
-unchanged.
+[Design record](design/PHASED_CONTROL_V2_2_3.md). **Not screened; the V2.2.2
+evidence does not certify it.**
 
-- Supported envelope: 512 rows by 256 columns, declared in
-  `timing_lookup.json` as `supported_envelope`, required by the loader at the
-  last anchor of every ladder, and enforced by `resolve_timing` in every timing
-  mode including `fixed`. A larger array is rejected instead of extrapolating
-  the ladder, so no resolvable size is extrapolated and the resolver's variant
-  floor, which only mattered under extrapolation, is removed. The 512-column
-  class is deleted from the shared ladder and both variants; the fifteen 8x512
-  cases of the V2.2.2 screen stay in that record as historical evidence and can
-  no longer be regenerated from the table.
-- An array large in both dimensions pays for both:
-  `half = max(row, column) + min(row_excess, column_excess)`, each excess being
-  that ladder's budget above its own first class. A dimension inside its first
-  class has no excess, so every array size the V2.2.2 screen covered keeps a
-  bit-identical period; 128x128 goes 16.5 -> 20.5 ns, 256x256 20.25 -> 26.25 ns
-  and the envelope corner 512x256 27.75 -> 33.75 ns. Through V2.2.2 the rule
-  was a maximum, so a 256x256 array took a 256x4 clock while carrying a tall
-  bitline and a wide wordline at once, and no screened case could expose it.
-- One access deadline: `ACCESS_DEADLINE = 0.68` in the testbench, imported by
-  the waveform checker, so the generated `VACCESS_ERROR` / `VHOLD_ERROR` cards
-  and the screen accept the same traces. The cards used `k + 0.7 T` through
-  V2.2.2, 0.02 T looser (180 ps at 9 ns, 555 ps at 27.75 ns) and the exact gap
-  behind the V2.2.1 8x512 escape. This tightens what `main_sram.py` accepts.
-- Checker: the sense bar becomes 0.28 of VDD instead of a fixed 0.25 V, which
-  was 28 % of a 0.9 V rail but 23 % of a 1.1 V one; arrays too large to probe
-  whole now probe the quarter points, every addressed row and each addressed
-  row's immediate neighbours, through one `probed_rows` the runner and the
-  checker share; `min_storage_polarity_margin_v` is documented as a reversal
-  bound against a fixed boundary that is not the 10T cell's trip point.
-- Screen manifest: `tests/spice/v223_cases.json` replaces `v220_cases.json`
-  with 285 cases (the 239 in-envelope V2.2.2 cases plus 46), and
-  `tests/spice/v223_negative_cases.json` tracks 6 negative controls that were
-  previously an ignored queue. New coverage: joint-dimension arrays to 256x256
-  (65,536 cells against 4,096), a second voltage and temperature for every
-  skewed corner, TT at six production sizes, extra mismatch draws at 256 and
-  512 rows, checkerboard column data at 64 to 256 columns, and controls at six
-  array sizes. Estimated cost about 560 solver-hours.
-- Tracked tests: 180 (10 new), covering the envelope rejection in both timing
-  modes, the joint rule against every screened period, the variant floor over
-  the whole envelope, the shared deadline, the VDD-scaled bar, the shared probe
-  rule, and the manifest's coverage properties.
+- Envelope: `supported_envelope` in `timing_lookup.json` sets the limit at
+  512x256. Every timing mode enforces it.
+  - The 512-column class is removed.
+  - The fifteen 8x512 V2.2.2 cases are now historical only.
+- Joint clock rule: `half = max(row, column) + min(row_excess, column_excess)`.
+  - Every screened size keeps its period.
+  - 128x128 goes from 16.5 to 20.5 ns, 256x256 from 20.25 to 26.25 ns, and
+    512x256 from 27.75 to 33.75 ns.
+- The runtime cards and the checker share `ACCESS_DEADLINE = 0.68`, replacing
+  `k + 0.7 T`. The checker's sense bar is 0.28 VDD. One `probed_rows` rule
+  serves both.
+- `tests/spice/v223_cases.json` has 285 cases and `v223_negative_cases.json`
+  has 6. 180 tracked tests.
 
-## V2.2.2 — 2026-09-20 — production review: precharged startup, reported margins, re-screen
+## V2.2.2 — 2026-09-20 — precharged startup, reported margins, re-screen
 
-[Design and validation record](design/PHASED_CONTROL_V2_2_2.md). The V2.2.1
-controller was reviewed gate by gate against all four operation transitions
-and the idle boundaries; no controller defect was found and no generated
-controller netlist changes. Two production defects outside the control logic
-were fixed and the whole screen was re-run from the tracked tree.
+[Design and validation record](design/PHASED_CONTROL_V2_2_2.md). The controller
+netlist is unchanged.
 
-- Startup bias: generated decks forced every bitline, RBL and the sense
-  nodes to 0 V at t = 0 against the active clock-low precharge, an operating
-  point the circuit is never in; Xyce 7.4 could not solve it for the
-  per-device FF 10T mux read that V2.2.1 carried as a hand-patched
-  exception. Every deck now starts from the precharged clock-low state
-  (`_init_precharged_columns`); output-latch presets and every measurement
-  window are unchanged, and the formerly failing case runs from the default
-  deck.
-- The waveform checker reports four access/recovery margins in addition to
-  the ordering margins: `min_read_output_margin_ps` (latched output and every
-  sense group settled before the `k + 0.68 T` deadline),
-  `min_write_wl_after_flip_ps`, `min_restore_before_capture_ps` and
-  `min_precharge_on_before_capture_ps`; each is checked non-negative. The
-  8x512 read that V2.2.1 caught only as a failure would now show its margin
-  in a passing screen.
-- `sram_compiler/subcircuits/time_generate.py` carries a measured, to-scale
-  timing diagram of the write and read cycles with the numbered causal
-  chain, a port/node glossary and the boundary rules. The stale
-  `PHASED_CONTROL_V2_2_0.md` citations in the controller and the clock table
-  are corrected; the `v2.2.0-timing-3` ladder is unchanged.
-- Twelve per-device read&write cases were added at 32x32, 64x16, 128x8,
-  256x4, 8x128, 8x256, 512x4 and 8x512 across SS, SF, FF and FS, where V2.2.1
-  had local mismatch only at 16 rows or fewer and one 128-row read.
-- Evidence: 254 of 254 cases, 2,164,669 checks, no failure,
-  in [`docs/data/PHASED_CONTROL_V2_2_2.json`](data/PHASED_CONTROL_V2_2_2.json);
-  every trace was generated by the tracked runner from the tracked sources
-  (recorded hashes equal the tree), scored by the tracked checker, and the
-  2 ns negative control fails under the same checker. Tracked tests: 170
-  (one new startup test, one new margin test), 64 local, 6 optimizer.
-  Extracted metal, half-selected writes and yield estimation remain open.
-- Post-release documentation pass over the same evidence, no code change: the
-  record gains
-  [what the screen does not cover](design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover),
-  eleven coverage gaps re-derived from the assembled JSON. The ones that need
-  work: no screened array is in a high row class and a high column class at
-  once while the clock policy takes the maximum of the two budgets; the sense
-  margin falls 0.90 / 0.86 / 0.80 / 0.67 / 0.47 V at 32 / 64 / 128 / 256 / 512
-  rows against a 0.25 V bar, so 512 rows ends the row ladder; each corner is
-  screened at one voltage and temperature and TT only at 8x4; complementary
-  column data only at 8 columns; no defined behaviour for a stopped clock; and
-  the shipped `.MEASURE` read deadline `k + 0.7 T` is 0.02 T looser than the
-  checker's `k + 0.68 T`. Confirmed in the same pass: the 63 recorded source
-  hashes equal the tracked tree, the per-record check counts sum to 2,164,669,
-  and no record carries a retry or a preserved failed attempt. The root README
-  gains the measured cycle waveform with its phase bar and causal chain, and
-  every affected README carries the coverage it is responsible for.
+- Decks start from the precharged clock-low state (`_init_precharged_columns`).
+  This removes V2.2.1's hand-patched FF 10T mux read.
+- The checker reports read-output, write-flip, restore and precharge margins.
+  `time_generate.py` carries a measured timing diagram.
+- Twelve per-device read&write cases were added, from 32x32 to 8x512.
+- Evidence: 254 of 254 cases, 2,164,669 checks, in
+  [`docs/data/PHASED_CONTROL_V2_2_2.json`](data/PHASED_CONTROL_V2_2_2.json).
+  - The recorded hashes equal the tree.
+  - The 2 ns negative control fails.
+  - 170 tracked tests.
+- A post-release pass recorded
+  [coverage gaps](design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover):
+  - The clock policy takes the maximum of the row and column budgets, and no
+    screened array is large in both.
+  - Sense margin falls from 0.90 V at 32 rows to 0.47 V at 512 rows.
+  - Each corner is screened at one voltage and temperature.
+  - The runtime read deadline is 0.7 T, but the checker uses 0.68 T.
 
 ## V2.2.1 — 2026-09-20 — clock-high access and clock-low recovery
 
-[Design and validation record](design/PHASED_CONTROL_V2_2_1.md). Requests remain
-captured on the rising edge. Access moves to clock-high; clock-low releases the
-array and precharges after every operation, including consecutive writes.
+[Design and validation record](design/PHASED_CONTROL_V2_2_1.md).
 
-- Removed the secondary address, write-request and column-data hold latches,
-  write-slot logic and cross-cycle busy/slot handover. Registered write data
-  drives a buffer per column. A 16x16 control/data path uses 1076 MOS versus
-  1384 in V2.1.10; the physical safety observers remain.
-- Read completion isolates the sense inputs and releases WL before enabling
-  sense regeneration. Write preparation observes the far physical WEN and its
-  settling before opening WL; drivers remain enabled until physical WL release.
-  PRE and ISO release observe both root and far write/sense enables. New final
-  TIME_CONTROL inputs are `iso_far`, `sen_far`, and `wen_far`; `din_hold` and
-  the `din_en` wire are removed.
-- `v2.2.0-timing-3` doubles most V2.1.10 phase budgets; the 512-column
-  class uses 24 ns for 6T and 25.5 ns for muxed 6T and 10T after the initial
-  16 ns read missed its far output deadline. The 128–512-row classes use
-  three times V2.1.10 budgets. Two loaded setup stages prevent first-read
-  decoder transients from reaching unselected wordlines. Both access and recovery must
-  finish before the next capture. Driver classes, 6T/10T cells, and the matched
-  replica column are retained; the replica times reads, not write completion.
-- Runtime access, restore, power and delay windows follow the new phases.
-  Capture-boundary, incompatible-enable and isolation checks reject invalid
-  accesses even when final data is correct. Frozen sizing identities include
-  the control architecture and physical settling scales, and reject a missing
-  replica precharge guard; without it `wordline_off` is the logical
-  `wl_en_bar`, so the precharge safety measures refuse to be emitted rather
-  than report a margin the controller does not enforce.
-- Tracked opt-in Xyce tests under `tests/spice/` cover all four read/write
-  transitions, idle cycles, changed rows/data, PVT, mismatch, and array bounds.
-  Their scorer checks physical terminal waveforms, interpolated non-overlap,
-  data/retention, sensing, restoration, and output completeness. See the design
-  record for the executed results and finite screening limits; historical
-  V2.1.x qualification tools use the old phase contract. The checker also
-  reports the worst margin of each ordering check, including the enables-off
-  to precharge gap that the superseded root-only observer reduced to 20.55 ps
-  at 8x256 SS while every exclusion still passed; its worst value over the
-  screen is 83.1 ps at `2x2_6t_FF_read_write`.
-- Numbered V2.2.1. Identities the evidence hashes keep their screened V2.2.0
-  label — `v2.2.0-timing-3`, the sizing digest's `v2.2.0-high-access`, the
-  clock table's `version`, and the `version` in all 242 traces — because
-  renaming them would invalidate the proofs that cite them. Only
-  `sram_compiler/version.py` moves among the screened sources; the compiler
-  version never reaches a generated deck.
-- Evidence: 242 of 242 cases, 1,767,615 checks, no failure and no missing or
-  superseded case, in [`docs/data/PHASED_CONTROL_V2_2_1.json`](data/PHASED_CONTROL_V2_2_1.json).
-  The screen ran with a pinned controller overlay and explicit clocks, so the
-  tracked sources are separately shown to regenerate all 242 simulated decks
-  byte for byte, with every recorded numerical-retry change replayed. Failed,
-  partial, superseded and numerical attempts are preserved and excluded. This
-  is functional screening: extracted metal, half-selected writes, yield
-  estimation, the precharged default startup bias, and an independent review
-  of the assembled record remain open.
+- Access happens while the clock is high. Clock-low releases the array and
+  precharges it after every operation.
+- The secondary hold latches and slot logic are removed. The 16x16
+  control/data path uses 1,076 MOS, against 1,384.
+- Reads isolate the sense inputs and release WL before regeneration. Writes
+  wait for the far-end WEN.
+  - New `TIME_CONTROL` inputs: `iso_far`, `sen_far`, `wen_far`.
+- `v2.2.0-timing-3` sets the budgets. Capture-boundary, enable and isolation
+  checks reject invalid accesses.
+- Opt-in Xyce tests are tracked under `tests/spice/`.
+- Identities hashed by the evidence keep their V2.2.0 labels; only
+  `version.py` changes.
+- Evidence: 242 of 242 cases, 1,767,615 checks, in
+  [`docs/data/PHASED_CONTROL_V2_2_1.json`](data/PHASED_CONTROL_V2_2_1.json).
+  The screen used a pinned overlay; the tracked sources regenerate every
+  screened deck byte for byte.
 
-## V2.1.10 — 2026-09-19 — write data held by the registered write; drivers stay on between writes
+## V2.1.10 — 2026-09-19 — registered write data
 
-V2.1.10 reviews V2.1.9 ([record](design/WRITE_LATCH_V2_1_10.md)). The write
-data and the write request are DFF outputs of the rising clock edge, so
-between two writes only the data changes; the drivers no longer turn off and
-on again.
+[Record](design/WRITE_LATCH_V2_1_10.md).
 
-- Found: the scorer's `restore_budget` compares `TWSLOT` with 0.8 x the
-  *measured* read phase (its callers derive the timing from measurements),
-  not with a class budget as V2.1.9 stated, so no clock change could meet it;
-  `score_waveform` raised `TypeError` on every write deck since V2.1.6 (the
-  drive-rail loop rebound the waveform array); V2.1.9's write -> write slot
-  (drivers off, four settling stages, slot-arm latch, drivers on: 1.6 to
-  1.8 ns at SS 0.9 V / 125 C) left the driven bitline outside 0.02 VDD of its
-  rail at the runtime restore check at 32x16 and 32x32, with and without a mux
-  (`VRESTORE_ERROR` 76 and 124 mV at 4.5 ns), bounds V2.1.9 never ran as
-  write -> write decks; the 10T 512x4 read missed its rule by 7 ps.
-- Write-data latches: `din_en = wordline_idle & ((we & cs) | !w_en)`
-  (`din_hold`, three `DIN_HOLD_NAND` + `DIN_HOLD_BUFFER`, a new last port of
-  write-capable `TIME_CONTROL`; the testbench line `din_en` replaces
-  `w_en_bar`). Between two writes the new data passes once the previous
-  wordline is observed off, with the drivers on; before a read or idle cycle
-  the written data is held until the drivers are off; after a read or idle
-  cycle the latches are already open.
-- Write window: `held(wordline_busy & we_hold) | selected_slot`
-  (`BUSY_WRITE_NAND`, `BUSY_HOLD_DELAY`, `WRITE_WINDOW_NAND`; V2.1.9
-  `wordline_busy | selected_slot`). The busy wordline and the next slot follow
-  the same observer and the slot's path is longer, so under mismatch at SS / SF
-  the window collapsed between two writes (`w_en` down to 0.21 V of 0.9 V at
-  8x4 10T SS, 16 Monte-Carlo samples of the first evidence pass); the end of a
-  write's busy term is held for four unit stages, so the slot takes over first.
-  Holding a read's busy wordline too kept the window open for the next write
-  request (`w_en` pulsed to 0.30 V at 16x16 SS, second pass), so a read's busy
-  wordline is not in the window.
-- Removed: the slot-arm latch (`SLOT_ARM_NOR` x 2), its settling chain
-  (`SLOT_ARM_DELAY`), the `slot_armed` input of the selected slot (now
-  `SELECTED_SLOT_NAND`) and the latch's `.IC` seeding.
-- Clocks: `timing_lookup.json` `v2.1.10-timing-9` keeps the V2.1.9 classes and
-  moves the 10T 512-row class to 4300 ps (10.75 ns). A raised-class
-  alternative (2100 to 2200 ps up to 64 rows and columns) was stopped in
-  favour of the circuit fix.
-- Checks: the local checker scores a write followed by a write with
-  `release_before_new_data` and `write_enable_held_between_writes`; the
-  validator keeps such a write's drive window; the scorer's write entry is the
-  far bitline leaving its rail, `restore_budget` scores the drivers' swing and
-  `write_slot_budget` the whole slot against the clock-high phase.
-- Evidence: 340 of 340 cases, 753,452 checks, 262 per-device samples:
-  the V2.1.9 campaign plus 27 class-bound write -> write slots; every slot
-  meets the runtime restore check with at least 229 ps after 1.1 x its rail
-  time and is 115 to 517 ps shorter than in V2.1.9; five mux reads after a DC
-  operating-point retry (one with `GMIN=1e-10`). Per-device seeds are new
-  samples, not V2.1.9's.
-- Tests: 148 tracked, 64 local; the unit-delay model of the write window
-  covers write -> write, write -> read, write -> idle, read -> write and a
-  write's own wordline, and fails for the earlier holds.
-- Cleanup: unused dummy row/column factories and cells, unused optimizer
-  helpers (`format_initial_result`, `denormalize`, `get_global_params`,
-  `collect_peripheral_param_columns`, the earlier stage drivers of
-  `experiment.py`) and `run_all_algos_test.py` removed, 1331 netlists
-  identical before and after (146 tracked tests: the two dummy-factory tests
-  went with them); `docs/plans/` removed, its open items are in the
-  [documentation index](README.md#open-items); README and changelog condensed;
-  raw outputs of releases before V2.1.9 and the per-release review scripts
-  purged.
+- Write data and the write request are rising-edge DFF outputs, so the
+  drivers stay on between writes.
+- The write window holds a write's busy term. The slot-arm latch is removed.
+- Fixed:
+  - `score_waveform` raised `TypeError` on every write deck since V2.1.6.
+  - V2.1.9 misstated what `restore_budget` measures.
+  - V2.1.9 write→write cycles missed the restore check at 32x16 and 32x32.
+- `v2.1.10-timing-9` sets the 10T 512-row class to 4300 ps.
+- Evidence: 340 of 340 cases, 753,452 checks, 262 per-device samples.
+  148 tracked tests.
+- Cleanup: unused factories and helpers removed; all 1,331 netlists are
+  identical before and after. Open items are listed in the
+  [documentation index](README.md#open-items).
 
-## V2.1.9 — 2026-09-18 — write drivers stay on until the wordline is off; read clocks re-derived under mismatch
+## V2.1.9 — 2026-09-18 — write drivers held until the wordline is off
 
-[Record](design/WRITE_HOLD_V2_1_9.md). Driver sizes, cells and the read path unchanged.
+[Record](design/WRITE_HOLD_V2_1_9.md).
 
-- V2.1.8 released the write drivers with the wordline enable (and, write ->
-  read, with the held request) while the local wordline was still on: up to
-  0.90 V at 512x4 SS. `wordline_busy = !(wl_en_bar & wordline_off)` now holds
-  `w_en` and the write-request latch until the replica wordline is observed
-  off; the drivers release 106 to 483 ps after the local wordline is below
-  0.1 VDD. `VWEN_ACCESS_ERROR_<cycle>` rejects a release under an open wordline.
-- A slot-arm latch made the next write slot wait for the drivers to be observed
-  off (removed again in V2.1.10), seeded with `.IC` for the DC operating point.
-- A per-device Monte-Carlo sweep at SS 0.9 V / 125 C, FF 1.1 V / -40 C, SF and FS
-  found the 128- to 512-row read clocks too short under mismatch. Rule: the
-  nominal read output leads the 1.2 T deadline by 0.02 T plus 10 % of the
-  access; `v2.1.9-timing-8` shared rows 1800/1900/2200/2700/3700 ps, 6T-mux
-  1900/2000/2300/2900/4000 ps, 10T 512 rows 4200 ps.
-- Evidence: 313 of 313 cases, 638,438 checks, 218 Monte-Carlo samples.
+- `wordline_busy` holds `w_en` until the wordline is observed off. Drivers had
+  released with up to 0.90 V still on the wordline at 512x4 SS.
+- `VWEN_ACCESS_ERROR` rejects a release while the wordline is open.
+- `v2.1.9-timing-8` re-derives the read clocks under mismatch.
+- Evidence: 313 of 313 cases, 638,438 checks.
 
 ## V2.1.8 — 2026-09-17 — no enable overlaps
 
-[Record](design/ENABLE_OVERLAP_V2_1_8.md). Driver sizes, cells and classes unchanged.
+[Record](design/ENABLE_OVERLAP_V2_1_8.md).
 
-- The read wordline is released at the sense trigger (`wl_en =
-  WORDLINE_ENABLE_BUFFER(access_clk_bar, s_en_bar)`); it had stayed on 1.1 to
-  2.2 ns after the amplifier fired.
-- The precharge waits for the sense and write enables of the previous access
-  (`enables_off`), the write slot for the sense enable; these orders had been
-  set by path length only. `w_en` ends with the wordline enable, not with the
-  deselect.
-- `TRESTORE` falls 30 to 40 % at 64 to 512 rows; 91 of 91 cases, 251,553 checks.
+- The read wordline is released at the sense trigger.
+- The precharge waits for the previous access's enables (`enables_off`).
+- `TRESTORE` falls 30-40 %. Evidence: 91 of 91 cases, 251,553 checks.
 
-## V2.1.7 — 2026-09-17 — select gate of the clock-high enables; TIME_CONTROL rename
+## V2.1.7 — 2026-09-17 — select gate; TIME_CONTROL rename
 
 [Record](design/SELECT_GATE_V2_1_7.md).
 
-- `cs_pre = cs & cs_delayed` delays only the rising edge of the select and gates
-  the precharge and the write enable: at an idle -> write edge the write-data
-  latch had closed 24 to 29 ps after new data at FF -40 C (now about 110 ps).
-- Four boundary fixes: the guard-less write window, zero settling stages, the
-  passed transistor models, the idle-cycle write data.
-- `TIME` is renamed `TIME_CONTROL` (instance `XTIME_CONTROL`), inner subcircuits
-  after their classes ([map](design/TIME_CONTROL_PATH.md), section 6); proven
-  on 1351 identical netlists. 74 of 74 cases, 236,570 checks.
+- `cs_pre = cs & cs_delayed` gates the precharge and write enable. Four
+  boundary fixes.
+- `TIME` is renamed `TIME_CONTROL` ([map](design/TIME_CONTROL_PATH.md)).
+  1,351 netlists are identical. Evidence: 74 of 74 cases, 236,570 checks.
 
-## V2.1.6 — 2026-09-16 — write drivers in the precharge slot; TIME audit and refactor
+## V2.1.6 — 2026-09-16 — write drivers in the precharge slot
 
 [Record](design/WRITE_SLOT_V2_1_6.md).
 
-- An audit of TIME found the write wordline rising 23 to 189 ps before the
-  drivers had the bitlines at their rails. In a write cycle the precharge is
-  now inhibited and `w_en` turns the drivers on in the clock-high phase; the
-  bitlines sit at their rails 1.9 to 2.3 ns before the wordline rises.
-- Write decks write 1 then 0 and measure `TWSLOT`; `select_every` probes the
-  idle -> write boundary. The write-data latch scales with the driver input.
-- `time_generate.py` rebuilt as builders in signal order (1331 identical
-  netlists). 58 of 58 cases, 213,020 checks.
+- The bitlines reach their rails before the write wordline rises.
+- Write decks measure `TWSLOT`, and `select_every` probes idle→write.
+- `time_generate.py` is rebuilt; 1,331 netlists are identical. Evidence:
+  58 of 58 cases, 213,020 checks.
 
 ## V2.1.5 — 2026-09-16 — equivalent model as an input; 10T read-path resize
 
 [10T record](design/TIMING_10T_BUDGET_V2_1_5.md), [equivalent-model record](design/EQUIVALENT_MODEL_V2_1_5.md).
 
-- `sram_compiler/equivalent_modeling/` (modes 0-4, `equivalent:` block of
-  `global.yaml`, the `compare.py` accuracy entrance): delays within 0.5 % of
-  mode 0 in every mode, power within 0.4 % in modes 1-2, static power unusable.
-- The 10T pull-down widens to 287 nm (the read-disturb bump of two stacked
-  pull-downs set the 512-row class): 10T 512 rows 14 -> 10 ns.
-- A variant class is floored at the shared class at every size, including
-  extrapolation. 45 of 45 attempts, 173,193 checks.
+- Equivalent modes 0-4 (`equivalent:` in `global.yaml`, `compare.py`): delays
+  are within 0.5 % of mode 0.
+- The 10T pull-down widens to 287 nm, so the 10T 512-row class drops from 14
+  to 10 ns.
+- Evidence: 45 of 45 attempts, 173,193 checks.
 
 ## V2.1.4 — 2026-09-15 — write-request hold latch and 6T ladders
 
-[Record](design/TIMING_6T_BUDGET_V2_1_4.md).
-
-- The write request is held while a wordline is on (`Xwe_hold`): at FF -40 C the
-  write enable had pulsed to 0.72 V during a read.
-- Shared 6T rows 1800/1900/2100/2500/3600 ps and a 6T-with-mux variant
-  (1900/2000/2200/2700/3600 ps), 250 ps of read-output margin at every bound.
-- The transient stop lies on the print grid. 92 of 92 attempts, 305,371 checks.
+[Record](design/TIMING_6T_BUDGET_V2_1_4.md). `Xwe_hold` holds the write request
+while a wordline is on. New shared 6T and 6T-mux ladders. Evidence: 92 of 92
+attempts, 305,371 checks.
 
 ## V2.1.3 — 2026-09-14 — separate 10T timing budget
 
-[Record](design/TIMING_10T_BUDGET_V2_1_3.md).
-
-- `timing_lookup.json` gains `variants` keyed by cell type (and mux); 10T rows
-  2000/2200/2400/3200/5600 ps and columns 200 ps above the shared ladder: the
-  10T read port and sense path cost about 200 ps plus 1 ps per row.
-- 56 of 58 attempts on the final table; the rejected ladders are recorded.
+[Record](design/TIMING_10T_BUDGET_V2_1_3.md). `timing_lookup.json` gains cell-type
+`variants`; 10T runs about 200 ps above the shared ladder. 56 of 58 attempts.
 
 ## V2.1.2 — 2026-09-13 — run traceability and write-failure inventory audit
 
-- CLI `--vdd` / `--temperature` enter the run identity; the resolved Xyce
-  installation is recorded; the bounded-step retry covers every coarse `.TRAN`.
-- The first-500 write-failure inventory recorded no electrical write failure
-  (solver warnings and an Open MPI error). The resolved report was removed from
-  the current docs; retrieve the original audit with
-  `git show 39ccae8:docs/issue_reports/write_failure_cases_first_500.md`.
-- The supplied CSVs move to `docs/data/` ([audit](data/README.md)); misprinted
-  document values are corrected from them. Dead helpers removed.
-- Phase 4/5 [follow-up](design/TIMING_FOLLOWUP_V2_1_2.md): the shared 4 ns class
-  is exhausted for 10T with a mux; Phase 6 scope defined (see
-  [open items](README.md#open-items)).
+- `--vdd` and `--temperature` enter the run identity, and the Xyce
+  installation is recorded.
+- The supplied CSVs move to `docs/data/` ([audit](data/README.md)).
+- The first-500 write-failure inventory showed no electrical write failure.
+- [Phase 4/5 follow-up](design/TIMING_FOLLOWUP_V2_1_2.md); see
+  [open items](README.md#open-items).
 
 ## V2.1.1 — 2026-09-13 — distributed-only wiring and access exclusion
 
-[Record](design/DISTRIBUTED_ONLY_V2_1_1.md).
-
-- Star wiring removed; array and replica periphery, decoder fan-out, register
-  clocks and mux selects are distributed.
-- WL / write / sense assertion waits for the settled far-end precharge; retention
-  is checked through the whole interval after the deadline. 11 cases, 33,096 checks.
+[Record](design/DISTRIBUTED_ONLY_V2_1_1.md). Star wiring is removed. WL, write and
+sense assertion waits for the settled far-end precharge. 11 cases, 33,096 checks.
 
 ## V2.1.0 — 2026-09-12 — fixed timing classes
 
-[Record](design/TIMING_LOOKUP_V2_1_0.md).
-
-- The clock follows a row/column lookup table like driver sizing, frozen with
-  the baseline across candidates and PVT; `timing.mode: fixed` / `--period` for
-  diagnostics.
-- Startup initialization, access deadlines, retention and restore checks, retry
-  provenance, and the yield callers' four-value results are repaired.
+[Record](design/TIMING_LOOKUP_V2_1_0.md). The clock follows a row/column lookup
+table, frozen with the baseline. Use `timing.mode: fixed` or `--period` for
+diagnostics.
 
 ## V2.0.11 — 2026-09-12 — distributed control lines
 
-[Record](design/WRITE_VALIDATION_V211.md).
-
-- `PRE`, `w_en`, `w_en_bar`, `s_en`, `sa_iso` (array width) and `wl_en` (height)
-  are tapped RC lines. Failed-operating-point outputs, rejected-run provenance and
-  measurement windows repaired. 65 cases, 58 pass.
+[Record](design/WRITE_VALIDATION_V211.md). `PRE`, `w_en`, `w_en_bar`, `s_en`,
+`sa_iso` and `wl_en` are tapped RC lines. 58 of 65 cases pass.
 
 ## V2.0.10 — 2026-09-12 — distributed timing and simulation correctness
 
-[Record](design/DISTRIBUTED_RC_V210_REVIEW.md).
-
-- A four-stage replica settling delay in the precharge guard; runtime DC
-  failures retried once with Newton line search; measurement windows and sample
-  indices repaired.
+[Record](design/DISTRIBUTED_RC_V210_REVIEW.md). The precharge guard gains a
+replica settling delay. Failed runtime DC solves retry with line search.
 
 ## V2.0.9 — 2026-09-10 — fixed driver size classes
 
-- `sizing.mode: lookup` (`sizing_lookup.json`): integer size classes by row and
-  column for precharge, write driver, wordline NAND2/inverter and decoder
-  output; unseen sizes round up, larger ones extrapolate with a flag. The legacy
-  `fixed` mode is removed.
-- Operating-point retry ladder for materialized ensembles. Screen: 1,989 of
-  2,025 waveform samples pass (summaries in `docs/data/`).
+`sizing.mode: lookup` with `sizing_lookup.json` integer classes; the legacy
+`fixed` mode is removed. 1,989 of 2,025 waveform samples pass.
 
 ## V2.0.8 — 2026-09-09 — audit of the distributed interconnect
 
-[Record](design/DISTRIBUTED_RC_VALIDATION.md).
-
-- `cell_pin_rc` default fixed on every construction path;
-  `interconnect.load_interconnect()` and `INTERCONNECT_CONFIG` in `main_sram.py`.
+[Record](design/DISTRIBUTED_RC_VALIDATION.md). The `cell_pin_rc` default is fixed.
+Adds `interconnect.load_interconnect()` and `INTERCONNECT_CONFIG`.
 
 ## V2.0.7 — 2026-09-09 — RC corrections and distributed interconnect
 
-[Guide](design/DISTRIBUTED_RC_MODEL.md).
-
-- RC propagates through every factory (100 ohm / 1 fF default); distributed
-  WL/BL ladders with matched replica paths; equivalent extraction at the
-  effective PVT.
+[Guide](design/DISTRIBUTED_RC_MODEL.md). RC reaches every factory. Distributed
+WL/BL ladders get matched replica paths.
 
 ## V2.0.6 — 2026-09-08 — compiler integration and documentation
 
-- Per-device mismatch integrated into `sram_compiler/per_device_mc/`; docs
-  moved beside their code; `utils/` package; `main_sram.py` is the seeded
-  per-device full-array entrance again.
+Per-device mismatch moves into `sram_compiler/per_device_mc/`, and the `utils/`
+package is created.
 
 ## V2.0.5 — 2026-09-08 — full local mismatch
 
-- Per-device `vth0` / `u0` / `voff` mismatch is the default; MPI runs use
-  materialized numeric model cards; array and replica RC made symmetric.
+Per-device `vth0` / `u0` / `voff` mismatch is the default.
 
 ## V2.0.4 — 2026-09-07 — baseline driver sizing and measured timing
 
-[Proposal](DRIVER_SIZING_PROPOSAL.md).
-
-- Immutable baseline driver sizing, matched replica, tapered and fingered
-  control buffers, measured clock derivation (SS read, SS/SF write, 25 % margin).
+[Proposal](DRIVER_SIZING_PROPOSAL.md). Baseline driver sizing is immutable, with
+a matched replica and tapered control buffers.
 
 ## V2.0.3 — 2026-09-06 — timing configuration proposal
 
-- [`TIMING_AUTOCONFIG.md`](TIMING_AUTOCONFIG.md): worst-case PVT factors
-  (2.1 to 2.3x at SS 125 C 0.9 V) and the phase model behind the lookup clocks
-  (evidence: `docs/data/TIMING_AUTOCONFIG_data.csv`).
+[`TIMING_AUTOCONFIG.md`](TIMING_AUTOCONFIG.md) gives worst-case PVT factors
+(2.1-2.3x at SS 125 C 0.9 V) and the phase model.
 
 ## V2.0.2 — 2026-09-05 — periphery fan-out, address hold, precharge control
 
-- Address hold latch (the 512-row address change overwrote a cell), tapered
-  control buffers, sense-amplifier isolation during writes, precharge for the
-  whole clock-high phase, and the `TCLK_WLEN` / `TCLK_DEC` / `TRESTORE`
-  minimum-period estimate. Tables: `git show c3f6f44:CHANGELOG.md`.
+Adds an address hold latch, tapered buffers, sense isolation during writes, and
+full-phase precharge.
 
 ## V2.0.1 — 2026-09-05 — transient / Monte Carlo circuit review
 
-- The write pulse spans the wordline phase, with a per-column write-data hold
-  latch; the write deck carries the full column periphery; nominal runs are
-  deterministic; energy windows and measures repaired
-  (`sram_compiler/CIRCUIT_REVIEW.md`).
+The write pulse spans the wordline phase, and nominal runs are deterministic
+(`sram_compiler/CIRCUIT_REVIEW.md`).
