@@ -2,6 +2,11 @@
 
 OpenYield is an open-source SRAM compiler for transistor-level 6T and 10T arrays, DC/transient analysis, sizing optimization, and yield research. The current release is **V2.2.6**. The [root tutorial](README.md) and subdirectory READMEs explain usage; [docs/CHANGELOG.md](docs/CHANGELOG.md) and [the V2.2.6 review record](docs/design/CONFIGURATION_REVIEW_V2_2_6.md) carry release details. No V2.2.5 or V2.2.6 waveform screen has completed, and 256x256 has no working operating point. The last assembled screen, `docs/data/PHASED_CONTROL_V2_2_2.json`, certifies only that earlier tree. Never promote a partial or failed screen.
 
+The working tree is **V2.2.7-dev**. Its [FreePDK45 calibration workflow](sram_compiler/layout/README.md)
+covers an 8x8 6T macro and array tile, excluding TIME_CONTROL. The user chose to
+freeze sizing and defer full controller layout. The measured WL/BL profile is
+diagnostic; compiler-wide defaults and release qualification remain pending.
+
 ## Architecture
 
 YAML under `sram_compiler/config_yaml/` loads through `SRAM_CONFIG` in `config.py`. Factories in `sram_compiler/testbenches/parameter_factor.py` build subcircuits, then `Sram6TCoreTestbench` assembles the array, replica column, decoder, TIME_CONTROL, wires, and periphery. `Sram6TCoreMcTestbench` adds variation, stimuli, measurements, Xyce execution, and result parsing. `main_sram.py` and `python -m sram_compiler.per_device_mc.run` are the user entrances. Optimization consumes the resulting metrics through `size_optimization/exp_utils.py`.

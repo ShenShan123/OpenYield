@@ -192,7 +192,10 @@ def _circuit_inputs(config):
 
 
 def _peripheral_inputs(sram_config):
-    return {name: _circuit_inputs(getattr(sram_config, name)) for name in _PERIPHERALS}
+    from sram_compiler.config_yaml.time_control_config import resolve_time_control_config
+    values = {name: _circuit_inputs(getattr(sram_config, name)) for name in _PERIPHERALS}
+    values['time_control'] = resolve_time_control_config(getattr(sram_config, 'time_control', None)).to_dict()
+    return values
 
 
 def _pdk_inputs(cfg):

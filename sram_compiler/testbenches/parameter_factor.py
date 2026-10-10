@@ -890,23 +890,24 @@ class ReplicaColumnFactory:
     
 class TimeControlFactory:
     def __init__(self, 
-                 nmos_model="NMOS_VTG", pmos_model="PMOS_VTG",
-                 pmos_width=0.27e-6, nmos_width=0.18e-6,
-                 length=0.05e-6, num_rows=16, num_cols=8,
-                 w_rc=False, operation='read',
+                 nmos_model=None, pmos_model=None,
+                 pmos_width=None, nmos_width=None,
+                 length=None, num_rows=None, num_cols=None,
+                 w_rc=None, operation=None,
                  num_sa=None, wl_load=None, pre_load=None, wen_load=None,
-                 dc_stages=9, effort_buffers=False,
+                 dc_stages=None, effort_buffers=None,
                  sen_load=None, iso_load=None,
-                 replica_precharge_guard=False,
+                 replica_precharge_guard=None,
                  sen_effort=None,
-                 precharge_guard_stages=0,
+                 precharge_guard_stages=None,
                  interconnect=None,
-                 precharge_off_guard=False, precharge_off_guard_stages=4,
+                 precharge_off_guard=None, precharge_off_guard_stages=None,
                  access_load=None,
-                 precharge_off_tau=0.0,
+                 precharge_off_tau=None,
                  din_hold_load=None,
                  enable_off_tau=None,
                  isolation_tau=None,
+                 control_config=None,
                  ):
 
         self.interconnect = interconnect
@@ -938,6 +939,7 @@ class TimeControlFactory:
         self.din_hold_load = din_hold_load
         self.enable_off_tau = enable_off_tau
         self.isolation_tau = isolation_tau
+        self.control_config = control_config
     def create(self):
         return TIME_CONTROL(
             nmos_model=self.nmos_model,
@@ -968,6 +970,7 @@ class TimeControlFactory:
             din_hold_load=self.din_hold_load,
             enable_off_tau=self.enable_off_tau,
             isolation_tau=self.isolation_tau,
+            control_config=self.control_config,
         )
     
 class Sram10TCellFactory:

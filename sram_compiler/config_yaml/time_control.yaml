@@ -1,0 +1,130 @@
+# TIME_CONTROL baseline configuration. Device dimensions are SI metres.
+# V2.2.7 moves existing values here without legalizing or resizing devices.
+# In particular, 45 nm observer NMOS widths remain below FreePDK45 DRC minimum.
+TIME_CONTROL:
+  models:
+    nmos: NMOS_VTG
+    pmos: PMOS_VTG
+  devices:
+    gate_length_m: 5.0e-8
+    max_finger_width_m: 2.0e-6
+    unit_inverter: {nmos_width_m: 9.0e-8, pmos_width_m: 2.7e-7}
+    nand: {nmos_width_m: 1.8e-7, pmos_width_m: 2.7e-7}
+    gated_clock_inverter: {nmos_width_m: 5.4e-7, pmos_width_m: 1.62e-6}
+    enable_inverter: {nmos_width_m: 3.6e-7, pmos_width_m: 1.08e-6}
+    observer: {nmos_width_m: 4.5e-8, pmos_width_m: 1.35e-7}
+    flop: {nmos_width_m: 2.5e-7, pmos_width_m: 5.0e-7}
+    clock_buffer_stages:
+      - {nmos_width_m: 9.0e-8, pmos_width_m: 2.7e-7}
+      - {nmos_width_m: 2.7e-7, pmos_width_m: 8.1e-7}
+      - {nmos_width_m: 9.1e-7, pmos_width_m: 2.43e-6}
+      - {nmos_width_m: 2.43e-6, pmos_width_m: 7.29e-6}
+    wordline_enable_inverter: {nmos_width_m: 4.5e-7, pmos_width_m: 1.35e-6}
+    select_qb_inverter: {nmos_width_m: 1.8e-7, pmos_width_m: 5.4e-7}
+    select_q_inverter: {nmos_width_m: 3.6e-7, pmos_width_m: 1.08e-6}
+    nor: {nmos_width_m: 9.0e-8, pmos_width_m: 5.4e-7}
+    isolation_nand: {nmos_width_m: 7.2e-7, pmos_width_m: 1.08e-6}
+    precharge_nand: {nmos_width_m: 2.7e-7, pmos_width_m: 2.7e-7}
+    far_enables_nor: {nmos_width_m: 4.5e-8, pmos_width_m: 2.7e-7}
+  defaults:
+    num_rows: 16
+    num_cols: 8
+    operation: read
+    w_rc: false
+    pi_res_ohm: 100.0
+    pi_cap_f: 1.0e-15
+    dc_stages: 9
+    effort_buffers: false
+    replica_precharge_guard: false
+    precharge_guard_stages: 0
+    precharge_off_guard: false
+    precharge_off_guard_stages: 4
+    precharge_off_tau_s: 0.0
+    num_sa: null
+    wl_load: null
+    pre_load: null
+    wen_load: null
+    sen_load: null
+    iso_load: null
+    sen_effort: null
+    access_load: null
+    din_hold_load: null
+    enable_off_tau: null
+    isolation_tau: null
+  buffers:
+    short_stages: 2
+    long_stages: 4
+    short_drive_scale_limit: 16.0
+    final_stage_effort: 8.0
+    even_stage_log2_divisor: 6.0
+    default_drive_scale: 1.0
+    default_fall_strength: 1.0
+    clock_stage_scale_exponents: [0.25, 0.5, 0.75, 1.0]
+  delays:
+    unit_stages: 4
+    unit_loads_per_stage: 4
+    replica_loads_per_stage: 4
+    wordline_setup_stages: 8
+    decoder_settle_row_threshold: 64
+    decoder_wire_cap_multiplier: 2.0
+    decoder_group_rows: 8.0
+    decoder_gate_cap_per_group_f: 3.0e-15
+    decoder_local_gate_cap_f: 2.5e-15
+    decoder_tau_multiplier: 2.0
+  guards:
+    settling_tau_s: 0.0
+    filter_cap_f: 1.0e-15
+    minimum_filter_res_ohm: 1.0
+    access_load_units: 3.5
+    minimum_access_drive_scale: 6
+    access_output_effort: 6.0
+    isolation_stages: 4
+    isolation_access_load_units: 3.75
+    enable_off_stages: 2
+    enable_off_access_load_units: 6.5
+  sizing:
+    unit_input_width_m: 3.6e-7
+    precharge_base_pmos_width_m: 2.7e-7
+    write_base_nmos_width_m: 1.8e-7
+    write_base_pmos_width_m: 3.6e-7
+    precharge_mos_per_column: 3
+    precharge_min_row_scale: 0.5
+    reference_rows: 16.0
+    write_min_rows: 8
+    write_nmos_factor: 3
+    precharge_observer_load_units: 0.5
+    enables_off_load_units: 1.75
+    address_loads_per_group: 5
+    address_effort_loads_per_group: 6
+    decoder_group_rows: 8.0
+    address_output_effort: 8.0
+    address_legacy_output_scale: 3.0
+    clock_reference_rows: 16
+    clock_reference_cols: 16
+    clock_extra_registers: 2
+    wordline_effort_loads_per_scale: 24.0
+    wordline_legacy_loads_per_scale: 32.0
+    wordline_request_load_units: 1.25
+    access_extra_load_units: 2.5
+    wordline_bar_loads_per_address: 2
+    wordline_bar_extra_address: 1
+    wordline_bar_extra_loads: 1
+    wordline_bar_output_effort: 5.0
+    sense_bar_extra_loads: 1
+    sense_bar_output_effort: 4.0
+    direct_enable_scale: 4.0
+    isolation_effort_direct_loads: 16.0
+    isolation_legacy_direct_loads: 32.0
+    write_effort: 6.0
+    write_legacy_effort: 8.0
+    sense_load_units_per_amplifier: 0.75
+    sense_extra_load_units: 3.5
+    sense_effort: 4.0
+    sense_legacy_effort: 8.0
+    isolation_load_units_per_amplifier: 4.0
+    isolation_effort: 3.0
+    isolation_legacy_effort: 8.0
+    precharge_effort: 4.0
+    precharge_legacy_effort: 8.0
+    precharge_min_effort_scale: 2
+    isolation_effort_fall_strength: 2.0

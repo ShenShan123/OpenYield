@@ -1,4 +1,4 @@
-# OpenYield V2.2.6 documentation
+# OpenYield V2.2.7 development documentation
 
 Design and validation records (`design/`), the supplied evidence (`data/`,
 `qualification/`) and the release history live here; usage
@@ -6,6 +6,11 @@ guides live beside the code they describe. Paths are relative to the
 repository root unless stated otherwise. Every release entry of the
 [changelog](CHANGELOG.md) names its record; earlier entries, snapshots and
 evidence keep their original version labels.
+
+The [V2.2.7 development record](design/RC_CALIBRATION_V2_2_7.md) covers the
+FreePDK45 8x8 physical calibration and the TIME_CONTROL configuration refactor.
+Controller layout and all-route RC default promotion remain deferred; the
+current release is still V2.2.6.
 
 ## Open items
 

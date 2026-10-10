@@ -1,6 +1,15 @@
-# OpenYield V2.2.6
+# OpenYield V2.2.7 development
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
+
+**V2.2.7 development:** [FreePDK45 layout and Calibre xRC calibration](sram_compiler/layout/README.md)
+starts with an 8×8 6T macro and a separately verified array tile. Coupled DSPF
+networks and a measured WL/BL diagnostic profile are available. Sizing remains
+frozen; full controller layout and compiler-wide default RC promotion are deferred.
+This development tree is not a completed V2.2.7 release or waveform screen.
+TIME_CONTROL sizes and policy settings now live in
+[`time_control.yaml`](sram_compiler/config_yaml/time_control.yaml); the defaults
+produce the same circuit as before.
 
 **Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The V2.2.5 campaign stopped incomplete; the [V2.2.5 simulation summary](docs/V2_2_5_SIMULATION_SUMMARY.md) records it with the corrected-model diagnostics, which retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
 

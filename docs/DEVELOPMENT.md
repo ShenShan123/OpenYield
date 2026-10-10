@@ -54,6 +54,15 @@ checkout. Run commands from the repository root.
 
 ## Local regression checks
 
+V2.2.7's tracked [physical calibration workflow](../sram_compiler/layout/README.md)
+builds an 8x8 FreePDK45 macro and array tile and runs Calibre DRC/LVS/xRC. The
+local `tests/test_parasitics.py` and `tests/test_time_control_config.py` cover
+DSPF handling, configuration validation and stale-baseline rejection. The local
+baseline experiment saved 30 controller blocks and seven primitives before
+the YAML refactor; all emitted netlists and a full 8x8 nominal write deck match
+byte for byte. Configuration and calibration scope are recorded in the
+[V2.2.7 development record](design/RC_CALIBRATION_V2_2_7.md).
+
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m unittest discover -s size_optimization/openyield_v2/tests -v

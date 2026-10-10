@@ -340,18 +340,26 @@ class SRAM_CONFIG:
         self.senseamp = None
         self.write_driver = None
         self.decoder = None
+        self.time_control = None
 
     def load_all_configs(self, global_file: str, circuit_configs: Dict[str, str]):
         """加载所有配置"""
 
         # 加载全局配置
         self.global_config = load_global_config(global_file)
+        from pathlib import Path
+        from .time_control_config import DEFAULT_PATH, load_time_control_config
+        control_path = circuit_configs.get("TIME_CONTROL")
+        if control_path is None:
+            sibling = Path(global_file).resolve().with_name('time_control.yaml')
+            control_path = sibling if sibling.exists() else DEFAULT_PATH
+        self.time_control = load_time_control_config(control_path)
         print(f"✓ 全局配置加载完成: {global_file}")
         # 创建子电路配置加载器
         loader = ConfigLoader()
         # 批量加载所有子电路配置
         print("\n开始加载电路配置:")
-        loader.load_all_configs(circuit_configs)
+        loader.load_all_configs({name: path for name, path in circuit_configs.items() if name != 'TIME_CONTROL'})
 
         # 将加载的配置分配给各个属性
         self.sram_6t_cell = loader.get_config("SRAM_6T_CELL")

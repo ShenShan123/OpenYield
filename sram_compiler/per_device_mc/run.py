@@ -134,9 +134,11 @@ def make_run_name(
     timing=None,
     vdd=None,
     temperature=None,
+    control_config=None,
 ) -> str:
     settings = {
         "compiler_version": VERSION,
+        "time_control": control_config,
         "interconnect": resolve_interconnect(interconnect).to_dict(),
         "cell_type": cell_type,
         "rows": args.rows,
@@ -258,6 +260,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         timing=timing.to_dict(),
         vdd=float(config.global_config.vdd),
         temperature=float(config.global_config.temperature),
+        control_config=config.time_control.to_dict(),
     )
     run_root = args.output_dir.expanduser().resolve()
     run_root.mkdir(parents=True, exist_ok=True)
@@ -332,6 +335,7 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
     deck_path.write_text(deck_text, encoding="utf-8")
     summary = {
         "compiler_version": VERSION,
+        "time_control": config.time_control.to_dict(),
         "interconnect": interconnect.to_dict(),
         "deck": str(deck_path),
         "run_dir": str(run_dir),

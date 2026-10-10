@@ -9,6 +9,21 @@ were condensed after V2.2.6; the previous full text is at
 proposals and that circuit review were purged after V2.2.6; retrieve them with
 `git show b4987df:<path>`.
 
+## V2.2.7 development — 2026-10-09 — physical RC calibration and control YAML
+
+[Development record](design/RC_CALIBRATION_V2_2_7.md). Not a completed release.
+
+- A reproducible 8x8 6T FreePDK45 macro and standalone array tile use KLayout
+  geometry and official Calibre DRC/LVS and coupled xRC extraction.
+- Array resistance fits use electrical network solutions and physical contact
+  positions; BL and BLB have different contact spans. The diagnostic RC profile
+  remains separate from compiler-wide defaults.
+- TIME_CONTROL sizes, model defaults, guard/delay settings and fallback sizing
+  policy move to `config_yaml/time_control.yaml`. Defaults retain the existing
+  circuit; settings participate in baseline and run identity.
+- Sizing stays frozen. Full controller layout and all-route RC default promotion
+  are deferred at the user's request. No full V2.2.7 waveform screen is complete.
+
 ## V2.2.6 — 2026-10-01 — configuration review fixes
 
 [Review record](design/CONFIGURATION_REVIEW_V2_2_6.md).

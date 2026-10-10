@@ -1,5 +1,7 @@
 # Illustrative wire geometry for diagnostics (V2.0.7+), NOT foundry extraction.
 # Each pitch contributes 1 ohm and 0.1 fF. Supply extracted values for signoff.
+# V2.2.7's measured 8x8 6T diagnostic is interconnect_freepdk45_8x8.yaml.
+# All-route default calibration is pending; see ../layout/README.md.
 mode: distributed
 cell_pin_rc: false
 wl: &wire

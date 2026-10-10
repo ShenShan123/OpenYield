@@ -112,9 +112,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         """Create the TIME_CONTROL block (control-signal generator)"""
         self.operation=operation
         loads = self.driver_sizes.loads
+        from sram_compiler.config_yaml.time_control_config import resolve_time_control_config
+        control_config = resolve_time_control_config(getattr(self.sram_config, 'time_control', None))
         time_control = TimeControlFactory(
-            nmos_model="NMOS_VTG",
-            pmos_model="PMOS_VTG",
+            nmos_model=control_config.models.nmos,
+            pmos_model=control_config.models.pmos,
             num_rows=self.num_rows,
             num_cols=self.num_cols,
             operation=self.operation,
@@ -136,6 +138,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             precharge_off_tau=self.driver_sizes.precharge_off_tau,
             enable_off_tau=self.driver_sizes.enable_off_tau,
             isolation_tau=self.driver_sizes.isolation_tau,
+            control_config=control_config,
         ).create()
         circuit.subcircuit(time_control)   # Add to main circuit
         

@@ -1,5 +1,12 @@
 # Phased SRAM access integration checks
 
+`v227_rc_cases.json` documents the separate FreePDK45 **macro** calibration
+diagnostic: ideal controls, nominal 8x8 6T, no TIME_CONTROL. Its tracked runner
+is `python -m sram_compiler.layout.freepdk45.compare`; it does not use the local
+phased-access runner or certify a full compiler screen. See the
+[layout guide](../../sram_compiler/layout/README.md) and
+[development record](../../docs/design/RC_CALIBRATION_V2_2_7.md).
+
 `v226_review_cases.json` selects four existing cases for the V2.2.6
 configuration-fix diagnostic. See the [review record](../../docs/design/CONFIGURATION_REVIEW_V2_2_6.md)
 for results and limits; this subset is not the full release screen.

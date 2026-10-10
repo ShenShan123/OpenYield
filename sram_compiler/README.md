@@ -1,6 +1,23 @@
-# SRAM compiler tutorial — V2.2.6
+# SRAM compiler tutorial — V2.2.7 development
 
 The compiler builds 6T or 10T transistor-level SRAM arrays with distributed wordline and bitline RC, a replica column, address and control logic, and column periphery. Generate SRAM macros through [`main_sram.py`](../main_sram.py). Run commands from the repository root.
+
+TIME_CONTROL device sizes and its other configuration settings are in
+[`config_yaml/time_control.yaml`](config_yaml/time_control.yaml). They include
+model names, SI widths/lengths, register and clock-buffer sizes, folding and
+buffer policy, delay stages and dummy loads, guard RC parameters, and fallback
+load/effort rules. `SRAM_CONFIG.load_all_configs` reads this file beside the
+global YAML, or an explicit `TIME_CONTROL` entry in its configuration-file map.
+The validated settings are available as `config.time_control`; constructors
+and `TimeControlFactory` accept an appended `control_config` override.
+
+Explicit arguments take precedence, including the frozen driver-class loads
+and guard settings supplied by the compiler. Connection topology and names
+remain in `subcircuits/time_generate.py`. Defaults preserve the earlier circuit
+exactly, including the 45 nm observer widths. Settings changes invalidate a
+frozen peripheral baseline and are recorded in CLI run identity and metadata.
+See the [physical calibration guide](layout/README.md) for V2.2.7's current
+layout coverage and deferred default RC promotion.
 
 ## 1. Set up
 
