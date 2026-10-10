@@ -18,19 +18,28 @@ def main(argv=None):
     parser.add_argument('--pdk-dir',required=True,type=Path)
     parser.add_argument('--output-dir',required=True,type=Path)
     parser.add_argument('--drc-only',action='store_true')
+    parser.add_argument('--extraction-workers',type=int,
+                        help='explicit worker count for xRC phdb/pdb; default leaves Calibre scheduling unchanged')
     args=parser.parse_args(argv)
+    if args.extraction_workers is not None and args.extraction_workers<1:
+        parser.error('Extraction worker count must be positive')
     layout=args.layout_dir.resolve();output=args.output_dir.resolve();output.mkdir(exist_ok=False,parents=True)
     pdk=args.pdk_dir.resolve();rules=pdk/'ncsu_basekit/techfile/calibre'
     env=dict(os.environ,PDK_DIR=str(pdk))
     gds=layout/'full_macro.gds';source=layout/'source.sp'
-    receipt=dict(status='in_progress',scope='complete 8x8 6T macro including controller and output latch',
+    manifest=json.loads((layout/'layout.json').read_text())
+    primary=manifest['primary']
+    rows,cols=manifest.get('rows',8),manifest.get('cols',8)
+    receipt=dict(status='in_progress',scope=f'complete {rows}x{cols} 6T macro including controller and output latch',
+                 rows=rows,cols=cols,primary=primary,
+                 extraction_workers=args.extraction_workers,
                  controller_layout=True,layout_sha256=sha256(gds),source_sha256=sha256(source),
                  rule_sha256={n:sha256(rules/n) for n in ['calibreDRC.rul','calibreLVS.rul','calibrexRC.rul']},
                  lvs_passive_policy='R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.',
                  full_release_screen=False)
     def save(): (output/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
     save()
-    common=[f'LAYOUT PATH "{gds}"','LAYOUT PRIMARY OPENYIELD_8X8','LAYOUT SYSTEM GDSII']
+    common=[f'LAYOUT PATH "{gds}"',f'LAYOUT PRIMARY {primary}','LAYOUT SYSTEM GDSII']
     try:
         drc=output/'drc';drc.mkdir();runset=drc/'runset'
         runset.write_text('\n'.join(common+['DRC RESULTS DATABASE "results" ASCII','DRC SUMMARY REPORT "summary"','DRC MAXIMUM RESULTS ALL',f'INCLUDE "{rules/"calibreDRC.rul"}"','']))
@@ -41,7 +50,7 @@ def main(argv=None):
         if args.drc_only:
             receipt['status']='drc_passed';save();return 0
         xrc=output/'xrc';xrc.mkdir();runset=xrc/'runset'
-        runset.write_text('\n'.join(common+[f'SOURCE PATH "{source}"','SOURCE PRIMARY OPENYIELD_8X8','SOURCE SYSTEM SPICE',
+        runset.write_text('\n'.join(common+[f'SOURCE PATH "{source}"',f'SOURCE PRIMARY {primary}','SOURCE SYSTEM SPICE',
                          'MASK SVDB DIRECTORY "svdb" QUERY XRC','PEX NETLIST "full_macro.dspf" DSPF SOURCENAMES',
                          f'INCLUDE "{rules/"calibrexRC.rul"}"','LVS FILTER R SHORT SOURCE','LVS FILTER C OPEN SOURCE','']))
         run_command(['calibre','-lvs','-hier','-spice','layout.sp',str(runset)],xrc,'lvs.log',env)
@@ -50,7 +59,9 @@ def main(argv=None):
         if 'INCORRECT' in report or not re.search(r'\bCORRECT\b',report):raise ValueError('LVS failed; physical passives remain independently checked')
         receipt['lvs']='CORRECT';save()
         for stage,flags in [('phdb',['-phdb']),('pdb',['-pdb','-rcc']),('fmt',['-fmt','-all'])]:
-            run_command(['calibre','-xrc',*flags,str(runset)],xrc,stage+'.log',env)
+            workers=(['-turbo',str(args.extraction_workers)]
+                     if args.extraction_workers is not None and stage!='fmt' else [])
+            run_command(['calibre','-xrc',*flags,*workers,str(runset)],xrc,stage+'.log',env)
         dspf=xrc/'full_macro.dspf';parsed=read_dspf(dspf)
         receipt.update(status='extracted',dspf_sha256=sha256(dspf),nets=len(parsed.nets),
                        capacitance=parsed.capacitance_inventory(),extraction='distributed R+C+CC')

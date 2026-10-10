@@ -1,8 +1,8 @@
 """Prepare matched complete-macro estimated/post-layout transient decks.
 
-The native input is a nominal 8x8 6T read&write compiler deck at 1 V, TT,
-25 C, 9 ns. This four-cycle diagnostic contains W1/R1/W0/R0 and ends at
-38.795 ns, including final recovery and ending before the fifth capture.
+The native input is a nominal 6T read&write compiler deck matching the layout.
+This four-cycle diagnostic contains W1/R1/W0/R0 and includes final recovery,
+ending 5 ps before the fifth capture (38.795 ns with the original 9 ns clock).
 It does not qualify the full release waveform screen.
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ import re
 import shutil
 import time
 
-from sram_compiler.calibrated_rc import apply_to_deck, initial_state, validate_source
+from sram_compiler.calibrated_rc import apply_to_deck, initial_state, validate_source, read_initial_conditions
 from sram_compiler.parasitics import read_dspf, spice_value
 from utils.xyce import execute_xyce
 from .reduce_rc import reduce
@@ -43,13 +43,18 @@ def prepare(native_deck, profile_path, extraction_dir, output_dir):
         raise ValueError('Physical verification must pass')
     text = native_deck.read_text()
     clock = re.search(r'(?im)^VCLK\s+clk\s+VSS.*?PULSE\(([^)]+)\)', text)
-    if clock is None or abs(spice_value(clock[1].split()[-1].rstrip('Ss'))-9e-9) > 1e-18:
-        raise ValueError('Complete macro diagnostic requires the native 9 ns clock')
-    conditions = {name: spice_value(value.rstrip('Vv')) for name, value in
-                  re.findall(r'(?i)\bV\(([^)]+)\)\s*=\s*([^\s]+)', text)}
+    if clock is None:
+        raise ValueError('Complete macro diagnostic requires a native periodic clock')
+    period = spice_value(clock[1].split()[-1].rstrip('Ss'))
+    if period <= 0:
+        raise ValueError('Clock period must be positive')
+    stop = 1e-9 + 4.2*period - 5e-12
+    conditions = read_initial_conditions(text)
     text = '\n'.join(line for line in text.splitlines()
                      if not line.lower().startswith(('.ic ', '.measure ', '.meas '))) + '\n'
-    text, count = re.subn(r'(?im)^\.TRAN .*$', '.TRAN 5e-12 38.795e-9 0 20e-12 UIC', text)
+    analysis = ('.TRAN 5e-12 38.795e-9 0 20e-12 UIC' if abs(period-9e-9)<1e-18
+                else f'.TRAN 5e-12 {stop:.15g} 0 20e-12 UIC')
+    text, count = re.subn(r'(?im)^\.TRAN .*$', analysis, text)
     if count != 1:
         raise ValueError('Comparison needs one transient analysis')
     # Solver selection does not change the physical network.
@@ -62,7 +67,8 @@ def prepare(native_deck, profile_path, extraction_dir, output_dir):
                       profile_sha256=sha256(profile_path),
                       source_dspf_sha256=sha256(dspf_path),
                       complete_cycles=['write1', 'read1', 'write0', 'read0'],
-                      period_s=9e-9, stop_s=38.795e-9, output_step_s=5e-12,
+                      rows=profile['scope']['rows'], cols=profile['scope']['cols'],
+                      period_s=period, stop_s=stop, output_step_s=5e-12,
                       maximum_integration_step_s=20e-12,
                       initialization='common complete schematic logic state, UIC; released throughout transient',
                       full_release_screen=False)

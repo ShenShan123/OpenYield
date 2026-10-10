@@ -2,7 +2,8 @@
 from .lib import pya, u
 
 
-def add_power_grid(builder, paths, macro_bottom, macro_x, controller_top, external):
+def add_power_grid(builder, paths, macro_bottom, macro_x, controller_top, external,
+                   memory_taps=None, tap_fractions=None):
     """Join real M3 supply paths to 2 um M7 buses through M6 taps.
 
     M6 stripes are 280 nm wide and separated by at least 560 nm. New via
@@ -44,9 +45,16 @@ def add_power_grid(builder, paths, macro_bottom, macro_x, controller_top, extern
         x, sy, _ = external[net]
         feed(net, x, y, start_y=sy)
     # The two memory trunks are 200 nm apart, so their stacks are staggered.
-    feed('VSS', macro_x+memory.rp.X_VSS_TRUNK, macro_bottom+280.)
-    feed('VDD', macro_x+memory.rp.X_VDD_TRUNK, macro_bottom+840.)
-    for fraction in (.15,.35,.55,.75):
+    if memory_taps is None:
+        feed('VSS', macro_x+memory.rp.X_VSS_TRUNK, macro_bottom+280.)
+        feed('VDD', macro_x+memory.rp.X_VDD_TRUNK, macro_bottom+840.)
+    else:
+        for net, (x, y) in memory_taps.items():
+            feed(net, x, y)
+    fractions=(.15,.35,.55,.75) if tap_fractions is None else tuple(tap_fractions)
+    if not fractions or any(not 0<f<1 for f in fractions):
+        raise ValueError('Supply tap fractions must lie strictly inside the controller height')
+    for fraction in fractions:
         for net, offset in [('VDD',0.), ('VSS',1120.)]:
             target = round(controller_top*fraction/280)*280 + offset
             candidates = sorted(points[net],key=lambda p:(abs(p[1]-target),p[0]))

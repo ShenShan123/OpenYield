@@ -14,13 +14,14 @@ VIA4_HALO = tuple((dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)
 
 
 class Router:
-    def __init__(self, builder, bounds):
+    def __init__(self, builder, bounds, use_tree_heuristic=False):
         self.builder = builder
         self.bounds = bounds
         self.owner = {}
         self.paths = []
         self.vias = []
         self.blocked = set()
+        self.use_tree_heuristic = use_tree_heuristic
 
     def point(self, x, y, layer='m3'):
         if abs(x / GRID - round(x / GRID)) > 1e-8 or abs(y / GRID - round(y / GRID)) > 1e-8:
@@ -61,12 +62,20 @@ class Router:
 
     def connect(self, net, source, targets):
         tree = {source}
+        lower, upper = list(source), list(source)
+        def heuristic(point):
+            if not self.use_tree_heuristic:
+                return 0.
+            # Distance to the tree's enclosing box is a lower bound on the
+            # nearest branch. Step costs are >=1 and layer changes cost 4.
+            return sum((4 if axis==2 else 1)*max(lower[axis]-point[axis],
+                       point[axis]-upper[axis],0) for axis in range(3))
         self.reserve(source, net)
         remaining = set(targets) - tree
         serial = count()
         while remaining:
             target = min(remaining, key=lambda p: (abs(p[0]-source[0])+abs(p[1]-source[1]), p))
-            frontier = [(0., next(serial), target)]
+            frontier = [(heuristic(target), next(serial), target)]
             costs, parent = {target: 0.}, {}
             closed = set()
             reached = None
@@ -83,9 +92,7 @@ class Router:
                     if cost < costs.get(q, float('inf')):
                         costs[q] = cost
                         parent[q] = p
-                        # The connected tree is often a long bus; a zero
-                        # heuristic is deliberate to find the nearest branch.
-                        heapq.heappush(frontier, (cost, next(serial), q))
+                        heapq.heappush(frontier, (cost+heuristic(q), next(serial), q))
             if reached is None:
                 raise RuntimeError(f'Unable to route {net} terminal {target}; expand routing channels')
             path = [reached]
@@ -104,6 +111,10 @@ class Router:
                             if halo not in self.owner:
                                 self.blocked.add(halo)
             tree.update(path)
+            for point in path:
+                for axis in range(3):
+                    lower[axis]=min(lower[axis],point[axis])
+                    upper[axis]=max(upper[axis],point[axis])
             remaining -= tree
 
     def draw(self):

@@ -1,5 +1,12 @@
 # Characterisation and diagnostic data
 
+[`V2_2_7_MULTI_SIZE_RC_CALIBRATION.json`](V2_2_7_MULTI_SIZE_RC_CALIBRATION.json)
+records complete 8×16, 16×8 and 16×16 nominal FreePDK45 RC/SNM comparisons,
+physical receipts, timing/voltage errors, compiler-loading proofs and artifact
+hashes. The [report](../design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md) states the
+30 ns clock, four-access protocol and DC-coupon limits. This is development
+calibration evidence, not a full release or yield qualification.
+
 [`V2_2_6_CONFIGURATION_REVIEW.json`](V2_2_6_CONFIGURATION_REVIEW.json) records
 targeted software, DC and four-case waveform diagnostics for the
 [configuration fixes](../design/CONFIGURATION_REVIEW_V2_2_6.md). It is not a

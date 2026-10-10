@@ -16,6 +16,23 @@ from sram_compiler.layout.freepdk45.reduce_rc import render
 ROOT=Path(__file__).resolve().parents[1]
 
 
+def read_initial_conditions(deck):
+    """Read only .IC cards; measurement thresholds are never initial values."""
+    from sram_compiler.parasitics import logical_lines, spice_value
+    result={}
+    for line in logical_lines(deck):
+        if not re.match(r'(?i)^\.IC\s',line):
+            continue
+        entries=re.findall(r'(?i)\bV\(([^)]+)\)\s*=\s*(\S+)',line)
+        if not entries:
+            raise ValueError('Initial condition card has no voltage assignments')
+        for name,value in entries:
+            value=value.rstrip('Vv')
+            sign=-1 if value.startswith('-') else 1
+            result[name.upper()]=sign*spice_value(value.lstrip('+-'))
+    return result
+
+
 def initial_state(profile,original_conditions,vdd=1.):
     """Resolve the complete schematic's quiescent logic before clock capture.
 
@@ -29,8 +46,11 @@ def initial_state(profile,original_conditions,vdd=1.):
     values={aliases.get(n.replace(':','/').upper(),n):int(round(float(v)/vdd))
             for n,v in original_conditions.items()}
     values.update(VDD=1,VSS=0,clk=0,csb=0,web=1,PRE=0)
-    values.update({f'A{i}':0 for i in range(3)})
-    values.update({f'DIN{i}':0 for i in range(8)})
+    rows, cols = profile.get('scope', {}).get('rows', 8), profile.get('scope', {}).get('cols', 8)
+    values.update({f'A{i}':0 for i in range(max(1, (rows - 1).bit_length()))})
+    values.update({f'DIN{i}':0 for i in range(cols)})
+    values.update({name:int(round(float(value)/vdd))
+                   for name,value in profile.get('initialization_inputs',{}).items()})
     for _ in range(100):
         nets=Nets()
         for passive in manifest['passives']:
@@ -128,6 +148,8 @@ def probe_node(profile,name):
         profile['_source_aliases'] = {k.upper():v for k,v in manifest['aliases'].items()}
     aliases=profile['_source_aliases']
     n=name.replace(':','/').upper()
+    rows, cols = profile.get('scope', {}).get('rows', 8), profile.get('scope', {}).get('cols', 8)
+    core = f'XSRAM_6T_CORE_{rows}X{cols}'
 
     def device(path,terminal='D'):
         value=terminals.get(path.upper())
@@ -135,11 +157,11 @@ def probe_node(profile,name):
         return value[terminal]
 
     if n == 'RWL_FAR':
-        return device('Xsram_8x1_replica_column/XReplica_CELL_7/MPGL', 'G')
+        return device(f'Xsram_{rows}x1_replica_column/XReplica_CELL_{rows-1}/MPGL', 'G')
     match = re.fullmatch(r'(PRE|SA_ISO|S_EN|W_EN|WL_EN)_LINE_(FAR|TAP(\d+))', n)
     if match:
         role, _, tap = match.groups()
-        index = 7 if tap is None else int(tap)
+        index = cols - 1 if tap is None else int(tap)
         paths = dict(PRE=f'XPRECHARGE_{index}/M1',
                      SA_ISO=f'XSENSEAMP_{index}/M5',
                      S_EN=f'XSENSEAMP_{index}/M7',
@@ -177,16 +199,17 @@ def probe_node(profile,name):
             raise ValueError(f'Missing physical decoder address terminal: {name}')
         return device(max(candidates), 'G')
 
-    match=re.fullmatch(r'(XSRAM_6T_CORE_8X8/XSRAM_6T_CELL_\d+_\d+)/(Q(?:_END)?|QB(?:_END)?|WL(?:_END)?|BL(?:_END)?|BLB(?:_END)?)',n)
+    match=re.fullmatch(r'(XSRAM_6T_CORE_\d+X\d+/XSRAM_6T_CELL_\d+_\d+)/(Q(?:_END)?|QB(?:_END)?|WL(?:_END)?|BL(?:_END)?|BLB(?:_END)?)',n)
     if match:
         prefix,role=match.groups();role=role.replace('_END','')
         return device(prefix+dict(Q='/MPDL',QB='/MPDR',WL='/MPGL',BL='/MPGL',BLB='/MPGR')[role],
                       'G' if role=='WL' else 'D')
-    match=re.fullmatch(r'XSRAM_6T_CORE_8X8/(WL|BL|BLB)(\d+)_(?:FAR|TAP(\d+))',n)
+    match=re.fullmatch(re.escape(core)+r'/(WL|BL|BLB)(\d+)_(?:FAR|TAP(\d+))',n)
     if match:
-        role,index,tap=match.groups();index=int(index);tap=7 if tap is None else int(tap)
+        role,index,tap=match.groups();index=int(index)
+        tap=(cols-1 if role=='WL' else rows-1) if tap is None else int(tap)
         row,col=(index,tap) if role=='WL' else (tap,index)
-        return device(f'XSRAM_6T_CORE_8X8/XSRAM_6T_CELL_{row}_{col}/'+('MPGR' if role=='BLB' else 'MPGL'),
+        return device(f'{core}/XSRAM_6T_CELL_{row}_{col}/'+('MPGR' if role=='BLB' else 'MPGL'),
                       'G' if role=='WL' else 'D')
     match=re.fullmatch(r'(XPRECHARGE_(?:\d+|RBL))/(ENB_END|BL_END|BLB_END)',n)
     if match:
@@ -204,7 +227,7 @@ def probe_node(profile,name):
         return device(prefix+'/M1', 'G')
     match=re.fullmatch(r'XTIME_CONTROL/XDFF_BUF_DATA/CLK_LINE_(FAR|TAP(\d+))',n)
     if match:
-        col=7 if match[1]=='FAR' else int(match[2])
+        col=cols-1 if match[1]=='FAR' else int(match[2])
         return device(f'XTIME_CONTROL/Xdff_buf_data/Xdff_{col}/Xinv1_clk/Mpinv_nmos','G')
     canonical=aliases.get(n,n)
     ports={p.upper():p for p in profile['ports']}
@@ -244,13 +267,15 @@ def apply_to_deck(deck,profile,probes=()):
         if key=='.end':continue
         keep.append(line)
     used=set(probes)
+    rows, cols = profile['scope']['rows'], profile['scope']['cols']
+    core = f'XSRAM_6T_CORE_{rows}x{cols}'
     # Preserve the usual cell observation names even if the caller adds probes
     # after constructing the simulator (as the local waveform checker does).
     for row in range(profile['scope']['rows']):
         for col in range(profile['scope']['cols']):
-            prefix = f'XSRAM_6T_CORE_8x8:XSRAM_6T_CELL_{row}_{col}:'
+            prefix = f'{core}:XSRAM_6T_CELL_{row}_{col}:'
             used.update(prefix + pin for pin in ('Q', 'QB', 'WL', 'WL_end', 'BL', 'BL_end', 'BLB', 'BLB_end'))
-            used.add(f'XSRAM_6T_CORE_8x8:WL{row}_tap{col}')
+            used.add(f'{core}:WL{row}_tap{col}')
     for col in range(profile['scope']['cols']):
         used.add(f'XPRECHARGE_{col}:ENB_end')
         used.update(f'XWRITEDRIVER_{col}:{pin}' for pin in ('DIN_end', 'EN_end'))
@@ -266,9 +291,9 @@ def apply_to_deck(deck,profile,probes=()):
                 return 'V(XPHYSICAL_FULL_MACRO:'+probe_node(profile,name)+')'
             keep[index]=re.sub(r'\bV\(([^)]+)\)',initial,line,flags=re.I)
     result=render(profile)
-    result+='XPHYSICAL_FULL_MACRO '+' '.join(profile['ports'])+' CALIBRATED_OPENYIELD_8X8\n'
+    result+='XPHYSICAL_FULL_MACRO '+' '.join(profile['ports'])+f' CALIBRATED_OPENYIELD_{rows}X{cols}\n'
     # Read-only compiler decks omit data sources. The physical macro still has
-    # its eight data registers and write buffers; hold those inputs at ground.
+    # its data registers and write buffers; hold those inputs at ground.
     driven={l.split()[1].upper() for l in keep if l.split() and l.split()[0][0].upper()=='V' and not l.startswith('.')}
     for port in profile['ports']:
         if port.startswith('DIN') and port.upper() not in driven:

@@ -1,5 +1,10 @@
 # V2.2.7 complete macro RC calibration
 
+The subsequent [additional-size comparison](MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
+extends the workflow to 8×16, 16×8 and 16×16 with explicit profiles, DC curves
+and complete four-access waveforms. The evidence below retains its original
+8×8 scope and measurements.
+
 Date: 2026-10-10. Development reference: FreePDK45, 8×8 6T, TT,
 1 V, 25 °C, full transistor mode, no column mux, row/column 7.
 This work supersedes the controller deferral in the

@@ -13,9 +13,15 @@ from pathlib import Path
 def write(profile, output):
     output=Path(output);output.mkdir(parents=True,exist_ok=False)
     nets=defaultdict(lambda: {'resistors':[],'capacitors':[]})
-    logical=profile['node_logical_net']
+    logical=dict(profile['node_logical_net'])
+    source_aliases={name.upper():net for name,net in profile.get('layout_manifest',{}).get('aliases',{}).items()}
     def owner(node):
-        if node not in logical:raise ValueError(f'Missing RC net identity: {node}')
+        if node not in logical:
+            # A floating dummy drain can have only capacitance, with no
+            # resistor/pin annotation in DSPF. Its source alias still names
+            # the net. Keep initialization mappings unchanged after export.
+            if node.upper() not in source_aliases:raise ValueError(f'Missing RC net identity: {node}')
+            logical[node]=source_aliases[node.upper()]
         return logical[node]
     for index,(a,b,r) in enumerate(profile['resistors']):
         name=owner(a)
@@ -33,6 +39,7 @@ def write(profile, output):
     metadata={k:copy.deepcopy(v) for k,v in profile.items()
               if k not in ('resistors','capacitors','net_models') and not k.startswith('_')}
     metadata.update(schema=2,model_family='independent per-net RC models and coupled power meshes',
+                    rc_node_logical_net=logical,
                     resistor_count=len(profile['resistors']),capacitor_count=len(profile['capacitors']))
     directory=output/'nets';directory.mkdir();settings={}
     def save(path,data):

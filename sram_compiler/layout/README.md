@@ -21,6 +21,12 @@ parameterized physical SRAM compiler. Official LVS must pass against the supplie
 compiler deck before extraction evidence is accepted. No equivalent-mode or
 per-device-mismatch layout is claimed.
 
+The `scaled_macro` diagnostic generator additionally assembles even-sized dense
+6T tiles with peripheral and controller devices taken from the actual compiler
+deck. It rejects changed bitcell geometry and preserves every transistor and
+folded finger. Each size needs its own DRC/LVS/xRC and waveform evidence; the
+8×8 profile is never scaled or applied to another size.
+
 ## Reproduce
 
 Run from the repository root, with Python 3.9, PySpice, NumPy, SciPy and PyYAML
@@ -201,3 +207,76 @@ The default calibrated compiler passes 1,241 complete waveform checks and has
 3.40 ps mean / 7.62 ps maximum edge error against full coupled xRC. The known
 100 µA power-mesh diagnostic gives 7.36 mV VDD drop and 8.23 mV ground rise.
 See the complete record for initialization, passive LVS policy and scope.
+
+## Additional macro sizes and DC curves
+
+The [completed size comparison](../../docs/design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
+records all 22,881 passing waveform checks, extracted SNM curves, 4.05–6.00 ps
+mean edge errors and normal compiler-loading proofs. These are explicit
+size-specific references; they do not replace the automatic 8×8 defaults.
+
+The size campaign uses 8×16, 16×8 and 16×16 nominal 6T macros, a common fixed
+30 ns clock, four W1/R1/W0/R0 accesses, all-cell probes, 5 ps output and a 20 ps
+integration ceiling. These are calibration diagnostics. Device sizing stays
+fixed within each compiler/extracted comparison. The case protocol is recorded
+in [`v227_multi_size_rc_cases.json`](../../tests/spice/v227_multi_size_rc_cases.json).
+
+For a new nominal `read&write` compiler deck, use new output directories:
+
+```bash
+python -m sram_compiler.layout.freepdk45.scaled_macro --deck "$DECK" \
+  --output-dir outputs/rc_calibration/scaled_layout
+python -m sram_compiler.layout.freepdk45.verify_full \
+  --layout-dir outputs/rc_calibration/scaled_layout --pdk-dir "$PDK_DIR" \
+  --output-dir outputs/rc_calibration/scaled_extraction
+python -m sram_compiler.layout.freepdk45.reduce_rc \
+  --layout-dir outputs/rc_calibration/scaled_layout \
+  --extraction-dir outputs/rc_calibration/scaled_extraction \
+  --maximum-series-ohm 500 --output-dir outputs/rc_calibration/scaled_reduced
+python -m sram_compiler.layout.freepdk45.compare_full --deck "$DECK" \
+  --profile outputs/rc_calibration/scaled_reduced/profile.json \
+  --extraction-dir outputs/rc_calibration/scaled_extraction \
+  --output-dir outputs/rc_calibration/scaled_comparison --execute --xyce Xyce
+```
+
+`--power-tap-count` changes the number of upper-metal controller feeds per
+supply. It changes real layout geometry and requires fresh extraction and
+waveform checks. The fixed 8×8 generator rejects other dimensions explicitly.
+`compare_full` derives its four-access stop time from the supplied compiler
+clock. Solver completion leaves the profile unvalidated until waveform checks
+have passed.
+
+`waveform_metrics` compares absolute-time edges, voltage error, clock-to-data
+rail delays and far-wordline dwell, and produces PNG/PDF overlays:
+
+```bash
+python -m sram_compiler.layout.freepdk45.waveform_metrics \
+  --illustrative outputs/rc_calibration/illustrative_comparison \
+  --comparison-dir outputs/rc_calibration/scaled_comparison \
+  --rows 16 --cols 8 --period 30e-9
+```
+
+For DC characterization, generate the compiler's nominal `hold_snm`, `read_snm`
+and `write_snm` single-cell decks under `COMPILER_SNM/OPERATION/deck.sp`.
+The comparison profile must record the nominal TT model hash and 1 V, 25 °C
+scope. Then run:
+
+```bash
+python -m sram_compiler.layout.freepdk45.compare_snm \
+  --profile "$PROFILE" --extraction-dir "$EXTRACTION" \
+  --compiler-dir "$COMPILER_SNM" --models tran_models/models_TT.spice \
+  --output-dir outputs/rc_calibration/scaled_snm --execute --xyce Xyce
+```
+
+DC coupons retain the selected cell's extracted geometry, its entire incident
+resistor components, remote WL/BL bias access, and VDD/VSS resistance. Other MOS
+are removed; these curves do not measure the full macro's operating current.
+The four inverter feedback gates are opened for the same rotated butterfly
+stimulus used by the compiler. Capacitors are omitted because they carry no DC
+current. Hold/read SNM use bounded classical lobes without endpoint fallback;
+write margin uses the existing compiler's constriction definition. Each trace
+must complete the same 1,421-point, 1 mV sweep.
+
+A size-specific reduced network can reproduce its extracted reference without
+establishing a geometry-based prediction for an unseen size. Compiler-wide RC
+defaults and release qualification need separate evidence.

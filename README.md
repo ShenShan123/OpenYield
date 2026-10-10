@@ -11,6 +11,10 @@ records zero Calibre DRC violations, LVS `CORRECT`, and passing complete
 nominal access waveforms. Defaults use 709 independent RC networks, including
 separate VDD/VSS meshes for IR drop, within the calibrated 8×8 reference.
 Mean edge error against coupled xRC falls from 1,334.66 ps to 3.40 ps.
+The [additional-size calibration](docs/design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
+compares 8×16, 16×8 and 16×16 macros, including SNM curves and four-access
+waveforms. Explicit size-specific profiles reduce mean edge error to
+4.05–6.00 ps; all 22,881 waveform checks pass at the fixed 30 ns diagnostic clock.
 This development tree
 is not a completed V2.2.7 release or full waveform screen.
 

@@ -27,8 +27,17 @@ proposals and that circuit review were purged after V2.2.6; retrieve them with
 - At nominal 8×8 TT, 1 V, 25 °C, 9 ns, four complete W1/R1/W0/R0 accesses pass
   1,241 waveform checks for each of three models. Mean edge error against xRC
   falls from 1,334.66 ps to 3.40 ps in the calibrated compiler.
-- Only this reference is calibrated. Other configurations retain unqualified
-  illustrative routing and ideal supplies. No full V2.2.7 screen is complete.
+- Automatic defaults apply only to this reference. Other configurations retain
+  illustrative routing and ideal supplies unless an explicit accepted profile
+  is supplied. No full V2.2.7 screen is complete.
+- [Additional-size calibration](design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
+  adds complete 8×16, 16×8 and 16×16 physical references, SNM coupons and
+  explicit per-net profiles. At nominal TT / 1 V / 25 °C and a fixed 30 ns
+  clock, all 22,881 checks pass; mean edge error falls to 4.05–6.00 ps.
+  Physical supply feeds correct small-macro wordline glitches with schematic
+  sizing frozen. `.IC` parsing excludes measurement thresholds; cap-only
+  dummy-net export preserves initialization. Automatic 8×8 selection stays
+  scoped; larger unseen sizes and the full release screen remain unqualified.
 
 ## V2.2.6 — 2026-10-01 — configuration review fixes
 

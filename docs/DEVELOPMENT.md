@@ -74,6 +74,16 @@ IR drops and selective VDD resistance scaling. The qualified default reproduces
 the simulated hardware through both user entrances. Earlier
 failed physical attempts remain unqualified under `outputs/rc_calibration/`.
 
+The [additional-size record](design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md) covers
+complete 8×16, 16×8 and 16×16 references, four-access comparisons, DC coupons
+and explicit per-net profiles. All 22,881 waveform checks pass; mean edge
+error is 4.05–6.00 ps. Local `test_scaled_rc.py` checks asymmetric endpoint
+mapping, `.IC`-only parsing and capacitance-only net ownership without changing
+initialization. The relevant 46-test suite passes. Thirteen legacy fanout
+expectations reproduce unchanged on `2521ccf`; broad discovery is not claimed
+to pass. Size campaign runners and rejected attempts remain local in
+`dev/v227/` and `outputs/rc_calibration/V2.2.7/multi_size/`.
+
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m unittest discover -s size_optimization/openyield_v2/tests -v

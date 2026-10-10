@@ -27,6 +27,8 @@ def build(deck, output, columns=32):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     source = flatten(deck)
+    if (source.rows, source.cols) != (8, 8):
+        raise ValueError('The fixed generator requires 8x8; use scaled_macro for other dimensions')
     if not any(d['name'].startswith('XD_LATCH/') for d in source.mos):
         raise ValueError('Full macro reference requires a read&write source with its output latch')
     ly, array = memory.build()

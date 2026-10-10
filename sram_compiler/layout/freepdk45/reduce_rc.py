@@ -76,7 +76,10 @@ def reduce(dspf, maximum_series_ohm=20.):
                 maximum_series_ohm=maximum_series_ohm)
 
 
-def render(profile,name='CALIBRATED_OPENYIELD_8X8'):
+def render(profile,name=None):
+    if name is None:
+        scope=profile.get('scope',{})
+        name=f'CALIBRATED_OPENYIELD_{scope.get("rows",8)}X{scope.get("cols",8)}'
     lines=[f'.subckt {name} '+' '.join(profile['ports'])]
     lines.extend(' '.join(m) for m in profile['mos'])
     lines.extend(f'Rcal_{i} {a} {b} {r:.15g}' for i,(a,b,r) in enumerate(profile['resistors']))
@@ -118,7 +121,8 @@ def main(argv=None):
             node_logical[a]=logical;node_logical[b]=logical
         for p in net.ports:node_logical[p]=logical
         for node,_,_ in net.pins:node_logical[node]=logical
-    profile.update(schema=1,scope=dict(rows=8,cols=8,cell='SRAM_6T_CELL',mode=0,target_col=7,
+    rows,cols=manifest.get('rows',8),manifest.get('cols',8)
+    profile.update(schema=1,scope=dict(rows=rows,cols=cols,cell='SRAM_6T_CELL',mode=0,target_col=cols-1,
                                      variation_mode='nominal',hardware_operation='read&write'),
                    extraction_receipt=receipt,source_dspf_sha256=sha256(path),
                    layout_manifest=manifest,node_logical_net=node_logical,

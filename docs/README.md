@@ -9,8 +9,11 @@ evidence keep their original version labels.
 
 The [V2.2.7 development record](design/RC_CALIBRATION_V2_2_7.md) covers the
 FreePDK45 8x8 physical calibration and the TIME_CONTROL configuration refactor.
-Controller layout and all-route RC default promotion remain deferred; the
-current release is still V2.2.6.
+The [complete macro record](design/FULL_RC_CALIBRATION_V2_2_7.md) supersedes
+the original controller deferral and scopes automatic defaults to its 8×8
+reference. The [additional-size record](design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
+covers explicit 8×16, 16×8 and 16×16 calibration profiles and DC curves.
+The current release is still V2.2.6; no full V2.2.7 screen is complete.
 
 ## Open items
 
@@ -19,19 +22,16 @@ The carried Phase 6 scope. The working plans that defined it
 `V2_1_3_OPEN_ITEMS.md`) were removed in the V2.1.10 cleanup and remain at
 `git show 945815a:docs/plans/<name>`.
 
-- **Extracted metal.** The `interconnect` mapping (`global.yaml`,
-  `INTERCONNECT_CONFIG` in `main_sram.py`, `--interconnect-config`) is the whole
-  wire model: `wl.layer` / `bl.layer`, `pitch_m`, `width_m`,
-  `sheet_resistance_ohm`, `capacitance_f_per_m` (coupling folded to ground),
-  `sections_per_half_pitch`, `cell_pin_rc`. The default 1 ohm / 0.1 fF per pitch
-  is illustrative and must not appear in a qualification record. Layout
-  distances must replace the fixed periphery (three pitches beyond each array
-  port), the control-line and decoder-trunk pitches and the local `w_rc` /
-  `pi_res` / `pi_cap` stubs. Not modelled: signal coupling between neighbouring
-  lines, metal-resistance temperature dependence, via resistance outside
-  `cell_pin_rc`, supply IR drop. A changed geometry re-runs the functional gates
-  at the frozen clocks and driver classes; the clock table changes only through
-  a new evidenced version.
+- **Extracted metal scaling.** The `interconnect` mapping (`global.yaml`,
+  `INTERCONNECT_CONFIG` in `main_sram.py`, `--interconnect-config`) supports
+  illustrative geometry, critical route classes and scoped per-net physical
+  profiles. Accepted references retain coupling, contact/via resistance,
+  junction geometry and VDD/VSS IR drop. Outside those scopes, 1 ohm / 0.1 fF
+  per pitch remains illustrative and supplies remain ideal. A geometry-based
+  model for unseen sizes, metal-resistance temperature dependence and broader
+  PVT/mismatch qualification remain open. Changed physical context re-runs
+  functional gates at frozen sizing and clocks; timing policy changes through
+  a separate evidenced version.
 - **Half-select writes.** Every column of the selected row is written today, so
   no cell is half-selected in a write. Needed: a per-column write enable from
   the column select and a write mask; checks that half-selected cells retain

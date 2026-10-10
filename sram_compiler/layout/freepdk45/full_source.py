@@ -16,6 +16,8 @@ class FullSource:
     passives: list
     aliases: dict
     instances: dict
+    rows: int = 8
+    cols: int = 8
 
 
 def flatten(deck):
@@ -69,9 +71,16 @@ def flatten(deck):
                 raise ValueError(f'Unsupported element in macro: {tokens[0]}')
 
     visit(root, {}, '')
-    ports = ['VDD', 'VSS', 'clk', 'csb', 'web', 'A0', 'A1', 'A2']
-    ports += [f'DIN{i}' for i in range(8)] + ['OUT', 'OUT_B']
-    ports += [f'SA_Q{i}' for i in range(8)] + [f'SA_QB{i}' for i in range(8)]
+    arrays = [re.fullmatch(r'XSRAM_6T_CORE_(\d+)x(\d+)', name, re.I)
+              for name in instances if '/' not in name]
+    arrays = [match for match in arrays if match]
+    if len(arrays) > 1:
+        raise ValueError('Complete physical source requires at most one full 6T array')
+    rows, cols = map(int, arrays[0].groups()) if arrays else (8, 8)
+    ports = ['VDD', 'VSS', 'clk', 'csb', 'web']
+    ports += [f'A{i}' for i in range(max(1, (rows - 1).bit_length()))]
+    ports += [f'DIN{i}' for i in range(cols)] + ['OUT', 'OUT_B']
+    ports += [f'SA_Q{i}' for i in range(cols)] + [f'SA_QB{i}' for i in range(cols)]
     for device in devices:
         for n in device['nodes']:
             nets.find(n)
@@ -94,7 +103,7 @@ def flatten(deck):
     aliases = dict(canonical)
     for item in instances.values():
         item['pins'] = {k: canonical.get(v, v) for k, v in item['pins'].items()}
-    return FullSource(ports, devices, passives, aliases, instances)
+    return FullSource(ports, devices, passives, aliases, instances, rows, cols)
 
 
 def render(source, name='OPENYIELD_8X8', filter_passives=False):
