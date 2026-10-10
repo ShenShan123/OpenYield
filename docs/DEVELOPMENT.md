@@ -63,6 +63,17 @@ the YAML refactor; all emitted netlists and a full 8x8 nominal write deck match
 byte for byte. Configuration and calibration scope are recorded in the
 [V2.2.7 development record](design/RC_CALIBRATION_V2_2_7.md).
 
+The subsequent [complete macro record](design/FULL_RC_CALIBRATION_V2_2_7.md)
+covers controller legalization, intentional physical filters, coupled extraction,
+terminal-preserving RC reduction, compiler back-annotation and a fixed 9 ns
+nominal comparison. Local `tests/test_calibrated_rc.py` additionally checks
+mesh resistance/coupling conservation, load-terminal probes, folded grid widths,
+analog initial conditions, independent net configuration, and rejection of
+changed geometry/passives. `tests/test_power_rc.py` checks separate power-mesh
+IR drops and selective VDD resistance scaling. The qualified default reproduces
+the simulated hardware through both user entrances. Earlier
+failed physical attempts remain unqualified under `outputs/rc_calibration/`.
+
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m unittest discover -s size_optimization/openyield_v2/tests -v

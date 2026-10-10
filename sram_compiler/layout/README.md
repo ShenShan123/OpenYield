@@ -1,11 +1,12 @@
 # FreePDK45 layout and RC calibration
 
-V2.2.7 is in development. The current physical reference is an **8×8 6T macro**:
-array, decoder, wordline drivers, write buffers and drivers, precharge, sense
-amplifiers, replica column and replica wordline loads. TIME_CONTROL, address/data
-registers, startup clamps and testbench sources remain outside the layout.
-The user chose frozen sizing and deferred full controller layout. This is not a
-full OpenYield layout or an all-route default calibration.
+V2.2.7 is in development. The complete **8×8 6T macro** now includes
+TIME_CONTROL, input registers, physical RC filters and the output latch, as well
+as the array, decoder, replica and periphery. See the
+[complete reference](#complete-macro-and-controller-reference) below. The initial
+array/macro measurements in the first sections excluded TIME_CONTROL and used
+ideal controls; their evidence retains that historical scope. Testbench sources
+and startup clamps remain stimulus infrastructure outside both physical layouts.
 
 KLayout's Python library builds actual transistor, contact, via and metal
 geometry; Calibre checks the installed FreePDK45 DRC/LVS rules and extracts
@@ -129,30 +130,74 @@ completed with a 2,400-second limit and passed all 360 checks. Pre-layout and
 reduced-RC cases also passed 360 checks each. The CLI therefore defaults to a
 2,400-second limit per variant; solver timing depends on the host.
 
-## Remaining work before changing compiler-wide defaults
+## Complete macro and controller reference
 
-OpenYield currently reuses `wl` for RWL, column controls, mux selects and the
-data-register clock, and `bl` for replica bitlines, decoder buses, WL_EN and three
-peripheral wire pitches. The full macro extraction inventories those networks;
-they have different lengths, contacts, coupling and capacitance. Array WL/BL
-numbers alone cannot calibrate all of them. The default
-[`interconnect_example.yaml`](../config_yaml/interconnect_example.yaml) therefore
-remains illustrative.
+The subsequent [full macro calibration record](../../docs/design/FULL_RC_CALIBRATION_V2_2_7.md)
+records the user-authorized controller legalization and the complete physical
+implementation. The original array-only measurements above remain historical
+reference evidence. The complete macro now includes TIME_CONTROL, all input
+registers, four intentional physical RC filters and the output latch. Official
+Calibre DRC reports zero violations and LVS reports `CORRECT`; LVS treats the
+physical passives by DC reduction and xRC independently verifies their values.
 
-TIME_CONTROL also has six 45 nm NMOS widths below FreePDK45 Active.1's 90 nm
-minimum, twelve off-grid widths, and four explicit RC filters (261–696 Ω / 1 fF).
-The user selected intentional physical passives for those filters, then chose
-to freeze sizing and defer full controller layout when these geometry conflicts
-were identified. Neither devices nor filters have been silently changed.
+The new estimated model composes 709 separate per-net R/C files, explicit
+cross-net coupling, and independent VDD/VSS power meshes, then back-annotates
+junction geometry. The default YAML exposes each network and its own scales. It is calibrated against the
+full xRC result, rather than reusing one WL/BL pair for every route. It protects
+all MOS/port terminals, preserves DC series resistance, and retains all coupling.
+The complete nominal physical waveform comparison is a scoped diagnostic; it
+does not certify the full release screen or other array sizes and topologies.
 
-Completion requires controller legalization and passive implementation when
-authorized, dedicated route classes or explicit networks, local-stub and
-diffusion/coupling accounting, size and cell-topology coverage, and waveform
-comparison at the frozen timing/sizing baseline. Full controller, register-clock,
-10T and mux layouts are absent. No V2.2.7 release, full waveform screen or
-all-route default calibration is certified by the current artifacts.
+Generate a nominal 8×8 read/write baseline with explicit illustrative wiring:
 
-The [development record](../../docs/design/RC_CALIBRATION_V2_2_7.md) and
-[preserved data](../../docs/data/V2_2_7_RC_CALIBRATION.json) carry the measured
-results and exact scope. Local Python tests remain ignored, as required by
-`AGENTS.md`; a fresh clone retains the physical workflow and SPICE case manifest.
+```bash
+python -m sram_compiler.per_device_mc.run --rows 8 --cols 8 \
+  --operation 'read&write' --variation-mode nominal \
+  --real-cell-mode 0 --corner TT --vdd 1 --temperature 25 --period 9e-9 \
+  --interconnect-config sram_compiler/config_yaml/interconnect_illustrative.yaml \
+  --output-dir outputs/rc_calibration/native
+```
+
+Use the generated `deck.sp` as `DECK` and a FreePDK45 installation as `PDK_DIR`:
+
+```bash
+python -m sram_compiler.layout.freepdk45.full_macro --deck "$DECK" \
+  --output-dir outputs/rc_calibration/full_layout
+python -m sram_compiler.layout.freepdk45.verify_full \
+  --layout-dir outputs/rc_calibration/full_layout --pdk-dir "$PDK_DIR" \
+  --output-dir outputs/rc_calibration/full_extraction
+python -m sram_compiler.layout.freepdk45.reduce_rc \
+  --layout-dir outputs/rc_calibration/full_layout \
+  --extraction-dir outputs/rc_calibration/full_extraction \
+  --maximum-series-ohm 500 --output-dir outputs/rc_calibration/reduced
+python -m sram_compiler.layout.freepdk45.compare_full --deck "$DECK" \
+  --profile outputs/rc_calibration/reduced/profile.json \
+  --extraction-dir outputs/rc_calibration/full_extraction \
+  --output-dir outputs/rc_calibration/full_comparison --execute --xyce Xyce
+```
+
+Use new output directories. The comparison preserves compiler stimuli and runs
+four accesses with final recovery, ending 5 ps before the fifth capture. It uses
+common complete logical initial conditions, UIC, 5 ps output, a 20 ps integration
+ceiling, and explicit KLU. Completion of Xyce alone does not mark a profile
+validated. The independent Python waveform checker remains local and ignored;
+[`v227_full_rc_cases.json`](../../tests/spice/v227_full_rc_cases.json) preserves
+the protocol in a fresh clone. Raw layouts, DSPF, decks, attempts and waveforms
+remain under ignored `outputs/`.
+
+After waveform validation, `split_rc` exports separate net files without changing
+any reduced resistor/capacitor value or ordering:
+
+```bash
+python -m sram_compiler.layout.freepdk45.split_rc \
+  --profile outputs/rc_calibration/reduced/profile.json \
+  --output-dir outputs/rc_calibration/per_net
+```
+
+Draft exports remain unvalidated. The checked-in schema-2 profile includes
+physical/waveform receipts and exact scope; compiler loading checks these,
+network hashes, device geometry, controller configuration and model hash.
+The default calibrated compiler passes 1,241 complete waveform checks and has
+3.40 ps mean / 7.62 ps maximum edge error against full coupled xRC. The known
+100 µA power-mesh diagnostic gives 7.36 mV VDD drop and 8.23 mV ground rise.
+See the complete record for initialization, passive LVS policy and scope.

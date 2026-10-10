@@ -57,7 +57,8 @@ REAL_CELL_MODE: Optional[int] = None
 W_RC = True                     # Local storage/peripheral series RC (100 ohm / 1 fF)
 # Interconnect YAML mapping applied in memory (see docs/design/DISTRIBUTED_RC_MODEL.md),
 # e.g. "sram_compiler/config_yaml/interconnect_example.yaml"; None keeps global.yaml's
-# `interconnect` block (distributed wiring with illustrative geometry by default).
+# `interconnect` settings (independent per-net RC for the qualified 8x8 reference;
+# separate illustrative route settings outside that scope).
 INTERCONNECT_CONFIG: Optional[str] = None
 TARGET: Optional[Sequence[int]] = None  # (row, col); None: last row, last column
 # ==================================================================

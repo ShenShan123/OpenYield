@@ -197,8 +197,8 @@ class ReplicaColumn(SubCircuitFactory):
         self.pi_cap = pi_cap
         self.sram_cell_type = sram_cell_type
         # Physical bitline pair: one centred tap per row, the far end past the last cell.
-        add_tapped_line(self, 'RBL', 'RBL', num_rows, self.interconnect.bl)
-        add_tapped_line(self, 'RBLB', 'RBLB', num_rows, self.interconnect.bl)
+        add_tapped_line(self, 'RBL', 'RBL', num_rows, self.interconnect.wire('replica_bitline'))
+        add_tapped_line(self, 'RBLB', 'RBLB', num_rows, self.interconnect.wire('replica_bitline'))
         self.build_array()
         self.inst_prefix = "XReplica_Column"
 

@@ -3,13 +3,16 @@
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
 
 **V2.2.7 development:** [FreePDK45 layout and Calibre xRC calibration](sram_compiler/layout/README.md)
-starts with an 8×8 6T macro and a separately verified array tile. Coupled DSPF
-networks and a measured WL/BL diagnostic profile are available. Sizing remains
-frozen; full controller layout and compiler-wide default RC promotion are deferred.
-This development tree is not a completed V2.2.7 release or waveform screen.
-TIME_CONTROL sizes and policy settings now live in
-[`time_control.yaml`](sram_compiler/config_yaml/time_control.yaml); the defaults
-produce the same circuit as before.
+now includes the complete 8×8 6T macro, TIME_CONTROL, registers, physical RC
+filters and output latch. Controller sizing is legalized in
+[`time_control.yaml`](sram_compiler/config_yaml/time_control.yaml).
+The [complete macro calibration record](docs/design/FULL_RC_CALIBRATION_V2_2_7.md)
+records zero Calibre DRC violations, LVS `CORRECT`, and passing complete
+nominal access waveforms. Defaults use 709 independent RC networks, including
+separate VDD/VSS meshes for IR drop, within the calibrated 8×8 reference.
+Mean edge error against coupled xRC falls from 1,334.66 ps to 3.40 ps.
+This development tree
+is not a completed V2.2.7 release or full waveform screen.
 
 **Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The V2.2.5 campaign stopped incomplete; the [V2.2.5 simulation summary](docs/V2_2_5_SIMULATION_SUMMARY.md) records it with the corrected-model diagnostics, which retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
 
@@ -40,7 +43,7 @@ The optional [command-line runner](sram_compiler/per_device_mc/README.md) suppor
 
 `main_sram.py` is the SRAM macro entrance. Its settings block controls `ARRAY = [rows, cols, column_mux]`, corner, 6T cell widths, operation, seed, target cell, and whether to run Xyce. It loads YAML into memory; it does not rewrite the tracked configuration files. For an unvaried diagnostic corner, set `VARIATION_MODE = "nominal"`.
 
-Circuit defaults live in `sram_compiler/config_yaml/`. `global.yaml` sets supply, temperature, geometry, cell type, timing, wiring, and equivalent mode. Cell and peripheral YAMLs define transistor sizes in **metres**. Clocks come from [timing_lookup.json](sram_compiler/sizing/timing_lookup.json), and critical driver sizes from [sizing_lookup.json](sram_compiler/sizing/sizing_lookup.json). Freeze both across candidate cells and PVT samples. The default wire geometry is illustrative rather than extracted metal; set `INTERCONNECT_CONFIG` to an interconnect YAML when you have measured geometry. The [compiler tutorial](sram_compiler/README.md) covers configuration and the Python API.
+Circuit defaults live in `sram_compiler/config_yaml/`. `global.yaml` sets supply, temperature, geometry, cell type, timing, wiring, and equivalent mode. Cell and peripheral YAMLs define transistor sizes in **metres**. Clocks come from [timing_lookup.json](sram_compiler/sizing/timing_lookup.json), and critical driver sizes from [sizing_lookup.json](sram_compiler/sizing/sizing_lookup.json). Freeze both across candidate cells and PVT samples. The default interconnect YAML selects independent extracted signal and power networks for the nominal 8×8 reference. Outside its recorded scope, separate route geometries remain illustrative and supplies remain ideal; run metadata reports that the reference was not applied. `INTERCONNECT_CONFIG` selects another YAML. The [compiler tutorial](sram_compiler/README.md) covers configuration and the Python API.
 
 | Variation mode | Meaning |
 |---|---|

@@ -1,6 +1,6 @@
 # TIME_CONTROL baseline configuration. Device dimensions are SI metres.
-# V2.2.7 moves existing values here without legalizing or resizing devices.
-# In particular, 45 nm observer NMOS widths remain below FreePDK45 DRC minimum.
+# V2.2.7 physical control implementation: 90 nm minimum active width and
+# 5 nm width increments (2.5 nm edge coordinates). Baseline evidence is preserved.
 TIME_CONTROL:
   models:
     nmos: NMOS_VTG
@@ -8,11 +8,16 @@ TIME_CONTROL:
   devices:
     gate_length_m: 5.0e-8
     max_finger_width_m: 2.0e-6
+    minimum_width_m: 9.0e-8
+    width_grid_m: 5.0e-9
     unit_inverter: {nmos_width_m: 9.0e-8, pmos_width_m: 2.7e-7}
+    delay_driver: {nmos_width_m: 7.2e-7, pmos_width_m: 2.16e-6}
+    delay_load: {nmos_width_m: 9.0e-8, pmos_width_m: 2.7e-7}
+    replica_delay_driver: {nmos_width_m: 3.6e-7, pmos_width_m: 1.08e-6}
     nand: {nmos_width_m: 1.8e-7, pmos_width_m: 2.7e-7}
     gated_clock_inverter: {nmos_width_m: 5.4e-7, pmos_width_m: 1.62e-6}
     enable_inverter: {nmos_width_m: 3.6e-7, pmos_width_m: 1.08e-6}
-    observer: {nmos_width_m: 4.5e-8, pmos_width_m: 1.35e-7}
+    observer: {nmos_width_m: 9.0e-8, pmos_width_m: 2.7e-7}
     flop: {nmos_width_m: 2.5e-7, pmos_width_m: 5.0e-7}
     clock_buffer_stages:
       - {nmos_width_m: 9.0e-8, pmos_width_m: 2.7e-7}
@@ -25,7 +30,7 @@ TIME_CONTROL:
     nor: {nmos_width_m: 9.0e-8, pmos_width_m: 5.4e-7}
     isolation_nand: {nmos_width_m: 7.2e-7, pmos_width_m: 1.08e-6}
     precharge_nand: {nmos_width_m: 2.7e-7, pmos_width_m: 2.7e-7}
-    far_enables_nor: {nmos_width_m: 4.5e-8, pmos_width_m: 2.7e-7}
+    far_enables_nor: {nmos_width_m: 9.0e-8, pmos_width_m: 5.4e-7}
   defaults:
     num_rows: 16
     num_cols: 8
@@ -92,7 +97,7 @@ TIME_CONTROL:
     reference_rows: 16.0
     write_min_rows: 8
     write_nmos_factor: 3
-    precharge_observer_load_units: 0.5
+    precharge_observer_load_units: 1.0
     enables_off_load_units: 1.75
     address_loads_per_group: 5
     address_effort_loads_per_group: 6

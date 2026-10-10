@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from math import isfinite
+from math import ceil, isfinite
 from pathlib import Path
 from types import MappingProxyType
 
@@ -51,6 +51,16 @@ class TimeControlConfig(Mapping):
     def widths(self, role):
         pair = self.devices[role]
         return pair.nmos_width_m, pair.pmos_width_m
+
+    def physical_width(self, width):
+        """Round total width up so every folded finger fits the process grid."""
+        width = float(width)
+        if not isfinite(width) or width <= 0:
+            raise ValueError('Controller transistor width must be finite and positive')
+        width = max(width, self.devices.minimum_width_m)
+        fingers = max(1, ceil(round(width / self.devices.max_finger_width_m, 12)))
+        per_finger = ceil(round(width / fingers / self.devices.width_grid_m, 12))
+        return fingers * per_finger * self.devices.width_grid_m
 
 
 def _read(path):
@@ -110,6 +120,12 @@ def resolve_time_control_config(value=None):
             return value
         value = value.to_dict()
     data = _validate(value, _SCHEMA)
+    devices = data['devices']
+    if devices['minimum_width_m'] > devices['max_finger_width_m']:
+        raise ValueError('Controller minimum width exceeds maximum finger width')
+    grid_count = devices['max_finger_width_m'] / devices['width_grid_m']
+    if abs(grid_count-round(grid_count)) > 1e-9:
+        raise ValueError('Maximum controller finger width must fit the width grid')
     defaults, delays, guards, buffers = (data[k] for k in ('defaults', 'delays', 'guards', 'buffers'))
     if len(data['devices']['clock_buffer_stages']) != 4:
         raise ValueError('TIME_CONTROL clock topology requires exactly four configured stages')

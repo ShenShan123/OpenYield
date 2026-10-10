@@ -110,8 +110,8 @@ class DECODER3_8(BaseSubcircuit):  # 38译码器+使能EN端
         # Place all eight logic outputs across this block's share of the row
         # height, including unused outputs in small/partial decoders. These
         # are geometric routing assumptions, not extracted decoder metal.
-        wire = replace(self.interconnect.bl,
-                       pitch_m=self.interconnect.bl.pitch_m * self.row_span / 8)
+        wire = replace(self.interconnect.wire('decoder_address'),
+                       pitch_m=self.interconnect.wire('decoder_address').pitch_m * self.row_span / 8)
         taps = {net: add_tapped_line(self, f'{net}_line', net, 8, wire)
                 for net in ('A0', 'A1', 'A2', 'A0b', 'A1b', 'A2b', 'EN')}
         # 添加三个非门实例化
@@ -198,8 +198,8 @@ class DECODER_CASCADE(BaseSubcircuit):
         for bit in range(self.n_bits):
             level = self.n_levels - 1 - bit // 3
             groups = self.level_groups[level]
-            wire = replace(self.interconnect.bl,
-                           pitch_m=self.interconnect.bl.pitch_m * num_rows / groups)
+            wire = replace(self.interconnect.wire('decoder_address'),
+                           pitch_m=self.interconnect.wire('decoder_address').pitch_m * num_rows / groups)
             address_taps[bit] = add_tapped_line(self, f'A{bit}_line', f'A{bit}', groups, wire)
 
         # 创建所有译码器

@@ -9,20 +9,26 @@ were condensed after V2.2.6; the previous full text is at
 proposals and that circuit review were purged after V2.2.6; retrieve them with
 `git show b4987df:<path>`.
 
-## V2.2.7 development — 2026-10-09 — physical RC calibration and control YAML
+## V2.2.7 development — 2026-10-10 — independent signal and power RC calibration
 
-[Development record](design/RC_CALIBRATION_V2_2_7.md). Not a completed release.
+[Complete macro record](design/FULL_RC_CALIBRATION_V2_2_7.md), preserving the
+[initial record](design/RC_CALIBRATION_V2_2_7.md). Not a completed release.
 
 - A reproducible 8x8 6T FreePDK45 macro and standalone array tile use KLayout
   geometry and official Calibre DRC/LVS and coupled xRC extraction.
-- Array resistance fits use electrical network solutions and physical contact
-  positions; BL and BLB have different contact spans. The diagnostic RC profile
-  remains separate from compiler-wide defaults.
+- Complete controller/register/output-latch layout passes official Calibre DRC
+  with zero violations and LVS `CORRECT`; xRC retains R, C and coupling.
 - TIME_CONTROL sizes, model defaults, guard/delay settings and fallback sizing
-  policy move to `config_yaml/time_control.yaml`. Defaults retain the existing
-  circuit; settings participate in baseline and run identity.
-- Sizing stays frozen. Full controller layout and all-route RC default promotion
-  are deferred at the user's request. No full V2.2.7 waveform screen is complete.
+  policy move to `config_yaml/time_control.yaml`. Authorized controller sizing
+  legalization and delay-driver changes pass scoped native waveform checks.
+- Defaults bind 709 independently configurable per-net networks, including
+  separate VDD/VSS resistive meshes for IR drop. Critical route classes have
+  separate fallback settings. Extracted junction geometry is back-annotated.
+- At nominal 8×8 TT, 1 V, 25 °C, 9 ns, four complete W1/R1/W0/R0 accesses pass
+  1,241 waveform checks for each of three models. Mean edge error against xRC
+  falls from 1,334.66 ps to 3.40 ps in the calibrated compiler.
+- Only this reference is calibrated. Other configurations retain unqualified
+  illustrative routing and ideal supplies. No full V2.2.7 screen is complete.
 
 ## V2.2.6 — 2026-10-01 — configuration review fixes
 

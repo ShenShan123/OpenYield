@@ -151,6 +151,15 @@ OBSERVER_WIDTHS = DEFAULT_CONFIG.widths('observer')
 FLOP_NMOS_WIDTH, FLOP_PMOS_WIDTH = DEFAULT_CONFIG.widths('flop')
 
 
+def _control_inverter(nmos_model, pmos_model, nmos_width, pmos_width, length,
+                      *, control_config=None, **options):
+    cfg = resolve_time_control_config(control_config)
+    if options.get('max_finger_width') is None:
+        options['max_finger_width'] = cfg.devices.max_finger_width_m
+    return Pinv(nmos_model, pmos_model, cfg.physical_width(nmos_width),
+                cfg.physical_width(pmos_width), length, **options)
+
+
 # ---------------------------------------------------------------------------
 # Building blocks
 # ---------------------------------------------------------------------------
@@ -205,8 +214,8 @@ class TaperedBuffer(BaseSubcircuit):
         for k in range(n_stages):
             s = drive_scale ** ((k + 1) / n_stages)
             n_strength = fall_strength if k == n_stages - 1 else 1.0
-            inv = Pinv(nmos_model, pmos_model, self.control_config.devices.unit_inverter.nmos_width_m * s * n_strength, self.control_config.devices.unit_inverter.pmos_width_m * s, length,
-                       num=f'_{name}_{k}', max_finger_width=self.control_config.devices.max_finger_width_m if effort_based else None)
+            inv = _control_inverter(nmos_model, pmos_model, self.control_config.devices.unit_inverter.nmos_width_m * s * n_strength, self.control_config.devices.unit_inverter.pmos_width_m * s, length,
+                       num=f'_{name}_{k}', max_finger_width=self.control_config.devices.max_finger_width_m if effort_based else None, control_config=self.control_config)
             self.subcircuit(inv)
             out = 'Z' if k == n_stages - 1 else f'b{k}'
             self.X(f'inv{k}', inv.NAME, 'VDD', 'VSS', prev, out)
@@ -267,9 +276,9 @@ class ClockBuffer(BaseSubcircuit):
         scales = [drive_scale ** exponent for exponent in cfg.buffers.clock_stage_scale_exponents]
         fingers = self.control_config.devices.max_finger_width_m if fold_gates else None
         stages = [
-            Pinv(nmos_model, pmos_model, stage.nmos_width_m * scale,
+            _control_inverter(nmos_model, pmos_model, stage.nmos_width_m * scale,
                  stage.pmos_width_m * scale, cfg.devices.gate_length_m,
-                 num=index, max_finger_width=fingers)
+                 num=index, max_finger_width=fingers, control_config=self.control_config)
             for index, (stage, scale) in enumerate(zip(cfg.devices.clock_buffer_stages, scales), 1)
         ]
         for inv in stages:
@@ -338,9 +347,9 @@ class WordlineEnableBuffer(BaseSubcircuit):
         fingers = self.control_config.devices.max_finger_width_m if fold_gates else None
         first = WordlineRequestNand(nmos_model, pmos_model, self.control_config.devices.nand.nmos_width_m * drive_scale,
                                     self.control_config.devices.nand.pmos_width_m * drive_scale, max_finger_width=fingers, control_config=self.control_config)
-        second = Pinv(nmos_model, pmos_model, cfg.devices.wordline_enable_inverter.nmos_width_m * drive_scale,
+        second = _control_inverter(nmos_model, pmos_model, cfg.devices.wordline_enable_inverter.nmos_width_m * drive_scale,
                       cfg.devices.wordline_enable_inverter.pmos_width_m * drive_scale, self.control_config.devices.gate_length_m,
-                      num=2, max_finger_width=fingers)
+                      num=2, max_finger_width=fingers, control_config=self.control_config)
         self.subcircuit(first)
         self.subcircuit(second)
         self.X('buf_nand1', first.NAME, 'VDD', 'VSS', 'A', 'B', 'zb1_node')
@@ -365,7 +374,7 @@ class Dff(BaseSubcircuit):
         pmos_model = cfg.models.pmos if pmos_model is None else pmos_model
         length = cfg.devices.gate_length_m if length is None else length
         super().__init__(nmos_model, pmos_model, self.control_config.devices.flop.nmos_width_m, self.control_config.devices.flop.pmos_width_m, length, w_rc=False)
-        inv = Pinv(nmos_model, pmos_model, self.control_config.devices.flop.nmos_width_m, self.control_config.devices.flop.pmos_width_m, self.control_config.devices.gate_length_m, num=1)
+        inv = _control_inverter(nmos_model, pmos_model, self.control_config.devices.flop.nmos_width_m, self.control_config.devices.flop.pmos_width_m, self.control_config.devices.gate_length_m, num=1, control_config=self.control_config)
         gate = TransmissionGate(nmos_model=nmos_model, pmos_model=pmos_model, control_config=self.control_config)
         self.subcircuit(inv)
         self.subcircuit(gate)
@@ -402,8 +411,8 @@ class DffBuffer(BaseSubcircuit):
         length = cfg.devices.gate_length_m if length is None else length
         super().__init__(nmos_model, pmos_model, self.control_config.devices.flop.nmos_width_m, self.control_config.devices.flop.pmos_width_m, length, w_rc=False)
         flop = Dff(nmos_model, pmos_model, length=length, control_config=self.control_config)
-        inv_qb = Pinv(nmos_model, pmos_model, *cfg.widths("select_qb_inverter"), length=cfg.devices.gate_length_m, num=1)   # 2 units
-        inv_q = Pinv(nmos_model, pmos_model, *cfg.widths("select_q_inverter"), length=cfg.devices.gate_length_m, num=2)    # 4 units
+        inv_qb = _control_inverter(nmos_model, pmos_model, *cfg.widths("select_qb_inverter"), length=cfg.devices.gate_length_m, num=1, control_config=self.control_config)   # 2 units
+        inv_q = _control_inverter(nmos_model, pmos_model, *cfg.widths("select_q_inverter"), length=cfg.devices.gate_length_m, num=2, control_config=self.control_config)    # 4 units
         self.subcircuit(flop)
         self.subcircuit(inv_qb)
         self.subcircuit(inv_q)
@@ -434,14 +443,16 @@ class ReplicaDelayChain(BaseSubcircuit):
             raise ValueError("Replica delay stages must be a positive odd integer")
         self.stages = stages
         super().__init__(nmos_model, pmos_model, self.control_config.devices.flop.nmos_width_m, self.control_config.devices.flop.pmos_width_m, self.control_config.devices.gate_length_m, w_rc=False)
-        inv = Pinv(nmos_model, pmos_model, *cfg.widths("unit_inverter"), length=self.control_config.devices.gate_length_m, num=1)
+        inv = _control_inverter(nmos_model, pmos_model, *cfg.widths("replica_delay_driver"), length=self.control_config.devices.gate_length_m, num='_replica_driver', control_config=self.control_config)
+        load = _control_inverter(nmos_model, pmos_model, *cfg.widths("delay_load"), length=self.control_config.devices.gate_length_m, num='_replica_load', control_config=self.control_config)
         self.subcircuit(inv)
+        self.subcircuit(load)
         for i in range(self.stages):
             source = 'in' if i == 0 else f'dout_{i}'
             target = 'out' if i == self.stages - 1 else f'dout_{i+1}'
             self.X(f'dinv{i}', inv.NAME, 'VDD', 'VSS', source, target)
             for j in range(cfg.delays.replica_loads_per_stage):
-                self.X(f'dload_{i}_{j}', inv.NAME, 'VDD', 'VSS', target, f'n_{i}_{j}')
+                self.X(f'dload_{i}_{j}', load.NAME, 'VDD', 'VSS', target, f'n_{i}_{j}')
 
 
 class UnitDelayChain(BaseSubcircuit):
@@ -472,15 +483,18 @@ class UnitDelayChain(BaseSubcircuit):
             self.control_config.devices.unit_inverter.nmos_width_m, self.control_config.devices.unit_inverter.pmos_width_m, length,
             w_rc=w_rc, pi_res=pi_res, pi_cap=pi_cap,
         )
-        inv = Pinv(nmos_model, pmos_model, nmos_width=self.control_config.devices.unit_inverter.nmos_width_m, pmos_width=self.control_config.devices.unit_inverter.pmos_width_m,
-                   length=length, num='_unit_delay')
+        inv = _control_inverter(nmos_model, pmos_model, *cfg.widths('delay_driver'),
+                   length=length, num='_unit_delay', control_config=self.control_config)
+        load = _control_inverter(nmos_model, pmos_model, *cfg.widths('delay_load'),
+                   length=length, num='_unit_delay_load', control_config=self.control_config)
         self.subcircuit(inv)
+        self.subcircuit(load)
         prev = 'in'
         for i in range(self.stages):
             out = 'out' if i == self.stages - 1 else f'wen_dly_{i + 1}'
             self.X(f'winv{i}', inv.NAME, 'VDD', 'VSS', prev, out)
             for j in range(self.loads_per_stage):
-                self.X(f'wload_{i}_{j}', inv.NAME, 'VDD', 'VSS', out, f'wn_{i}_{j}')
+                self.X(f'wload_{i}_{j}', load.NAME, 'VDD', 'VSS', out, f'wn_{i}_{j}')
             prev = out
 
 
@@ -525,7 +539,7 @@ class DataRegister(BaseSubcircuit):
         super().__init__(nmos_model, pmos_model, self.control_config.devices.flop.nmos_width_m, self.control_config.devices.flop.pmos_width_m, self.control_config.devices.gate_length_m, w_rc=False)
         flop = Dff(nmos_model, pmos_model, control_config=self.control_config)
         self.subcircuit(flop)
-        clocks = add_tapped_line(self, 'CLK_line', 'CLK', num_cols, self.interconnect.wl)
+        clocks = add_tapped_line(self, 'CLK_line', 'CLK', num_cols, self.interconnect.wire('data_register_clock'))
         for i in range(num_cols):
             self.X(f'dff_{i}', flop.NAME, 'VDD', 'VSS', f'DIN{i}', f'DIN_dff{i}', clocks[i])
 
@@ -609,8 +623,8 @@ class PrechargeOffGuard(BaseSubcircuit):
         self.stages = stages
         self.access_load = access_load
         self.settling_tau = settling_tau
-        observer = Pinv(nmos_model, pmos_model, *self.control_config.widths("observer"),
-                        self.control_config.devices.gate_length_m, num='_pre_off_observer')
+        observer = _control_inverter(nmos_model, pmos_model, *self.control_config.widths("observer"),
+                        self.control_config.devices.gate_length_m, num='_pre_off_observer', control_config=self.control_config)
         delay = PrechargeOffDelay(nmos_model, pmos_model, stages=stages, control_config=self.control_config)
         ready = PNOR2(nmos_model, pmos_model, *cfg.widths("nor"), cfg.devices.gate_length_m)
         drive_scale = max(cfg.guards.minimum_access_drive_scale, ceil(access_load / cfg.guards.access_output_effort))
@@ -986,10 +1000,10 @@ class TIME_CONTROL(BaseSubcircuit):
 
     # -- gate helpers -----------------------------------------------------------
     def _unit_inverter(self, num: str = '', scale: float = 1.0) -> Pinv:
-        return Pinv(self.nmos_model, self.pmos_model,
+        return _control_inverter(self.nmos_model, self.pmos_model,
                     nmos_width=self.control_config.devices.unit_inverter.nmos_width_m * scale if scale != 1.0 else self.control_config.devices.unit_inverter.nmos_width_m,
                     pmos_width=self.control_config.devices.unit_inverter.pmos_width_m * scale if scale != 1.0 else self.control_config.devices.unit_inverter.pmos_width_m,
-                    length=self.control_config.devices.gate_length_m, num=num)
+                    length=self.control_config.devices.gate_length_m, num=num, control_config=self.control_config)
 
     def _and_gate(self, cls, inverter: Sequence[float]):
         """AND2/AND3 with the standard NAND stage and an `inverter` (nmos, pmos) output stage."""
@@ -1102,14 +1116,14 @@ class TIME_CONTROL(BaseSubcircuit):
             # full-height wire. Observe equivalent load on both polarities
             # before allowing WL, including a first read or changed address.
             # Existing dummy inputs model the unit decoder's gate fan-out.
-            wire_cap = self.num_rows * self.interconnect.bl.capacitance_per_pitch
+            wire_cap = self.num_rows * self.interconnect.wire('decoder_address').capacitance_per_pitch
             for stage in (1, 2):
                 delay.C(f'decoder_settle_{stage}', f'wen_dly_{stage}', 'VSS', self.control_config.delays.decoder_wire_cap_multiplier * wire_cap)
             # Bound the low-bit trunk plus one local complement line. This
             # includes their gate loads, not just the metal's passive R*C.
             trunk_cap = self.control_config.delays.decoder_wire_cap_multiplier * wire_cap + ceil(self.num_rows / self.control_config.delays.decoder_group_rows) * self.control_config.delays.decoder_gate_cap_per_group_f
             local_cap = wire_cap + self.control_config.delays.decoder_local_gate_cap_f
-            decoder_tau = self.control_config.delays.decoder_tau_multiplier * self.num_rows * self.interconnect.bl.resistance_per_pitch * (trunk_cap + local_cap)
+            decoder_tau = self.control_config.delays.decoder_tau_multiplier * self.num_rows * self.interconnect.wire('decoder_address').resistance_per_pitch * (trunk_cap + local_cap)
         scale = self.sizing.access_drive_scale
         output_sizes = (self.control_config.widths("gated_clock_inverter") if scale == self.control_config.guards.minimum_access_drive_scale else
                         (self.control_config.devices.unit_inverter.nmos_width_m * scale, self.control_config.devices.unit_inverter.pmos_width_m * scale))
@@ -1172,8 +1186,8 @@ class TIME_CONTROL(BaseSubcircuit):
         self.wordline_off = 'wl_en_bar'
         if not self.replica_precharge_guard:
             return
-        observer = Pinv(self.nmos_model, self.pmos_model, *self.control_config.widths("observer"),
-                        length=self.control_config.devices.gate_length_m, num='_rwl_precharge')
+        observer = _control_inverter(self.nmos_model, self.pmos_model, *self.control_config.widths("observer"),
+                        length=self.control_config.devices.gate_length_m, num='_rwl_precharge', control_config=self.control_config)
         self.subcircuit(observer)
         self.X('rwl_precharge_guard', observer.NAME, 'VDD', 'VSS', 'rwl', 'rwl_pre_bar')
         self.wordline_off = 'rwl_pre_bar'

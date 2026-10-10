@@ -1,5 +1,13 @@
 # Phased SRAM access integration checks
 
+`v227_full_rc_cases.json` records the subsequent complete 8x8 reference,
+including TIME_CONTROL, its registers, physical RC filters and the output latch.
+The fixed 9 ns four-access diagnostic includes final recovery and ends 5 ps
+before the fifth capture. The tracked `layout.freepdk45.compare_full` module
+prepares and executes matched estimated/post-layout decks; independent waveform
+scoring remains local. See the [complete macro record](../../docs/design/FULL_RC_CALIBRATION_V2_2_7.md).
+This diagnostic does not certify the full release screen.
+
 `v227_rc_cases.json` documents the separate FreePDK45 **macro** calibration
 diagnostic: ideal controls, nominal 8x8 6T, no TIME_CONTROL. Its tracked runner
 is `python -m sram_compiler.layout.freepdk45.compare`; it does not use the local

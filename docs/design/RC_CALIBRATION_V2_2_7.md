@@ -1,5 +1,8 @@
 # V2.2.7 development: FreePDK45 RC calibration and TIME_CONTROL configuration
 
+Historical stage recorded on 2026-10-09. The subsequent complete-controller work
+is recorded separately in [the full macro calibration record](FULL_RC_CALIBRATION_V2_2_7.md).
+
 Date: 2026-10-09. This is a development record, not a released calibration or
 completed waveform screen. The previous release is V2.2.6; its limitations and
 the historical V2.2.2 screen remain unchanged.

@@ -8,6 +8,7 @@ illustrative (1 ohm / 0.1 fF per pitch), not extracted metal data.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
 from math import isfinite
 from pathlib import Path
 from typing import Mapping
@@ -15,6 +16,12 @@ from typing import Mapping
 from PySpice.Unit import u_Ohm
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+CRITICAL_ROUTES = (
+    'replica_wordline', 'replica_bitline', 'decoder_address',
+    'data_register_clock', 'precharge_control', 'isolation_control',
+    'sense_enable_control', 'write_enable_control', 'wordline_enable_control',
+    'peripheral_bitline', 'peripheral_bitline_bar', 'write_data', 'mux_select',
+)
 
 
 def _mapping(value):
@@ -41,6 +48,17 @@ def _count(name, value):
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError(f'{name} must be a positive integer')
     return value
+
+
+def _network_binding(value):
+    path = Path(value['network_file'])
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    expected = value.get('network_sha256')
+    if expected is not None and expected != digest:
+        raise ValueError('Independent RC network changed; discard the stale baseline')
+    return dict(network_file=value['network_file'], network_sha256=digest)
 
 
 @dataclass(frozen=True)
@@ -70,19 +88,43 @@ class WireRC:
 
 @dataclass(frozen=True)
 class InterconnectConfig:
-    mode: str = 'distributed'
+    mode: str = 'per_net'
     # Local series pin stubs are optional, independent of the physical wires.
     cell_pin_rc: bool | None = None
     wl: WireRC | None = None
     bl: WireRC | None = None
+    calibrated_profile: str | None = None
+    calibrated_profile_sha256: str | None = None
+    reference_profile: str | None = None
+    reference_profile_sha256: str | None = None
+    routes: dict | None = None
+    net_models: dict | None = None
+    power_models: dict | None = None
 
     def __post_init__(self):
-        if self.mode != 'distributed':
-            raise ValueError('Interconnect mode must be distributed')
+        if self.mode not in ('per_net', 'distributed'):
+            raise ValueError('Interconnect mode must be per_net (distributed is a legacy spelling)')
+        object.__setattr__(self, 'mode', 'per_net')
         if self.cell_pin_rc is None:
             object.__setattr__(self, 'cell_pin_rc', False)
         if not isinstance(self.cell_pin_rc, bool):
             raise ValueError('cell_pin_rc must be boolean')
+        for field in ('calibrated_profile', 'reference_profile'):
+            value = getattr(self, field)
+            hash_field = field + '_sha256'
+            expected = getattr(self, hash_field)
+            if value is not None:
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError(f'{field} must be a nonempty profile path')
+                path = Path(value)
+                if not path.is_absolute():
+                    path = PROJECT_ROOT / path
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                if expected is not None and expected != digest:
+                    raise ValueError('Calibrated physical RC profile changed; discard the stale baseline')
+                object.__setattr__(self, hash_field, digest)
+            elif expected is not None:
+                raise ValueError(f'{hash_field} requires {field}')
         for name, layer in (('wl', 'M2-reference'), ('bl', 'M3-reference')):
             if getattr(self, name) is None:
                 object.__setattr__(self, name, WireRC(
@@ -91,6 +133,52 @@ class InterconnectConfig:
                     capacitance_f_per_m=1.6666666666666666e-10))
             if not isinstance(getattr(self, name), WireRC):
                 raise ValueError('Distributed interconnect requires wl and bl wire geometry')
+        supplied = {} if self.routes is None else _mapping(self.routes)
+        if supplied.keys() - set(CRITICAL_ROUTES):
+            raise ValueError('Unknown critical interconnect route')
+        resolved = {}
+        for name in CRITICAL_ROUTES:
+            value = supplied.get(name)
+            if value is None:
+                value = WireRC(layer=name+'-reference', pitch_m=6e-7, width_m=1e-7,
+                               sheet_resistance_ohm=1/6, capacitance_f_per_m=1.6666666666666666e-10)
+            elif not isinstance(value, WireRC):
+                value = WireRC(**_mapping(value))
+            resolved[name] = value
+        object.__setattr__(self, 'routes', resolved)
+        settings = {} if self.net_models is None else _mapping(self.net_models)
+        if any(name.upper() in ('VDD','VSS') for name in settings):
+            raise ValueError('Supply RC settings belong in power_models, separately from signals')
+        for name, value in settings.items():
+            value = _mapping(value)
+            if value.keys() - {'resistance_scale', 'capacitance_scale', 'network_file', 'network_sha256'}:
+                raise ValueError(f'Unknown RC settings for net {name}')
+            settings[name] = {key:_positive(name+'.'+key, value.get(key,1.))
+                              for key in ('resistance_scale','capacitance_scale')}
+            if value.get('network_file') is not None:
+                settings[name].update(_network_binding(value))
+            elif 'network_sha256' in value:
+                raise ValueError('network_sha256 requires network_file')
+        object.__setattr__(self, 'net_models', settings)
+        power = {} if self.power_models is None else _mapping(self.power_models)
+        if power.keys() - {'VDD','VSS'}:
+            raise ValueError('Power RC models must name VDD or VSS')
+        resolved_power = {}
+        for name in ('VDD','VSS'):
+            value = _mapping(power.get(name, {}))
+            if value.keys() - {'resistance_scale', 'capacitance_scale', 'network_file', 'network_sha256'}:
+                raise ValueError(f'Unknown power RC settings for {name}')
+            resolved_power[name] = {key:_positive(name+'.'+key, value.get(key,1.))
+                                   for key in ('resistance_scale','capacitance_scale')}
+            if value.get('network_file') is not None:
+                resolved_power[name].update(_network_binding(value))
+            elif 'network_sha256' in value:
+                raise ValueError('network_sha256 requires network_file')
+        object.__setattr__(self, 'power_models', resolved_power)
+
+    def wire(self, route):
+        """Each critical route has independent geometry and RC parameters."""
+        return self.routes[route]
 
     @property
     def distributed(self):
@@ -106,7 +194,7 @@ def resolve_interconnect(options=None):
     if isinstance(options, InterconnectConfig):
         return options
     values = _mapping(options)
-    unknown = values.keys() - {'mode', 'cell_pin_rc', 'wl', 'bl'}
+    unknown = values.keys() - {'mode', 'cell_pin_rc', 'wl', 'bl', 'calibrated_profile', 'calibrated_profile_sha256', 'reference_profile', 'reference_profile_sha256', 'routes', 'net_models', 'power_models'}
     if unknown:
         raise ValueError(f'Unknown interconnect options: {sorted(unknown)}')
     for key in ('wl', 'bl'):

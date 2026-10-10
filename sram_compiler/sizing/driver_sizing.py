@@ -43,6 +43,8 @@ class DriverLoads:
     iso_load: float | None = None
     sen_effort: float = 8.0
     access_load: float | None = None
+    observer_load_units: float | None = None
+    far_enable_observer_load_units: float | None = None
 
 
 @dataclass(frozen=True)
@@ -121,10 +123,13 @@ class DriverSizes:
         if context is not None and _digest(context) != self.physical_key:
             raise ValueError('Frozen driver sizes belong to a different physical context')
         if context is not None:
+            if (self.loads.observer_load_units is None
+                    or self.loads.far_enable_observer_load_units is None):
+                raise ValueError('Frozen driver loads predate the configured physical observers')
             rc_units = (float(context.get('pi_cap', _RULES['peripheral_rc_cap_f']))
                         / _RULES['unit_inverter_cap_f'] if context.get('w_rc', False) else 0.0)
             expected_pre = ((self.cols + 1) * (3 * float(sram_config.precharge.pmos_width.value)
-                            * self.pre / .36e-6 + rc_units) + .5)
+                            * self.pre / .36e-6 + rc_units) + self.loads.observer_load_units)
             if (not isfinite(self.loads.pre_load)
                     or abs(self.loads.pre_load - expected_pre) > 1e-10 * max(1.0, expected_pre)):
                 raise ValueError('Frozen precharge load must include the far-PRE observer')
@@ -134,7 +139,7 @@ class DriverSizes:
             expected_enable_tau = _enable_off_tau(self.cols, self.loads, context)
             if abs(self.enable_off_tau - expected_enable_tau) > 1e-10 * expected_enable_tau:
                 raise ValueError('Frozen enable-off guard requires the baseline wire settling time')
-            expected_iso_tau = _control_settling_tau(self.cols, self.loads.iso_load + .5, context)
+            expected_iso_tau = _control_settling_tau(self.cols, self.loads.iso_load + self.loads.observer_load_units, context, 'isolation_control')
             if abs(self.isolation_tau - expected_iso_tau) > 1e-10 * expected_iso_tau:
                 raise ValueError('Frozen isolation guard requires the baseline wire settling time')
         if self.source == 'table' and context is not None:
@@ -148,14 +153,14 @@ def _digest(value):
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def _precharge_off_tau(cols, pre_load, context):
+def _precharge_off_tau(cols, pre_load, context, route='precharge_control'):
     """Conservative wire/load settling scale, fixed before any PVT/cell sample.
 
     Use the same inverter-capacitance estimate as the driver-load rules. This
     is a geometry-based design delay, not extracted metal or a qualification.
     """
     from sram_compiler.interconnect import resolve_interconnect
-    wire = resolve_interconnect(context.get('interconnect')).wl
+    wire = resolve_interconnect(context.get('interconnect')).wire(route)
     resistance = cols * wire.resistance_per_pitch
     capacitance = pre_load * _RULES['unit_inverter_cap_f'] + cols * wire.capacitance_per_pitch
     local_tau = (float(context.get('pi_res', 100.0))
@@ -170,13 +175,17 @@ def _enable_off_tau(cols, loads, context):
     Sense EN has two local RC sections. Four local time constants also cover
     their falling tail after the far observer switches near mid-rail.
     """
-    load = max(loads.wen_load, loads.sen_load) + .875  # half-unit far NOR input
-    return _control_settling_tau(cols, load, context)
+    from sram_compiler.config_yaml.time_control_config import DEFAULT_CONFIG
+    far_load = loads.far_enable_observer_load_units
+    if far_load is None:
+        far_load = sum(DEFAULT_CONFIG.widths('far_enables_nor')) / DEFAULT_CONFIG.sizing.unit_input_width_m
+    return max(_control_settling_tau(cols, loads.wen_load+far_load, context, 'write_enable_control'),
+               _control_settling_tau(cols, loads.sen_load+far_load, context, 'sense_enable_control'))
 
 
-def _control_settling_tau(cols, load, context):
+def _control_settling_tau(cols, load, context, route='precharge_control'):
     """Wire plus a conservative allowance for two local RC sections."""
-    tau = _precharge_off_tau(cols, load, context)
+    tau = _precharge_off_tau(cols, load, context, route)
     if context.get('w_rc', False):
         tau += 3 * float(context.get('pi_res', 100.0)) * float(
             context.get('pi_cap', _RULES['peripheral_rc_cap_f']))
@@ -419,9 +428,13 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     # NAND3 inputs (1.25 units each); the enables-off NOR adds 1.75 units to
     # each enable.  Keep these in step with resolve_control_sizing().
     senb_scale = max(1, ceil(1.25 * (wl_en_scale + 1) / 4.0))
+    from sram_compiler.config_yaml.time_control_config import resolve_time_control_config
+    controller = resolve_time_control_config(getattr(sram_config, 'time_control', None))
+    observer_units = sum(controller.physical_width(w) for w in controller.widths('observer')) / controller.sizing.unit_input_width_m
+    far_enable_units = sum(controller.widths('far_enables_nor')) / controller.sizing.unit_input_width_m
     loads = DriverLoads(
-        # The access guard observes far PRE with a half-unit inverter.
-        pre_load=(cols + 1) * 3 * pre_width / 0.36e-6 + (cols + 1) * rc_input_units + .5,
+        # The access guard observes far PRE with its configured inverter.
+        pre_load=(cols + 1) * 3 * pre_width / 0.36e-6 + (cols + 1) * rc_input_units + observer_units,
         # The replica write driver is enabled with the real ones (write slot).
         wen_load=(cols + 1) * (2 * wn * scales["wd_out"] + (wn + wp) * scales["wd_in"])
         / 0.36e-6 + 4 * wenb_scale + (cols + 1) * rc_input_units + 1.75,
@@ -435,6 +448,8 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         # Wordline-request NAND2 input (1.25 units per unit of wl_en scale) plus
         # the sense NAND3 request input.
         access_load=1.25 * wl_en_scale + 2.5,
+        observer_load_units=observer_units,
+        far_enable_observer_load_units=far_enable_units,
     )
     periphery = _peripheral_inputs(sram_config)
     pdk = _pdk_inputs(cfg)
@@ -459,7 +474,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         'precharge_off_guard': True, 'precharge_off_guard_stages': PRECHARGE_OFF_GUARD_STAGES,
         'precharge_off_tau': _precharge_off_tau(cols, loads.pre_load, context),
         'enable_off_tau': _enable_off_tau(cols, loads, context),
-        'isolation_tau': _control_settling_tau(cols, loads.iso_load + .5, context),
+        'isolation_tau': _control_settling_tau(cols, loads.iso_load + observer_units, context, 'isolation_control'),
         'replica_nmos_models': tuple(cell.nmos_model.value),
         'replica_nmos_widths': tuple(cell.nmos_width.value),
         'replica_pmos_model': cell.pmos_model.value,

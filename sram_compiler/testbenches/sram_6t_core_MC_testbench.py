@@ -2,6 +2,7 @@ import os
 import hashlib
 import json
 import shutil
+import re
 from pathlib import Path
 from sram_compiler.per_device_mc.netlist import specialize_netlist
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
@@ -256,6 +257,77 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         return circuit
 
     def add_meas_and_print(self, simulator, init_cond, operation):
+        self._add_native_meas_and_print(simulator, init_cond, operation)
+        path = self.interconnect.calibrated_profile
+        automatic = path is None
+        if automatic:
+            path = self.interconnect.reference_profile
+        if path is None:
+            return
+        from sram_compiler.calibrated_rc import load_profile, apply_to_deck, initial_state, validate_source
+        profile = load_profile(path)
+        if profile['schema'] == 2:
+            from sram_compiler.per_net_rc import assemble
+            assemble(profile, profile['_network_directory'],
+                     dict(self.interconnect.net_models, **self.interconnect.power_models))
+        scope = profile['scope']
+        if (self.variation_mode != 'nominal' or self.real_cell_mode != 0
+                or any((self.sweep_cell, self.sweep_precharge, self.sweep_senseamp,
+                        self.sweep_wordlinedriver, self.sweep_columnmux,
+                        self.sweep_writedriver, self.sweep_decoder))
+                or self.sram_cell_type != scope['cell'] or self.choose_columnmux
+                or (self.num_rows,self.num_cols,self.target_row,self.target_col) !=
+                   (scope['rows'],scope['cols'],scope['target_row'],scope['target_col'])
+                or operation != scope['hardware_operation']
+                or self.w_rc != scope.get('w_rc', True)
+                or self.interconnect.cell_pin_rc != scope.get('cell_pin_rc', False)
+                or float(self.pi_res) != scope.get('pi_res_ohm', 100.)
+                or abs(float(self.pi_cap)-scope.get('pi_cap_f', 1e-15)) > 1e-28
+                or self.corner != scope['corner']
+                or float(self.vdd) != scope['vdd']
+                or float(self.temperature) != scope['temperature']
+                or abs(float(self.t_period)-scope['period_s']) > 1e-18):
+            if automatic:
+                self.variation_summary['calibrated_rc'] = {
+                    'applied': False, 'reason': 'outside validated reference scope',
+                    'profile_sha256': profile['_sha256'], 'release_qualified': False}
+                return
+            raise ValueError('Calibrated RC profile requires its recorded nominal geometry, operation, corner and timing')
+        expected = profile.get('control_config')
+        if expected is not None and self.sram_config.time_control.to_dict()!=expected:
+            raise ValueError('Controller geometry changed relative to the calibrated RC profile')
+        validate_source(str(simulator.circuit), profile)
+        model_path = Path(getattr(self.sram_config.global_config, 'pdk_path_' + self.corner))
+        if hashlib.sha256(model_path.read_bytes()).hexdigest() != profile['model_sha256']:
+            raise ValueError('Device model differs from the calibrated RC reference')
+        all_probes = re.findall(r'\bV\(([^)]+)\)',str(simulator),re.I)
+        converted = apply_to_deck(str(simulator.circuit),profile,probes=all_probes)
+        calibrated = Circuit(simulator.circuit.title)
+        calibrated.raw_spice = '\n'.join(line for line in converted.splitlines()
+                                        if not line.lower().startswith('.title') and line.lower()!='.end')+'\n'
+        simulator._circuit = calibrated
+        original_initial={}
+        for expression,value in simulator._initial_condition.items():
+            match=re.fullmatch(r'V\((.+)\)',expression,re.I)
+            if match:
+                from sram_compiler.parasitics import spice_value
+                original_initial[match[1]]=spice_value(str(value).rstrip('Vv'))
+        initialized=initial_state(profile,original_initial,float(self.vdd))
+        simulator._initial_condition={f'V({node})':value for node,value in initialized.items()}
+        calibrated.raw_spice=re.sub(r'(?im)^(\.TRAN[^\n]*?)(?:\s+UIC)?$',r'\1 UIC',calibrated.raw_spice)
+        if not re.search(r'(?im)^\.OPTIONS\s+LINSOL\b', calibrated.raw_spice):
+            calibrated.raw_spice += '.OPTIONS LINSOL TYPE=KLU\n'
+        self.variation_summary['calibrated_rc'] = {
+            'applied': True,
+            'profile_sha256':profile['_sha256'],'hardware_operation':scope['hardware_operation'],
+            'method':profile['method'],'full_layout':True,'release_qualified':False,
+            'reference_settings_validated': profile.get('_qualified_settings', True),
+            'rc_models': 'independent per-net signal networks, VDD/VSS power meshes and cross-net coupling',
+            'net_model_overrides': self.interconnect.net_models,
+            'power_models': self.interconnect.power_models,
+            'initialization':'complete common logical initial state; UIC; original stimuli retained'}
+
+    def _add_native_meas_and_print(self, simulator, init_cond, operation):
         # Internal nodes' names of the target cell
         target_node_q = self.cell_inst_prefix + f'_{self.target_row}_{self.target_col}{self.heir_delimiter}Q'
         target_node_qb = self.cell_inst_prefix + f'_{self.target_row}_{self.target_col}{self.heir_delimiter}QB'

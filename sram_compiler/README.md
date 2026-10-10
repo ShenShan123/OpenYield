@@ -13,11 +13,12 @@ and `TimeControlFactory` accept an appended `control_config` override.
 
 Explicit arguments take precedence, including the frozen driver-class loads
 and guard settings supplied by the compiler. Connection topology and names
-remain in `subcircuits/time_generate.py`. Defaults preserve the earlier circuit
-exactly, including the 45 nm observer widths. Settings changes invalidate a
+remain in `subcircuits/time_generate.py`. Defaults use a 90 nm minimum active
+width and a 5 nm width grid; delay drivers and dummy loads have separate sizes.
+Settings changes invalidate a
 frozen peripheral baseline and are recorded in CLI run identity and metadata.
 See the [physical calibration guide](layout/README.md) for V2.2.7's current
-layout coverage and deferred default RC promotion.
+layout coverage and the complete macro back-annotation workflow.
 
 ## 1. Set up
 
@@ -51,7 +52,27 @@ The script reads YAML in memory and writes `deck.sp` and `summary.json` under `o
 
 YAML widths and lengths are in **metres**. The supported array envelope is at most 512 rows and 256 columns. An unseen size inside it rounds up to the next row and column class. A changed cell candidate or PVT point must retain the baseline driver and clock resolution; changed physical RC or periphery requires fresh evidence. See [sizing and timing](sizing/README.md).
 
-The signal wiring is always distributed. `interconnect.mode: star` is rejected. The default wire dimensions give illustrative 1 ohm and 0.1 fF per pitch, not extracted metal. Use `sram_compiler/config_yaml/interconnect_example.yaml` as a template, then set `INTERCONNECT_CONFIG` in `main_sram.py` to your geometry. `W_RC` separately controls local storage and peripheral stubs.
+The signal wiring is always distributed. `interconnect.mode: per_net` is the
+canonical setting; `distributed` is a legacy spelling and `star` is rejected.
+`global.yaml` loads [`interconnect_example.yaml`](config_yaml/interconnect_example.yaml).
+It binds 707 separate signal networks and two power meshes for the qualified
+FreePDK45 8×8 nominal TT, 1 V, 25 °C, mode-0, no-mux, target-7/7 read/write
+reference at 9 ns. Each entry has its own network file, hash and R/C scales.
+`power_models.VDD` and `power_models.VSS` connect device supply terminals at
+physical taps, producing IR drop and ground bounce. Cross-net coupling remains
+explicit. Changed scales/files mark `reference_settings_validated` false.
+
+For other configurations, `routes` defines thirteen independent critical
+interconnect classes in addition to array `wl` and `bl` geometry. Their current
+1 ohm / 0.1 fF per-pitch fallback values remain illustrative; fallback supplies
+remain ideal. Metadata reports `calibrated_rc.applied: false` outside the
+reference scope. Explicit `calibrated_profile` requires its exact scope and
+rejects incompatible circuits; `reference_profile` automatically selects the
+scoped default. `INTERCONNECT_CONFIG` in `main_sram.py` selects another YAML.
+`W_RC` separately controls local storage and peripheral stubs. Use
+[`interconnect_illustrative.yaml`](config_yaml/interconnect_illustrative.yaml)
+for baseline comparisons. Sizes, timing, models and RC changes invalidate
+frozen sizing contexts; keep them fixed across candidate comparisons.
 
 ## 4. Select diagnostic options
 

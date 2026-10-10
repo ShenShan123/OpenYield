@@ -1,16 +1,3661 @@
-# Illustrative wire geometry for diagnostics (V2.0.7+), NOT foundry extraction.
-# Each pitch contributes 1 ohm and 0.1 fF. Supply extracted values for signoff.
-# V2.2.7's measured 8x8 6T diagnostic is interconnect_freepdk45_8x8.yaml.
-# All-route default calibration is pending; see ../layout/README.md.
-mode: distributed
+# Independent FreePDK45 8x8 per-net RC settings, including separate VDD/VSS meshes.
+# Each network has its own extracted resistance/capacitance topology.
+# Validated nominal TT, 1 V, 25 C, mode 0, no mux, target 7/7, read&write, 9 ns.
+# All other configurations remain unqualified; no unified WL/BL model is used for critical routes.
+mode: per_net
 cell_pin_rc: false
-wl: &wire
-  layer: M2-reference
-  pitch_m: 6.0e-7
-  width_m: 1.0e-7
+reference_profile: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/profile.json.gz
+wl:
+  layer: M2-array-WL-reference
+  pitch_m: 6.0e-07
+  width_m: 1.0e-07
   sheet_resistance_ohm: 0.16666666666666666
   capacitance_f_per_m: 1.6666666666666666e-10
   sections_per_half_pitch: 1
 bl:
-  <<: *wire
-  layer: M3-reference
+  layer: M3-array-BL-reference
+  pitch_m: 6.0e-07
+  width_m: 1.0e-07
+  sheet_resistance_ohm: 0.16666666666666666
+  capacitance_f_per_m: 1.6666666666666666e-10
+  sections_per_half_pitch: 1
+# Independent illustrative route geometry outside the qualified extracted scope.
+routes:
+  replica_wordline:
+    layer: replica_wordline-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  replica_bitline:
+    layer: replica_bitline-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  decoder_address:
+    layer: decoder_address-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  data_register_clock:
+    layer: data_register_clock-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  precharge_control:
+    layer: precharge_control-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  isolation_control:
+    layer: isolation_control-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  sense_enable_control:
+    layer: sense_enable_control-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  write_enable_control:
+    layer: write_enable_control-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  wordline_enable_control:
+    layer: wordline_enable_control-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  peripheral_bitline:
+    layer: peripheral_bitline-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  peripheral_bitline_bar:
+    layer: peripheral_bitline_bar-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  write_data:
+    layer: write_data-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+  mux_select:
+    layer: mux_select-reference
+    pitch_m: 6.0e-07
+    width_m: 1.0e-07
+    sheet_resistance_ohm: 0.16666666666666666
+    capacitance_f_per_m: 1.6666666666666666e-10
+    sections_per_half_pitch: 1
+net_models:
+  A0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0000.json.gz
+    network_sha256: 52b00f902c7f8e4dc83e34e89f39640ef9a3e0b6a9cfb8337b2f0451aebb9334
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  A1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0001.json.gz
+    network_sha256: 268c4dea0d847fc1a50fd9919e549b3dc6baaec3eb61dd884142635a5fa01e5e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  A2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0002.json.gz
+    network_sha256: 554a3347768e657dabfebda62b2ac01a44311803933c17f9d6de3f172d981dab
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  A_dff0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0003.json.gz
+    network_sha256: 4106e5f1c9646738644357f9a808c69e1084bed6de0226485ddc2ed3f6d6dbde
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  A_dff1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0004.json.gz
+    network_sha256: e483a1b414e3d8ad5253652040798a1c87cdacbcc2f475c1d3b8fe16c610d3f2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  A_dff2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0005.json.gz
+    network_sha256: 2ed714b6e1f5fa23b9330dc8c6f39e1f70deb0ae51a565f5b79a8a240fe723aa
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BL0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0006.json.gz
+    network_sha256: 867e76e1d940b2e621186b14fd8741bdd259174af31530313b48170ee68f03ec
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BL1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0007.json.gz
+    network_sha256: c3248dca6eee588f61d44a9905bd970e3c92f04d1dd1f4c8a853c7873a777141
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BL2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0008.json.gz
+    network_sha256: cf51124da2a565f2a70b7fb36bc60c5ac91c63e8cfec3668351c4370af5cbbec
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BL3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0009.json.gz
+    network_sha256: 3dfdcca871dfcd98a85f183350d6d3d33cffc5f163afaae1fd588de4cf89771a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BL4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0010.json.gz
+    network_sha256: cfb9c9a81a9b1ed2104bd55bb6fbabbcc28b51a86034dff95163105e2a5fca9e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BL5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0011.json.gz
+    network_sha256: 58e314f71060318e2de99be2e521862aa4d701e1999b0f83fd37f02c83e6ea97
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BL6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0012.json.gz
+    network_sha256: df86da61b6576f49048fab1647494943348eb41df72a0c13cf1e95a5e4a3e123
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BL7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0013.json.gz
+    network_sha256: 786b2cbc5da6d9b058fa461390174c2a40332a53b44cd9a9e352c70deb365288
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BLB0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0014.json.gz
+    network_sha256: c0740d83a2872804849339d18bed20182dcc7c2acf9665f59c2578f82dcb6465
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BLB1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0015.json.gz
+    network_sha256: 959bb9588f901b546253788b14726fd7d4b6ebbbdb8a3450404523aaa0dfb81d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BLB2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0016.json.gz
+    network_sha256: 219eff4febf734c505ee0f7590fdb5a5b594a3c09dd3ab87a1b9e299dd0d4352
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BLB3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0017.json.gz
+    network_sha256: 14126c18fdd94c98f521d966c648c7722b54a2c6e634f089c4dcfe113077be4c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BLB4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0018.json.gz
+    network_sha256: a5c6773acb2abc14a5f298d874b4b3d74303c6d3d791fd1cde2ad09f6da74241
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BLB5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0019.json.gz
+    network_sha256: 0d1fcc2763fe17e8769f6f59f79f965369d8bd8b9e77f91e450e2b1d2793c51f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BLB6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0020.json.gz
+    network_sha256: 815d60bb4f49ef49a69a65fcfd4c686a969f34207640cc0fae3342004129bca3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  BLB7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0021.json.gz
+    network_sha256: bbeb35b205bf02eede81bed5cbb70e5c236a319ef8707ec851c1b083023020e4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DEC_WL0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0022.json.gz
+    network_sha256: 680ede010fedcf69802c994565a747538e8b77214a9e24a15bc4f00244e926a7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DEC_WL1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0023.json.gz
+    network_sha256: 2b26648321b5810c267bdcc7a198468bf75516e589d7dde334591240362a58fe
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DEC_WL2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0024.json.gz
+    network_sha256: 19a25e4545b8cbcfb1268891d535da2c5933cc4abff0308aae125e88c717f667
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DEC_WL3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0025.json.gz
+    network_sha256: 78df0779a7f0e4d2efd737f55d1bfcaa49602cb272099acfb32ee9afa4b864cc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DEC_WL4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0026.json.gz
+    network_sha256: d5fc4c3364b5f4d2aa69c3e57b91dcd462d45ffbddfea9569fd061fc8dfd3215
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DEC_WL5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0027.json.gz
+    network_sha256: d7d8297b80f701a6f2819b487075586b1a58008c50801e840cf2131b3bb25647
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DEC_WL6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0028.json.gz
+    network_sha256: 8f5072bec07392bd0aff6307d9a1c4f481aeeb10144f1f8abd0299f937bd7df7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DEC_WL7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0029.json.gz
+    network_sha256: 1bdf07655fa9fe64539f7d81e447699214388c06d76799b098fac7f88e2381a2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0030.json.gz
+    network_sha256: a10b9adfa1628ce7475cddbf49147e780ae74cf9917033f1ef03167413dda93c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0031.json.gz
+    network_sha256: 6b60b5b72f64ffea89e5ca6a1053b0cdd19960d88db35a9f39c7c3b5200888a8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0032.json.gz
+    network_sha256: eb5a5d066044738a7083bf4105959ca77fb1f8bb61a9e2ee4886fbf6cb949add
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0033.json.gz
+    network_sha256: 59648ed049077ce84550dc285d6d1a5380daf4f8d091ac701387878f15bb5ff3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0034.json.gz
+    network_sha256: 1828023e4790a814f8ea02ea4699719752a1dc5556404434993d2a01fbcff4d9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0035.json.gz
+    network_sha256: 239164477fd4d9064aadc0217226a5a2875bfe11cb5f680d51dc15f1064b2b4a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0036.json.gz
+    network_sha256: b00bd0af6c6bcd89a8f7611bea10f496caa03b158c5b28bc794164ae9c18bde4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0037.json.gz
+    network_sha256: 294824563e7ee42ed11efd6f54a813147696ec91b03f77c620c72d27b4df8bbd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_buf0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0038.json.gz
+    network_sha256: 123127073abeaec282377db06ec0a83e10213aa322ae613cbf41d3a6e3e668d7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_buf1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0039.json.gz
+    network_sha256: eed58031be3b9e0d844eec662d61ebc02c070ef309348a79ecc0d3f9ed045065
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_buf2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0040.json.gz
+    network_sha256: 01dea87c75cb7273d1241b818bff4eb45757b3624bf4ebce86350488ef61fd2e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_buf3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0041.json.gz
+    network_sha256: f3ea2c1d18c58f4e9df705b150b303f16daa91491c638069973611ee2bb90808
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_buf4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0042.json.gz
+    network_sha256: df66728adb4f553ea5cf090bdf068000fc2ea7c87d64bbdeca1e80079550ac0e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_buf5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0043.json.gz
+    network_sha256: e74180cdc095474bbe9609318d30f706cc76eebb09221540275198907d9cf5b5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_buf6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0044.json.gz
+    network_sha256: 89fbf6bb3d9bb500c73f402b289c21a541158f1bfa7e9252ee13b6b07e2f5383
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_buf7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0045.json.gz
+    network_sha256: 654a70a4908bdb5111692bdf22d233817c50b9149efbd47fb3443994d4b4299f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_dff0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0046.json.gz
+    network_sha256: 522006bf5179c07ddd2cee85f02d14052d27b4de4c451397c7258f0c5cf5715a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_dff1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0047.json.gz
+    network_sha256: 59b47f641a9f74828d16851f1e07686b12972854d62a2dd503d61f460e6b81ed
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_dff2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0048.json.gz
+    network_sha256: 001441ad2f8f40126312cf7c9030a7081924aa43037b4d74ce6f048c556e5792
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_dff3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0049.json.gz
+    network_sha256: 0c1ef28afe49e3e1319effc2f292c10a84fe2491c7b716d7fc4321283b4a0531
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_dff4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0050.json.gz
+    network_sha256: e3244630d4832aa768ad1ba73298909dfda4219695ef367c1b89a893f2fd254e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_dff5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0051.json.gz
+    network_sha256: cadc6b27b7fd294635e5041a18fabb62062f43c10de8cdb1aae9860a4ff2e876
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_dff6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0052.json.gz
+    network_sha256: 499a834cd934a1f3f22dc96484f27edf0f7bf60e2101d1fcab52c7b559f4fd7f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  DIN_dff7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0053.json.gz
+    network_sha256: b34d6fc024e3129e3aeec188ebcb8874029a003d823ac3c33a61a172512fdab5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  OUT:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0054.json.gz
+    network_sha256: 38b5b8e10a609822423dd59fdb4780793167fea0bb021b82e811b62c488e17e1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  OUT_B:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0055.json.gz
+    network_sha256: 4a3121b47c3288a651b6d37cb8df0d7b3814a5b5bc2d69a30a3e502e8ac33be7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  PRE:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0056.json.gz
+    network_sha256: 11f717dde6cc9b9d77c17cd1428b11e525ef33b3f09a6db7e802f57def450b4e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  RBL:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0057.json.gz
+    network_sha256: 2a2a650ee8068aef5c1d81e7ac714bd0a48632f97d47c83a13084863d6f9b44f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  RBLB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0058.json.gz
+    network_sha256: 94392ae04643fc810c7d5e23b090bc2a2d86f4da0a06b45d8750f1e63a7d7bde
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  REPLICA_SA_Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0059.json.gz
+    network_sha256: a6c5b32d5e0a469ca722bc1fe48f66c5f22f5c5994c845d9ee980a64bd79208b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  REPLICA_SA_QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0060.json.gz
+    network_sha256: dee9c7e0f57eeee0dcdc55f078e9207c3e45e70c190f91a8d6df3e703c040b71
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  RWL:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0061.json.gz
+    network_sha256: 30890e1562577d8c37d628cf3a028df0e50fd4e540f4f238edccad9a81cd7889
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_Q0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0062.json.gz
+    network_sha256: 8263c2cdc856658d803897ddb516f9bf86da65a09c0ab5d0b5403ce638aff17b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_Q1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0063.json.gz
+    network_sha256: 1df5d128cd0aa76a7c03799863f83bf152b1025d120a7637c55d294eafd2ff8e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_Q2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0064.json.gz
+    network_sha256: 3ec8f574761d7f9e4345845d76fd0a7d3ffb9ec5e5afb9bb1bdf93f958852b2b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_Q3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0065.json.gz
+    network_sha256: 4062c13d31f771b324cf11a6d47cfa07739810e672c1fb9d78370215c9c0fb15
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_Q4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0066.json.gz
+    network_sha256: 06f4d092ef73625ba75ef90ea4aa0c0441e3b0fff555079a6ea07b22635c9813
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_Q5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0067.json.gz
+    network_sha256: 604eac64db8e19d44e9e98a3fba62d40c12c59c428abe79c8f611550202e1750
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_Q6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0068.json.gz
+    network_sha256: 336feea2854a66707b3b12392ed83d01b2ee487ca8953872bfb42e8cd0357a9b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_Q7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0069.json.gz
+    network_sha256: a1000c59fd98aea83fadb1802ac9253e53e8c7fb40d2fd2f0abe183c15908bb8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_QB0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0070.json.gz
+    network_sha256: 8ca6afe29d349b2fa8b6c38c924217d487a5af570cc844717249a53788be78fc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_QB1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0071.json.gz
+    network_sha256: fc7e5c923033d9034e553d9fbe8e47f1817ee113c0f7465fe741152066067f43
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_QB2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0072.json.gz
+    network_sha256: 52df620c740dd45e8eb7701012188ff6a772f6a09749f9e509c533b54f808a41
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_QB3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0073.json.gz
+    network_sha256: b1e8136ae6dbaf0c8a4874e3f713a5916db84339c75ba47349a775b4592e003a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_QB4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0074.json.gz
+    network_sha256: 839df00418ce01cb6ce132c1b34d56e97b356370380a844eb2f108387ed61e1b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_QB5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0075.json.gz
+    network_sha256: 7f48e20fee28b8976973b62a0c3f3542b8d628a7f32c44dc8d82959ae9507ab2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_QB6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0076.json.gz
+    network_sha256: a42cd48f642bccd2de6870c7a84ec9c8408bb37346e090207e5afff56eb35f7f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  SA_QB7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0077.json.gz
+    network_sha256: b1a291d1172dda68618b159f968af351b6b157da3a564b6af3ae18b121542c34
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  WL0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0080.json.gz
+    network_sha256: 9c5ef88ad43e687ff81b0ed6844135866a830f4c4d1db51bbb9262eac6addb58
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  WL1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0081.json.gz
+    network_sha256: df4ad2a17fbcfd6054c559e51d76f0c3a2ccf929217ab8b98a95a7fd52cf8c7a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  WL2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0082.json.gz
+    network_sha256: aed462e52ea92ccd989b1003d7c428463aaef7ce5991789023205f19db4ea530
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  WL3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0083.json.gz
+    network_sha256: 44b84251ad3524fa34af1b338c62815c4988ead697a79836f005cf609bdc41d0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  WL4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0084.json.gz
+    network_sha256: e5facbbfbe134ecdbc7ea62db42ab60db2233047a073407886ae64e54e3a9546
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  WL5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0085.json.gz
+    network_sha256: 42d63e5e0f7237591538e16ef0e11e19b10fed54687470610ba01f2b65ce24a6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  WL6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0086.json.gz
+    network_sha256: c70b0a25ffa6a8a3d4d711ab34436f7e27f313439fb9b99acc8122394b789581
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  WL7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0087.json.gz
+    network_sha256: 66bf9b8c8049df9e6edb6635ec50abfc2b6789bec6b039d39ec97fb6613d33fb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/A0b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0088.json.gz
+    network_sha256: 5c8b8096735d3437b301e5a7bf038734d994713ac7fcf46016618d2ae14cbab9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/A1b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0089.json.gz
+    network_sha256: 5604e8b8d5421c86186c9cf4c8eaf535d17449dacf5c27b842eba0c21f7912ee
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/A2b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0090.json.gz
+    network_sha256: 04510a57d483e9cb196dfbc6a968788e43230603bbc167be969d43ec462b7460
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/WL0_pre:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0091.json.gz
+    network_sha256: d488cdbd6a18651340eae2cc5e89464941a995be8fe0d3071ed7041e82a1d449
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/WL1_pre:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0092.json.gz
+    network_sha256: 6e5bcbb607e66891b1e0215bf6c48aad9ed0adfaeaf4762cdd510aef95ff09fc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/WL2_pre:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0093.json.gz
+    network_sha256: d2a482a2da88b7949ecfbb9a13aa9bdf5669e0805658808f37182076fdde9506
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/WL3_pre:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0094.json.gz
+    network_sha256: ad528947ef773b79b60913036a060f119a47b22cf3d37b6d0db3e963b1e62ade
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/WL4_pre:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0095.json.gz
+    network_sha256: e0bd442003e576e024831ed9f4b711216cf13aefc3adf2e021475c40255a75ce
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/WL5_pre:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0096.json.gz
+    network_sha256: 0b81c21e4dd89468a08f8c5ba196bae038db47b83ea0119f11bcfb2ddd08f300
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/WL6_pre:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0097.json.gz
+    network_sha256: ff98909fb78b443b4b7dc5a6580c09d44c40f15a68035f4e904f89d98e2e0ba8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/WL7_pre:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0098.json.gz
+    network_sha256: 858f837add20bc2ad37d9fd2cce6ec4c990dcbd6d00580fcdceccbca64402cbd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND0/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0099.json.gz
+    network_sha256: 8d0eedfa834de3c251646536c405516f5bff51a4ad904559a7a64e533545a98e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND1/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0100.json.gz
+    network_sha256: c7f7bac5767987ed61d3543e0d75916ff3bb4a091e8de91f3db7b7b64ad047fd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND2/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0101.json.gz
+    network_sha256: 305b758535f92d24595c3e49fa833714efecc9e525881ce005157ddbf9c61b91
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND3/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0102.json.gz
+    network_sha256: 68c0e7ec36aa5618f7139c236305f198733abbda4f67e6c5947bb42b5508255f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND4/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0103.json.gz
+    network_sha256: ab2442ed33b84b2af08c099c4cb17711f2e20704c263b88ad5b4354cb10442a4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND5/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0104.json.gz
+    network_sha256: d2a04134c9de4966eb44722980c11d82d811ba7a3a12b598fa43344bc4281f4a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND6/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0105.json.gz
+    network_sha256: 699cd441102a4ac85f932b9aa6f3caa90990c8daccb8ea9897ed094f235d5a85
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND7/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0106.json.gz
+    network_sha256: f46e0d40708b71f9b4a0a24c2ccaa3591f193f6842e731563a852d7970c5700f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND_EN0/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0107.json.gz
+    network_sha256: 78a6d0f9ae469c0b9f016f73fce032432174c60b9e0fd5638b117eb672678a96
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND_EN1/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0108.json.gz
+    network_sha256: 0267fbcef31f89c501113a50aa771567e2a4203c34011459473b71db37390ab5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND_EN2/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0109.json.gz
+    network_sha256: 1251be71e1b1dd2c435e0b908f4a32d5b95fc232947a9ef33b5eda7de5df3511
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND_EN3/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0110.json.gz
+    network_sha256: 964f772789bccd301be9258c0794dd094da746db8b77d3a3b05fda1b00e3250b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND_EN4/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0111.json.gz
+    network_sha256: 96f25835d60e3b777a5413778a1b9b6823637904dcb7231fcb2254b5e8638765
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND_EN5/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0112.json.gz
+    network_sha256: 23c33a6f8b15f6020c64a291553b37f4a5419a430f4e3da630ec2670202171ec
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND_EN6/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0113.json.gz
+    network_sha256: 915556f919ca4a8437405e56b8d8c6f3661a7a1f1f5eadcbeea18578f7748702
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDECODER/XDEC_0_0/XAND_EN7/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0114.json.gz
+    network_sha256: 2f180f528159254ef6c3cd6d274f859df9739de67e32884ef493271864300a6c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDIN_BUF_0/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0115.json.gz
+    network_sha256: 9533c7d8e422f6795193ebf46c4294fde13a49f7dcc28c1853f9c74dc85d4768
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDIN_BUF_1/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0116.json.gz
+    network_sha256: dae6574fab99956d450ab972dbed7c5e7f9ae4425cc0dc5b33519086d019b3c5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDIN_BUF_2/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0117.json.gz
+    network_sha256: 83f1e2e8b31b2404181ee197a27282330e0ac6932405a758312fb113686c9ceb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDIN_BUF_3/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0118.json.gz
+    network_sha256: d45483a0bbb4879038a8c97242a60385708089e28d2e39cd74232ad84d177450
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDIN_BUF_4/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0119.json.gz
+    network_sha256: f084231e62b2d6dbd20160f6814565ec42f5d127d86966b79892cdb3a95609f2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDIN_BUF_5/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0120.json.gz
+    network_sha256: 795266e04ee9d39f45c5fa5f523149c6ddb1478730c8952ad74f6c4f95d4d2d7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDIN_BUF_6/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0121.json.gz
+    network_sha256: 6cae3e9f94e3a147d21457667aeba680833774d01f88e2da9cc9cd195d63e9d0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XDIN_BUF_7/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0122.json.gz
+    network_sha256: ddcdcb76413776c2492eb2efa86c27e31ef3d6fbe64b68b3afbd0c19f108857a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XD_LATCH/DB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0123.json.gz
+    network_sha256: d7230bd8330f44d696b7aa8155a715f43a774838b32ff9efda6b73e0e3226de6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XD_LATCH/INT1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0124.json.gz
+    network_sha256: fc349737e75e20918753940e3d4ef5c53041033b6497fb8401a7362f6b0e9243
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XD_LATCH/INT2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0125.json.gz
+    network_sha256: f8b42dbdae8e29be3c5c6794cfc88403d70dca6c4cd9fdbccb7513d0cda47a6d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XD_LATCH/XNAND1/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0126.json.gz
+    network_sha256: 641f382c729545a599a510b9ede19b802017929f3cbd113f02f3c1eb55a2bfbc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XD_LATCH/XNAND2/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0127.json.gz
+    network_sha256: 0e6585308f0491b9cbe94f59ca93e6d4ffe8fd2598292bd087a3556d925e3833
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XD_LATCH/XNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0128.json.gz
+    network_sha256: ed47b7b6897e57df743a9ae6cee2a43dd177a8440cd4f8f3c50882fe27eb22f7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XD_LATCH/XNAND4/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0129.json.gz
+    network_sha256: 19341e3223735e31cb6331b412af1445e6cd9de02bca3ece102e230adbd769d0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XREPLICA_SENSEAMP/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0130.json.gz
+    network_sha256: e1dc48cb4b777514246801911d82eab0e85ffc3b1176d8925525903b134f38bc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XREPLICA_WDRV_LOAD/DINB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0131.json.gz
+    network_sha256: 59becec67a149f5f8126a7df573c46e02c4f7f2cebed616f8af7c3d39d47df72
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XREPLICA_WDRV_LOAD/ENB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0132.json.gz
+    network_sha256: 32d6a9635b53c7c0c34862fedd4ee04fbe137f9d31088520e9556ecd79272413
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XREPLICA_WDRV_LOAD/int1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0133.json.gz
+    network_sha256: 383212f5659469de43aa6e0454337c276b6c72cee6c3b3fdf5edbc96f7a6bf2a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XREPLICA_WDRV_LOAD/int2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0134.json.gz
+    network_sha256: ac9dd3521c2b0f610a5c2cf1c9e382a5343503a07f57974ddc29ab7f90be9abb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XREPLICA_WDRV_LOAD/int3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0135.json.gz
+    network_sha256: 2a8663438589c99fc6aa0365fd01804fb3a13e60171fc73bca0066358493976d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XREPLICA_WDRV_LOAD/int4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0136.json.gz
+    network_sha256: 6ff683add1b0dac7cdb0ed309ade993c6c4bf7f4e2f77c481260f81ec4334a9d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XRWL/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0137.json.gz
+    network_sha256: 3075607f80fc13871cace24d809ce7859583c56120e53486dc1c7db4decfba0b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XRWL_LOAD_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0138.json.gz
+    network_sha256: 73afaad6198868f96e0718ad86a2798c86f11e866f67ba8142c83e4c2083c167
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XRWL_LOAD_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0139.json.gz
+    network_sha256: b68f6623c2823b18b21bd694fb4e513e62b681ba3a5330e8b45deb3b1f3b5396
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XRWL_LOAD_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0140.json.gz
+    network_sha256: 71a4754a932efaa0adbb2ead0d057cbaa6a60479809437332f01ad43f3f95bd7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XRWL_LOAD_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0141.json.gz
+    network_sha256: 383b5adeba4c723a31def1918fe6ed2a23c6dc706f17e6b711e8b6213afee5f5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XRWL_LOAD_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0142.json.gz
+    network_sha256: 4606430aaa7656ed74dbb006cc12d0c7ca0a20aab75ffe54d93a8da012c6e30a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XRWL_LOAD_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0143.json.gz
+    network_sha256: 7200d7dff80da5ece80994f75f78711d48226f40c4ad072b11cc116f1d3d60e0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XRWL_LOAD_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0144.json.gz
+    network_sha256: 3cc266d6e5ae9785ae030a38d4f1d00d4ad28372a4c45b5e6fbbc3e6099f6a52
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSENSEAMP_0/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0145.json.gz
+    network_sha256: 916010e4a99e377121db9467210fd02912e26994f1efe0ee61845c2a10f0ffb9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSENSEAMP_1/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0146.json.gz
+    network_sha256: 5614102a662ce6c939d8cbe8dfd57b354722eeeb6ac6c36405821232b68df4a7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSENSEAMP_2/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0147.json.gz
+    network_sha256: 63f2cddc4419fc7001b47dabf4567f4de568b8da8f6f095c00782bcba5eb5287
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSENSEAMP_3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0148.json.gz
+    network_sha256: 0bc5997029af7f0027856a7d5691b19717078d786e96cc992b2deaf04d2cce42
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSENSEAMP_4/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0149.json.gz
+    network_sha256: 9e76bdadaeaecc1d3e183717726455710f154e42eb5e5809bcdd08dc9111f4d7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSENSEAMP_5/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0150.json.gz
+    network_sha256: a11ca56c9bd19b81e6b3cca06305479de91fdde1f45170354217874250693a9b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSENSEAMP_6/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0151.json.gz
+    network_sha256: 971f40afa51ad173cefb1bc81e91786595951576be739d59407908c3bcb307bc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSENSEAMP_7/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0152.json.gz
+    network_sha256: 5489c82794790bbf939698732182b686851ddce62dbb403c35087cc27815b739
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0153.json.gz
+    network_sha256: 73fafec753a4937941dcf767f3078e11f60bf31b9f4ac6a3378a99f7f2977479
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0154.json.gz
+    network_sha256: 1b981427cd8e4f5ed6d469f3ea5e05d51ae7fc3c284995a6dcf50e6c2f4d1d58
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0155.json.gz
+    network_sha256: ba1ea5f2e25051e4ea19daa160bea3de86f228fee5340f9fc8ca9330b10fa203
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0156.json.gz
+    network_sha256: 187b3b3947d0a0c1f5483b409ab9d5a75818ab6774e44861bb50663c47194a3a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0157.json.gz
+    network_sha256: b2bc8495e6bf02a8b1670b5940e8a6247f79077c7e4761bc01f63e2e52bf18c3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0158.json.gz
+    network_sha256: 654fd9e4aed473adf282396605046e2a6dcf7d35865badbdec8cc32064114ab1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0159.json.gz
+    network_sha256: 1be0259e5ac3a6bde25fbba588d0d87dbbce3d1a12670086ef42d284ae269870
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_3/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0160.json.gz
+    network_sha256: 42260e6321e87058d542aec38cf90740951c4b74bb84c76921bf38831bd8fda3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0161.json.gz
+    network_sha256: d53c4d55f6ef7b257ddc0fdf0202759b685db8f9d9c6c7042acb24e5a51d3f87
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_4/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0162.json.gz
+    network_sha256: 3d7c4076145c6c501bcdf158cf70f81ff0e90a03d963493fa1a87aa2241d3069
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0163.json.gz
+    network_sha256: d259dd972c2718e982b84fdf00f2dddddcaf4b9e35a231ee2db1aaede6eff7ad
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_5/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0164.json.gz
+    network_sha256: f46f1c96e65c4333b0e2158a8d6bca2ffff420cc157080a8e0cd3f20b7a6498c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0165.json.gz
+    network_sha256: 028717e2fa2cca8fdadcee212a4069099213ef1eb071058280e78ce9fb5fe93a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_6/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0166.json.gz
+    network_sha256: ef60d8e6c5cabd16d18bb518de4b1950c4dd984e2cfd6c3e80b3921333d4a86d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_7/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0167.json.gz
+    network_sha256: aec30b4fa6674cc3513c4249d9efe64873a3f0d764c00644cec9ee61e3cbd9b5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_0_7/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0168.json.gz
+    network_sha256: af579b864c90feff0f29611a74ccb8f1c94e83a893e2537d32ae053b5b318240
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0169.json.gz
+    network_sha256: 9ce2459657e5dd117ee7ee8550d04ad45f2af941ddc2c9cf39c9c025df73391f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0170.json.gz
+    network_sha256: 7f69ab8378d2d969fbfa72596aec199be4bccb461cfffbbd57f5de31a681999c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0171.json.gz
+    network_sha256: 6429530e01c1c9b89843b8108e6e4239652d72f5f272de6f1c719b5824d14eaf
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0172.json.gz
+    network_sha256: be4bbbedceb7c3a84111be1b743334ca935f5298cd1484378d136d7a9c78b9cc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0173.json.gz
+    network_sha256: b9bc39a8feb2883f03d22d3aac086741402c244d308975e82dccad5cf276d59d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0174.json.gz
+    network_sha256: d64b59d33121ef079dabaa72710cf82e78a5e0ad6a5f9c047aacd68a3198cd95
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0175.json.gz
+    network_sha256: 9104b89aee343e497ae15ebcb959afca5b8f85e3bb9cdd672fcd1066788d9dad
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_3/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0176.json.gz
+    network_sha256: 333e43074c62a1f83ac17c932a34ff20cf410befe949b345d8f438f9e547a851
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0177.json.gz
+    network_sha256: 82bbc2f8c333a56048f3db01d621239484cb2855f244d01f85cf67dfe132d988
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_4/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0178.json.gz
+    network_sha256: d16947520215d3018928e37a42a83724b0dc8a9c3a185d183afaf03806f8618b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0179.json.gz
+    network_sha256: 604f7e180797ead1658e71f14a59a8e1373e3a43108bdd83694a297db374e0d7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_5/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0180.json.gz
+    network_sha256: 75203cf99460b5777db5f84b375d2a67d3cdf723d096a86361e2014ebbbe9199
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0181.json.gz
+    network_sha256: 38baf9eb619e31daf49fe8c153355e6cb35f4d804691e3cc9d3a332019a3e6a4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_6/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0182.json.gz
+    network_sha256: 6849293ef2a47235f75bfa18ea8f1b9ea7c686d86fccdfec27e1261c5a5da467
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_7/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0183.json.gz
+    network_sha256: 2b1562c65e5ec296464d2dea492e6f2a4a18422256305d0e1bcd8b7c9c86f5d5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_1_7/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0184.json.gz
+    network_sha256: 8f20f71b87b6981022800fb4878b4e818af0fa6f169e0e8c7b6b849f93d5a343
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0185.json.gz
+    network_sha256: 6fcf081daad1793669cb2236bbbc3b7356cdc2058ea03adf30c30d9a6398adc7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0186.json.gz
+    network_sha256: c6ccf5cc7fd4552522c76df9b84954f4b4c98de4c0aacffbaa9e52b7dbfee809
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0187.json.gz
+    network_sha256: f8fe39b82c999301da8cec2a1b7d93ad6014e7dd238eb5701797abe200252219
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0188.json.gz
+    network_sha256: 3eb61ab7e040a280b8ea66a7d6e2443b5d3cbef4f1ddc3e62aa972d68a2c8002
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0189.json.gz
+    network_sha256: 21b95646e87ef74814d20520262f0457ca513e4c78dd86d927906c83ffa054a6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0190.json.gz
+    network_sha256: 34f10db89eed316fd6eaee8d246a33da9830c250f659e13fc7bfd04f36f37b70
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0191.json.gz
+    network_sha256: cbbb74524713c1b66528108632bed24d7950da17559e9dd3d4ce2864923915c5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_3/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0192.json.gz
+    network_sha256: 7236de35f7e7cb5381968d544f50f558b81b8d1d9577636cb62180c4a9ff3e06
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0193.json.gz
+    network_sha256: b589e3fb1d2ffbb7ad8038b7266eed581fd7dc67f6b52b45583e0a9c45896044
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_4/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0194.json.gz
+    network_sha256: 7b47ea3a32aa6d1db58e2b6ee31ea2f355e9f85e005846daeca2a7060972c2ed
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0195.json.gz
+    network_sha256: 258acb36180cb17ae1d5b332df840a41b2d40c059bbf7faeff06146aef806cf3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_5/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0196.json.gz
+    network_sha256: a5ebbceb8404678ea8addc64cb24b0f11855ddaa26f14e5947b2ec3b65f49bde
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0197.json.gz
+    network_sha256: f68bfa9c1b270cdb7764e797b786b74965c93c78eb5ac95b52aa06b3e6c2b2ee
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_6/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0198.json.gz
+    network_sha256: c4cf67f325e8b34e45a45876029603c1a0f01f9467b591ed8f2db19419484024
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_7/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0199.json.gz
+    network_sha256: 7a5d35069baaa872862fb2f22affc1733a9ca514477b7df0c15928cab6bf1a42
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_2_7/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0200.json.gz
+    network_sha256: f5ea8f69258a6982e568316bcf07ef7de4c91e15bba3a0327189e2e4ab5b6127
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0201.json.gz
+    network_sha256: 3d9d25ffe582bfeb3ee940b0d41e7748f5a240553d88b084b23f139afd359f60
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0202.json.gz
+    network_sha256: 8d9cf06211524ea96990f98a4479e6886cfcd52aa9df243cfbb87cdb292e3815
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0203.json.gz
+    network_sha256: 1c0c53f295844b0ae32d35ca0d18a7ff1f62c5a1a464942507b853e914aadc96
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0204.json.gz
+    network_sha256: ab29bd7d116a12e2873226d4e36b86be9528ed80a121d3f51592ca2b14310e51
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0205.json.gz
+    network_sha256: fd18327f05ef72751bb48ed537a14d326c0a818179c5ed60b28fbe51603dedca
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0206.json.gz
+    network_sha256: cd903492425494c87bc88854049448e6519a98c4703a6767485247a28f52a1d1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0207.json.gz
+    network_sha256: 2818ed800d33fead821577af698e41c97053f7a0ad7e4bcf0d43f7f1164b8717
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_3/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0208.json.gz
+    network_sha256: 706c6554b1ffd81bd2b9467a3fbff8553f7748362fb6f8303c06d289f8e3bcc8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0209.json.gz
+    network_sha256: 6296b98efea57d5bba57c549be8b1c381f9dd934df8e421a3ec7918bf32dc77a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_4/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0210.json.gz
+    network_sha256: 07d602d9f8792f1f99fdbe2d67c60baee6d4de71fa4d5070e72718103d59dec7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0211.json.gz
+    network_sha256: 5678794106d2cd5b90f83f6ac20add0807c480e3a80baacccd6417b2ac2e2a40
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_5/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0212.json.gz
+    network_sha256: 02bdf987d98cb5f96113fdd6d488066ee5fd7e615865987d4d1936e1cccb54aa
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0213.json.gz
+    network_sha256: fededc84ae0ed7c08a4f378f9b0ceee5f0714c731cda2bc4084e7d6e481029bc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_6/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0214.json.gz
+    network_sha256: 54da293a0bd11b46863ef46de7fa3406d07722bb6800858857db52f0920a75d2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_7/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0215.json.gz
+    network_sha256: a77a2b8740a0891b579a3b87b7bb9eb932eb4e11a962fcc13c18baad969b294f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_3_7/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0216.json.gz
+    network_sha256: b5eddb87d95c5d315877b40ec4ef8be2efc1952822bfff7314e7f30d7b6b4325
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0217.json.gz
+    network_sha256: 20155100cc5c3744ec971798ad0273e5b8e5d6644073668ea8c7c565836b8078
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0218.json.gz
+    network_sha256: 25ee6238cdcd2fe70ae4425445a3bffa3a131f5f59f18396565cb04c7f054f00
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0219.json.gz
+    network_sha256: cfe089ac6efb0c65cf4f4e944d40af6861a38d7e9ff788a1e820451b63946a96
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0220.json.gz
+    network_sha256: ad0ed922592d040c1ec7a248b638f0f5c9f5d1b2d9275ecc192763e48d9e6700
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0221.json.gz
+    network_sha256: 14367cf72671cc1ccdc7c421404be9023a34e43ea1299a98b198ad0db89d2085
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0222.json.gz
+    network_sha256: c83504d8fb377e6cd7942a2aa7788f9d8c6eaafe1e442a16ff9796e4aa431b36
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0223.json.gz
+    network_sha256: b25dd05651fb037f7036a49a2bef3af7b6a6a5db06f146c59f963d721cb257b2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_3/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0224.json.gz
+    network_sha256: 86f0ae12e4d1c1bfb79715c4a8b7ac348a0904989e2c08549a5e579ac07937c5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0225.json.gz
+    network_sha256: cf8d24741610f9134444599354b625b48d6512ccaa2f6f945fef0ae5ac5f7f40
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_4/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0226.json.gz
+    network_sha256: 21e24e67adccf2aa7c89c0fb5461b158e2397115f7765cd8bb06cc1588df8729
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0227.json.gz
+    network_sha256: 81b364b4e1116bb50204a3e20d736ae94c7c1053e374a7dd35441c5a1426862f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_5/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0228.json.gz
+    network_sha256: 5f2f8325769477efde0b084fea5e2bc053a744a5c06917ce50a349f3a42ff8c3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0229.json.gz
+    network_sha256: d4ea7f2c36e8656858037f13c0d8a2d574962831c3d27e9da3b974800be9cd95
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_6/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0230.json.gz
+    network_sha256: ad1a908f27d51ea799b38fa24a49c514b55244830bdedb0c5604501447ff01b3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_7/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0231.json.gz
+    network_sha256: 53a2db0001fc12fbe1bfe06e27bb8cfef89780a2599ae874185f1b2f9424caaf
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_4_7/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0232.json.gz
+    network_sha256: 58187e0f64d2ee30c66e477ae67be2838ce87931e1bfec2e663b01be0d872b20
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0233.json.gz
+    network_sha256: ce7bdc471938d8c74c5e89e7c3e851678f0853b3d1a19ea5522bc9d42764daf3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0234.json.gz
+    network_sha256: 05ffb0cf1582d227b2f8301e6c09ee920e5bb06a35e2d55201162440cb18d5db
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0235.json.gz
+    network_sha256: b54d974e18c388e8547b86a1c251fa0bdbcee9e4431d472420611693d1dc8549
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0236.json.gz
+    network_sha256: 91faf7ef95a6ec7a67720775843949da4d916b481d5d601ef49578e24d7df2eb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0237.json.gz
+    network_sha256: ab985e9a710f0bd307602be77fd11388b707045f192fe6d33445604af02c1bb7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0238.json.gz
+    network_sha256: aba2c3dd821a4f068c286c66b430ec5f70f8854fbca81590389bae44384ee55d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0239.json.gz
+    network_sha256: 3d64da469d00cf699db875e98eb6d3965e96b310fb028e005f298b86c1e8d935
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_3/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0240.json.gz
+    network_sha256: d2417712a63ac6a6398df6f69e7f1aba6e1652d9e6c4c26aa007ea5edad10e4d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0241.json.gz
+    network_sha256: c81c9cc5cde37c2083b2e86ef9281880301b4396bef3256336fad92e714aca97
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_4/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0242.json.gz
+    network_sha256: 2894c5df2f826f1a3025d33bcc468a191fa6646e97bb5f2a4858f11382b59c53
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0243.json.gz
+    network_sha256: f5394c7fc28993d768d66d3fc0e3840608d6e2fcc57c9799a7bb95147deda0d5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_5/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0244.json.gz
+    network_sha256: 3e765c282eed8e6cb0b53ccd8a3925d7db1e5c593414f89aaa7c2a2be9517d5d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0245.json.gz
+    network_sha256: bc80af2dd66a8ce6f39016fdb4ef49cd7b546b75c451fd8e78c8eea8c42af348
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_6/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0246.json.gz
+    network_sha256: aa8ea0cc71fcb3c1432d13a6344b83f26a1b7967da927781df27574a2a025458
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_7/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0247.json.gz
+    network_sha256: d30abb371802e4480c8ca475a2f09d8e0ff7044ff383772666dfebc5ac5b52e8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_5_7/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0248.json.gz
+    network_sha256: 1b44c32bd0e5d98ab7c2246502cb759246f1fdad49c528e06dadbcebb96f598d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0249.json.gz
+    network_sha256: 68ce9a8c2a931a4196765862e7a12ce79464bf733419bbb410a7cd4bcd28d0dc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0250.json.gz
+    network_sha256: bc729a0e6adefc2c10b5d32f96885926baba043e600f61e3d4103c8bf89aefd2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0251.json.gz
+    network_sha256: e60228f55591e2f5aee19766b072be737bb5eabc32b63751680e97331a621958
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0252.json.gz
+    network_sha256: f2728543944979dca5699caec0e7d0f631959c47e098222afaab9b0eae1aa560
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0253.json.gz
+    network_sha256: c16c5204604c1716bb5b058ae1791cb357def812c7386039232ca9cb0ecfafee
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0254.json.gz
+    network_sha256: 36856d162e4281dd79c9eaca2ff48ec248326662ce734f3c40cbef96f9e8065f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0255.json.gz
+    network_sha256: 914fd2a3913039891be1f08c112c3ccc442c9a2ce35fc2f988ff37dee6ce970c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_3/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0256.json.gz
+    network_sha256: 069bebdc9bc81a7fb575296153ba542132bbf1f92ed8e8c2f3975b47e4982f30
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0257.json.gz
+    network_sha256: 9812f5399095d28116102ee758de1904863f4a87a1e12b85f82796aa351b0531
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_4/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0258.json.gz
+    network_sha256: 363d4132c034a84940e9bcd3d7e043a02585fc4b1a425889cb90c2b83b0c0ecf
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0259.json.gz
+    network_sha256: ee0d2d025e3da36815bd38f2cf8ba523b45f2388633e4fc477ac44f74aeccd81
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_5/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0260.json.gz
+    network_sha256: fb5ffaa0c7e8542ed1d687445523bfe8be03aa8a96bdfe281c1cacf73e91d863
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0261.json.gz
+    network_sha256: 4f53b99240ff98722e2df80adf800307b0d827500115f71b5055e551f7752d19
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_6/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0262.json.gz
+    network_sha256: 7c8e1b560f6242a55d275e50506b099a78290136015f0e028bcd1c047c9170af
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_7/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0263.json.gz
+    network_sha256: 8ad5b9866271f32b8aa32c348c0d7dd64ccf215189a1f335863ab9c6d2f76c21
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_6_7/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0264.json.gz
+    network_sha256: f1f34597c892d3b09b76ae3058b3229c5f3d43a94921d23c032372d4a2f81618
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0265.json.gz
+    network_sha256: 6a4390be92214686a515f6549db035ff339d63b5bcb5e232fa198bf09d58003a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0266.json.gz
+    network_sha256: f0295236039737c2b3750a433b5d80e557a7b56e09640e6fd1618a4ef705c7c0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0267.json.gz
+    network_sha256: dd584e1d787996def95ea11bcf1a7bbd0be1568afcae86b354444aa0fcda59bc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0268.json.gz
+    network_sha256: 66ffc66c6781176eb83b0a643e6359558ce9b93723b5a030bea9a3cb9b8e7d8a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0269.json.gz
+    network_sha256: 1f1f8f2637bf479b2d520509d1353e7c3a2c2b1091873561395e8874063d2a8d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0270.json.gz
+    network_sha256: 3909cc8d5f63a3a2632fb3f624c27887418c27856925f98d42a4d5e590f5eb94
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0271.json.gz
+    network_sha256: a5f833d6516030e0838b77a3e6b78750d1edbdfcb73f91f44ff448dd14fd5949
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_3/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0272.json.gz
+    network_sha256: 4cff2a5bc6fc8b4cc6aec537e7dc90076a7fca302f73eb031f444ebb0c1c356d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0273.json.gz
+    network_sha256: 7fdc3914225f163cc36fd13792bbd68fb13f2ec00378d2bd48c1cd10cc6b3d59
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_4/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0274.json.gz
+    network_sha256: 3c9bd09334b5366cf14a2f1cac1329b29d4b9c576f1ba4a86d139bfdf4055103
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0275.json.gz
+    network_sha256: 93dd96080a4f36de04255b846852ef0675e4a40d1a3a56a7c150de4335ee6536
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_5/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0276.json.gz
+    network_sha256: 293c5f55cc9ab2c7f504b15e66effd7cbf5c2f287cd2fd34eb5b419a94b22b54
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0277.json.gz
+    network_sha256: 56d9e6c3ed0522ab81fcac0c4e7486d63871d1469e9b71cd4e6c0bd7789cfeab
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_6/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0278.json.gz
+    network_sha256: 766e6a41d502025e5f1696ea9cb0f387735bb4b92544ee9bb68ed8c131fe83ec
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_7/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0279.json.gz
+    network_sha256: e37dfed99f77670a8160b96d521230c4cd161212b817023ed0121e8c5a6e71a2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XSRAM_6T_CORE_8x8/XSRAM_6T_CELL_7_7/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0280.json.gz
+    network_sha256: 0512a90dde58307ddd843d8e0d70bca7bf986727098b7c2d433b4a8f4e1bbac6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/A_reg0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0281.json.gz
+    network_sha256: c1dffc5f701b206e4d84327e712ac65c0f28daafe0eba93d7320a207ab953975
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/A_reg1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0282.json.gz
+    network_sha256: 9fc212ed61d1fae717df6da0d1f2c304268f1a8f76b7fdeebd357e1e66b61206
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/A_reg2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0283.json.gz
+    network_sha256: 45eb3f51e556884f9867792c81a671eb458a2edd46d86dd8a6cfde85ca57779c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/PRE_UNBUF:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0284.json.gz
+    network_sha256: cea8c14be02faec5836b907e40f1ca48deccb2f8021970ec89860ac2e1f2429e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xready/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0285.json.gz
+    network_sha256: 4181c4d3d726eea9730f63b99a15bf31e679de6523c36414d2349c0d7e334e40
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xrequest_gate/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0286.json.gz
+    network_sha256: 7e28cbac3257e97626d6cc8f228e6dcf090d87827b2589c304e715c3bd5a8c07
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xrequest_gate/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0287.json.gz
+    network_sha256: 3e6a44dae0ae303ddde6ea9ff5321cb893ea4a51a2626e24aa0488f892e2bbb6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wen_dly_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0288.json.gz
+    network_sha256: 6f5aa6060f6ef99fe1f41537b6cf890906be1c6380d26f6aac715fbc0caff188
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wen_dly_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0289.json.gz
+    network_sha256: 9eba0566536341a6e7b4c206514c4d27156a80ad18ed896934f8ec0782aff4ce
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wen_dly_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0290.json.gz
+    network_sha256: 6c21560dec049281ea8a80f1f5d150a5ea5f7f05a34a46dcaed2235486a22353
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_0_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0291.json.gz
+    network_sha256: eb142efc8ba9a7ac58e7bb9e462de437f26ca85f8c3766b680004ffff8c59306
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_0_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0292.json.gz
+    network_sha256: c17c77a2b9ee43dcfeb38e44561a338674df11ccd58cd319c970301851085266
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_0_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0293.json.gz
+    network_sha256: f19383c2c4b4a9a08d010a0a833d6aea72b03e6c7d512c28175c3c325cc3fe83
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_0_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0294.json.gz
+    network_sha256: 1352ded6b93cf5f2281d8d6dbc23233c9a24810c35a6bfe8c9895fc7b6a0a671
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_1_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0295.json.gz
+    network_sha256: 2f490cd89d0905441992458cfa3a875a7f139c62bde621228d2dad2aafd01b45
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_1_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0296.json.gz
+    network_sha256: 181872398fb55fc4199a9df1f5c6f98b9436d0b5814a862419a63689df02b2ee
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_1_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0297.json.gz
+    network_sha256: 7a36a04c82be4adc8f8abfa409eff40a919c94ed81703d9fff840f46e59a7f15
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_1_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0298.json.gz
+    network_sha256: 3820b7bde387b1fbe56e870eaa45a0faf6fbbf8132e6f14c11f268b70bd942fb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_2_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0299.json.gz
+    network_sha256: 6082e7f6f46f5e8c6d26a784958062b7cc1b0667267355c2c1a203567b9f94c7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_2_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0300.json.gz
+    network_sha256: f7473aab1865a83228aa91efd067308a7b07405771f949a76b1d2c78b2511eeb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_2_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0301.json.gz
+    network_sha256: 66bb9bafe178ca07db333f499b9e2389054635b053cfab948bdc5363b061ccd0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_2_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0302.json.gz
+    network_sha256: 057d79fc46529d2f03d673492b09f998c427e2b8c9fda2df5f9376de3236ab98
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_3_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0303.json.gz
+    network_sha256: b60f923558eb842a4f0624dd854eb7c31f1ca951da7e4f697b0db09fc7c9c012
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_3_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0304.json.gz
+    network_sha256: 378829d1ce3e86773d0076ab25efa57512410da633275dae4f6d6631ec37b3af
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_3_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0305.json.gz
+    network_sha256: 3aae3e04bef76ff5d756634cf2087ec1dd9dba689df20a726b7c13845dc5e222
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/Xsettle_pre/wn_3_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0306.json.gz
+    network_sha256: 0ca601acff03c2d53915d6e11ad0f4ece57c38f1d5cbf6f91be4587457ef16fa
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/pre_on:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0307.json.gz
+    network_sha256: ef22a60ca64835e52b3a7b3e927e7e901c883bc9e27773b04c614c6f24e4b617
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaccess_guard/pre_on_delayed:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0308.json.gz
+    network_sha256: 79229c0175fbc6f0aa2ee240da28407084c8b166397a70a5c692ccfdd6098d9a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaddr_buf_0/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0309.json.gz
+    network_sha256: 5f323c40ee4b2a8116e919215911f1069dcaa8038dab3eab0a534d77c35b66e4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaddr_buf_1/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0310.json.gz
+    network_sha256: f2fed210fddfed2e6d03d6f5cfd3333e5f18bef6a18a3d3ffb610f60de47c895
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xaddr_buf_2/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0311.json.gz
+    network_sha256: 8b588b7d99323e6d0354dee5eeabad196d2cf42494305b515c5ecc396d3568b2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xand2_gated_clk_bar/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0312.json.gz
+    network_sha256: cccd0a14ccbef58e5541b7900a6af170c7329377f1bdb39f8c7dbe272892123f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xand2_gated_clk_bar/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0313.json.gz
+    network_sha256: c8627b4a5ea19608c871cb198749b371f38d6c7e479821315ad8c2b03a3d37e4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xand2_gated_clk_buf/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0314.json.gz
+    network_sha256: e1d414af9b3dd9461b03cf24e85fcd9f844245312a32fb1eec72a5084d0b6002
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xand2_gated_clk_buf/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0315.json.gz
+    network_sha256: f634abfa5dfd8d4a1fcfdc5830ba8b7c614a81dad06e69c5beaf0168382109af
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xclkbuf/zb1_node:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0316.json.gz
+    network_sha256: af6da2c4af393eae814c9b61df135770d7cac0c0ad057783480b6fea88cba1d7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xclkbuf/zb2_node:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0317.json.gz
+    network_sha256: 31dc56f7cfbc4495f6686d551b57b3b4e196e7b009cbe66034472160d8287050
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xclkbuf/zb3_node:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0318.json.gz
+    network_sha256: 395959280f7d19398bf804a2f288f71ac7e60cbfa0517fd7471074a3e4f34a18
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/dout_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0319.json.gz
+    network_sha256: f05be53091b2a3d2d35f5fa7bf06920049b979ac688d08298805be07c728ef56
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/dout_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0320.json.gz
+    network_sha256: d5883b8ac7df7de842654ce749f52fdd5725d59e5508c8f88c4ef8d196cfb450
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/dout_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0321.json.gz
+    network_sha256: 0f7ab2f194b1d7d8dead1d97ab61670d33dcb491da9c9b98cddea191b89dbe61
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/dout_4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0322.json.gz
+    network_sha256: 227c5a86aa80a04b747d1f4e16233b527e7122cc3fddb45ad296ccd3d8765c19
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/dout_5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0323.json.gz
+    network_sha256: 926932ade88615cdb16f92992b287f6d48beabfa68fcc0b6a5afb75079b8c8dc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/dout_6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0324.json.gz
+    network_sha256: f39a225dba328c2f4026a4eecadebccaa7761fb4130393a6030c873fe27c99e0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/dout_7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0325.json.gz
+    network_sha256: 14513f87d9e401e507cf6cda06416ba958d8637ee5e852c0238b726da3efabab
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/dout_8:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0326.json.gz
+    network_sha256: 18a8a7a001e98374d23d35a36ae56ec4ece884be454dfad749b4d94e116a82f0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_0_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0327.json.gz
+    network_sha256: 75490aa3d6abcc43fb6bf67fb977753f833536385479fa72321bb49795a8db70
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_0_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0328.json.gz
+    network_sha256: a316510f012ecdc5d33a46f1975e16933bbafa6924ae2e15d44ea2fafc05485f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_0_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0329.json.gz
+    network_sha256: e819d9b955388ba79a3f2e4dccb4d60a938f00f23c5fdf05cdc8a1839643fa8a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_0_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0330.json.gz
+    network_sha256: 10d75208d90abbc5106d8d6148baf36f6ea6a2333bacae0f2a5a805da8a5172a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_1_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0331.json.gz
+    network_sha256: 5c2e367e133b96974d2ff42150541aa668724e7cb81700a7ed126045ec79e206
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_1_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0332.json.gz
+    network_sha256: 2e59e1668f7dcd05d5d8815dc159578be65253e34c5ce85bde3fca0dae222086
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_1_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0333.json.gz
+    network_sha256: dfb5fb3b729d829792008fd515fe0a4dfe668919abe6c8fadcf26efc53d46e7e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_1_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0334.json.gz
+    network_sha256: d6bd429bc28880c00d8a18bd800f0170873bfb0ffd90e499a6656153f1549e9f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_2_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0335.json.gz
+    network_sha256: bf5ce1c7cffe81a97525884c5bd1666a0c2c5735354d2f544548e07db3637be8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_2_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0336.json.gz
+    network_sha256: a41224b0973bcb1572a53b9be32b148dd0e462d9c9f01cf38d4725129376d600
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_2_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0337.json.gz
+    network_sha256: 00441c87bf8a3c8bfcd85458f740f8cd310d906450669adb7a369b9882492b55
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_2_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0338.json.gz
+    network_sha256: 3cd3914e71df60232299a56afe76f02f471bae5cad1622e596c62918eeab6504
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_3_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0339.json.gz
+    network_sha256: 1e9b86b691b576f3deedbafcac6d0210459fbd852e98adbc41a240f7aacd92a1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_3_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0340.json.gz
+    network_sha256: 343d9856d2231f1e79666e935f01348180cc91bde9432b78ee01aff4e618f422
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_3_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0341.json.gz
+    network_sha256: efdaa831ab957b69d1e519ded4b9e1d7496609fba7469561d50344cdeec681c5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_3_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0342.json.gz
+    network_sha256: 003fa954b384c73ff3d01c0680edb532a865588171151af680dd0a19654bd8b0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_4_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0343.json.gz
+    network_sha256: 88985d0e59947988c9bc7a587db0ba2c1269f283da2246e60e31fe55d2b27df8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_4_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0344.json.gz
+    network_sha256: c2e7d93d7ac366cb68e0772aa3f7d31422bd0727976b6de3866bf932547a02cf
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_4_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0345.json.gz
+    network_sha256: 455aeb12b945081b3b48ccb62dc99f2277a23cc12ee9cd4973e94beb0b78193a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_4_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0346.json.gz
+    network_sha256: 6924a6f8b34602442070be785c01f89c6a63d52c1a760f645459fede06344eb1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_5_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0347.json.gz
+    network_sha256: c1c9f84c8c31a05e1efe07745dd2c4e853d6ae39acf3a1d3c0f76041efbb73db
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_5_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0348.json.gz
+    network_sha256: d1ad75db700f3f3102b07a5232dad6691953c1e325db7fa334837c9f8a8c4929
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_5_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0349.json.gz
+    network_sha256: d91407745c056ed094e8efd722ade1b75a4fc84f4da8e4a27d283ffc7dc1880d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_5_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0350.json.gz
+    network_sha256: f23f000df8fd2a61453459e6586489392e2375588950a601cc49115feea2bf81
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_6_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0351.json.gz
+    network_sha256: 9d76b63b00930fe4bcd5173275c43db32e74f839a3a9b0a6807280c7ce9a91a9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_6_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0352.json.gz
+    network_sha256: 4128fcc816421087989a66aff5e2eae76142220aef110832adb9381e3dafb800
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_6_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0353.json.gz
+    network_sha256: 357650be561cd92526d326352cbbae846e945d8f3a9074ecff4c230124eeb7a3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_6_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0354.json.gz
+    network_sha256: f7d6bdd95e4b986e423d9dec1cea465335c4a527b7394cf21e1ca1c7b3b3344c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_7_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0355.json.gz
+    network_sha256: 0da43c359669deb2b3f0906e0cc696d75cf537d89aef363eae71880668c62059
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_7_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0356.json.gz
+    network_sha256: 1738ae7f67ff9e0f57ac923a668f6df96b39a124565594cf00276b69469dfa54
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_7_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0357.json.gz
+    network_sha256: 9262e55de00156cccef71360b1a255c376142eeeecea8e56ad7a6ec42023fdf1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_7_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0358.json.gz
+    network_sha256: 878e06c24b87cb54e9539d0008afcf605510b7698afa5ebabe21b75c92e8d7e4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_8_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0359.json.gz
+    network_sha256: ff2a4adbefe3cec54bd226ddcf41a48bc26854f0ce6e2ca54818edece533bbf4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_8_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0360.json.gz
+    network_sha256: 32923a769701a46f8efad8d8d0aecfe40fef00708a8bc744fe29dd500730dedb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_8_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0361.json.gz
+    network_sha256: c5a0740dc2a98d5810f2f7c3247ec54c62880a8add6ca2167843f9a4a8222dd8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdelaychain/n_8_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0362.json.gz
+    network_sha256: a88f1a983b5813ea7a924501a07a26b504ef3747616664908d24dd74c8bfe35f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf/Xdff/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0363.json.gz
+    network_sha256: 60904b0a3cd93a0e26c9778ee9fd5c4429c24780f81427c1dc5fc34917c30a7d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf/Xdff/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0364.json.gz
+    network_sha256: c7acb473da85738c3ef9055a801c535ea4afc8e175c23f484d52311f0e210c03
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf/Xdff/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0365.json.gz
+    network_sha256: b7123db92c0a2b641a77644b2670634d9d8b5a629690e8b14f187f61846f7ee9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf/Xdff/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0366.json.gz
+    network_sha256: 89945c54964ccd700a82280ae2e489d104489a359f7e16d1d57a345505ae4c5a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf/Xdff/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0367.json.gz
+    network_sha256: 46faa78f18c190324b10dff2ef84f364b069f073e47d601c18a75901b343ab0c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf/Xdff/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0368.json.gz
+    network_sha256: b8b9b399f5cc33c91cbef9efd1293ab576228b5039da262d8a57a76d4d5cf57a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf/Xdff/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0369.json.gz
+    network_sha256: 96a288eedc1e47d13593eb90b4c101c30808c3df06f98af9dfc4ff55aa39945d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf/Xdff/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0370.json.gz
+    network_sha256: 1f6bb2f6c425e82b4497e179672186ecbc8f13430129f7e8bd160310cbdc53a7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf/qint:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0371.json.gz
+    network_sha256: 7ba1cbb586cf5673d98779008865443e69dc3343386e81b41473b2b99cd517a4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf1/Xdff/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0372.json.gz
+    network_sha256: df766b42418325e2d6d56453beab3e62571b8ed728db60239702c469fbd6a05e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf1/Xdff/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0373.json.gz
+    network_sha256: f0619bd229202534adc888d8562a49e3da1544c47c2028b13a63f9826b88b99f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf1/Xdff/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0374.json.gz
+    network_sha256: 5d5ddafc965ed717ba37b81e201613e37658ac823dd4c31132b23fe643508444
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf1/Xdff/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0375.json.gz
+    network_sha256: 26d82055a94b254c9a8f32ac9ec7356deb48f5c13f71fa3f21d5a9c8b570bd55
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf1/Xdff/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0376.json.gz
+    network_sha256: 437cebbe278bf03ea6d2040e97fc482961931092602aab5598e678d636a9346d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf1/Xdff/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0377.json.gz
+    network_sha256: ff82e956600b4091947c9e1276b18c45e25756647b7a3c9c95c66da8080929fa
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf1/Xdff/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0378.json.gz
+    network_sha256: da2aa8b5094eafc82e9580b76ac4908d0534fcc4ebb3c72e72ffdc0bf93b199b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf1/Xdff/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0379.json.gz
+    network_sha256: c95706cb0e4d5fcf8b50fc44101e79507d77eceeb31c20a27b93b6fe30c98e2f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf1/qint:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0380.json.gz
+    network_sha256: 4a80bcc13f98c7481a5654828a627985cf959f81492267840aaed2461307139f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_0/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0381.json.gz
+    network_sha256: 978fe193d485387f1d2d0129588c7715264d16c79d3664a2cfa4bf6385c67b6e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_0/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0382.json.gz
+    network_sha256: 2c0fc3e00a95279188b78815202489f8107a4bae0c7df0d2213ed51abc3bede2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0383.json.gz
+    network_sha256: 3d4fa85ea95e33906899ff3d80f5caf5c7293a99118370adfc0e6459b377fd1e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_0/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0384.json.gz
+    network_sha256: 0725f00df48f9409a577b2f7017c389ba7abb7cc2de87a1978d10c4522edcf14
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_0/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0385.json.gz
+    network_sha256: c9a7fd4ec6882d8abae13a2f0c84a41c640d15c214f9d2a5718466b95ed5af79
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_0/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0386.json.gz
+    network_sha256: b34992db21645cfee7aa7dd5ff5699dc9fac6bf6eb6df49f6a073c27cdb281b1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_0/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0387.json.gz
+    network_sha256: b88984f1c6be853e1880635a7e9de4a41a7c1da3f997e17dd60ab028781daee4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_0/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0388.json.gz
+    network_sha256: 6d8a8418cafd1889e4aec8f130e53b1d384a21abebdb8b061c56f50fc653e40e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_1/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0389.json.gz
+    network_sha256: 51f71a2758ac1324054d8c488cd062c67a772b6792abdafbf62328b3ed17db84
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_1/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0390.json.gz
+    network_sha256: f2e26453d45ff6e2c4656e56ee8ab543c596ff9b19b41dafb40cf7df4b81b7ad
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0391.json.gz
+    network_sha256: ed200ee1185f403e81839c89726204609afef62cafdd5568a0dc4fb85c37e319
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_1/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0392.json.gz
+    network_sha256: 1a59899bcee87c424c16738104daf94d880a400202175c6b774ebd9df6f93876
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_1/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0393.json.gz
+    network_sha256: 4be0ac1bd2b451804d3d7fed404683872c9562be903c4c41c16a4d4c5c54c02f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_1/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0394.json.gz
+    network_sha256: 3c4f46d72952e20eedfe5494fd0ce748278e587f4bde23a71528e482417fcd96
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_1/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0395.json.gz
+    network_sha256: 0b8963505e32a135ea084b858ec8911b5ead03f9414f91f3f8a73ed41b940b95
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_1/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0396.json.gz
+    network_sha256: bf4e6306a6b206e9cd2867cdb637216e30557219a4221da1f664b20185675619
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_2/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0397.json.gz
+    network_sha256: 2f905beb776e4c816003cca02f48e908db127aa7755647a8cbb4a1c145d62bc1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_2/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0398.json.gz
+    network_sha256: 0a16292e283fe7d32ea959bae9e00b6768b2a4ba5ec459d2955fe37649c6f011
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0399.json.gz
+    network_sha256: 2d6550a8071da619d52673a44983fafa1b566781bd42e0893b62d2f38ef8cd0b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_2/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0400.json.gz
+    network_sha256: e3842b4aa1e199af1e6abfd72495c05d3dfb9118152b8cc5c03169b72cb38121
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_2/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0401.json.gz
+    network_sha256: 776417a2f3f08290819bd0f19ecea830f2e6b04f885a14f171148e6c3d22961b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_2/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0402.json.gz
+    network_sha256: e49a6141d6c584a152c024a753c11f6afcabf9e17836e647d46181a125027003
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_2/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0403.json.gz
+    network_sha256: ca6d924dd22175c8d824bac547efbf8a67339537b6f748301082fbe27a13d08c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_addr/Xdff_2/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0404.json.gz
+    network_sha256: be64ad6772c519eaf34e19fe42b40387c64029379110720430515063b3df092e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_0/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0405.json.gz
+    network_sha256: 1a65e28d767932b0e6ec5da7e008c7d79c3dec0277ed0a8caf556bf17c173dd8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_0/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0406.json.gz
+    network_sha256: 5eca400f517c068b7c872dafd8a69221af4edc467ed6404323cb057be588bd3c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_0/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0407.json.gz
+    network_sha256: 0e9c3be124605c45bf670ea1f16629b11da79ab934b8c64a70bb5341ec50a770
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_0/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0408.json.gz
+    network_sha256: 3c9e50fff26000a86f560fdefde110bf9a4fdfec8680e0d98824902d429258f6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_0/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0409.json.gz
+    network_sha256: 9b4a82d06eb002b310e5c79f5789d1c44706c853676e8277be57ff5e9bf542a3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_0/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0410.json.gz
+    network_sha256: b411f44310456aca5e5ef9fce43c3dfb21c8214ec8e2194a27380fcfb4054289
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_0/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0411.json.gz
+    network_sha256: 46e1f9f506a775d1ccb246946684022395803313c9f421ed3f149950e549dc09
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_0/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0412.json.gz
+    network_sha256: b61d451ace06e3ef0de0c64e9bf0f82eded4a886f3f30a75740363dd8631f7aa
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_1/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0413.json.gz
+    network_sha256: ecdd01828f60bd2989b89a1300c464e11a6e30ea0792b48e5bc868781c5951c3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_1/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0414.json.gz
+    network_sha256: adba0d53f01dbf84c3626df961187e087ef607a2d2eedea210594927b8c75066
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_1/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0415.json.gz
+    network_sha256: 2136770b9301a96049969d8e304a5b057454ba06ad7d783705ff9eafe273e0bf
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_1/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0416.json.gz
+    network_sha256: 7ef82a1af07647d21f545120a2179fe07971be4745e317e23cbb8497ba1c959e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_1/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0417.json.gz
+    network_sha256: aeaf08ef51527fc15deff11982874d4b46b8cce85cb9267a9ff4a66b3ad8f658
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_1/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0418.json.gz
+    network_sha256: 6d845271edd67b0112d2341b641b777d5e4d3f1885806967863bdb46532d9c40
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_1/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0419.json.gz
+    network_sha256: 742fd9cbe816c4f8ad401d8b3a57cb4bd77a27a12d33fa72db7efa7f906e2494
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_1/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0420.json.gz
+    network_sha256: 13aeb072524d1f9cfcb12b873f90914597cf5c2a66147898c070375aba866817
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_2/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0421.json.gz
+    network_sha256: 2775dd259f175fc8d47daac96ae759d069ee52245337ed35d2729c071f23bd65
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_2/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0422.json.gz
+    network_sha256: a4cdc575a467a191b3020d4ae0a789c22accec3010a43d2b2a3f577d724d3e85
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_2/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0423.json.gz
+    network_sha256: d28056be5d6bb2f0c0bdc2b0ddd988fc5a04d0936d381215ffe89d2fb6b82377
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_2/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0424.json.gz
+    network_sha256: 8f09085f55ce222c229d922cd969a09e66b06822afeaa59486a4484612d6b4ef
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_2/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0425.json.gz
+    network_sha256: 057c9ab6564ac03be15cddcbf95c014ece67845560dda53a865e4da74990f5d1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_2/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0426.json.gz
+    network_sha256: 85b90e79618d378c641f787a4aeff892a3853b65ca379d16c02bbfbe87e83045
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_2/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0427.json.gz
+    network_sha256: a04eb92a0192387f651f2e27dea522b0e3ba27b3cfa8f9a512377f8f76f5bd38
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_2/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0428.json.gz
+    network_sha256: a3891618b14da89f1b0aae567cf20fcbb04b53ecbf88199ff11138906f85d269
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_3/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0429.json.gz
+    network_sha256: 59eb9bc97bb9971a204a4594f36a957046bb70ac97876536b5d85f2fb17e6525
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_3/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0430.json.gz
+    network_sha256: 4d641584db72a789f3e5921f9b264bbd53bb9ec43a9fe8f4b6a61cb35e7abadb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_3/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0431.json.gz
+    network_sha256: de497a66a0824bc889c623d312ec47c05625a070ab547036a9c640e9055f127f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_3/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0432.json.gz
+    network_sha256: c816b9b0d5dfe83b052e013080f821a7efce27009eefabe6ab106116c5028593
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_3/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0433.json.gz
+    network_sha256: 1f7d2b21485cb36633ba75b899b899aa8f7e9e773d37470058777b519f6644d8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_3/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0434.json.gz
+    network_sha256: 2d78c223d6724817fcf985983209e0413ee4efceed73879b4ebeaf9625f547f4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_3/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0435.json.gz
+    network_sha256: 96d69e99a32a74e5976eb87ef6892952891d054efc81bbfe02001c068ec47d49
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_3/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0436.json.gz
+    network_sha256: 04ab3be4d0d7acee2eca7d8b2120dab71c810cc46a2787ade970c3637303133c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_4/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0437.json.gz
+    network_sha256: e10e6aa4ed3aab7363556e5077022bad2b8e07dc5a8c0317e60d626c4bc32769
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_4/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0438.json.gz
+    network_sha256: d2153155d7620d15d8b44b29ac93685032ef085c2b1f6ed8a7a040a5e9fea8c9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_4/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0439.json.gz
+    network_sha256: 6fafbe58739115b3cfb3a3ba6a5ed58434cc72fef6a7cd6705d4145e5d100ee5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_4/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0440.json.gz
+    network_sha256: cc4be87a53bac4bc51439be14a05cc0d159883b1763038b18291556e70c75c86
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_4/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0441.json.gz
+    network_sha256: 3f8d998c5edb8b103cbe00d56ff8bab4b8a8492777b3ab33f9956db12be72448
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_4/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0442.json.gz
+    network_sha256: 71ebf994bc86e87c9e9a19d45e3486d7265203c8c12b93fe1b9cf6976f16f9fa
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_4/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0443.json.gz
+    network_sha256: e3175bd98b793ddfb871a113ecd66fa9bc1d447d5c283af60591138cc64b236c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_4/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0444.json.gz
+    network_sha256: d9f01ff0cc1fe6fd1bccab63eac7e1c237ba84cc93a169f2600d6da35912e56e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_5/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0445.json.gz
+    network_sha256: 661e5fe180f860b05df75c4513479040c3bbf936d98e4d1224a3cff7b5e64e36
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_5/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0446.json.gz
+    network_sha256: db8da9ff2ac57b1223ca92d2c2e7e8bccd62b73a1f075288714e2a91654474e1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_5/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0447.json.gz
+    network_sha256: b4802fa834cb879fccf7275384481c666b304ee012c9df4cee7f51d7ce8344ef
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_5/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0448.json.gz
+    network_sha256: 99f4bb3a55733baa6929ff7b68bbcf62c020d29a3b669a54d0aa5ed67085547f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_5/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0449.json.gz
+    network_sha256: bb37a56811b9e9f1fb4e10b5808fe63d5f601165d6ce3d8ed696d6636305de8d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_5/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0450.json.gz
+    network_sha256: d5f47fe4f2f1dc700613b778f4bc8568849777b22687e6429968ac4509a59044
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_5/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0451.json.gz
+    network_sha256: bfe0bc84c60550e124889c705e05d50c49d69379e61d145143c398344458863e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_5/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0452.json.gz
+    network_sha256: 37f6890921a698e0fa42e4fde9e0b1c830ce86e672901cde059880a45f520d05
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_6/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0453.json.gz
+    network_sha256: 7de4fdd6a976343997665bd15f749b7e37832396131c2f0c0badff26473b6719
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_6/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0454.json.gz
+    network_sha256: 28c998651d2572a6bb7e4731aceee5be2d62b3444bd8b75e54ebf9e7d5da4622
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_6/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0455.json.gz
+    network_sha256: 00db41053469ad3274fd1cd296503be92e3f545316793f73779661eb338006c2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_6/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0456.json.gz
+    network_sha256: f1f99237d924d92d68d81ce94dd2c2420af93682007e738e56a7fc70947313ee
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_6/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0457.json.gz
+    network_sha256: ca2c37cf7c906e178098a67ee14843fb7265bf0d220112848f69260cf64712e8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_6/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0458.json.gz
+    network_sha256: 59f3123ff89cfd415215d6b5c02fd0e13aa71bb9bfd86845c5aac582824a15a4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_6/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0459.json.gz
+    network_sha256: cdeda43d4cb152a79b0859d1395bd806d85d051153b0bdd5dc63bbaa1b6cc790
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_6/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0460.json.gz
+    network_sha256: fe673aa96df2ac6584c5febdb2724afd05923adb766dfc7b0fbe31acf78386d9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_7/CLKB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0461.json.gz
+    network_sha256: 2610974df1930482c3e8143921d59626c4be115df025a0a72f92a12ce5239e80
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_7/D_b:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0462.json.gz
+    network_sha256: 8ff2f7a7693ded921968ee88ad3739b7712c2585074ddaf95cd8e0ffaeb229e5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_7/QB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0463.json.gz
+    network_sha256: a7caa15cff10a1ec67e0ca8b23e25fc3e8ccfbf7dc2ffb27c5b95ab0757f966d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_7/z1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0464.json.gz
+    network_sha256: 040ff03cad8abd730b21e8334d36820b24ad63c52b1b3e50516350e80cc389b8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_7/z2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0465.json.gz
+    network_sha256: 4621cc26ca648d8ed1af78e2d63eadb0d97b70a40e18f3f1405f9ba5ee1ca65f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_7/z3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0466.json.gz
+    network_sha256: 8337abdb5b6a791d774bcece7d4ff1c23cf43c5a2194ffc549cd16b2b302c260
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_7/z4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0467.json.gz
+    network_sha256: c796761d65626aca085ccec7425d9862f853ba43782fd949f5e867bfd23ae8e0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xdff_buf_data/Xdff_7/z5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0468.json.gz
+    network_sha256: f7f2263467bc1f94eed58785815009d88418cf63ed992cb2ff77a32dd54cee87
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xready/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0469.json.gz
+    network_sha256: c3c70a8c3522d80d9cacfe3f55eb8401a95fe0e1eede8a7992551e0318c27892
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xrequest_gate/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0470.json.gz
+    network_sha256: 404346056d478fae48d868dbb2ed6209912564e9e4382d98059ab4730f684a28
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xrequest_gate/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0471.json.gz
+    network_sha256: ddfc6cd281b7b306f6bb2675109153b946df3fc9cead3d70e83ba6f79344821b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xsettle_pre/wen_dly_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0472.json.gz
+    network_sha256: 35a966d9ecb0af612b537fa1213588e0573596cc6ed384f658234dff667266d1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xsettle_pre/wn_0_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0473.json.gz
+    network_sha256: e1b24288ee844ebd24f1f47c22839ac964f1d37a2e27996d685d81c1b2b4234b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xsettle_pre/wn_0_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0474.json.gz
+    network_sha256: 7fbafe49165b6a8e949e1eb5cea04146adc09f818ab68d18edc82a63f0afa444
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xsettle_pre/wn_0_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0475.json.gz
+    network_sha256: c613338953d394636a5bf0e2f99d57c17f865c0e31c7263fe32d613c26411513
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xsettle_pre/wn_0_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0476.json.gz
+    network_sha256: 66bd8d37b7d4c6db240edba1fd4e10e444973d16ae1d5fafcda8730473b0e726
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xsettle_pre/wn_1_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0477.json.gz
+    network_sha256: 1cf5cb536ac98d055b306aafd83abb50439e19dd495e2f3ab8697c678d74ff13
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xsettle_pre/wn_1_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0478.json.gz
+    network_sha256: 10211b86ab8df05a0e7e20dfca37f0933c77dd3599a9bb4fbbae1bc4fe516fd3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xsettle_pre/wn_1_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0479.json.gz
+    network_sha256: 845aab427b694b972df27f0f5d60957b6adeb8c418e25ac41af6629f62305e3a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/Xsettle_pre/wn_1_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0480.json.gz
+    network_sha256: e96609fded507c3d01d8e53089f6fbb4af939846132a1bc273856d36e88cd4b2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/pre_on:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0481.json.gz
+    network_sha256: 179e0a1e8a5b8c1a112fa413430e6d32b72a8f6751ed2dcecbe046db7de74d6a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenable_off_guard/pre_on_delayed:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0482.json.gz
+    network_sha256: b99b5fc88674120e2eae87d918634c3a32636c447a33ff489d0a84ae83e2c0db
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xenables_off_nor/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0483.json.gz
+    network_sha256: 129092b314d2a2d8d792d12c84aad68d24f238ecb25a7842c484e6f46647d283
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xfar_enables_off/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0484.json.gz
+    network_sha256: a983a053df3307a21a50bb21e40ce750d30a5bc4df9cdc70ccc768134b32613e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xready/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0485.json.gz
+    network_sha256: c7fbd82e465dd2d902dc6f05b5f5622969c8ee1c786fb62dbd5aa537bb1469c0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xrequest_gate/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0486.json.gz
+    network_sha256: c080b48f0ad298cab868866395d6ff506ad1e40c241c62eda5334b69dbc210af
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xrequest_gate/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0487.json.gz
+    network_sha256: cc4bdf08fd45bb9ecc50a878a8d5da659dbcf3e20309bea5bf0c7e5bcb04e2e2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wen_dly_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0488.json.gz
+    network_sha256: bb41ff4de7a8321c23cf6a915256eab6a1ae8f3b8906fef10fa12200ba45eb63
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wen_dly_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0489.json.gz
+    network_sha256: cf68e5967964bd242d0e6187fa91ff487681a63c038a39b77613a1d749f348e2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wen_dly_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0490.json.gz
+    network_sha256: 0df69e49d9e2a6cd2422d4991d0a68799e18868f5705b64b50a48f97f69575fb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_0_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0491.json.gz
+    network_sha256: b5c61c7b95664ae241eaf394b0614fa29a883923d5a09be13668c87141141106
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_0_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0492.json.gz
+    network_sha256: 55aa133e243167030942a9ad335d1b32a9b1c71821183dd85920ad590f787af5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_0_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0493.json.gz
+    network_sha256: 1223db30c99a9b7451f6c82bf6c84aee5dcf2d44449dadbf291bc0fca48b1e04
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_0_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0494.json.gz
+    network_sha256: 5a1adbd697a590cb759b72dce3d4938b7ccd28a315b5f8a67865336c34741007
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_1_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0495.json.gz
+    network_sha256: 988b2ad6037c8ebf42dc67c0925614a75446d7cbe978b4a9490173476d726816
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_1_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0496.json.gz
+    network_sha256: 9f6b921780749c86bafda8dc17d95f6aab5c81e0e2a51e743981ca8422d65b24
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_1_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0497.json.gz
+    network_sha256: 1e3839ce3d86cbdc3c75559261b445e84d5a547c3814f2aca240baf91bae638e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_1_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0498.json.gz
+    network_sha256: d3f62a990cbe44ec36f2f9e87c0ecb317a7f65d68d20f7d6ec3941fda9e7b042
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_2_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0499.json.gz
+    network_sha256: 7718783762a96f6ff9c9c67705a60f8f52ccc08307805c764ef23274ff4a0928
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_2_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0500.json.gz
+    network_sha256: 4b9ee2f9ed9e1f4ce84f8dda34128c4f133d583e87c668fd0a816899bebdb67b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_2_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0501.json.gz
+    network_sha256: ae5ffece2644423c1fd47aac5199c6c93c7079b3d71d5db870f51119e6ed1305
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_2_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0502.json.gz
+    network_sha256: c88a29df47e50e3e25aa4fe4324d97080002ff883a22bdff100cbaae518b9a1d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_3_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0503.json.gz
+    network_sha256: e24c1f5ba5b663730eff962dfed019017d232af02b5b3dade8ab0792cbdf4a45
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_3_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0504.json.gz
+    network_sha256: 70691ee122d8c9c7898af03f3982dc99aa0d8dbf285d083476460d174004963c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_3_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0505.json.gz
+    network_sha256: 14628740679c72768c6f473a6891d0765205f5ba8c0e0370a342993b53d69e9a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/Xsettle_pre/wn_3_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0506.json.gz
+    network_sha256: 7c7032cc4a01ade0a2f760ca8c28f4dffea2d60a4e94644b0de219dcc4fdbb46
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/pre_on:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0507.json.gz
+    network_sha256: c17509e89fe1c8e7384b8ef7211ec9c5b41948d0c2528b60800809d477c52259
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_guard/pre_on_delayed:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0508.json.gz
+    network_sha256: 0cf1f465e533101c4bae73b962fe83424106d247da9c459467ed5bc5d9a8607e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xisolation_request/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0509.json.gz
+    network_sha256: d92aa2de3c1fbd425152eac31b17be116250dd7caa74d6958e813c8ae0bdff87
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xpre/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0510.json.gz
+    network_sha256: b259af046d7f82215dc1e4cb3bad05094384445234acde5be9b7e4abe3c045b8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xpre_unbuf/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0511.json.gz
+    network_sha256: 69a8a1a2ff536385367b5815f422098321be40b0428f9ff4a355a129975e4700
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xpre_unbuf/net2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0512.json.gz
+    network_sha256: 8eb5e9b2eaec3d5d737576e01010d914a33b53e13631ce56415926ed12471ed0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wen_dly_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0513.json.gz
+    network_sha256: 42800e68c330488320f68ebd5aeface8ecd71a55f0f0cdb9574c52f44fda4116
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wen_dly_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0514.json.gz
+    network_sha256: e03ef1ae1c25734ea8d8796d401a3185c8f03a87f6c4e88f31b82dc38cf2bd3f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wen_dly_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0515.json.gz
+    network_sha256: 9645048d41d2e0ccc531d4a4b7a25e6a479d7acab1e8c2980c8d94e7034578b9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_0_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0516.json.gz
+    network_sha256: dedac65d0b6246f15c1ab894d6ba219923b665dcd0cc5de916b02251db34a643
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_0_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0517.json.gz
+    network_sha256: b8b13257af3e1135692f4e7fa1e7c076e4dfa72d455bd73920bc41c951a9860a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_0_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0518.json.gz
+    network_sha256: dcda96ff15a1255e5749b4d5b931f1817786ec2040562fed66159d593b0087a7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_0_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0519.json.gz
+    network_sha256: ed5c9aa9515a1202074039cbc54ebc454047e0ab1040ea8bf7991f5ef0573b22
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_1_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0520.json.gz
+    network_sha256: ab7916692bb1f3e98760b4c7323b64eecbf22dc587943ff65924e9eda1ad0bf9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_1_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0521.json.gz
+    network_sha256: 85abbc9cdd9265f596b8099238f8fa3f786ff9ca4f6750cd6c3f0b3937f30658
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_1_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0522.json.gz
+    network_sha256: 8e43775602a7f7c5ff0dbf4db23d9ceb47b063adf1cf4725c92373967d54ddc8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_1_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0523.json.gz
+    network_sha256: 1c63d215fc10797fb3641fe222e4a55ad7be6ea285a033844eae6792abbf78c2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_2_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0524.json.gz
+    network_sha256: aa0ffe249e92154c5bccfcef1ffa81ba5e0922b2ce83bc9af831aa1f66ec9a66
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_2_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0525.json.gz
+    network_sha256: 49641a0719c8b42c7139e06d1a487856e38a30b1f3dfaf84d136e932244c329f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_2_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0526.json.gz
+    network_sha256: 9ec172334f97ad63049965ba0aeb6cde7f855ab352265f1aabea257b7e1a5305
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_2_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0527.json.gz
+    network_sha256: 54989ad99f16d003147629d78cf8639a7ccb3be9a990510288ce7d47c0bdb683
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_3_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0528.json.gz
+    network_sha256: 2c935c10d997f738e6dc4f040b9c251aa34844ff6e1f7bf9b083d87deea71e00
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_3_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0529.json.gz
+    network_sha256: 61424e70e5a54dfda238957eba8f7ca57ae315f8626c1e44eb359fc3400393a9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_3_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0530.json.gz
+    network_sha256: 4f84c068fef34f722abd5c6a22da4090392a00d392854fe374127188d3f083df
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_delay/wn_3_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0531.json.gz
+    network_sha256: 1f51f73a17042adf1ffcec4c76d4fa1b25070dcd3b04707b69fd1d2ebf7dd641
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_ready/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0532.json.gz
+    network_sha256: ac5141163b04d87e6546e12ca541b295390cacbea2209d60b4b533495239144a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xprecharge_guard_ready/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0533.json.gz
+    network_sha256: e22a834e581629691c1bd1bfaab8290c3ef8adb00a1ff45e57f76b79f3dd6d0e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xread_done/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0534.json.gz
+    network_sha256: e577632a0b247e68be96cd3ccd79e4fe13de95739333c537be8ab27da127215b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xread_done/XPNAND3/net2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0535.json.gz
+    network_sha256: d174f0f84c939c5ef6c909ccd281238860e52e8c073bd2bc0d7a30fc0c8eb385
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xread_done/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0536.json.gz
+    network_sha256: 33d9337ba18ade9a5cfa9785739a435835d2be43c294f13de3af9039dcadb15b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xs_en/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0537.json.gz
+    network_sha256: 42179959eaabe060d386cc3eb992310c8ed5f489f6999aa54f5d2f71801e826c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xs_en/XPNAND3/net2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0538.json.gz
+    network_sha256: 0b56508bcad773f8ff615f69ed39e2fd994322403a9a7b6bb259ce3fe243a9c8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xs_en/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0539.json.gz
+    network_sha256: 13db06ee190a75e38cea87bc694697c61b59f77910fa2248d39c6cb3fff276eb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xs_en_buf/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0540.json.gz
+    network_sha256: 3db1c7d8aaaa5a38d948a6bcfc1f3eaf203b480ec1af61f8cea235ec765305e7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xsa_iso/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0541.json.gz
+    network_sha256: e150d82e16c7cf3ee9c9d847a7fcb8f5f6ba16a62e74067085a88c63e0beb86b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xsa_iso_buf/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0542.json.gz
+    network_sha256: 27df8098ef877359459d20bcbe464caa555ac7445f39df6145c7343a7ee548a2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xsa_iso_buf/b1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0543.json.gz
+    network_sha256: 6c8746cac3b78fed724bac22886a87fbd7cd78be8e7c89c386c4a40756a18145
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xsa_iso_buf/b2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0544.json.gz
+    network_sha256: 6c89db984ace422db99e4e5f7105a1140b271feb1309d6fd7abe67ff58c5c8cf
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xw_en/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0545.json.gz
+    network_sha256: 1c00e5e736b25f793ef9be466d5af9adde9fe8d6479134478735dd7d0e6baa15
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xw_en/XPNAND3/net2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0546.json.gz
+    network_sha256: db5d2559ccb2e57f2e3a37c9aac8bf114de11e5eaad5883687d8ec7cd4513134
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xw_en/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0547.json.gz
+    network_sha256: 14e42f3375991787370e30e83a0a5c1ea683fadbc48e49e2f7404c338d22a885
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xw_en_buf/b0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0548.json.gz
+    network_sha256: 07ff7e4aecd792b7183ba5c9e5897ac29ac256d2391dab6e630c0157b97c32ca
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwl_en/Xbuf_nand1/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0549.json.gz
+    network_sha256: b36461db66391a397d3a9bcc7690a63b2e9d4995d494a4bc760b1e9fb190e4f6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwl_en/zb1_node:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0550.json.gz
+    network_sha256: 7fe5a2f196e2a1085e934fc2bf59c411cd92db92ca8e6c34d8b1cd9425aaeb97
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_busy_nand/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0551.json.gz
+    network_sha256: ca1c5489de85bb80b1f33847ec7cbe674e709f3c75851dc555c5d0958a63aef8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wen_dly_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0552.json.gz
+    network_sha256: ebfe348b1451d035f2e407c87b8662f2b7af0f7b9c0f0d4386a33b37215b8e4d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wen_dly_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0553.json.gz
+    network_sha256: cfae2eb2bfb419e4df77056e1c92f19e3c51a9ccd4cf6a4407a83866c163db6c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wen_dly_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0554.json.gz
+    network_sha256: c9baafc9eab44eed9c7532af917623403f9ae8a2c69784f581690eaa4b38a037
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wen_dly_4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0555.json.gz
+    network_sha256: ca5592c821d7422879f3c6f9388c189d0e8b0aa1ab9239b96c99a571fc8ba35f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wen_dly_5:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0556.json.gz
+    network_sha256: c92b99802b8f169adc3af7fef6d5ba7a091860d98fd51e67c1fe4b333db4b6a9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wen_dly_6:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0557.json.gz
+    network_sha256: 8fe036073f6502dac1911a8c70ecfb0ce87ad82f803332d3402e50b821894ba8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wen_dly_7:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0558.json.gz
+    network_sha256: 791eaf0618001aec0898a240653ee4324a7aca8897823889410a67e34d9dd314
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_0_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0559.json.gz
+    network_sha256: 45a8da6c6e88050fef5d8417d14b2cebb25755962e0ae82a6ad776e152546a4a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_0_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0560.json.gz
+    network_sha256: 4c4d60d1f924ff81572839c0eebee890898edb86f7dc650858226968ffd3b1f4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_0_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0561.json.gz
+    network_sha256: 59851367bea9945eb6f12ae5c66839526d33f22905722521dc670fc1e981f9c3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_0_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0562.json.gz
+    network_sha256: dc9c1d5d0a41d2b13013ca26171aa9472e60e45dd8ef160cdd28a073e390fc7d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_1_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0563.json.gz
+    network_sha256: 5860390de34b5f1e0c5222dc9f0a0c31006d16845a67a0a5c717d769e1fb64ee
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_1_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0564.json.gz
+    network_sha256: 6e5a2fb7d5e5e55c5bb3ec68b51e3db0fc2692c9144f7ee6de2e74729fbe083e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_1_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0565.json.gz
+    network_sha256: 68a5cb800578feba8b4f18e36295b3d9fa4138d4a992755674f01fdacb973f69
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_1_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0566.json.gz
+    network_sha256: 054ea2695258ef5e7910850dc21d42feffe003276421f78c272f153825f9c865
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_2_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0567.json.gz
+    network_sha256: c8db4e37d22aec9505b57677658bfd5fc55d4b5e64d49c424b7c8e579f699ac1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_2_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0568.json.gz
+    network_sha256: 0cd32326b5bd45ef98a6f76f0de95112b0ed5a62bc556009faa6237f398732ee
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_2_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0569.json.gz
+    network_sha256: c150f758509cd8b22c05c40094c6fcc6baa9a802b442aad43b5d62925effbcda
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_2_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0570.json.gz
+    network_sha256: e678ba6f604951ef40467f713ec13a09be70c5664749c1b153b84e91dc8e65ff
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_3_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0571.json.gz
+    network_sha256: d36aa5acfcc9e7cf84cf56da011cd9f2f8eefc3b5988bbca871f179a45f2acc2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_3_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0572.json.gz
+    network_sha256: 499f0f76830b5a2f2b795b72bc1307d9d5ef829dcde8590e9ddfc6d76e71e680
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_3_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0573.json.gz
+    network_sha256: 7800a35d2fdeb6ec0860f4e2f25ef792269c829f12d58db6a68bc2f30c2ca047
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_3_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0574.json.gz
+    network_sha256: 6421e88a8d98d352b784d542fc28ae11811353caff77d9267e46bb75966c79de
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_4_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0575.json.gz
+    network_sha256: 3923afa143fa68787bdc901150e3d2403a88efdc295b280cc553bfa9dd2240a5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_4_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0576.json.gz
+    network_sha256: 9c8fc21149bf0d18f58939744718442d0580ee9dce8d8e5dd55e65f4c3c64357
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_4_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0577.json.gz
+    network_sha256: b208bf5343284434e9332252f45fc91ca7001e18177e37ff78769097c599fec6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_4_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0578.json.gz
+    network_sha256: 547543973ae2acc1177e7bc2ce61cdc234a04a9459d0134a1dde7c5913f3eb3b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_5_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0579.json.gz
+    network_sha256: e10bc48ce1dfc87dad4480d10a5d6c07448ab2019f0defb40f7436e77fad55b0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_5_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0580.json.gz
+    network_sha256: 3b732eb860da6ce3b97461ea3d2efa39dd75f3e8365d431848335a3550ca437f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_5_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0581.json.gz
+    network_sha256: 9297c0e273cb1c526e5c5d0e0bf8650b78af75305b70e96aa906c6e11b53876b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_5_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0582.json.gz
+    network_sha256: 22621ae3366a2df1218a581b7c6d2c5f21814462b3d3cd5f2fddfb40475481ad
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_6_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0583.json.gz
+    network_sha256: e6e70478316b0ee719bf4d6c2869d3b357b613ab5b6dda5e94f882d67d11e0ae
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_6_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0584.json.gz
+    network_sha256: c5c169be3f78502c52925d8c159abb11a5121c616720e178ac75ec96bf7e8b01
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_6_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0585.json.gz
+    network_sha256: ec5b17d4236e757f121a5d6832e6346f9998f74d99f0b278d409287d2d185042
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_6_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0586.json.gz
+    network_sha256: cb9c016aeb16f8daeacd3aa9f1c3aad7150fd11cb6c8792640dd0733d0db9e4b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_7_0:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0587.json.gz
+    network_sha256: 0054b66fac59cfb505125db1e6a6598838de727ea736a02a35a383b3a7cb2520
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_7_1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0588.json.gz
+    network_sha256: 2934c8658f6909800719b0db7ed04a2c57a206f850558bdddff6c8f89d5932e2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_7_2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0589.json.gz
+    network_sha256: 150ec2245daaef27957b9f50bd79429bc2b033c384613a310a1a301d8f8ebe21
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_delay/wn_7_3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0590.json.gz
+    network_sha256: 6d979325ff4571896b977e68cee97bcd108bf8e18fff527c42029626185ec665
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_gate/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0591.json.gz
+    network_sha256: 93d83ca3612bfae529906b66ed37824bdf03f2593f3c82198bc532815f7b862f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_setup_gate/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0592.json.gz
+    network_sha256: 4014608cad16e925f2685fd1014b279fdb8ae4f33f72cf6858b98de2790fa17a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_start/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0593.json.gz
+    network_sha256: 54345cdc079a67d8a49b7822ad93df391988826642c6b85c70c12dd6e9956ec1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwordline_start/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0594.json.gz
+    network_sha256: 883b0275755eea4dce1e9badf52e60b0625e52fc9609d7c783d89cd7f502c3b7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwrite_prepare/XPNAND3/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0595.json.gz
+    network_sha256: 0ad3735454566c87c946605836b31bcc12153ce557568f12274663837fd7fa62
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwrite_prepare/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0596.json.gz
+    network_sha256: 1fa08f3566e4fea756375f20786f71fa6d9524b17bb92d6b79c3a35634ee756d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwrite_ready_nor/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0597.json.gz
+    network_sha256: 68dda8d8fb0ddfa9624af5b6a7e8aa4b6a85297e4a277c7e8afbf122d7160078
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/Xwrite_window_nor/net1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0598.json.gz
+    network_sha256: ae7fcc11dc0d58232f74706c5f3d5b50d63909bc787bd0c48f797fe26efcd595
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/access_request:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0599.json.gz
+    network_sha256: 923238f75c2d5050fadc97c1bde8d91bed3f625b8e0ca30b4c5975f81a6c9a04
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/access_settled:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0600.json.gz
+    network_sha256: 68971077424c16e032d9de222430b6e01cb1e997fa9e53e40b3775ddcdb5f7fd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/enables_off:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0601.json.gz
+    network_sha256: 40e6b1696935057b7712322324d105e1f655b4275f35471cc1b6d9c6f8f10e15
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/far_enables_off:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0602.json.gz
+    network_sha256: f49891f3e8973327d672f315f7d809511aa2379a35a89aec0d54a3709eff06f9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/far_enables_ready:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0603.json.gz
+    network_sha256: 18339c5ad0e070cc44feba10fda538d37d7e3de36d0aeb5e100a03d2de56fdfb
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/iso_ready:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0604.json.gz
+    network_sha256: 4ec2af063fccd4c1589a0553b1193a2f1b9b6d0b64651e584a401961579df391
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/isolation_observed:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0605.json.gz
+    network_sha256: 5042d8738b1d611918a8817904175007422a1869b6991f04cdacbb7f9b93c911
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/isolation_request_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0606.json.gz
+    network_sha256: d8fcac1d5f825928307bed0d29acce7d6a8ceced441a839418cf8194a25b4ddd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/local_enables_off:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0607.json.gz
+    network_sha256: 3b65b7bdf100adac2ffed7f272ed512aa30d44b3c74a3eae0fbd897ebe828a62
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/pre_off_ready:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0608.json.gz
+    network_sha256: 33b54cf6adb33cf2b6441a93dc4d5fa1c402361d4a6b58cb199e8a1771174ff8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/pre_ready:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0609.json.gz
+    network_sha256: f6ff91eec25415c3be135ed0617502f3ae420d031d98f990374cc2552b974b50
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/read_done:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0610.json.gz
+    network_sha256: ce7a4ab4c6dace534f09bfd88a29b382780825f0b8638990fe852a8be1a2f52e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/read_done_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0611.json.gz
+    network_sha256: 84b0c0b8be1e359b74f92fc1010a0889f1bc0f0b46036fe0855a3215eba3c018
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/rwl_pre_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0612.json.gz
+    network_sha256: 143463dd957c183c99a1833a7c393a63898fc612fcd9407a0f2529df5bc97fcd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/rwl_pre_delayed:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0613.json.gz
+    network_sha256: a15dd8aaf18dfcad9deac1ab289472d40eb62ed82de0e23d62fccabd09eee6f4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/s_en_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0614.json.gz
+    network_sha256: 60009ba18888b29fa82b5d13fab81297e4d3cdd0ac93432c9600d438092ebbca
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/s_en_unbuf:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0615.json.gz
+    network_sha256: 8391da10b20f4aa8391aafcdd1d99a224bea0079ce0c2147aab4b433bfcf8f95
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/sa_iso_unbuf:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0616.json.gz
+    network_sha256: 3e5782a0e30005068515a69dcc32ef79294a7c5bc72aff67be1956deec8fbba8
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/w_en_unbuf:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0617.json.gz
+    network_sha256: fb1ca9e6c6b675327a1d9038baeef17d220ee022a86a1c7e14a062e957ac10ba
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/wl_en_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0618.json.gz
+    network_sha256: 93e1298d71f34d54423aadc7ac17c561506a9dfedd0ccc4117ca03c82dbe9a18
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/wordline_busy:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0619.json.gz
+    network_sha256: 0a3ee6e3db39f08cf141027776ff6de5c570c844416de12bfff06a378a3062bd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/wordline_idle:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0620.json.gz
+    network_sha256: bb552f24c23590cc872afe090822e173c6069f375003ab72ceecb91637e6a04b
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/wordline_request:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0621.json.gz
+    network_sha256: 612b0ef3f33a6d03acf33d20cdd794f5a8ae790f78cdf28b1f8fb314c357fda4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/wordline_start_filtered:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0622.json.gz
+    network_sha256: 7e64e5c7343ee14910195dfe8100ee8cc8a00d94d2b8445eeff0b8aaa47db00d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/write_prepare:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0623.json.gz
+    network_sha256: 421865f1c5a5826f4f2f4438ba494331779bad542d1dff65bc5ee4740e4823c3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/write_ready:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0624.json.gz
+    network_sha256: d9cbbe6067bcf03d5e5f114f0a6bb7f70c37195993978f3f0540d5ebe35552dc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/write_ready_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0625.json.gz
+    network_sha256: b02668def9e2ccb873b9ea4f1fcaeeb96fd2169fb73e30cb50af31266f724c32
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/write_window:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0626.json.gz
+    network_sha256: 405240d85d175429ab435c807e9463074ca3bf41e50f049908575d2056a67726
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XTIME_CONTROL/write_window_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0627.json.gz
+    network_sha256: 6504353dfda6e29d2ac07763cfe0fd0699b95a8b77b6a940c55681bf407ae29d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWL_DRV_0/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0628.json.gz
+    network_sha256: 825116609bebf11f06a052f21b3bc5064ef2357510819a5dac416bfe3670acd4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWL_DRV_1/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0629.json.gz
+    network_sha256: 802a1b0b49a0f06ad525f8bd76f25ddc8119475f20114ee64cdf40f58e8a210e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWL_DRV_2/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0630.json.gz
+    network_sha256: 4e4db315648be4bacc7ac8c66aa742a65ec7b5f1cec63f69f39ef7316eb2f9cd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWL_DRV_3/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0631.json.gz
+    network_sha256: 227351c0f836e2f7856cdca63fbc0ddf7c3dc11871cb18df2323c53337a08187
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWL_DRV_4/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0632.json.gz
+    network_sha256: db797dc3aa95b01d0e234ae06e29f7cbf1cad548725a51dec32288d365f39ae7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWL_DRV_5/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0633.json.gz
+    network_sha256: 493408513b726886eef188f093095e49311fcac4926997a92b663edcde8f76cf
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWL_DRV_6/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0634.json.gz
+    network_sha256: 1fa708c1872a397ccad502ef8d6ac7a29691fdab44798eaa53cf8c9d00acfbfa
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWL_DRV_7/zb_int:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0635.json.gz
+    network_sha256: 5e60a64e2f09ed9b86e6df64d25795052a3b5ecab1972d9a27a25256f69bbe52
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_0/DINB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0636.json.gz
+    network_sha256: b0d9ad40b44e7fbb755805301171c2a8dfb4c65fb8d349aa5a9059097d3aab94
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_0/ENB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0637.json.gz
+    network_sha256: d73583772826c75fa4ccbd2688ca9a68169c50dd939e4d1d0e8beecd6dd24373
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_0/int1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0638.json.gz
+    network_sha256: b73db6d1587f65995a9eaa445b89d340f0cf8b4b3bd5e8a01fac9008df27b323
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_0/int2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0639.json.gz
+    network_sha256: 594d75cb9343d50ba3ecee4ee1ff0c74847d4d3885ae0d0878a420eece9d268a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_0/int3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0640.json.gz
+    network_sha256: cb5cc4a502a784e207d4ba2f45680d8a761ffe30273c6d2ef8c6f6fcfa17fd96
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_0/int4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0641.json.gz
+    network_sha256: 35f6bc65775c011809c2caeab7e284a95b95a3ccbfebdf0496447e49ad4ec250
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_1/DINB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0642.json.gz
+    network_sha256: 7d3b4ec2cf9c76a4d259995e768980be9ba240e4aa9bc430bc04ed7aaabc7287
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_1/ENB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0643.json.gz
+    network_sha256: 8d71c259333a9e99d4b5f136ca77ed79cb9690183f777b9c9f013a2580e41057
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_1/int1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0644.json.gz
+    network_sha256: b0707cba3ad121b9f26aa21c0751d9e38c9f94657948fc8ac64c393e71b41e96
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_1/int2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0645.json.gz
+    network_sha256: cf8f9be4f9ca617e13612abcdde5192a6b67f87b67b800c00878994f13ea766e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_1/int3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0646.json.gz
+    network_sha256: 3420432dd5c4c96cc0a7110380e26f2bb8629ef3b3b409208c0b1a0a2b3d1de5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_1/int4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0647.json.gz
+    network_sha256: 2e998a50f6d0fa916998e6bcfa8719c40cf89324943f756d3ef89cd135028e8d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_2/DINB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0648.json.gz
+    network_sha256: 96046b9b8d381f4eab6e8c850233059bf1061e3b112e6def3fe5c6da1cd455cc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_2/ENB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0649.json.gz
+    network_sha256: 1d30bfcd5d2dbd9b0d24b3c77227c61da9501434ac573114864d445a5991e602
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_2/int1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0650.json.gz
+    network_sha256: 0fa3132da730468dc3fcf09d0ab783571c2f15183a443a8bfbd1960df2a3f384
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_2/int2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0651.json.gz
+    network_sha256: da2a7bad0af6b0b39fc89e50c83eb64937bd800924e35d86489235d4ab557425
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_2/int3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0652.json.gz
+    network_sha256: 5c91b9924e1718904033b62bf984e2d8f6077164f468fcfc63ee65ca92f8eaea
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_2/int4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0653.json.gz
+    network_sha256: ef248d8ecb54fb2858c4a3046827d298e3ab152d6d98d7e8a780c943a11ed3ef
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_3/DINB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0654.json.gz
+    network_sha256: 4ec5b4513a90c4cbe3ae70ad69783f4da9fbb8394c8540435bebe0edb1de5642
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_3/ENB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0655.json.gz
+    network_sha256: 7a877447584f979b16c8a9d9c38d05ad03d7587bc97a7482be27a92e85be8b55
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_3/int1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0656.json.gz
+    network_sha256: 0908505654b539fa57f256b0ffe239de6e28d9a2241dd187dd3c95e1614b6330
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_3/int2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0657.json.gz
+    network_sha256: ecd296c8f7f75a8e205f9cd9339e8f7d254eca2ce812102da25ab6eb70673da9
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_3/int3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0658.json.gz
+    network_sha256: 1af36502b7b0b1e442a1cde679ec44cfa22ef873f950d269edbb5bc2544ebde4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_3/int4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0659.json.gz
+    network_sha256: 3dd2357f3e25c9a738263a3dee7bec1a44d36e36eb35846f04ec9d3249efcd79
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_4/DINB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0660.json.gz
+    network_sha256: 52fbbfb804c7c27b6254c2a0122bb25858cf672275f2b1b4099dc1221c281a31
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_4/ENB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0661.json.gz
+    network_sha256: a599baa06e69d1560118f2777c14ac3efe6a18aabf0bea19f208b0b1eb2e7269
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_4/int1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0662.json.gz
+    network_sha256: 9062b9e228575b8cc697651d476bd38ce2f3ed4792ed126df8475d3945b8494e
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_4/int2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0663.json.gz
+    network_sha256: e9b3af1fce7b324cac2ce317fb8fe6052709362463491cf287fe86724edc7156
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_4/int3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0664.json.gz
+    network_sha256: ba3acada538386f5ea80b5be5678595d882de847358fa787f4d8cf4f786abc53
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_4/int4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0665.json.gz
+    network_sha256: fc1b09474221bcd9da243cb63c9c6d4aebb01f1190885b7e7fae5f95d42fad41
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_5/DINB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0666.json.gz
+    network_sha256: d794c87bab99b6481d7d8db10c73473ef19c7e125fcc9cccc64684d282bca8f3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_5/ENB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0667.json.gz
+    network_sha256: 2552263f6b10b677cda10cc523a3f8d25ceea97d6f1b48ffe9996684af9795d2
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_5/int1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0668.json.gz
+    network_sha256: 7c5f889bafb62043dd731b3c3dff9bab892dcfa6a42b03bfe25989d1c8111f8f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_5/int2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0669.json.gz
+    network_sha256: 84d0a305660f9e15a1dae28c36273f7d495cb7ff50f16372a4a39daf3d54d321
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_5/int3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0670.json.gz
+    network_sha256: 9dc4a644192b16d84f480e658c5f41fa25ba123d58ee98acafb9353080d66e6a
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_5/int4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0671.json.gz
+    network_sha256: ec0ca806a32b30cca2db8b74d08f72f7925a96e74e1b728a1bec97773edf3cdd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_6/DINB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0672.json.gz
+    network_sha256: d8568fe2f3cf739cd7f70376c31fff6444a0745fe5c890bc43f0774ba92b096d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_6/ENB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0673.json.gz
+    network_sha256: 6c261f9cf008ebe3213e022cede963f6ccdadf26e0ac22ab4c71c441137c8148
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_6/int1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0674.json.gz
+    network_sha256: be84ba83eb00cefc7ed13763ba54d053e56e018fbf9ed93f95bdce7991890e0f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_6/int2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0675.json.gz
+    network_sha256: 2d6e359aef3e55d29f319be37274ae2170db3577998ab405d2ef82714040db12
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_6/int3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0676.json.gz
+    network_sha256: a71b91194f17d5ab90e59f787dcb37e2e63fb0a3b87271ffb70f98a473724190
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_6/int4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0677.json.gz
+    network_sha256: 9648aabb654c4304a2d47cb4bf29b1dee63a250495e98ca16e8aa99fb5deafbc
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_7/DINB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0678.json.gz
+    network_sha256: 5df89cf30496743d0f660da1b54df50fa133e6333052bf1d5d6945cab8250b4d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_7/ENB:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0679.json.gz
+    network_sha256: a7d94dfa9e352de99449ba4e39bdb5fbf55fe532ca4412f9dd5538ad6f1206d6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_7/int1:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0680.json.gz
+    network_sha256: 535860606a1b7b09fdf9a39338b96950bd9984c8929fc93d7af1b752a888d5cd
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_7/int2:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0681.json.gz
+    network_sha256: 44756d7810faf9f32faa6d91183e35cc07fb56aae8477c01a8064d94227cbcc0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_7/int3:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0682.json.gz
+    network_sha256: fc7d0cdf341344a8b14d2e79d059f06bfc356c70ee084526b230f4e2dbb5c7e1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  XWRITEDRIVER_7/int4:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0683.json.gz
+    network_sha256: 310c4bdb7b4d786ae855cc356c6dbe9559e94bddac84a6bb7c3faf2035d25f8d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  Xsram_8x1_replica_column/XReplica_CELL_0/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0684.json.gz
+    network_sha256: 69582700b4ab0d1de2dadd1653e00bc330fd11e1c151c0f15a541cd71b5603c5
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  Xsram_8x1_replica_column/XReplica_CELL_1/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0685.json.gz
+    network_sha256: 92282b9f4728a562f3dd94b2b194ffb359aa519a63a1fac5f465e9d86527cf72
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  Xsram_8x1_replica_column/XReplica_CELL_2/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0686.json.gz
+    network_sha256: dab7c657e4f809bd3cda8aa42d303b3a89abddf921828589cff122d3e827ea7c
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  Xsram_8x1_replica_column/XReplica_CELL_3/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0687.json.gz
+    network_sha256: 9c6f437d53dc0a7572b8eb43fa6899d8568fa6cf7b3fd06be54aa5547bad1fc6
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  Xsram_8x1_replica_column/XReplica_CELL_4/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0688.json.gz
+    network_sha256: cc194392217455988ef13e29b6dd42762e366721fbd8eb4ca6b4b20c004482a1
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  Xsram_8x1_replica_column/XReplica_CELL_5/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0689.json.gz
+    network_sha256: 5695d7767a2db85cbc0569b53bdefe403b906b51876b32fa9b2e5bd517b43a19
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  Xsram_8x1_replica_column/XReplica_CELL_6/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0690.json.gz
+    network_sha256: 8bf1a60c1a5deabe82cfad02a466231ebb15c838fa2067d2335f772b7e742a14
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  Xsram_8x1_replica_column/XReplica_CELL_7/Q:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0691.json.gz
+    network_sha256: a57a8beb6ad056e1404ced2839a2e0a6862b46172efe5fc8811607be877f0087
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  clk:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0692.json.gz
+    network_sha256: a542afc52a31656aa8d5f89a1328860a50c77a6cd9c3490f20d6590530c268ba
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  clk_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0693.json.gz
+    network_sha256: 25905c9db459ffc59c871218652bd227dc2d2f540b37209a4a989d6ab2686cc7
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  clk_buf:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0694.json.gz
+    network_sha256: 9cd3b64443fd3f86b6e661ca990c62af63a2e06a74ae1bdf8a6e823b3d5317ca
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  cs:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0695.json.gz
+    network_sha256: 08f098ca845b72154185364679bc60a5ae5f6bd5e3381da277392a2730fe4a57
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  cs_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0696.json.gz
+    network_sha256: 2054a75edceebf8936d5e9b5d9b4f8394845ebecb3963a5468a4f39e40745106
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  csb:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0697.json.gz
+    network_sha256: b900afecd8e6abb3f9068d879bae1e18e27558dd8917ffa0d5054670cc35139f
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  gated_clk_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0698.json.gz
+    network_sha256: e7d6ea1c5f991f68d20d2719cea7ae531db4c225e7ad9f4deba5e8233055e3fe
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  gated_clk_buf:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0699.json.gz
+    network_sha256: 2c6ebccb8b2627b6af3fad05bbfa1811f660a964274fa3b5b1c310b9f82b45ad
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  rbl_delay:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0700.json.gz
+    network_sha256: ea923ff6f4a56f80637830d1196cc71010c99ba01b53cfd2f54ee976f8f7e4a0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  rbl_delay_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0701.json.gz
+    network_sha256: 663fbfc77e1245f8c6f17fdad7f0f99daaf584231bc31edc720c39e8770d13e0
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  s_en:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0702.json.gz
+    network_sha256: ede106f39a35762c524599f65ccc31b2d12b977f16b97b412768ef4a9113d1c4
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  sa_iso:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0703.json.gz
+    network_sha256: 3310944d4da002872f9ff2ab956aebb20ec0c1701563214a03dd9698fee26d80
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  w_en:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0704.json.gz
+    network_sha256: 2f993f43bd879584eaa70edb51b749f38be00a1b293799c7ce826e8630752bab
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  we:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0705.json.gz
+    network_sha256: 9df52b03595b5f39214c7c0838efd36d45fb6834c4e9c219e1d0ad572d93c733
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  we_bar:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0706.json.gz
+    network_sha256: 5e45e226b72d738ff5c1798e6d8e321047667c69a0280e24efc9ee691ddb6b0d
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  web:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0707.json.gz
+    network_sha256: 610cc5aa820e3b3ae742517b509b917603241685b895a0b4a29fbdeecd782e02
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  wl_en:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0708.json.gz
+    network_sha256: 70b6558ad4a9a52356ca08541e5997b1bc3db95d11daed4acb934fd52da52293
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+power_models:
+  VDD:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0078.json.gz
+    network_sha256: 09d5a885cfcba544a5135bdca29e7a8a0214c4f6d247de16ddd19f0249bb40b3
+    resistance_scale: 1.0
+    capacitance_scale: 1.0
+  VSS:
+    network_file: sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/nets/net_0079.json.gz
+    network_sha256: 179221ef236866af7db4dcbfea88931a35ddcf0e68330552ebaaafb77ff84273
+    resistance_scale: 1.0
+    capacitance_scale: 1.0

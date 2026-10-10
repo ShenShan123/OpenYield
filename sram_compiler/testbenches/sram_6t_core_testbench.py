@@ -320,7 +320,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         driver = self._wordline_driver()
         circuit.subcircuit(driver)
         circuit.X('RWL', driver.NAME, 'VDD', 'VSS', 'VDD', self.control_tap('wl_en'), 'RWL')
-        add_tapped_line(circuit, 'RWL', 'RWL', self.num_cols, self.interconnect.wl)
+        add_tapped_line(circuit, 'RWL', 'RWL', self.num_cols, self.interconnect.wire('replica_wordline'))
         sizes = self.driver_sizes
         if self.num_cols > sizes.replica_k:
             dummy = Dummy_Cell(
@@ -409,10 +409,12 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         for name in self._COLUMN_CONTROLS:
             if name not in skip:
                 self._control_taps[name] = add_tapped_line(
-                    circuit, f'{name}_line', name, self.num_cols, self.interconnect.wl)
+                    circuit, f'{name}_line', name, self.num_cols, self.interconnect.wire({
+                        'PRE':'precharge_control', 'w_en':'write_enable_control',
+                        's_en':'sense_enable_control', 'sa_iso':'isolation_control'}[name]))
         for name in self._ROW_CONTROLS:
             self._control_taps[name] = add_tapped_line(
-                circuit, f'{name}_line', name, self.num_rows, self.interconnect.bl)
+                circuit, f'{name}_line', name, self.num_rows, self.interconnect.wire('wordline_enable_control'))
 
     def control_tap(self, name, index=None):
         """Control node at column/row `index`; the far end for the replica."""
@@ -428,7 +430,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
         for col in [*range(self.num_cols), None]:
             for pin in ('BL', 'BLB'):
                 net = f'{pin}{col}' if col is not None else f'R{pin}'
-                add_tapped_line(circuit, f'{net}_periph', net, 3, self.interconnect.bl)
+                add_tapped_line(circuit, f'{net}_periph', net, 3, self.interconnect.wire(
+                    'peripheral_bitline' if pin == 'BL' else 'peripheral_bitline_bar'))
 
     def periphery_tap(self, pin, col, role):
         """BL/BLB connection at a peripheral block; col=None denotes replica."""
@@ -569,11 +572,11 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                       self.periphery_tap('BLB', None, 'sense'), 'VDD')
             self.cmux_inst_prefix = f"X{cmux.name}"
             selects = {f'SEL{i}': add_tapped_line(circuit, f'SEL{i}_line', f'SEL{i}',
-                                                 self.num_cols, self.interconnect.wl)
+                                                 self.num_cols, self.interconnect.wire('mux_select'))
                        for i in range(self.mux_in)}
             if use_external_selb:
                 selects.update({f'SELB{i}': add_tapped_line(circuit, f'SELB{i}_line', f'SELB{i}',
-                                                           self.num_cols, self.interconnect.wl)
+                                                           self.num_cols, self.interconnect.wire('mux_select'))
                                 for i in range(self.mux_in)})
 
             # Add Column Mux for all columns    为每组列添加多路复用器实例
@@ -712,13 +715,15 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                 f'DIN_BUF_{col}', buffer.NAME,
                 self.power_node, self.gnd_node, f'DIN_dff{col}', f'DIN_buf{col}',
             )
+            data_tap = add_tapped_line(circuit, f'DIN_DATA_{col}', f'DIN_buf{col}',
+                                      1, self.interconnect.wire('write_data'))[0]
             circuit.X(
                 self.wdrv_inst_name + f"_{col}",
                 write_drv.name,
                 self.power_node,  # Power net
                 self.gnd_node,  # Ground net
                 self.control_tap('w_en', col),  # Write Enable signal
-                f'DIN_buf{col}',  # Captured data, buffered for the driver load
+                data_tap,  # Independently configured write-data interconnect
                 self.periphery_tap('BL', col, 'write'),
                 self.periphery_tap('BLB', col, 'write'),
             )

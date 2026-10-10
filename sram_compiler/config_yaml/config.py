@@ -58,7 +58,10 @@ class GlobalConfig:
         # Keep sizing as a mapping: the resolver validates supported options.
         self.sizing = config_data.get("sizing", {"mode": "lookup"})
         self.timing = config_data.get("timing", {"mode": "lookup"})
-        self.interconnect = config_data.get("interconnect", {"mode": "distributed"})
+        self.interconnect = config_data.get("interconnect", {"mode": "per_net"})
+        if isinstance(self.interconnect, str):
+            from sram_compiler.interconnect import load_interconnect
+            self.interconnect = load_interconnect(_abs_path(self.interconnect))
         # Equivalent array model; the resolver validates the mode.
         self.equivalent = config_data.get("equivalent", {"mode": 0})
 
