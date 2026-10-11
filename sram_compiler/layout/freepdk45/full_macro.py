@@ -6,11 +6,14 @@ from math import ceil
 from pathlib import Path
 import json
 import argparse
+import hashlib
 
 from . import controller, top as memory
 from .lib import Builder, pya, u
 from .router import Router, GRID, LAYERS
 from .full_source import flatten, render
+from .placement import compact_placement, route_compact, compact_route_order
+from sram_compiler.version import VERSION
 
 
 FEEDBACK = {
@@ -23,7 +26,12 @@ FEEDBACK = {
 }
 
 
-def build(deck, output, columns=32):
+def build(deck, output, columns=32, floorplan='reference', allow_same_net_vias=False):
+    if floorplan not in ('reference','compact'):
+        raise ValueError('Floorplan must be reference or compact')
+    if columns < 8:
+        raise ValueError('Use at least eight placement columns')
+    compact = floorplan == 'compact'
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     source = flatten(deck)
@@ -42,7 +50,16 @@ def build(deck, output, columns=32):
         for finger in range(device['fingers']):
             fingers.append((device, finger, device['width_m'] * 1e9 / device['fingers']))
     cell_cache, row_heights = {}, []
-    for first in range(0, len(fingers), columns):
+    margin = 5600.
+    subcircuits = []
+    if compact:
+        positions, blocks, subcircuits, cell_cache, cursor = compact_placement(
+            ly,fingers,source.instances,columns,controller.CELL_WIDTH,margin)
+        by_instance = {p['instance']:p for p in subcircuits}
+        for block in blocks:
+            p=by_instance[block['scope']]
+            main.place(block['cell'],p['x_nm'],p['y_nm'])
+    for first in range(0, 0 if compact else len(fingers), columns):
         row = fingers[first:first+columns]
         height = 0
         for device, _, width in row:
@@ -51,18 +68,20 @@ def build(deck, output, columns=32):
                 cell_cache[key] = controller.mos(ly, f'CONTROL_MOS_{len(cell_cache)}', *key)
             height = max(height, cell_cache[key][2])
         row_heights.append(ceil((height + 560) / GRID) * GRID)
-    margin = 5600.
-    row_y, cursor = [], 1120.
+    row_y = []
+    if not compact:
+        cursor = 1120.
     for height in row_heights:
         row_y.append(cursor)
         cursor += height
     cell_positions = {}
     for index, (device, finger, width) in enumerate(fingers):
         row, col = divmod(index, columns)
-        x, y = margin + col*controller.CELL_WIDTH, row_y[row]
+        x, y = positions[index] if compact else (margin + col*controller.CELL_WIDTH, row_y[row])
         key = (device['model'], round(width,6), round(device['length_m']*1e9,6))
         cell, pins, _ = cell_cache[key]
-        main.place(cell,x,y)
+        if not compact:
+            main.place(cell,x,y)
         placements.append(dict(device=device['name'], finger=finger, x_nm=x, y_nm=y, width_nm=width))
         local_top = 300 + width
         access_y = {'s':140., 'g':local_top+120., 'd':local_top+400., 'b':140.}
@@ -96,7 +115,7 @@ def build(deck, output, columns=32):
         passive_x += ceil((box.width()*ly.dbu*1000+1120)/GRID)*GRID
     control_top = passive_y + 6720.
     macro_x = margin
-    macro_bottom = ceil((control_top+14000)/GRID)*GRID
+    macro_bottom = ceil((control_top+(8400 if compact else 14000))/GRID)*GRID
     macro_y = macro_bottom - memory.Y_BOT
     # Rename the array-facing registered inputs. Root A/DIN remain external.
     rename = {f'A{i}':f'A_dff{i}' for i in range(3)}
@@ -113,7 +132,9 @@ def build(deck, output, columns=32):
     main.place(array,macro_x,macro_y)
     max_x = margin + columns*controller.CELL_WIDTH + 11200
     max_y = macro_bottom + 15400
-    router = Router(main,(-20,-8,ceil(max_x/GRID),ceil(max_y/GRID)))
+    router = Router(main,(-20,-8,ceil(max_x/GRID),ceil(max_y/GRID)),
+                    use_tree_heuristic=compact,allow_same_net_vias=allow_same_net_vias,
+                    join_diagonal_vias=compact)
     # Reserve the memory block; access is through explicit external escapes.
     box = array.cell.bbox()
     for layer in range(3):
@@ -124,6 +145,9 @@ def build(deck, output, columns=32):
     for net,x,y0,y1 in access:
         for yi in range(ceil((min(y0,y1)-175)/GRID),int((max(y0,y1)+175)/GRID)+1):
             router.reserve(router.point(x,yi*GRID),net)
+        if compact:
+            for yi in range(ceil((min(y0,y1)-255)/GRID),int((max(y0,y1)+255)/GRID)+1):
+                router.wide_clearance.setdefault(router.point(x,yi*GRID),set()).add(net)
     # Passive plate regions are real routing obstructions. Their declared
     # connection points remain accessible from outside the plate.
     for item in passive_locations:
@@ -153,14 +177,18 @@ def build(deck, output, columns=32):
             old=f'{kind}{col}';net=rename[old]
             x=macro_x+memory.gx(col,local+memory.OFF)
             y=macro_y+memory.Y_BOT+20
-            target_y=macro_bottom-1120-(col*3+('DIN','Q','QB').index(kind))*280
+            track=col*3+('DIN','Q','QB').index(kind)
+            target_y=macro_bottom-1120-(track%12 if compact else track)*280
             main.rect('m3',x-35,target_y-70,x+35,y+70)
-            for xi in range(ceil((x-140)/GRID),int((x+140)/GRID)+1):
+            clearance=235 if compact else 140
+            for xi in range(ceil((x-clearance)/GRID),int((x+clearance)/GRID)+1):
                 for yi in range(ceil((target_y-175)/GRID),int((y+175)/GRID)+1):
                     router.blocked.add((xi,yi,0))
             gx=round(x/GRID)*GRID
             main.via(3,x,target_y)
             main.rect('m4',min(x,gx)-70,target_y-70,max(x,gx)+70,target_y+70)
+            if compact and x!=gx:
+                router.reserve((round(gx/GRID)+(1 if x>gx else -1),round(target_y/GRID),1),net)
             macro_ports.append((net,(gx,target_y,'m4')))
     # Left-facing decoder/control ports use M2 outside the memory boundary.
     left=[(f'A{i}',memory.JOIN[f'A{i}']) for i in range(3)]
@@ -205,6 +233,10 @@ def build(deck, output, columns=32):
             main.via(3,x,y)
             main.rect('m4',x-70,y-70,gx+70,y+70)
             main.via(3,gx,y)
+            if compact:
+                # Keep a new grid via3 at least one pitch from the existing
+                # off-grid feedback landing; rounding alone can leave 70 nm.
+                gy += GRID if y<gy else -GRID
             main.rect('m3',gx-35,min(y,gy)-70,gx+35,max(y,gy)+70)
             macro_ports.append((net,(gx,gy,'m3')))
     # Connect both array power trunks explicitly to the controller supply mesh.
@@ -221,16 +253,29 @@ def build(deck, output, columns=32):
         routed_pins[net].append(p)
     external={}
     for i,net in enumerate(source.ports):
-        p=(margin+i*560,-1120.,'m3')
+        p=routed_pins[net][0] if compact and net not in ('VDD','VSS') else (margin+i*560,-1120.,'m3')
         routed_pins[net].append(p);external[net]=p
-        main.rect('m3',p[0]-35,p[1]-70,p[0]+35,p[1]+70)
-        main.label('m3',net,p[0],p[1])
+        if p[2]=='m3':
+            main.rect('m3',p[0]-35,p[1]-70,p[0]+35,p[1]+70)
+        main.label(p[2],net,p[0],p[1])
+    compact_pins={router.point(*p) for p in device_locations.values()} if compact else set()
     for net,points in routed_pins.items():
         for p in points:
-            router.reserve(router.point(*p),net)
+            q=router.point(*p)
+            router.reserve(q,net)
+            if compact and q[2]==0:
+                router.reserve((q[0],q[1],1),net)
+                if q in compact_pins:
+                    for dy in (1,2,3,4):
+                        router.reserve((q[0],q[1]+dy,1),net)
+    if compact:
+        from .scaled_macro import reserve_supply_stacks
+        reserve_supply_stacks(router,{},external)
     # Supplies first, then clocks/control fanout, then short local connections.
-    order=sorted(routed_pins,key=lambda n:(n not in ('VDD','VSS'),-len(routed_pins[n]),n))
-    for i,net in enumerate(order):
+    order=(compact_route_order(routed_pins) if compact else
+           sorted(routed_pins,key=lambda n:(n not in ('VDD','VSS'),-len(routed_pins[n]),n)))
+    routing_retries=route_compact(router,routed_pins,order) if compact else []
+    for i,net in enumerate([] if compact else order):
         points=list(dict.fromkeys(router.point(*p) for p in routed_pins[net]))
         if len(points)>1:
             router.connect(net,points[0],points[1:])
@@ -238,6 +283,8 @@ def build(deck, output, columns=32):
     router.draw()
     from .power import add_power_grid
     power_grid = add_power_grid(main, router.paths, macro_bottom, macro_x, control_top, external)
+    box=main.cell.bbox()
+    area_um2=box.width()*box.height()*ly.dbu**2
     ly.write(str(output/'full_macro.gds'))
     (output/'source.sp').write_text(render(source))
     manifest=dict(primary=main.name,ports=source.ports,source_mos=len(source.mos),
@@ -249,6 +296,15 @@ def build(deck, output, columns=32):
     manifest['source_instances']=source.instances
     manifest['source_passives']=source.passives
     manifest['power_grid']=power_grid
+    manifest.update(rows=8,cols=8,floorplan=floorplan,compiler_version=VERSION,
+                    subcircuit_placements=subcircuits,routing_retries=routing_retries,
+                    allow_same_net_vias=allow_same_net_vias,
+                    macro_bbox_nm=[v*ly.dbu*1000 for v in (box.left,box.bottom,box.right,box.top)],
+                    macro_area_um2=area_um2,density_bits_per_um2=64/area_um2,
+                    geometry_status='generated_unverified',
+                    source_deck_sha256=hashlib.sha256(Path(deck).read_bytes()).hexdigest(),
+                    generator_sources_sha256={p.name:hashlib.sha256(p.read_bytes()).hexdigest()
+                                              for p in Path(__file__).parent.glob('*.py')})
     (output/'layout.json').write_text(json.dumps(manifest,indent=2)+'\n')
     return output/'full_macro.gds'
 
@@ -257,10 +313,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--deck', required=True, type=Path)
     parser.add_argument('--output-dir', required=True, type=Path)
+    parser.add_argument('--floorplan',choices=('reference','compact'),default='reference')
+    parser.add_argument('--placement-columns',type=int,default=32)
+    parser.add_argument('--allow-same-net-vias',action='store_true')
     args = parser.parse_args(argv)
     if args.output_dir.exists():
         parser.error('Use a new output directory to preserve layout evidence')
-    print(build(args.deck, args.output_dir))
+    print(build(args.deck,args.output_dir,args.placement_columns,args.floorplan,args.allow_same_net_vias))
     return 0
 
 

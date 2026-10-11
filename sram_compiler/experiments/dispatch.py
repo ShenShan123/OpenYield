@@ -13,6 +13,7 @@ LAYOUT_ACTIONS = {
     'reference': 'run',
     'full': 'full_macro',
     'scaled': 'scaled_macro',
+    'compact': 'compact_macro',
     'export': 'export',
     'analyze': 'analyze',
     'compare': 'compare',

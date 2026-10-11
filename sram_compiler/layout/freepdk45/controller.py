@@ -12,7 +12,7 @@ PITCH_Y = 280.0
 CELL_WIDTH = 1680.0
 
 
-def mos(layout, name, model, width, length=50.0):
+def mos(layout, name, model, width, length=50.0, compact_pins=False):
     width, length = round(width, 6), round(length, 6)
     if width < 90 or width % 5 or length < 50 or length % 5:
         raise ValueError(f'{name}: illegal MOS dimensions W={width}, L={length}')
@@ -41,10 +41,12 @@ def mos(layout, name, model, width, length=50.0):
         cell.via(1, x, gy)
         cell.rect('m2', min(x,gx) - 35, gy - 70, max(x,gx) + 35, gy + 70)
         cell.via(2, gx, gy)
-        pin_y = pin_base + index * PITCH_Y
+        # The body tap can share the source access row on its independent x
+        # track. Keep gate/drain staggered to leave signal escape channels.
+        pin_y = pin_base + (0 if compact_pins and terminal == 'b' else index) * PITCH_Y
         cell.rect('m3', gx - 35, min(gy,pin_y) - 70, gx + 35, max(gy,pin_y) + 70)
         pins[terminal] = (gx, pin_y, 'm3')
-    return cell, pins, max(height, pin_base + 4 * PITCH_Y)
+    return cell, pins, max(height, pin_base + (3 if compact_pins else 4) * PITCH_Y)
 
 
 def passive(layout, name, resistance, cap_side_nm=2800., poly_length_nm=None):

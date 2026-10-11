@@ -9,6 +9,27 @@ were condensed after V2.2.6; the previous full text is at
 proposals and that circuit review were purged after V2.2.6; retrieve them with
 `git show b4987df:<path>`.
 
+## V2.2.8 — 2026-10-11 — compact macro layout features
+
+[Layout design and verification record](design/LAYOUT_COMPACTION_V2_2_8.md).
+
+- Common source subcircuits, including DFFs and driver child gates, reuse
+  matching GDS geometry and pack by actual height. Body pins share the source
+  access row, and repeated array escapes reduce routing-channel depth.
+- `layout full --floorplan compact` retains the fixed 8×8 pitch-aligned
+  periphery. `layout compact` adds a generic diagnostic floorplan; historical
+  reference/full/scaled defaults retain their original placement policy.
+- Reserved M4 pin escapes, width-aware supply clearance, protected off-grid
+  landings and same-net corner joins preserve routing access and metal spacing.
+- The complete fixed 8×8 macro falls from 7,956.89 to 6,573.02 µm²: 17.4%
+  less area and 21.1% higher bit density at identical transistor sizes,
+  topology, fingers and intentional passives. Fresh Calibre DRC has zero
+  violations, LVS is `CORRECT`, and xRC extracts 709 coupled networks.
+- Forty local regression checks pass. Version metadata and current guides
+  report V2.2.8. Compact waveform qualification, additional-size physical
+  certification and new RC-default promotion remain pending; prior evidence
+  keeps its original geometry and scope.
+
 ## V2.2.7 — 2026-10-10 — independent signal and power RC calibration
 
 [Organization and entrance record](design/ORGANIZATION_V2_2_7.md).

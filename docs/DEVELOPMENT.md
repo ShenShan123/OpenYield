@@ -1,4 +1,4 @@
-# OpenYield V2.2.7 development tools
+# OpenYield V2.2.8 development tools
 
 V2.2.2's opt-in transistor-level transition checks are kept locally under
 [`tests/spice/`](../tests/spice/README.md); their case manifests remain tracked. They use full cells, record solver,
@@ -53,6 +53,16 @@ qualification campaign runners, and tests of those tools live under ignored
 checkout. Run commands from the repository root.
 
 ## Local regression checks
+
+V2.2.8's local `tests/test_compact_layout.py` checks common-subcircuit reuse,
+size-sensitive cache identity, complete folded-device coverage, on-grid
+nonoverlapping placement, and unchanged active/poly/contact geometry. Run
+`python -m unittest tests.test_compact_layout tests.test_router_clearance
+tests.test_calibrated_rc`. The tracked
+[`v228_layout_cases.json`](../tests/spice/v228_layout_cases.json) records the
+physical comparison protocol; the [layout record](design/LAYOUT_COMPACTION_V2_2_8.md)
+states the actual area and official verification results. These local Python
+checks remain ignored and are absent from a fresh clone.
 
 V2.2.7's tracked [physical calibration workflow](../sram_compiler/layout/README.md)
 builds an 8x8 FreePDK45 macro and array tile and runs Calibre DRC/LVS/xRC. The

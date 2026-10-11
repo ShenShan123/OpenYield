@@ -1,4 +1,4 @@
-# OpenYield V2.2.7 documentation
+# OpenYield V2.2.8 documentation
 
 Design and validation records (`design/`), the supplied evidence (`data/`,
 `qualification/`) and the release history live here; usage
@@ -6,6 +6,10 @@ guides live beside the code they describe. Paths are relative to the
 repository root unless stated otherwise. Every release entry of the
 [changelog](CHANGELOG.md) names its record; earlier entries, snapshots and
 evidence keep their original version labels.
+
+The [V2.2.8 layout record](design/LAYOUT_COMPACTION_V2_2_8.md) documents compact
+placement, common-subcircuit reuse and physical area comparisons with frozen
+sizing. Compact geometry has separate validation from the earlier references.
 
 The [V2.2.7 record](design/RC_CALIBRATION_V2_2_7.md) covers the
 FreePDK45 8x8 physical calibration and the TIME_CONTROL configuration refactor.
@@ -15,7 +19,7 @@ reference. The [additional-size record](design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.
 covers explicit 8×16, 16×8 and 16×16 calibration profiles and DC curves.
 The [organization record](design/ORGANIZATION_V2_2_7.md) documents the unified
 experiment entrance and integrated per-device variation. The compiler version
-is V2.2.7; no full V2.2.7 screen is complete.
+is V2.2.8; no full V2.2.8 screen is complete.
 
 ## Open items
 
@@ -105,6 +109,8 @@ The carried Phase 6 scope. The working plans that defined it
 
 | Release | Record |
 |---|---|
+| V2.2.8 | [compact macro layouts and common-subcircuit reuse](design/LAYOUT_COMPACTION_V2_2_8.md) |
+| V2.2.7 | [complete signal and power RC calibration](design/FULL_RC_CALIBRATION_V2_2_7.md) |
 | V2.2.6 | [configuration review and fixes](design/CONFIGURATION_REVIEW_V2_2_6.md) |
 | V2.2.5 | [macro entrance and generation checks](design/COMPILER_ENTRY_V2_2_5.md) |
 | V2.2.4 | [replica load cells that do not leak, review fixes](design/PHASED_CONTROL_V2_2_4.md) |

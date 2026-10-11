@@ -1,4 +1,10 @@
-# Local checks for V2.2.7 and preserved V2.2.4 manifests
+# Local checks for V2.2.8 and preserved V2.2.4 manifests
+
+`test_compact_layout.py` checks reusable subcircuit geometry, device/finger
+coverage, placement overlap and shortened body-pin access. Run it with
+`test_router_clearance.py` and `test_calibrated_rc.py` through `unittest`.
+The tracked [`v228_layout_cases.json`](spice/v228_layout_cases.json) preserves
+the compact/reference comparison protocol. Python runners remain local.
 
 Python regression and waveform scripts are kept in local workspaces and ignored by Git. A fresh clone includes this guide and the JSON case manifests under `spice/`, but does not include the Python runner. The manifests preserve the planned V2.2.4 cases; they are not results or qualification evidence.
 

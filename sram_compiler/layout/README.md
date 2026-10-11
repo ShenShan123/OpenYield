@@ -1,6 +1,67 @@
 # FreePDK45 layout and RC calibration
 
-V2.2.7 is in development. The complete **8×8 6T macro** now includes
+V2.2.8 adds compact macro generation. The V2.2.7 calibration references below
+keep their original geometry and evidence. Circuit sizing and timing stay fixed.
+
+## Compact macro floorplan
+
+The physically verified compact reference uses an 8×8 nominal mode-0 6T
+`read&write` deck. Generate its native schematic with the explicit
+`interconnect_illustrative.yaml` configuration shown below:
+
+```bash
+python main_sram.py layout full --floorplan compact --deck "$DECK" \
+  --output-dir outputs/layout/V2.2.8/compact --allow-same-net-vias
+python main_sram.py layout verify-full \
+  --layout-dir outputs/layout/V2.2.8/compact --pdk-dir "$PDK_DIR" \
+  --output-dir outputs/layout/V2.2.8/compact_extraction
+```
+
+The generic `layout compact` diagnostic supports even dimensions of at least
+2×2 and needs its own routing and physical verification. Routing can require
+changed placement columns or pitch; the fixed-macro receipt does not certify
+these generic layouts.
+
+The compact generator keeps the dense mirrored bitcell tile. It groups direct
+MOS by complete common subcircuit (including DFF and driver child gates),
+reuses geometry only for matching models, widths,
+lengths and finger layouts, and packs those blocks onto shelves by height.
+The body and source M3 pins share an access row; gate and drain pins retain
+their stagger for routing access. Reserved M4 escapes protect pin access;
+width-aware clearance separately protects the 190 nm supply trunks near M3
+stubs. Short nets route before global trunks, with bounded route-order retries.
+A repeating eight-track
+bitline escape bounds the array/periphery channel depth; adjacent columns use
+different tracks. All fingers and explicit body taps remain present. Routing
+continues to enforce supply-stack protection and optional same-net via clearance.
+
+`--placement-columns` controls shelf width (default 32, minimum 8).
+`--placement-pitch-nm` retains the 1680 nm minimum and 280 nm grid.
+`--power-tap-count` controls upper-metal supply feeds. There is no automatic
+sizing, fingering, clock or controller-topology change. This is the first
+compaction step; it does not yet implement shared-diffusion standard cells or
+bitcell-pitch column periphery for arbitrary dimensions.
+
+`layout.json` records source and generator hashes, every finger and terminal,
+reused subcircuit placements, the actual macro bounding box, area in µm² and
+density in bits/µm². Area includes routing, passives and supply buses. Density
+uses stored array bits divided by that area. Generated geometry is marked
+unverified; official results belong in the separate verification receipt.
+
+`layout scaled` defaults to the historical reference placement;
+`layout scaled --floorplan compact` selects the same compact generator.
+`layout full` defaults to its fixed 8×8 geometry. For that macro, use
+`layout full --floorplan compact --allow-same-net-vias` to retain the existing
+pitch-aligned row/column periphery and compact the controller/register/latch
+region. `layout reference` retains its fixed geometry.
+Changed geometry must be extracted and checked independently before supplying
+a compact RC profile to a simulation. Existing calibrated profiles describe
+their historical layouts and are not evidence for these new layouts.
+
+The [V2.2.8 design record](../../docs/design/LAYOUT_COMPACTION_V2_2_8.md)
+documents the OpenRAM implementation scan, area comparisons and exact checks.
+
+The V2.2.7 complete **8×8 6T macro** includes
 TIME_CONTROL, input registers, physical RC filters and the output latch, as well
 as the array, decoder, replica and periphery. See the
 [complete reference](#complete-macro-and-controller-reference) below. The initial

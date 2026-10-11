@@ -4,7 +4,9 @@ The dense bitcell tile retains its proven geometry. All peripheral, replica,
 register and controller MOS are placed from the flattened compiler source,
 including explicit fingers and body contacts. This deliberately spacious
 reference is for RC calibration, rather than an area-optimized SRAM layout.
-The fixed original 8x8 generator remains available independently.
+The fixed original 8x8 generator remains available independently. The compact
+floorplan reuses leaf-subcircuit geometry and reduces pin and array escapes;
+it needs fresh physical and electrical verification.
 """
 from __future__ import annotations
 
@@ -19,7 +21,9 @@ from . import bitcell as bc, controller, edge
 from .full_source import flatten, render
 from .lib import Builder, new_layout
 from .power import add_power_grid
+from .placement import compact_placement, route_compact, compact_route_order
 from .router import GRID, Router
+from sram_compiler.version import VERSION
 
 
 def array_tile(layout, rows, cols):
@@ -60,13 +64,16 @@ def reserve_supply_stacks(router, memory_taps, external):
 
 
 def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_net_vias=False,
-          placement_pitch_nm=None):
+          placement_pitch_nm=None, floorplan='reference'):
     source = flatten(deck)
     rows, cols = source.rows, source.cols
     if not any(d['name'].startswith('XD_LATCH/') for d in source.mos):
         raise ValueError('Complete reference requires the read&write output latch')
     if placement_columns < 8:
         raise ValueError('Use at least eight placement columns')
+    if floorplan not in ('reference', 'compact'):
+        raise ValueError('Floorplan must be reference or compact')
+    compact = floorplan == 'compact'
     placement_pitch = controller.CELL_WIDTH if placement_pitch_nm is None else placement_pitch_nm
     if (not 0 < placement_pitch < float('inf') or placement_pitch < controller.CELL_WIDTH
             or abs(placement_pitch/GRID-round(placement_pitch/GRID))>1e-8):
@@ -95,7 +102,16 @@ def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_n
                for d in source.mos if not d['name'].startswith(core+'/')
                for finger in range(d['fingers'])]
     cache, row_y, cursor = {}, [], 1120.
-    for first in range(0, len(fingers), placement_columns):
+    margin = 5600. if compact else 11200.
+    subcircuits = []
+    if compact:
+        positions, blocks, subcircuits, cache, cursor = compact_placement(
+            layout, fingers, source.instances, placement_columns, placement_pitch, margin)
+        by_instance = {item['instance']: item for item in subcircuits}
+        for block in blocks:
+            item = by_instance[block['scope']]
+            main.place(block['cell'], item['x_nm'], item['y_nm'])
+    for first in range(0, 0 if compact else len(fingers), placement_columns):
         height = 0.
         row_y.append(cursor)
         for device, _, width in fingers[first:first+placement_columns]:
@@ -104,13 +120,13 @@ def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_n
                 cache[key] = controller.mos(layout, f'PERIPHERAL_MOS_{len(cache)}', *key)
             height = max(height, cache[key][2])
         cursor += ceil((height+560)/GRID)*GRID
-    margin = 11200.
     for index, (device, finger, width) in enumerate(fingers):
         row, col = divmod(index, placement_columns)
-        x, y = margin+col*placement_pitch, row_y[row]
+        x, y = positions[index] if compact else (margin+col*placement_pitch, row_y[row])
         key = device['model'], round(width, 6), round(device['length_m']*1e9, 6)
         cell, pins, _ = cache[key]
-        main.place(cell, x, y)
+        if not compact:
+            main.place(cell, x, y)
         placements.append(dict(device=device['name'], finger=finger, x_nm=x, y_nm=y, width_nm=width))
         access_y = {'s':140., 'g':300+width+120., 'd':300+width+400., 'b':140.}
         for terminal, (px, py, layer) in pins.items():
@@ -136,14 +152,16 @@ def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_n
         passive_x += ceil((bounds[2]-bounds[0]+1120)/GRID)*GRID
     controller_top = passive_y+6720.
     array_x = margin
-    array_y = ceil((controller_top+14000+cols*2*560)/GRID)*GRID
+    escape_tracks = min(8, cols*2) if compact else cols*2
+    array_y = ceil((controller_top+(5600 if compact else 14000)+escape_tracks*560)/GRID)*GRID
     tile = array_tile(layout, rows, cols)
     main.place(tile, array_x, array_y)
-    max_x = max(margin+placement_columns*placement_pitch+11200,
+    max_x = max(margin+placement_columns*placement_pitch+(5600 if compact else 11200),
                 array_x+cols*bc.W+5600, passive_x+5600)
     max_y = array_y+rows*bc.H+5600
     router = Router(main, (-20, -8, ceil(max_x/GRID), ceil(max_y/GRID)),
-                    use_tree_heuristic=True, allow_same_net_vias=allow_same_net_vias)
+                    use_tree_heuristic=True, allow_same_net_vias=allow_same_net_vias,
+                    join_diagonal_vias=compact)
     # The array and its bitline escapes are unavailable to the generic router.
     for layer in range(3):
         for xi in range(int((array_x-200)/GRID), ceil((array_x+cols*bc.W+200)/GRID)+1):
@@ -153,6 +171,9 @@ def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_n
     for net, x, y0, y1 in access:
         for yi in range(ceil((min(y0,y1)-175)/GRID), int((max(y0,y1)+175)/GRID)+1):
             router.reserve(router.point(x, yi*GRID), net)
+        if compact:
+            for yi in range(ceil((min(y0,y1)-255)/GRID),int((max(y0,y1)+255)/GRID)+1):
+                router.wide_clearance.setdefault(router.point(x,yi*GRID),set()).add(net)
     for item in passives:
         x0,y0,x1,y1=item['bbox_nm']
         for layer in range(3):
@@ -187,11 +208,15 @@ def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_n
         for polarity,local in (('BL',bc.X_BL),('BLB',bc.X_BLB)):
             x=array_x+origin+(-local if col%2 else local)
             y=array_y-edge.TAP_H
-            target_y=array_y-2240-(col*2+(polarity=='BLB'))*560
+            track = (col*2+(polarity=='BLB')) % escape_tracks
+            target_y=array_y-2240-track*560
             gx=round(x/GRID)*GRID
             main.rect('m3',x-35,target_y-70,x+35,y+70)
             main.via(3,x,target_y)
             main.rect('m4',min(x,gx)-70,target_y-70,max(x,gx)+70,target_y+70)
+            if compact and x!=gx:
+                net=array_pins[f'{polarity}{col}']
+                router.reserve((round(gx/GRID)+(1 if x>gx else -1),round(target_y/GRID),1),net)
             for xi in range(ceil((x-235)/GRID),int((x+235)/GRID)+1):
                 for yi in range(ceil((target_y-175)/GRID),int((y+175)/GRID)+1):
                     router.blocked.add((xi,yi,0))
@@ -227,6 +252,7 @@ def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_n
             point=routed[net][0]
         external[net]=point
         main.label('m3',net,point[0],point[1])
+    compact_pins={router.point(*p) for p in locations.values()} if compact else set()
     for net,points in routed.items():
         for point in points:
             q=router.point(*point)
@@ -236,12 +262,17 @@ def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_n
                 # Reserve a via3 escape on M4 before routing any other net.
                 # A later horizontal bus must not trap an unrouted M3 pin.
                 router.reserve((q[0],q[1],1),net)
+                if q in compact_pins:
+                    for dy in (1,2,3,4):
+                        router.reserve((q[0],q[1]+dy,1),net)
     # Fixed pad/array feeds receive M3-to-M6 stacks after signal routing.
     # Reserve their upper landings now: an M5 overflight would otherwise
     # short that signal to a supply, even when ordinary spacing DRC passes.
     reserve_supply_stacks(router,memory_taps,external)
-    order=sorted(routed,key=lambda n:(n not in ('VDD','VSS'),-len(routed[n]),n))
-    for index,net in enumerate(order):
+    order=(compact_route_order(routed) if compact else
+           sorted(routed,key=lambda n:(n not in ('VDD','VSS'),-len(routed[n]),n)))
+    routing_retries = route_compact(router,routed,order) if compact else []
+    for index,net in enumerate([] if compact else order):
         points=list(dict.fromkeys(router.point(*p) for p in routed[net]))
         if len(points)>1:
             router.connect(net,points[0],points[1:])
@@ -251,6 +282,9 @@ def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_n
     fractions=(None if power_tap_count is None else
                tuple((index+.5)/power_tap_count for index in range(power_tap_count)))
     power=add_power_grid(main,router.paths,array_y,array_x,controller_top,external,memory_taps,fractions)
+    box = main.cell.bbox()
+    bbox_nm = [v*layout.dbu*1000 for v in (box.left,box.bottom,box.right,box.top)]
+    area_um2 = box.width()*box.height()*layout.dbu**2
     layout.write(str(output/'full_macro.gds'))
     (output/'source.sp').write_text(render(source, main.name))
     manifest=dict(primary=main.name,rows=rows,cols=cols,ports=source.ports,
@@ -262,17 +296,28 @@ def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_n
                   controller_bbox_nm=[0,0,max_x,controller_top],power_grid=power,
                   allow_same_net_vias=allow_same_net_vias,
                   placement_pitch_nm=placement_pitch,
+                  floorplan=floorplan,subcircuit_placements=subcircuits,
+                  routing_retries=routing_retries,
+                  bitline_escape_tracks=escape_tracks,
+                  compiler_version=VERSION,macro_bbox_nm=bbox_nm,macro_area_um2=area_um2,
+                  density_bits_per_um2=rows*cols/area_um2,
+                  array_frame_area_um2=rows*cols*bc.W*bc.H/1e6,
+                  geometry_status='generated_unverified',
+                  generator_sources_sha256={p.name:hashlib.sha256(p.read_bytes()).hexdigest()
+                                            for p in Path(__file__).parent.glob('*.py')},
                   generator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   source_deck_sha256=hashlib.sha256(Path(deck).read_bytes()).hexdigest())
     (output/'layout.json').write_text(json.dumps(manifest,indent=2)+'\n')
     return output/'full_macro.gds'
 
 
-def main(argv=None):
+def main(argv=None, default_floorplan='reference'):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--deck',required=True,type=Path)
     parser.add_argument('--output-dir',required=True,type=Path)
     parser.add_argument('--placement-columns',type=int,default=32)
+    parser.add_argument('--floorplan',choices=('reference','compact'),default=default_floorplan,
+                        help='reference preserves calibration placement; compact reuses and packs leaf subcircuits')
     parser.add_argument('--power-tap-count',type=int,
                         help='number of upper-metal controller taps per supply; default uses the original four')
     parser.add_argument('--allow-same-net-vias',action='store_true',
@@ -281,7 +326,7 @@ def main(argv=None):
                         help='horizontal placement pitch, at least 1680 nm and a multiple of the 280 nm routing grid')
     args=parser.parse_args(argv)
     print(build(args.deck,args.output_dir,args.placement_columns,args.power_tap_count,
-                args.allow_same_net_vias,args.placement_pitch_nm))
+                args.allow_same_net_vias,args.placement_pitch_nm,args.floorplan))
     return 0
 
 

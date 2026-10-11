@@ -13,8 +13,16 @@ VIA4_HALO = tuple((dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)
                   if dx or dy)
 
 
+class RoutingError(RuntimeError):
+    """An unroutable terminal and the nets enclosing its reachable region."""
+    def __init__(self, net, target, blockers):
+        super().__init__(f'Unable to route {net} terminal {target}; expand routing channels')
+        self.net, self.target, self.blockers = net, target, blockers
+
+
 class Router:
-    def __init__(self, builder, bounds, use_tree_heuristic=False, allow_same_net_vias=False):
+    def __init__(self, builder, bounds, use_tree_heuristic=False, allow_same_net_vias=False,
+                 join_diagonal_vias=False):
         self.builder = builder
         self.bounds = bounds
         self.owner = {}
@@ -24,6 +32,8 @@ class Router:
         self.use_tree_heuristic = use_tree_heuristic
         self.allow_same_net_vias = allow_same_net_vias
         self.via_halos = {}
+        self.join_diagonal_vias = join_diagonal_vias
+        self.wide_clearance = {}
 
     def point(self, x, y, layer='m3'):
         if abs(x / GRID - round(x / GRID)) > 1e-8 or abs(y / GRID - round(y / GRID)) > 1e-8:
@@ -39,6 +49,7 @@ class Router:
         x, y, layer = p
         xmin, ymin, xmax, ymax = self.bounds
         return (xmin <= x <= xmax and ymin <= y <= ymax and p not in self.blocked
+                and (net not in ('VDD','VSS') or not (self.wide_clearance.get(p,set())-{net}))
                 and (not self.allow_same_net_vias or not (self.via_halos.get(p, set()) - {net}))
                 and self.owner.get(p, net) == net)
 
@@ -61,7 +72,8 @@ class Router:
                 halo = [(x+dx,y+dy,2) for dx,dy in VIA4_HALO]
                 if any(h in self.blocked or
                        (h in self.owner and (not self.allow_same_net_vias or self.owner[h] != net)) or
-                       self.via_halos.get(h, set()) - {net} for h in halo):
+                       self.via_halos.get(h, set()) - {net}
+                       for h in halo):
                     continue
             yield q, 4.
 
@@ -99,7 +111,15 @@ class Router:
                         parent[q] = p
                         heapq.heappush(frontier, (cost+heuristic(q), next(serial), q))
             if reached is None:
-                raise RuntimeError(f'Unable to route {net} terminal {target}; expand routing channels')
+                blockers = set()
+                for x,y,layer in closed:
+                    for dx,dy,dl in ((-1,0,0),(1,0,0),(0,-1,0),(0,1,0),(0,0,-1),(0,0,1)):
+                        q=(x+dx,y+dy,layer+dl)
+                        owner=self.owner.get(q)
+                        if owner is not None and owner!=net:
+                            blockers.add(owner)
+                        blockers.update(self.via_halos.get(q,set())-{net})
+                raise RoutingError(net,target,blockers)
             path = [reached]
             while path[-1] != target:
                 path.append(parent[path[-1]])
@@ -164,3 +184,18 @@ class Router:
                     self.builder.rect('m5',a[0]*GRID-72.5,ya,a[0]*GRID+72.5,yb)
                 if (a,b) not in existing and (b,a) not in existing:
                     self.paths.append((net,a,b));existing.add((a,b))
+            if not self.join_diagonal_vias:
+                continue
+            # Calibre uses square corner spacing. A same-net diagonal track
+            # can also leave a 137.5 nm notch beside a 145 nm via4 landing.
+            for dx,dy in ((-1,-1),(-1,1),(1,-1),(1,1)):
+                b=(x+dx,y+dy,2)
+                if self.owner.get(b)!=net:
+                    continue
+                corners=((x+dx,y,2),(x,y+dy,2))
+                if any(self.owner.get(p,net)!=net for p in corners):
+                    raise ValueError('Foreign route inside a via4 diagonal clearance')
+                self.builder.rect('m5',min(x*GRID-72.5,(x+dx)*GRID-70),
+                                  min(y*GRID-72.5,(y+dy)*GRID-70),
+                                  max(x*GRID+72.5,(x+dx)*GRID+70),
+                                  max(y*GRID+72.5,(y+dy)*GRID+70))

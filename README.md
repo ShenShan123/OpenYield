@@ -1,6 +1,18 @@
-# OpenYield V2.2.7
+# OpenYield V2.2.8
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
+
+**V2.2.8:** [Compact FreePDK45 layouts](sram_compiler/layout/README.md#compact-macro-floorplan)
+reuse common compiler subcircuits, pack by actual device height, shorten pin
+escapes, and bound the bitline escape channel. `main_sram.py layout compact`
+preserves every MOS, finger, transistor size and intentional passive. Historical
+calibration generators remain available; compact geometry requires its own
+DRC/LVS, extraction and waveform evidence. No full V2.2.8 screen is complete.
+
+The fixed compact 8×8 macro passes fresh Calibre DRC/LVS and coupled xRC:
+**17.4% less area and 21.1% higher density** with frozen circuit sizing.
+See the [layout record](docs/design/LAYOUT_COMPACTION_V2_2_8.md) for matched
+source identities, measured footprints and validation scope.
 
 **V2.2.7:** [FreePDK45 layout and Calibre xRC calibration](sram_compiler/layout/README.md)
 now includes the complete 8×8 6T macro, TIME_CONTROL, registers, physical RC
@@ -52,7 +64,7 @@ python main_sram.py layout --help
 
 `simulate` is optional when passing simulation flags directly. CLI options override
 the script settings. Per-device mismatch is the default; `--seed random` requests
-fresh draws. `--version` reports V2.2.7.
+fresh draws. `--version` reports V2.2.8.
 
 ## Configure an array
 

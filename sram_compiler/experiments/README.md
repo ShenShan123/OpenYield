@@ -1,4 +1,4 @@
-# Unified experiments — V2.2.7
+# Unified experiments — V2.2.8
 
 Use [`main_sram.py`](../../main_sram.py) for all supported experiments. Simulation uses the script settings as defaults; explicit command-line options override them. From the repository root, generate a full-transistor deck without Xyce:
 
@@ -66,7 +66,7 @@ A generated deck, passing measures, or one Monte Carlo draw does not establish r
 |---|---|
 | `simulate` (also direct flags or no command) | 6T/10T read, write, read/write, and SNM; per-device mismatch by default |
 | `equivalent` | Modes 0–4 accuracy and runtime comparison; nominal is its diagnostic comparison default |
-| `layout ACTION` | FreePDK45 reference/full/scaled macro generation, export, extraction, RC analysis and comparisons |
+| `layout ACTION` | FreePDK45 reference/full/scaled/compact macro generation, export, extraction, RC analysis and comparisons |
 | `circuit-optimize` | Circuit-backed SA, PSO, CMA-ES, random, SMAC, CBO, RoSEOpt, CPN, TSSBO, MOBO, MOEA/D or NSGA-II |
 | `circuit-experiment` | Interactive joint architecture/sizing or fixed-configuration experiment |
 | `optimize --family FAMILY` | Offline evolutionary, Bayesian or proposed optimizer |

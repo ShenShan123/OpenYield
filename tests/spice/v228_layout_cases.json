@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "version": "V2.2.8",
+  "scope": "compact FreePDK45 layout geometry and density; no waveform or yield qualification",
+  "references": {
+    "OpenRAM": "b2b069ce119d1488cbe6883b2240bceb5c7ce29a",
+    "NanGate45-Synopsys-Enablement": "fe37a4a1387f319ce110450c0d13109a0e3a1fea",
+    "platform_nangate45": "992137b98949d875622155730d63227c7e68dac1"
+  },
+  "source": {
+    "cell": "SRAM_6T_CELL",
+    "operation": "read&write",
+    "variation_mode": "nominal",
+    "equivalent_mode": 0,
+    "corner": "TT",
+    "vdd": 1.0,
+    "temperature_c": 25,
+    "interconnect_config": "sram_compiler/config_yaml/interconnect_illustrative.yaml",
+    "sizing": "frozen within each source/reference/compact comparison",
+    "seed": null
+  },
+  "cases": [
+    {
+      "name": "fixed_8x8",
+      "rows": 8,
+      "cols": 8,
+      "generator": "full",
+      "reference_options": [],
+      "compact_options": [
+        "--floorplan",
+        "compact",
+        "--allow-same-net-vias"
+      ],
+      "period_s": 9e-09,
+      "validation_status": "DRC 0, LVS CORRECT, coupled xRC complete; waveform not run"
+    },
+    {
+      "name": "generic_8x8",
+      "rows": 8,
+      "cols": 8,
+      "generator": "scaled",
+      "reference_options": [
+        "--allow-same-net-vias"
+      ],
+      "compact_options": [
+        "--floorplan",
+        "compact",
+        "--allow-same-net-vias"
+      ],
+      "period_s": 9e-09,
+      "validation_status": "routing attempts interrupted unqualified; physical verification not complete"
+    },
+    {
+      "name": "generic_16x16",
+      "rows": 16,
+      "cols": 16,
+      "generator": "scaled",
+      "reference_options": [],
+      "compact_options": [
+        "--floorplan",
+        "compact",
+        "--allow-same-net-vias"
+      ],
+      "period_s": 3e-08,
+      "validation_status": "routing attempts interrupted unqualified; physical verification not complete"
+    }
+  ],
+  "placement": {
+    "columns": 32,
+    "pitch_nm": 1680,
+    "grid_nm": 280,
+    "power_taps_per_supply": 4
+  },
+  "required_checks": [
+    "fresh CLI source has identical flattened MOS and intentional-passive inventory",
+    "identical rendered source between reference and compact",
+    "every source MOS and folded finger retained",
+    "all four device terminals mapped",
+    "actual GDS bounding-box area including routes, passives and supply buses",
+    "stored bits divided by that area for macro density",
+    "official FreePDK45 Calibre DRC has zero violations",
+    "official Calibre LVS is CORRECT against the supplied source",
+    "source/GDS/generator/tool/rule hashes recorded",
+    "failed or interrupted attempts remain unqualified"
+  ],
+  "waveform_validation": "not run for compact geometry",
+  "defaults_promotable": false,
+  "local_python_runners_tracked": false,
+  "output_root": "outputs/layout/V2.2.8"
+}
