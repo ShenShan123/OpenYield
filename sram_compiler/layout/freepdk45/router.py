@@ -14,7 +14,7 @@ VIA4_HALO = tuple((dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)
 
 
 class Router:
-    def __init__(self, builder, bounds, use_tree_heuristic=False):
+    def __init__(self, builder, bounds, use_tree_heuristic=False, allow_same_net_vias=False):
         self.builder = builder
         self.bounds = bounds
         self.owner = {}
@@ -22,6 +22,8 @@ class Router:
         self.vias = []
         self.blocked = set()
         self.use_tree_heuristic = use_tree_heuristic
+        self.allow_same_net_vias = allow_same_net_vias
+        self.via_halos = {}
 
     def point(self, x, y, layer='m3'):
         if abs(x / GRID - round(x / GRID)) > 1e-8 or abs(y / GRID - round(y / GRID)) > 1e-8:
@@ -37,6 +39,7 @@ class Router:
         x, y, layer = p
         xmin, ymin, xmax, ymax = self.bounds
         return (xmin <= x <= xmax and ymin <= y <= ymax and p not in self.blocked
+                and (not self.allow_same_net_vias or not (self.via_halos.get(p, set()) - {net}))
                 and self.owner.get(p, net) == net)
 
     def neighbors(self, p, net):
@@ -56,7 +59,9 @@ class Router:
                 # A 145 nm M5 landing encloses the 140 nm via4. It needs
                 # clearance from the adjacent 140 nm M5 tracks.
                 halo = [(x+dx,y+dy,2) for dx,dy in VIA4_HALO]
-                if any(h in self.blocked or h in self.owner for h in halo):
+                if any(h in self.blocked or
+                       (h in self.owner and (not self.allow_same_net_vias or self.owner[h] != net)) or
+                       self.via_halos.get(h, set()) - {net} for h in halo):
                     continue
             yield q, 4.
 
@@ -108,7 +113,9 @@ class Router:
                     if max(a[2], b[2]) == 2:
                         for dx,dy in VIA4_HALO:
                             halo = (a[0]+dx,a[1]+dy,2)
-                            if halo not in self.owner:
+                            if self.allow_same_net_vias:
+                                self.via_halos.setdefault(halo, set()).add(net)
+                            elif halo not in self.owner:
                                 self.blocked.add(halo)
             tree.update(path)
             for point in path:

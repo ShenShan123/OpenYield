@@ -46,6 +46,19 @@ proposals and that circuit review were purged after V2.2.6; retrieve them with
   sizing frozen. `.IC` parsing excludes measurement thresholds; cap-only
   dummy-net export preserves initialization. Automatic 8×8 selection stays
   scoped; larger unseen sizes and the full release screen remain unqualified.
+- [Extended RC verification](design/EXTENDED_RC_VALIDATION_V2_2_7.md)
+  evaluates nine nominal MOS PVT points and six per-device mismatch samples
+  with fixed 8×8 geometry and metal RC. Five nominal points and all five TT
+  mismatch samples pass; failed hot points remain unqualified. A 20 Ω
+  reduction restores RC accuracy at two hot points without fixing their
+  control-ordering failures. Comparison initialization and thresholds follow
+  the actual supply, and unloaded observation aliases start consistently.
+- A 32×32 diagnostic layout passes fresh DRC/LVS/xRC after protecting fixed
+  supply-stack landings. Five-size terminal-resistance inventories and 65
+  passive frequency coupons preserve explicit boundary assumptions. Native
+  layout PNGs aid inspection. The 32×32 physical waveform runs remain
+  computationally incomplete; sizing, timing policy, automatic reference
+  scope, release qualification and statistical-yield status stay unchanged.
 
 ## V2.2.6 — 2026-10-01 — configuration review fixes
 

@@ -1,5 +1,12 @@
 # Phased SRAM access integration checks
 
+`v227_extended_rc_cases.json` records a new larger-array physical reference,
+fixed-geometry MOS PVT and per-device mismatch comparisons, direct critical
+terminal probes and hot-corner reduction sensitivity. The
+[extended report](../../docs/design/EXTENDED_RC_VALIDATION_V2_2_7.md) records
+completed results and failed operating points. Its local Python runners are
+ignored; this manifest is a protocol, not qualification evidence.
+
 `v227_full_rc_cases.json` records the subsequent complete 8x8 reference,
 including TIME_CONTROL, its registers, physical RC filters and the output latch.
 The fixed 9 ns four-access diagnostic includes final recovery and ends 5 ps

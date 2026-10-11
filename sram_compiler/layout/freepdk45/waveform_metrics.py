@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -30,24 +31,26 @@ def crossings(time, voltage, threshold=.5, start=1e-9, stop=float('inf')):
     return result
 
 
-def access_times(time, values, rows, cols, period):
+def access_times(time, values, rows, cols, period, vdd=1.):
     q=f'XSRAM_6T_CORE_{rows}X{cols}:XSRAM_6T_CELL_{rows-1}_{cols-1}:Q'
     result=[]
     for cycle,(operation,datum) in enumerate((('write',1),('read',1),('write',0),('read',0))):
         start,stop=1e-9+cycle*period,1e-9+(cycle+1)*period
-        clocks=[t for t,rising in crossings(time,values['CLK'],start=start,stop=stop) if rising]
+        clocks=[t for t,rising in crossings(time,values['CLK'],.5*vdd,start=start,stop=stop) if rising]
         outputs=[t for t,rising in crossings(time,values[q if operation=='write' else 'OUT'],
-                                            .9 if datum else .1,start,stop) if rising==bool(datum)]
+                                            (.9 if datum else .1)*vdd,start,stop) if rising==bool(datum)]
         wl=f'XSRAM_6T_CORE_{rows}X{cols}:WL{rows-1}_FAR'
-        rises=[t for t,rising in crossings(time,values[wl],start=start,stop=stop) if rising]
-        falls=[t for t,rising in crossings(time,values[wl],start=start,stop=stop) if not rising]
+        rises=[t for t,rising in crossings(time,values[wl],.5*vdd,start=start,stop=stop) if rising]
+        falls=[t for t,rising in crossings(time,values[wl],.5*vdd,start=start,stop=stop) if not rising]
         result.append(dict(cycle=cycle,operation=operation,datum=datum,
                            clock_to_rail_ps=(outputs[0]-clocks[0])*1e12 if outputs and clocks else None,
                            far_wl_high_ps=(falls[-1]-rises[0])*1e12 if rises and falls else None))
     return result
 
 
-def compare(directories, output, rows, cols, period, stop):
+def compare(directories, output, rows, cols, period, stop, vdd=1., corner='TT', temperature=25):
+    if not math.isfinite(vdd) or vdd <= 0:
+        raise ValueError('VDD must be finite and positive')
     core=f'XSRAM_6T_CORE_{rows}X{cols}'
     q=f'{core}:XSRAM_6T_CELL_{rows-1}_{cols-1}:Q'
     qb=f'{core}:XSRAM_6T_CELL_{rows-1}_{cols-1}:QB'
@@ -66,8 +69,8 @@ def compare(directories, output, rows, cols, period, stop):
         for signal in signals:
             actual=truth[signal][mask]
             estimate=np.interp(truth_time[mask],time,values[signal])
-            reference_edges=crossings(truth_time,truth[signal],stop=stop)
-            candidate_edges=crossings(time,values[signal],stop=stop)
+            reference_edges=crossings(truth_time,truth[signal],.5*vdd,stop=stop)
+            candidate_edges=crossings(time,values[signal],.5*vdd,stop=stop)
             metrics=dict(rmse_v=float(np.sqrt(np.mean((estimate-actual)**2))),
                          max_error_v=float(np.max(np.abs(estimate-actual))),
                          reference_edges=len(reference_edges),candidate_edges=len(candidate_edges))
@@ -81,9 +84,10 @@ def compare(directories, output, rows, cols, period, stop):
                           mean_edge_error_ps=float(np.mean(errors)) if errors else None,
                           max_edge_error_ps=float(np.max(errors)) if errors else None,
                           mean_signal_rmse_v=float(np.mean([v['rmse_v'] for v in per_signal.values()])),
-                          accesses=access_times(time,values,rows,cols,period))
-    result['scope']=dict(rows=rows,cols=cols,period_s=period,stop_s=stop,threshold_v=.5,
-                         access_rail_thresholds_v=[.1,.9],full_release_screen=False,
+                          accesses=access_times(time,values,rows,cols,period,vdd))
+    result['scope']=dict(rows=rows,cols=cols,period_s=period,stop_s=stop,threshold_v=.5*vdd,
+                         vdd=vdd,corner=corner,temperature=temperature,
+                         access_rail_thresholds_v=[.1*vdd,.9*vdd],full_release_screen=False,
                          time_alignment='absolute; no shifting or fitted delay compensation')
     output=Path(output);output.mkdir(parents=True,exist_ok=True)
     (output/'error_metrics.json').write_text(json.dumps(result,indent=2,allow_nan=False)+'\n')
@@ -97,13 +101,13 @@ def compare(directories, output, rows, cols, period, stop):
             'estimated':('#d95f02','-','Back-annotated compiler'),
             'post':('#1f78b4',':','Full coupled xRC')}
     for axis,(signal,label) in zip(axes,panels):
-        for kind in ('illustrative','estimated','post'):
+        for kind in directories:
             time,values=waves[kind];color,style,legend=styles[kind]
             axis.plot(time*1e9,values[signal],style,color=color,label=legend,linewidth=1.5)
         axis.set_ylabel(label+'\n(V)');axis.grid(alpha=.2)
     axes[0].legend(loc='upper right',ncol=3)
     axes[-1].set_xlabel('Time (ns)');axes[-1].set_xlim(0,stop*1e9)
-    figure.suptitle(f'Complete {rows}×{cols} FreePDK45 macro: compiler versus full coupled extraction\nTT · 1 V · 25 °C · {period*1e9:g} ns clock · W1 / R1 / W0 / R0',
+    figure.suptitle(f'Complete {rows}×{cols} FreePDK45 macro: compiler versus full coupled extraction\n{corner} · {vdd:g} V · {temperature:g} °C · {period*1e9:g} ns clock · W1 / R1 / W0 / R0',
                    x=.55,y=.99,va='top',fontsize=14)
     figure.tight_layout()
     figure.subplots_adjust(left=.12,right=.99,bottom=.05,top=.94,hspace=.22)
@@ -119,10 +123,13 @@ def main(argv=None):
     parser.add_argument('--rows',required=True,type=int)
     parser.add_argument('--cols',required=True,type=int)
     parser.add_argument('--period',required=True,type=float)
+    parser.add_argument('--vdd',default=1.,type=float)
+    parser.add_argument('--corner',default='TT')
+    parser.add_argument('--temperature',default=25,type=float)
     args=parser.parse_args(argv)
     result=compare(dict(illustrative=args.illustrative,estimated=args.comparison_dir/'estimated',
                         post=args.comparison_dir/'post'),args.comparison_dir,args.rows,args.cols,
-                   args.period,1e-9+4.2*args.period-5e-12)
+                   args.period,1e-9+4.2*args.period-5e-12,args.vdd,args.corner,args.temperature)
     print(json.dumps({k:{n:v for n,v in group.items() if n!='signals'} for k,group in result.items()},indent=2))
     return 0
 

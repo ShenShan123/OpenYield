@@ -1,4 +1,4 @@
-# OpenYield V2.2.6 development tools
+# OpenYield V2.2.7 development tools
 
 V2.2.2's opt-in transistor-level transition checks are kept locally under
 [`tests/spice/`](../tests/spice/README.md); their case manifests remain tracked. They use full cells, record solver,
@@ -62,6 +62,20 @@ baseline experiment saved 30 controller blocks and seven primitives before
 the YAML refactor; all emitted netlists and a full 8x8 nominal write deck match
 byte for byte. Configuration and calibration scope are recorded in the
 [V2.2.7 development record](design/RC_CALIBRATION_V2_2_7.md).
+
+The [extended RC investigation](design/EXTENDED_RC_VALIDATION_V2_2_7.md) uses
+local `dev/v227/extended_campaign.py`, `critical_rc_metrics.py`,
+`critical_rc_inventory.py`, `ordering_diagnostic.py` and `render_layout_png.py`.
+`assemble_extended_evidence.py` preserves compact results and artifact hashes;
+solver/setup failures are excluded from completed scientific case counts.
+`tests/test_rc_pvt.py` checks voltage-scoped initialization and metrics;
+`tests/test_router_clearance.py` checks same-net via clearance and fixed
+supply-stack protection. `test_critical_rc_frequency.py` independently checks
+the passive frequency solver against closed-form networks. Numerical
+reproduction and unloaded-alias initialization references are separate from
+PVT/mismatch samples. These Python scripts remain ignored. The tracked
+[`v227_extended_rc_cases.json`](../tests/spice/v227_extended_rc_cases.json)
+records the protocol; the report states which waveforms actually completed.
 
 The subsequent [complete macro record](design/FULL_RC_CALIBRATION_V2_2_7.md)
 covers controller legalization, intentional physical filters, coupled extraction,

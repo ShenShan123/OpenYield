@@ -242,9 +242,23 @@ python main_sram.py layout compare-full --deck "$DECK" \
 `--power-tap-count` changes the number of upper-metal controller feeds per
 supply. It changes real layout geometry and requires fresh extraction and
 waveform checks. The fixed 8×8 generator rejects other dimensions explicitly.
+`--placement-pitch-nm` optionally widens horizontal device spacing without
+changing MOS widths or lengths; it must fit the device and be a multiple of
+the 280 nm routing grid. `--allow-same-net-vias` permits adjacent same-net
+via4 landings. Both change geometry and require independent verification.
+The scaled generator protects fixed pad/array supply-stack landings before
+signal routing; spacing DRC alone cannot detect a signal-to-supply short.
 `compare_full` derives its four-access stop time from the supplied compiler
 clock. Solver completion leaves the profile unvalidated until waveform checks
 have passed.
+
+The [extended RC investigation](../../docs/design/EXTENDED_RC_VALIDATION_V2_2_7.md)
+records 32×32 physical verification, native layout PNGs, nine nominal MOS PVT
+points, six paired mismatch samples and two finer-reduction hot-corner tests.
+MOS PVT changes retain the kit's fixed metal RC; they do not verify metal
+corners. The comparison preparer infers native VDD and checks the profile's
+voltage scope. For non-1 V overlays, supply `--vdd`, `--corner` and
+`--temperature` to `waveform_metrics`; its edge and rail thresholds follow VDD.
 
 `waveform_metrics` compares absolute-time edges, voltage error, clock-to-data
 rail delays and far-wordline dwell, and produces PNG/PDF overlays:

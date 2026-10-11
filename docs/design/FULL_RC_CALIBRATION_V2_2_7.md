@@ -177,3 +177,7 @@ The passing reference and artifact hashes are recorded in
 [`V2_2_7_FULL_RC_CALIBRATION.json`](../data/V2_2_7_FULL_RC_CALIBRATION.json).
 Raw layout, extraction, waveforms, overlays and unqualified earlier attempts
 remain under ignored `outputs/rc_calibration/V2.2.7/controller/`.
+
+The subsequent [larger-array, PVT and mismatch investigation](EXTENDED_RC_VALIDATION_V2_2_7.md)
+preserves this reference, tests critical physical endpoints, and records the
+failed hot operating points and reduction sensitivity separately.

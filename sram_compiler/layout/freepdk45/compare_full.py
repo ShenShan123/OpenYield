@@ -8,10 +8,12 @@ It does not qualify the full release waveform screen.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 import copy
 import gzip
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -23,6 +25,48 @@ from sram_compiler.parasitics import read_dspf, spice_value
 from utils.xyce import execute_xyce
 from .reduce_rc import reduce
 from .run import sha256
+
+
+def comparison_vdd(deck, scope):
+    """Use the native DC supply and reject a stale voltage-scoped profile."""
+    supply = re.search(r'(?im)^VVDD\s+VDD\s+(?:VSS|0)\s+(?:DC\s+)?(\S+)\s*$', deck)
+    if supply is None:
+        raise ValueError('Complete macro comparison requires a constant native VDD supply')
+    vdd = spice_value(supply[1].rstrip('Vv'))
+    if vdd <= 0:
+        raise ValueError('Native VDD must be positive')
+    if 'vdd' in scope:
+        reference_vdd = float(scope['vdd'])
+        if not math.isfinite(reference_vdd) or abs(reference_vdd-vdd)>1e-12:
+            raise ValueError('Native VDD differs from the calibration profile scope')
+    return vdd
+
+
+def probe_alias_states(deck, states):
+    """Give unloaded observation aliases their physical node's initial value.
+
+    An alias connected only through its probe resistor has zero current and
+    must share that terminal voltage. Leaving it at UIC's implicit zero adds
+    an artificial startup discontinuity that can affect the error estimate.
+    Aliases carrying testbench device current retain their existing policy.
+    """
+    counts = Counter(token.upper() for line in deck.splitlines()
+                     if not line.lstrip().startswith('*') for token in line.split())
+    physical = {name.upper(): value for name, value in states.items()}
+    existing = {name.upper(): value for name, value in read_initial_conditions(deck).items()}
+    aliases = {}
+    for line in deck.splitlines():
+        tokens = line.split()
+        if not tokens or not tokens[0].upper().startswith('RPHYSICAL_PROBE_'):
+            continue
+        name, terminal = tokens[1:3]
+        if counts[name.upper()] != 1 or terminal.upper() not in physical:
+            continue
+        value = physical[terminal.upper()]
+        if name.upper() in existing and existing[name.upper()] != value:
+            raise ValueError('Observation alias initial state differs from its physical terminal')
+        aliases[name] = value
+    return aliases
 
 
 def prepare(native_deck, profile_path, extraction_dir, output_dir):
@@ -42,6 +86,7 @@ def prepare(native_deck, profile_path, extraction_dir, output_dir):
     if receipt['drc_violations'] != 0 or receipt['lvs'] != 'CORRECT':
         raise ValueError('Physical verification must pass')
     text = native_deck.read_text()
+    vdd = comparison_vdd(text, profile['scope'])
     clock = re.search(r'(?im)^VCLK\s+clk\s+VSS.*?PULSE\(([^)]+)\)', text)
     if clock is None:
         raise ValueError('Complete macro diagnostic requires a native periodic clock')
@@ -69,6 +114,7 @@ def prepare(native_deck, profile_path, extraction_dir, output_dir):
                       complete_cycles=['write1', 'read1', 'write0', 'read0'],
                       rows=profile['scope']['rows'], cols=profile['scope']['cols'],
                       period_s=period, stop_s=stop, output_step_s=5e-12,
+                      vdd=vdd,
                       maximum_integration_step_s=20e-12,
                       initialization='common complete schematic logic state, UIC; released throughout transient',
                       full_release_screen=False)
@@ -76,12 +122,15 @@ def prepare(native_deck, profile_path, extraction_dir, output_dir):
         directory = output_dir / kind
         directory.mkdir()
         deck = apply_to_deck(text, network)
-        states = initial_state(network, conditions)
+        states = initial_state(network, conditions, vdd=vdd)
+        aliases = probe_alias_states(deck, states)
+        states.update(aliases)
         entries = '\n'.join(f'.IC V({node})={value:.15g}' for node, value in states.items())
         deck = deck.replace('\n.END', '\n' + entries + '\n.END')
         (directory / 'deck.sp').write_text(deck)
         (directory / 'provenance.json').write_text(json.dumps(
-            dict(provenance, model=kind, deck_sha256=sha256(directory/'deck.sp')),
+            dict(provenance, model=kind, deck_sha256=sha256(directory/'deck.sp'),
+                 unloaded_probe_alias_initial_conditions=len(aliases)),
             indent=2) + '\n')
     return output_dir
 

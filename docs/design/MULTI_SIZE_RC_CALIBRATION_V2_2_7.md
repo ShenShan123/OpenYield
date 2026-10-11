@@ -189,3 +189,8 @@ Waveform and SNM PNG/PDF overlays are in each case's `comparison_08` /
 No full V2.2.7 release screen, mux/PVT/mismatch qualification, larger-size
 prediction, or resolved 256×256 operating point is claimed. The original
 8×8 evidence and historical V2.2.2 qualification remain preserved.
+
+The [extended investigation](EXTENDED_RC_VALIDATION_V2_2_7.md) adds a 32×32
+physical layout, five-size critical-route inventories, and fixed-geometry
+8×8 MOS PVT and per-device mismatch comparisons. Its scope and failures
+are separate from the passing references above.

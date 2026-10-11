@@ -40,13 +40,37 @@ def array_tile(layout, rows, cols):
     return tile
 
 
-def build(deck, output, placement_columns=32, power_tap_count=None):
+def reserve_supply_stacks(router, memory_taps, external):
+    """Protect fixed M4/M5 landings before any signal can overfly them."""
+    fixed_stacks = dict(memory_taps)
+    for net in ('VDD', 'VSS'):
+        fixed_stacks[net+'_pad'] = external[net][:2]
+    for name,(x,y) in fixed_stacks.items():
+        net = name.split('_',1)[0]
+        center = router.point(x,y,'m5')
+        for layer in (1,2):
+            router.reserve((center[0],center[1],layer),net)
+            for dx in (-1,0,1):
+                for dy in (-1,0,1):
+                    if dx or dy:
+                        point=(center[0]+dx,center[1]+dy,layer)
+                        if router.owner.get(point,net)!=net:
+                            raise ValueError(f'Supply stack clearance overlaps a {router.owner[point]} pin')
+                        router.blocked.add(point)
+
+
+def build(deck, output, placement_columns=32, power_tap_count=None, allow_same_net_vias=False,
+          placement_pitch_nm=None):
     source = flatten(deck)
     rows, cols = source.rows, source.cols
     if not any(d['name'].startswith('XD_LATCH/') for d in source.mos):
         raise ValueError('Complete reference requires the read&write output latch')
     if placement_columns < 8:
         raise ValueError('Use at least eight placement columns')
+    placement_pitch = controller.CELL_WIDTH if placement_pitch_nm is None else placement_pitch_nm
+    if (not 0 < placement_pitch < float('inf') or placement_pitch < controller.CELL_WIDTH
+            or abs(placement_pitch/GRID-round(placement_pitch/GRID))>1e-8):
+        raise ValueError('Placement pitch must fit the device and be a finite multiple of the routing grid')
     if power_tap_count is not None and power_tap_count<1:
         raise ValueError('Supply tap count must be positive')
     core = f'XSRAM_6T_CORE_{rows}x{cols}'
@@ -83,7 +107,7 @@ def build(deck, output, placement_columns=32, power_tap_count=None):
     margin = 11200.
     for index, (device, finger, width) in enumerate(fingers):
         row, col = divmod(index, placement_columns)
-        x, y = margin+col*controller.CELL_WIDTH, row_y[row]
+        x, y = margin+col*placement_pitch, row_y[row]
         key = device['model'], round(width, 6), round(device['length_m']*1e9, 6)
         cell, pins, _ = cache[key]
         main.place(cell, x, y)
@@ -115,11 +139,11 @@ def build(deck, output, placement_columns=32, power_tap_count=None):
     array_y = ceil((controller_top+14000+cols*2*560)/GRID)*GRID
     tile = array_tile(layout, rows, cols)
     main.place(tile, array_x, array_y)
-    max_x = max(margin+placement_columns*controller.CELL_WIDTH+11200,
+    max_x = max(margin+placement_columns*placement_pitch+11200,
                 array_x+cols*bc.W+5600, passive_x+5600)
     max_y = array_y+rows*bc.H+5600
     router = Router(main, (-20, -8, ceil(max_x/GRID), ceil(max_y/GRID)),
-                    use_tree_heuristic=True)
+                    use_tree_heuristic=True, allow_same_net_vias=allow_same_net_vias)
     # The array and its bitline escapes are unavailable to the generic router.
     for layer in range(3):
         for xi in range(int((array_x-200)/GRID), ceil((array_x+cols*bc.W+200)/GRID)+1):
@@ -212,6 +236,10 @@ def build(deck, output, placement_columns=32, power_tap_count=None):
                 # Reserve a via3 escape on M4 before routing any other net.
                 # A later horizontal bus must not trap an unrouted M3 pin.
                 router.reserve((q[0],q[1],1),net)
+    # Fixed pad/array feeds receive M3-to-M6 stacks after signal routing.
+    # Reserve their upper landings now: an M5 overflight would otherwise
+    # short that signal to a supply, even when ordinary spacing DRC passes.
+    reserve_supply_stacks(router,memory_taps,external)
     order=sorted(routed,key=lambda n:(n not in ('VDD','VSS'),-len(routed[n]),n))
     for index,net in enumerate(order):
         points=list(dict.fromkeys(router.point(*p) for p in routed[net]))
@@ -232,6 +260,8 @@ def build(deck, output, placement_columns=32, power_tap_count=None):
                   aliases=source.aliases,grid_nm=GRID,source_devices=source.mos,
                   source_instances=source.instances,source_passives=source.passives,
                   controller_bbox_nm=[0,0,max_x,controller_top],power_grid=power,
+                  allow_same_net_vias=allow_same_net_vias,
+                  placement_pitch_nm=placement_pitch,
                   generator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   source_deck_sha256=hashlib.sha256(Path(deck).read_bytes()).hexdigest())
     (output/'layout.json').write_text(json.dumps(manifest,indent=2)+'\n')
@@ -245,8 +275,13 @@ def main(argv=None):
     parser.add_argument('--placement-columns',type=int,default=32)
     parser.add_argument('--power-tap-count',type=int,
                         help='number of upper-metal controller taps per supply; default uses the original four')
+    parser.add_argument('--allow-same-net-vias',action='store_true',
+                        help='permit adjacent via4 landings on the same electrical net; requires fresh DRC/LVS/xRC')
+    parser.add_argument('--placement-pitch-nm',type=float,
+                        help='horizontal placement pitch, at least 1680 nm and a multiple of the 280 nm routing grid')
     args=parser.parse_args(argv)
-    print(build(args.deck,args.output_dir,args.placement_columns,args.power_tap_count))
+    print(build(args.deck,args.output_dir,args.placement_columns,args.power_tap_count,
+                args.allow_same_net_vias,args.placement_pitch_nm))
     return 0
 
 
