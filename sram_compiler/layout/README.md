@@ -3,6 +3,58 @@
 V2.2.8 adds compact macro generation. The V2.2.7 calibration references below
 keep their original geometry and evidence. Circuit sizing and timing stay fixed.
 
+## Small cells and component placement
+
+`layout cells` is the first stage of the component-based FreePDK45 flow. It
+reads a selected compiler subcircuit with its original ordered ports and
+numeric W/L/NF, builds reusable small cells, then places and routes those cells
+through their ports. Each small cell owns diffusion, body taps, contacts,
+local M1/M2/M3 wiring and a physical pin/obstruction abstract. Adjacent fingers
+share diffusion only when their geometry, body and connected terminal match.
+No transistor is resized or refingered to meet a physical frame.
+
+Column peripherals require the column axis and occupy exactly one **1365 nm**
+core column. Precharge, sense and write-driver bitline access pins follow the
+core's BL/BLB x coordinates; mirror their view with the corresponding array
+column. Row logic uses a **three-row, 1200 nm** leaf frame, with explicit larger
+row spans for component routing. Widths and origins use the core column grid;
+row channels use the **400 nm** core row pitch. Wordline and decoder output
+access points preserve the core wordline phase, `200 + row * 400` nm. The
+electrical terminal map follows every physical transform.
+
+Start with a small NAND2, then assemble its wordline driver from that NAND2
+and an inverter using the same native nominal mode-0 `DECK`:
+
+```bash
+python main_sram.py layout cells --deck "$DECK" --axis row \
+  --instance XWL_DRV_0/XPNAND2 --output-dir outputs/layout/cells/nand2
+python main_sram.py layout cells --deck "$DECK" --axis row \
+  --instance XWL_DRV_0 --output-dir outputs/layout/cells/wordline
+python main_sram.py layout cells --deck "$DECK" --axis column \
+  --instance XPRECHARGE_0 --output-dir outputs/layout/cells/precharge
+python main_sram.py layout verify-full \
+  --layout-dir outputs/layout/cells/wordline --pdk-dir "$PDK_DIR" \
+  --output-dir outputs/layout/cells/wordline_verification
+```
+
+Other native column instances are `XSENSEAMP_0`, `XWRITEDRIVER_0` and
+`XDIN_BUF_0`. Every output must be new. `cells/` contains independently
+verifiable leaf GDS/schematic/abstract bundles; `library.json` catalogs them.
+The root bundle contains the placed cell instances and their connections.
+`attempt.json` preserves failed and interrupted builds. Geometry and library
+entries stay `generated_unverified`; physical verification writes separate,
+scope-specific receipts. Source, model/configuration provenance and generator
+hashes are retained. Intentional passives and unsupported physical views fail
+explicitly. A one-column composite currently has five upper-metal trunks.
+
+This is a **component development flow**. It has not replaced the existing
+macro floorplans, integrated a complete new bank or qualified a new RC/default
+profile. Larger row spans describe standalone components, not a claim that
+they abut a one-row array slice. Whole-bank packing, routing, DRC/LVS/xRC and
+waveform validation remain separate work. See the
+[component design record](../../docs/design/COMPONENT_LAYOUT_V2_2_8.md) for the
+OpenRAM/SRAM22 source comparison, actual checks and physical limitations.
+
 ## Compact macro floorplan
 
 The physically verified compact reference uses an 8×8 nominal mode-0 6T

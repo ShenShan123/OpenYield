@@ -29,6 +29,12 @@ proposals and that circuit review were purged after V2.2.6; retrieve them with
   report V2.2.8. Compact waveform qualification, additional-size physical
   certification and new RC-default promotion remain pending; prior evidence
   keeps its original geometry and scope.
+- The opt-in `layout cells` flow adds circuit-owned small cells, shared
+  diffusion, preserved W/L/NF, local wiring and physical interfaces, followed
+  by placement and routing of cell instances. Column widths and wordline/
+  bitline access follow the core pitch; row spans are explicit. See the
+  [OpenRAM/SRAM22 comparison and component record](design/COMPONENT_LAYOUT_V2_2_8.md).
+  This component development stage does not replace or qualify a full bank.
 
 ## V2.2.7 — 2026-10-10 — independent signal and power RC calibration
 

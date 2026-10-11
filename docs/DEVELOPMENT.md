@@ -54,6 +54,17 @@ checkout. Run commands from the repository root.
 
 ## Local regression checks
 
+The component layout flow has local `tests/test_physical_cells.py` checks for
+actual active/poly gate area and finger count, geometry and connectivity cache
+identity, independent formal ports, diffusion sharing, pitch frames, array
+access coordinates, component placement and preserved failures. Run
+`python -m unittest tests.test_physical_cells tests.test_compact_layout
+tests.test_router_clearance tests.test_calibrated_rc tests.test_unified_entrance
+tests.test_time_control_config`. Campaign helpers remain under ignored
+`dev/cell_layout/`. The tracked
+[`v228_component_cases.json`](../tests/spice/v228_component_cases.json) and
+[component record](design/COMPONENT_LAYOUT_V2_2_8.md) preserve the checked scope.
+
 V2.2.8's local `tests/test_compact_layout.py` checks common-subcircuit reuse,
 size-sensitive cache identity, complete folded-device coverage, on-grid
 nonoverlapping placement, and unchanged active/poly/contact geometry. Run

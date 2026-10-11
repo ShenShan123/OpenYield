@@ -14,6 +14,10 @@ The fixed compact 8×8 macro passes fresh Calibre DRC/LVS and coupled xRC:
 See the [layout record](docs/design/LAYOUT_COMPACTION_V2_2_8.md) for matched
 source identities, measured footprints and validation scope.
 
+The opt-in [small-cell flow](sram_compiler/layout/README.md#small-cells-and-component-placement)
+builds internally routed, pitch-constrained cells, then places and routes their
+instances. Its standalone component evidence does not qualify a new full bank.
+
 **V2.2.7:** [FreePDK45 layout and Calibre xRC calibration](sram_compiler/layout/README.md)
 now includes the complete 8×8 6T macro, TIME_CONTROL, registers, physical RC
 filters and output latch. Controller sizing is legalized in

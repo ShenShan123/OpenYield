@@ -1,4 +1,4 @@
-"""Calibre verification and extraction of a generated complete macro."""
+"""Calibre verification and extraction of a generated macro or component."""
 from __future__ import annotations
 
 import argparse
@@ -29,14 +29,22 @@ def main(argv=None):
     gds=layout/'full_macro.gds';source=layout/'source.sp'
     manifest=json.loads((layout/'layout.json').read_text())
     primary=manifest['primary']
-    rows,cols=manifest.get('rows',8),manifest.get('cols',8)
-    receipt=dict(status='in_progress',scope=f'complete {rows}x{cols} 6T macro including controller and output latch',
+    component=manifest.get('artifact_kind')=='component'
+    rows,cols=(None,None) if component else (manifest.get('rows',8),manifest.get('cols',8))
+    scope=manifest['scope'] if component else f'complete {rows}x{cols} 6T macro including controller and output latch'
+    receipt=dict(status='in_progress',scope=scope,
                  rows=rows,cols=cols,primary=primary,
                  extraction_workers=args.extraction_workers,
-                 controller_layout=True,layout_sha256=sha256(gds),source_sha256=sha256(source),
+                 controller_layout=not component,layout_sha256=sha256(gds),source_sha256=sha256(source),
                  rule_sha256={n:sha256(rules/n) for n in ['calibreDRC.rul','calibreLVS.rul','calibrexRC.rul']},
                  lvs_passive_policy='R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.',
                  full_release_screen=False)
+    if component:
+        calibre=shutil.which('calibre')
+        receipt.update(artifact_kind='component',core_pitch_nm=manifest['core_pitch_nm'],
+                       row_span=manifest['row_span'],column_span=manifest['column_span'],
+                       compiler_instance=manifest['compiler_instance'],
+                       calibre_executable=calibre,calibre_sha256=sha256(Path(calibre)) if calibre else None)
     def save(): (output/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
     save()
     common=[f'LAYOUT PATH "{gds}"',f'LAYOUT PRIMARY {primary}','LAYOUT SYSTEM GDSII']

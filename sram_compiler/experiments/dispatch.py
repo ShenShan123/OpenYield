@@ -14,6 +14,7 @@ LAYOUT_ACTIONS = {
     'full': 'full_macro',
     'scaled': 'scaled_macro',
     'compact': 'compact_macro',
+    'cells': 'cell_flow',
     'export': 'export',
     'analyze': 'analyze',
     'compare': 'compare',

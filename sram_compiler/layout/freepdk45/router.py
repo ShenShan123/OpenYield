@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import heapq
 from itertools import count
+from math import isfinite
 
 from .lib import Builder
 
@@ -22,7 +23,13 @@ class RoutingError(RuntimeError):
 
 class Router:
     def __init__(self, builder, bounds, use_tree_heuristic=False, allow_same_net_vias=False,
-                 join_diagonal_vias=False):
+                 join_diagonal_vias=False, grid_nm=GRID, metal_layers=LAYERS, widths=WIDTHS):
+        if (len(metal_layers)!=len(widths) or not metal_layers or
+                not isfinite(grid_nm) or grid_nm<=0 or any(not isfinite(w) or w<=0 for w in widths)):
+            raise ValueError('Invalid routing stack')
+        if any(int(b[1:])!=int(a[1:])+1 for a,b in zip(metal_layers,metal_layers[1:])):
+            raise ValueError('Routing metals must be consecutive')
+        self.grid, self.layers, self.widths = grid_nm, tuple(metal_layers), tuple(widths)
         self.builder = builder
         self.bounds = bounds
         self.owner = {}
@@ -35,10 +42,14 @@ class Router:
         self.join_diagonal_vias = join_diagonal_vias
         self.wide_clearance = {}
 
-    def point(self, x, y, layer='m3'):
-        if abs(x / GRID - round(x / GRID)) > 1e-8 or abs(y / GRID - round(y / GRID)) > 1e-8:
+    def point(self, x, y, layer=None):
+        layer = self.layers[0] if layer is None else layer
+        if abs(x / self.grid - round(x / self.grid)) > 1e-8 or abs(y / self.grid - round(y / self.grid)) > 1e-8:
             raise ValueError(f'Off routing grid: {x}, {y}')
-        return (round(x / GRID), round(y / GRID), LAYERS.index(layer))
+        return (round(x / self.grid), round(y / self.grid), self.layers.index(layer))
+
+    def via_number(self, upper):
+        return int(self.layers[upper-1][1:])
 
     def reserve(self, point, net):
         if self.owner.get(point, net) != net:
@@ -61,15 +72,15 @@ class Router:
                 preferred = (layer == 1 and dy == 0) or (layer != 1 and dx == 0)
                 yield q, 1. if preferred else 3.
         for other in (layer - 1, layer + 1):
-            if not 0 <= other < 3:
+            if not 0 <= other < len(self.layers):
                 continue
             q = (x, y, other)
             if not self.available(q, net):
                 continue
-            if max(layer, other) == 2:
+            if self.via_number(max(layer, other)) >= 4:
                 # A 145 nm M5 landing encloses the 140 nm via4. It needs
                 # clearance from the adjacent 140 nm M5 tracks.
-                halo = [(x+dx,y+dy,2) for dx,dy in VIA4_HALO]
+                halo = [(x+dx,y+dy,max(layer,other)) for dx,dy in VIA4_HALO]
                 if any(h in self.blocked or
                        (h in self.owner and (not self.allow_same_net_vias or self.owner[h] != net)) or
                        self.via_halos.get(h, set()) - {net}
@@ -130,9 +141,9 @@ class Router:
                     self.paths.append((net, a, b))
                 else:
                     self.vias.append((net, a[0], a[1], max(a[2], b[2])))
-                    if max(a[2], b[2]) == 2:
+                    if self.via_number(max(a[2], b[2])) >= 4:
                         for dx,dy in VIA4_HALO:
-                            halo = (a[0]+dx,a[1]+dy,2)
+                            halo = (a[0]+dx,a[1]+dy,max(a[2],b[2]))
                             if self.allow_same_net_vias:
                                 self.via_halos.setdefault(halo, set()).add(net)
                             elif halo not in self.owner:
@@ -148,32 +159,38 @@ class Router:
         for net, a, b in self.paths:
             # Supply trunks carry aggregate register/control switching current.
             # Wider M3 needs 90 nm spacing: 190 nm rails fit a 280 nm grid.
-            width = 190. if net in ('VDD', 'VSS') and a[2] == 0 else WIDTHS[a[2]]
+            width = 190. if net in ('VDD', 'VSS') and self.layers[a[2]] == 'm3' and self.grid==GRID else self.widths[a[2]]
             half = width / 2
-            x0, y0 = a[0] * GRID, a[1] * GRID
-            x1, y1 = b[0] * GRID, b[1] * GRID
-            self.builder.rect(LAYERS[a[2]], min(x0, x1)-half, min(y0, y1)-half,
+            x0, y0 = a[0] * self.grid, a[1] * self.grid
+            x1, y1 = b[0] * self.grid, b[1] * self.grid
+            self.builder.rect(self.layers[a[2]], min(x0, x1)-half, min(y0, y1)-half,
                               max(x0, x1)+half, max(y0, y1)+half)
         for _, x, y, upper in set(self.vias):
-            x, y = x * GRID, y * GRID
-            if upper == 1:
-                self.builder.via(3, x, y)
-                self.builder.rect('m3', x-35, y-70, x+35, y+70)
-                self.builder.sq('m4', x, y, 140)
+            x, y = x * self.grid, y * self.grid
+            number = self.via_number(upper)
+            self.builder.via(number, x, y)
+            if number < 3:
+                if number==1:
+                    self.builder.rect(self.layers[upper-1], x-70, y-35, x+70, y+35)
+                else:
+                    self.builder.rect(self.layers[upper-1], x-35, y-70, x+35, y+70)
+                self.builder.rect(self.layers[upper], x-35, y-70, x+35, y+70)
+            elif number == 3:
+                self.builder.rect(self.layers[upper-1], x-35, y-70, x+35, y+70)
+                self.builder.sq(self.layers[upper], x, y, 140)
             else:
-                self.builder.via(4, x, y)
-                self.builder.sq('m4', x, y, 140)
-                self.builder.sq('m5', x, y, 145)
+                self.builder.sq(self.layers[upper-1], x, y, 140)
+                self.builder.sq(self.layers[upper], x, y, 145)
         # A single maze path can turn back alongside its new via4 landing.
         # Join adjacent pieces of that same net so the 2.5 nm landing growth
         # does not leave a 137.5 nm re-entrant spacing notch.
         existing={(a,b) for _,a,b in self.paths}
         for net,x,y,upper in set(self.vias):
-            if upper!=2:
+            if self.via_number(upper)!=4:
                 continue
-            a=(x,y,2)
+            a=(x,y,upper)
             for dx,dy in ((-1,0),(1,0),(0,-1),(0,1)):
-                b=(x+dx,y+dy,2)
+                b=(x+dx,y+dy,upper)
                 if self.owner.get(b)!=net:
                     continue
                 if dx:

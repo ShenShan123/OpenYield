@@ -1,0 +1,1033 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "standalone physical cells and component placement/routing; no new complete bank",
+  "source_deck_sha256": "24cb427267694464be142a72d538607302fae1819df49135a62b565d3cb8949d",
+  "compiler_summary_sha256": "f02bdeceb91be33337306828a4b7e63dc17db7356760720d67aa0aa4bdc77cd9",
+  "source": {
+    "rows": 8,
+    "cols": 8,
+    "cell_type": "SRAM_6T_CELL",
+    "corner": "TT",
+    "vdd": 1.0,
+    "temperature": 25.0,
+    "real_cell_mode": 0,
+    "variation_mode": "nominal",
+    "seed": 20260711,
+    "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0"
+  },
+  "core_pitch_nm": {
+    "column": 1365,
+    "row": 400
+  },
+  "row_leaf_span": 3,
+  "source_sizing": "frozen W/L/NF; no refingering",
+  "root_cases": [
+    {
+      "name": "wordline",
+      "instance": "XWL_DRV_0",
+      "axis": "row",
+      "exit": 0,
+      "primary": "ROW_ASSEMBLY_b4165cceb77d7b2e",
+      "source_sha256": "18d8591cd341a5106d258d43d73bc1fc64e2cca10aaace443d827506294e8fbf",
+      "layout_sha256": "b78dc06a17deeb8711c97907f5d30e6bbbc8fb40e375886f5f9af32ce0755ad0",
+      "row_span": 10.0,
+      "column_span": 10.0,
+      "macro_area_um2": 54.599999999999994,
+      "array_pins": {
+        "Z": {
+          "core_row": 0,
+          "pin": [
+            13510.0,
+            200.0,
+            "m5"
+          ]
+        }
+      },
+      "terminal_count": 24,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component XWL_DRV_0; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_ASSEMBLY_b4165cceb77d7b2e",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "b78dc06a17deeb8711c97907f5d30e6bbbc8fb40e375886f5f9af32ce0755ad0",
+        "source_sha256": "18d8591cd341a5106d258d43d73bc1fc64e2cca10aaace443d827506294e8fbf",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 10.0,
+        "column_span": 10.0,
+        "compiler_instance": "XWL_DRV_0",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "d6e3281e253fcd3426ca6f2e54f4f4998e908caa4582c0969c671bbfa86e71e1",
+        "nets": 7,
+        "capacitance": {
+          "shunt_f": 4.384853997999999e-15,
+          "coupling_f": 2.535265860000002e-15,
+          "annotated_total_f": 9.455396e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "name": "precharge",
+      "instance": "XPRECHARGE_0",
+      "axis": "column",
+      "exit": 0,
+      "primary": "COLUMN_bc0024069d5eb2db",
+      "source_sha256": "31301039060e5905d3f2cb8706dea65feedcae3f1ca97d2f5d0dda2b45e4ddc8",
+      "layout_sha256": "7ec6daaba97afbb4e51c02bd3934cc5afa5237e56d14890587e6afbfc9011632",
+      "row_span": 9.0,
+      "column_span": 1.0,
+      "macro_area_um2": 4.914,
+      "array_pins": {
+        "BL": {
+          "core_net": "BL",
+          "pin": [
+            155.0,
+            3460.0,
+            "m5"
+          ]
+        },
+        "BLB": {
+          "core_net": "BLB",
+          "pin": [
+            1210.0,
+            3460.0,
+            "m5"
+          ]
+        }
+      },
+      "terminal_count": 12,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component XPRECHARGE_0; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "COLUMN_bc0024069d5eb2db",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "7ec6daaba97afbb4e51c02bd3934cc5afa5237e56d14890587e6afbfc9011632",
+        "source_sha256": "31301039060e5905d3f2cb8706dea65feedcae3f1ca97d2f5d0dda2b45e4ddc8",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 9.0,
+        "column_span": 1.0,
+        "compiler_instance": "XPRECHARGE_0",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "dd70f8c16b8135155c4280e69a81c311a7e393138d284c86dbea656a46a9b5c2",
+        "nets": 4,
+        "capacitance": {
+          "shunt_f": 6.897077970000002e-16,
+          "coupling_f": 2.37926339e-16,
+          "annotated_total_f": 1.16556e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "name": "sense",
+      "instance": "XSENSEAMP_0",
+      "axis": "column",
+      "exit": 0,
+      "primary": "COLUMN_0c9248d4e22e819e",
+      "source_sha256": "07d57a34a089800fea71006b1afb756a28329472e7760c238a2697ae18eeeb69",
+      "layout_sha256": "dc8e5fc3655f84981eb6fd85192a821d2b95fa6f583916a7cee59c5b198b79d0",
+      "row_span": 38.0,
+      "column_span": 1.0,
+      "macro_area_um2": 20.747999999999998,
+      "array_pins": {
+        "IN": {
+          "core_net": "BL",
+          "pin": [
+            155.0,
+            15060.0,
+            "m5"
+          ]
+        },
+        "INB": {
+          "core_net": "BLB",
+          "pin": [
+            1210.0,
+            15060.0,
+            "m5"
+          ]
+        }
+      },
+      "terminal_count": 28,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component XSENSEAMP_0; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "COLUMN_0c9248d4e22e819e",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "dc8e5fc3655f84981eb6fd85192a821d2b95fa6f583916a7cee59c5b198b79d0",
+        "source_sha256": "07d57a34a089800fea71006b1afb756a28329472e7760c238a2697ae18eeeb69",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 38.0,
+        "column_span": 1.0,
+        "compiler_instance": "XSENSEAMP_0",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "5dfabda949ecf7085f250c22027dc9381bd0232980b7cdec538e7eab6b1fad5c",
+        "nets": 9,
+        "capacitance": {
+          "shunt_f": 2.7906598990000027e-15,
+          "coupling_f": 3.883953065999997e-15,
+          "annotated_total_f": 1.0558569e-14
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "name": "write_driver",
+      "instance": "XWRITEDRIVER_0",
+      "axis": "column",
+      "exit": 0,
+      "primary": "COLUMN_93ef44f15892cb00",
+      "source_sha256": "e49fdca91d813765ba75bff7bead123dc108342c00883389ee0c2d343260d8ff",
+      "layout_sha256": "fa98585d64df9ba54a32963cea03e40d4a64d0a19f0694708a631e57569048db",
+      "row_span": 51.0,
+      "column_span": 1.0,
+      "macro_area_um2": 27.846,
+      "array_pins": {
+        "BL": {
+          "core_net": "BL",
+          "pin": [
+            155.0,
+            20260.0,
+            "m5"
+          ]
+        },
+        "BLB": {
+          "core_net": "BLB",
+          "pin": [
+            1210.0,
+            20260.0,
+            "m5"
+          ]
+        }
+      },
+      "terminal_count": 48,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component XWRITEDRIVER_0; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "COLUMN_93ef44f15892cb00",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "fa98585d64df9ba54a32963cea03e40d4a64d0a19f0694708a631e57569048db",
+        "source_sha256": "e49fdca91d813765ba75bff7bead123dc108342c00883389ee0c2d343260d8ff",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 51.0,
+        "column_span": 1.0,
+        "compiler_instance": "XWRITEDRIVER_0",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "9b457af164b1c5730500e0509b4b44734450cbc637aa90c2789628d636d1d945",
+        "nets": 12,
+        "capacitance": {
+          "shunt_f": 4.1523945389999985e-15,
+          "coupling_f": 4.4851878279999964e-15,
+          "annotated_total_f": 1.31227724e-14
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "name": "data_buffer",
+      "instance": "XDIN_BUF_0",
+      "axis": "column",
+      "exit": 0,
+      "primary": "COLUMN_ASSEMBLY_1d3b982e1a671688",
+      "source_sha256": "2ef2a1425e581fee6097b74f884272e389326d23eaf4923ed73abe1156f53be0",
+      "layout_sha256": "eebaa6319b01338158d66373f27a038f67e0681486f2254ee20b536d2c93626c",
+      "row_span": 24.0,
+      "column_span": 1.0,
+      "macro_area_um2": 13.104,
+      "array_pins": {},
+      "terminal_count": 16,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component XDIN_BUF_0; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "COLUMN_ASSEMBLY_1d3b982e1a671688",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "eebaa6319b01338158d66373f27a038f67e0681486f2254ee20b536d2c93626c",
+        "source_sha256": "2ef2a1425e581fee6097b74f884272e389326d23eaf4923ed73abe1156f53be0",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 24.0,
+        "column_span": 1.0,
+        "compiler_instance": "XDIN_BUF_0",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "6bd27384d8cdedb1b44a76219e269be4f92a0804dcd2b8782cf640acb72df118",
+        "nets": 5,
+        "capacitance": {
+          "shunt_f": 1.4716906399999994e-15,
+          "coupling_f": 1.7529034310000006e-15,
+          "annotated_total_f": 4.9775029999999996e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "name": "decoder",
+      "instance": "XDECODER",
+      "axis": "row",
+      "exit": 0,
+      "primary": "ROW_ASSEMBLY_ec5e6b337b9145c3",
+      "source_sha256": "27a9c7d64ba05571bb76184167f13842b266d40d69e019de7aea3595f27821bd",
+      "layout_sha256": "64020c8c49e368910d89f0bc7e314441d36b8523964ed099eceb97aecd90c0d3",
+      "row_span": 22.0,
+      "column_span": 182.0,
+      "macro_area_um2": 2186.1839999999997,
+      "array_pins": {
+        "WL0": {
+          "core_row": 0,
+          "pin": [
+            248290.0,
+            200.0,
+            "m5"
+          ]
+        },
+        "WL1": {
+          "core_row": 1,
+          "pin": [
+            247990.0,
+            600.0,
+            "m5"
+          ]
+        },
+        "WL2": {
+          "core_row": 2,
+          "pin": [
+            247690.0,
+            1000.0,
+            "m5"
+          ]
+        },
+        "WL3": {
+          "core_row": 3,
+          "pin": [
+            247390.0,
+            1400.0,
+            "m5"
+          ]
+        },
+        "WL4": {
+          "core_row": 4,
+          "pin": [
+            247090.0,
+            1800.0,
+            "m5"
+          ]
+        },
+        "WL5": {
+          "core_row": 5,
+          "pin": [
+            246790.0,
+            2200.0,
+            "m5"
+          ]
+        },
+        "WL6": {
+          "core_row": 6,
+          "pin": [
+            246490.0,
+            2600.0,
+            "m5"
+          ]
+        },
+        "WL7": {
+          "core_row": 7,
+          "pin": [
+            246190.0,
+            3000.0,
+            "m5"
+          ]
+        }
+      },
+      "terminal_count": 472,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component XDECODER; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_ASSEMBLY_ec5e6b337b9145c3",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "64020c8c49e368910d89f0bc7e314441d36b8523964ed099eceb97aecd90c0d3",
+        "source_sha256": "27a9c7d64ba05571bb76184167f13842b266d40d69e019de7aea3595f27821bd",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 22.0,
+        "column_span": 182.0,
+        "compiler_instance": "XDECODER",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "361a71fa4303fccd5f6b511c630920700340781975acba77ac0f0fa1e09020bc",
+        "nets": 64,
+        "capacitance": {
+          "shunt_f": 2.1393727502299855e-13,
+          "coupling_f": 8.046959879999823e-14,
+          "annotated_total_f": 3.748765560000001e-13
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "name": "nand3",
+      "instance": "XTIME_CONTROL/Xread_done/XPNAND3",
+      "axis": "row",
+      "exit": 0,
+      "primary": "ROW_2302bab8c6e98a4e",
+      "source_sha256": "9b2ce7a5ef3aed187f7c1825ccf969626b182fc679219032d0e419f59e642ef0",
+      "layout_sha256": "dfda8f01dea1e22a7c3f442d3dcd4e507cc2b4dc918397313ae7949dc2ecd87a",
+      "row_span": 3.0,
+      "column_span": 8.0,
+      "macro_area_um2": 13.104,
+      "array_pins": {},
+      "terminal_count": 24,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component XTIME_CONTROL/Xread_done/XPNAND3; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_2302bab8c6e98a4e",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "dfda8f01dea1e22a7c3f442d3dcd4e507cc2b4dc918397313ae7949dc2ecd87a",
+        "source_sha256": "9b2ce7a5ef3aed187f7c1825ccf969626b182fc679219032d0e419f59e642ef0",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 3.0,
+        "column_span": 8.0,
+        "compiler_instance": "XTIME_CONTROL/Xread_done/XPNAND3",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "e41bb733c44dfdb64a65e7a215cb7b416626ccdfd9097d571bfc23bcd36dd9ab",
+        "nets": 8,
+        "capacitance": {
+          "shunt_f": 2.224760613e-15,
+          "coupling_f": 2.5190794560000027e-15,
+          "annotated_total_f": 7.262929e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "name": "nor2",
+      "instance": "XTIME_CONTROL/Xwrite_ready_nor",
+      "axis": "row",
+      "exit": 0,
+      "primary": "ROW_866893308bae6367",
+      "source_sha256": "eaca991dc28c3e1bbe04eddf4e61f092c6e013428da55f52cf8676f7afb58c61",
+      "layout_sha256": "7f508e5e9dfc8bb1a81c36914be55fe9103835b84da29e7197446cbdb72b5b91",
+      "row_span": 3.0,
+      "column_span": 4.0,
+      "macro_area_um2": 6.552,
+      "array_pins": {},
+      "terminal_count": 16,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component XTIME_CONTROL/Xwrite_ready_nor; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_866893308bae6367",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "7f508e5e9dfc8bb1a81c36914be55fe9103835b84da29e7197446cbdb72b5b91",
+        "source_sha256": "eaca991dc28c3e1bbe04eddf4e61f092c6e013428da55f52cf8676f7afb58c61",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 3.0,
+        "column_span": 4.0,
+        "compiler_instance": "XTIME_CONTROL/Xwrite_ready_nor",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "dc57c993612c8c2aba242382bf49dda5f69c64c7e145ea75b9db30e229a5c32d",
+        "nets": 6,
+        "capacitance": {
+          "shunt_f": 1.0775911789999999e-15,
+          "coupling_f": 9.96879136e-16,
+          "annotated_total_f": 3.0713492000000002e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "name": "folded",
+      "instance": "XTIME_CONTROL/Xclkbuf/Xbuf_inv4",
+      "axis": "row",
+      "exit": 0,
+      "primary": "ROW_d3da18eb114507b9",
+      "source_sha256": "1623c70aa65ed60f83f7e6a4317f61d52742349760874ea4c9969c6a37d041a4",
+      "layout_sha256": "9fffc4106bf10a7a416fc228828d1dab1dee7db2c5121d462fecca26b467b2de",
+      "row_span": 3.0,
+      "column_span": 8.0,
+      "macro_area_um2": 13.104,
+      "array_pins": {},
+      "terminal_count": 24,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component XTIME_CONTROL/Xclkbuf/Xbuf_inv4; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_d3da18eb114507b9",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "9fffc4106bf10a7a416fc228828d1dab1dee7db2c5121d462fecca26b467b2de",
+        "source_sha256": "1623c70aa65ed60f83f7e6a4317f61d52742349760874ea4c9969c6a37d041a4",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 3.0,
+        "column_span": 8.0,
+        "compiler_instance": "XTIME_CONTROL/Xclkbuf/Xbuf_inv4",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "081904f4cc9050974557154ce0110114b03c04a0f6eac75f37a309a9fc572ddb",
+        "nets": 4,
+        "capacitance": {
+          "shunt_f": 2.251770107e-15,
+          "coupling_f": 1.7157427979999994e-15,
+          "annotated_total_f": 5.683259000000001e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    }
+  ],
+  "leaf_checks": [
+    {
+      "cell": "COLUMN_e839adbe420800cb",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component PINV_WRITE_DATA_BUFFER_0; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "COLUMN_e839adbe420800cb",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "5ff110e43f59b629e0e95d61049f59a43f915b18d6d403e48dc0423688b98365",
+        "source_sha256": "d4d84fd51c04ecf0afbb427027662da890cf917815b39abc9907aaf928363735",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 12.0,
+        "column_span": 1.0,
+        "compiler_instance": "PINV_WRITE_DATA_BUFFER_0",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "0c1feae7f52e6a0925de2d5f4c644d46b476f3e99539eb841b5eeee2225c172b",
+        "nets": 4,
+        "capacitance": {
+          "shunt_f": 5.394786300000001e-16,
+          "coupling_f": 5.4050261100000005e-16,
+          "annotated_total_f": 1.6204840000000001e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "cell": "ROW_1b05e9ec85bff266",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component PNAND2; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_1b05e9ec85bff266",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "29d8a2e12d15426ab09ba8996bd8bcc314be442169382bad5017be87cdb3887e",
+        "source_sha256": "09d9d0a6972c86c55ef1279211296910a15b1b593839670c3f918a90d9f72012",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 3.0,
+        "column_span": 5.0,
+        "compiler_instance": "PNAND2",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "cccfab261dd3c43803a8745a6e2e981752aa2356ce2ff6af78e17ac280dad011",
+        "nets": 6,
+        "capacitance": {
+          "shunt_f": 1.3433623819999998e-15,
+          "coupling_f": 9.636657370000004e-16,
+          "annotated_total_f": 3.270695e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "cell": "ROW_2302bab8c6e98a4e",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component PNAND3; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_2302bab8c6e98a4e",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "2c32b7c4dab3850ac7f15f86f5b873f4c66d45139b992a9643b8a21173ab2bcc",
+        "source_sha256": "9b2ce7a5ef3aed187f7c1825ccf969626b182fc679219032d0e419f59e642ef0",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 3.0,
+        "column_span": 8.0,
+        "compiler_instance": "PNAND3",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "d8773f5c234a6ebc5eddc3f2b645cc743d7152987d15e8d7f133498255f45a33",
+        "nets": 8,
+        "capacitance": {
+          "shunt_f": 2.224760613e-15,
+          "coupling_f": 2.5190794560000027e-15,
+          "annotated_total_f": 7.262929e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "cell": "ROW_8efd48d6033e4966",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component PINV; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_8efd48d6033e4966",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "b963be7be38bb72ab05499632998c82031bdc64c122687a6c6fe2d1f06fc9be1",
+        "source_sha256": "d697fc79e2950d38bb7662cc73a488f69eb0534823df711ed9ac143f694e92f5",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 3.0,
+        "column_span": 4.0,
+        "compiler_instance": "PINV",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "431c2e01a18a828a3b1aa062e3b738b7b1d3f0b15e89f902a014e6731640004d",
+        "nets": 4,
+        "capacitance": {
+          "shunt_f": 8.338013930000002e-16,
+          "coupling_f": 6.239604920000001e-16,
+          "annotated_total_f": 2.0817249999999997e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "cell": "ROW_d3da18eb114507b9",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component PINV4; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_d3da18eb114507b9",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "9fffc4106bf10a7a416fc228828d1dab1dee7db2c5121d462fecca26b467b2de",
+        "source_sha256": "1623c70aa65ed60f83f7e6a4317f61d52742349760874ea4c9969c6a37d041a4",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 3.0,
+        "column_span": 8.0,
+        "compiler_instance": "PINV4",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "24f15a155de8c02a5c4252b915f41567259a94b9f484c87b0d11b29df2d8899a",
+        "nets": 4,
+        "capacitance": {
+          "shunt_f": 2.251770107e-15,
+          "coupling_f": 1.7157427979999994e-15,
+          "annotated_total_f": 5.683259000000001e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "cell": "ROW_866893308bae6367",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component WRITE_READY_NOR; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_866893308bae6367",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "7f508e5e9dfc8bb1a81c36914be55fe9103835b84da29e7197446cbdb72b5b91",
+        "source_sha256": "eaca991dc28c3e1bbe04eddf4e61f092c6e013428da55f52cf8676f7afb58c61",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 3.0,
+        "column_span": 4.0,
+        "compiler_instance": "WRITE_READY_NOR",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "68915794ba47bd17ca2db6ab743d53af96df9051e0d31e0e60190e0ddf0433fe",
+        "nets": 6,
+        "capacitance": {
+          "shunt_f": 1.0775911789999999e-15,
+          "coupling_f": 9.96879136e-16,
+          "annotated_total_f": 3.0713492000000002e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "cell": "COLUMN_bc0024069d5eb2db",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component PRECHARGE; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "COLUMN_bc0024069d5eb2db",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "7ec6daaba97afbb4e51c02bd3934cc5afa5237e56d14890587e6afbfc9011632",
+        "source_sha256": "31301039060e5905d3f2cb8706dea65feedcae3f1ca97d2f5d0dda2b45e4ddc8",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 9.0,
+        "column_span": 1.0,
+        "compiler_instance": "PRECHARGE",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "b1648171d301567798a1970336c88980bfd1240bf53fd40366904655ed817043",
+        "nets": 4,
+        "capacitance": {
+          "shunt_f": 6.897077970000002e-16,
+          "coupling_f": 2.37926339e-16,
+          "annotated_total_f": 1.16556e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "cell": "COLUMN_0c9248d4e22e819e",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component SENSEAMP; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "COLUMN_0c9248d4e22e819e",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "dc8e5fc3655f84981eb6fd85192a821d2b95fa6f583916a7cee59c5b198b79d0",
+        "source_sha256": "07d57a34a089800fea71006b1afb756a28329472e7760c238a2697ae18eeeb69",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 38.0,
+        "column_span": 1.0,
+        "compiler_instance": "SENSEAMP",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "5d9415ce674ea056343f885b93f38641848712de41d798033086cb505a2f0c8d",
+        "nets": 9,
+        "capacitance": {
+          "shunt_f": 2.7906598990000027e-15,
+          "coupling_f": 3.883953065999997e-15,
+          "annotated_total_f": 1.0558569e-14
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "cell": "ROW_5c2e50807d1f194f",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component PINV; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "ROW_5c2e50807d1f194f",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "2f45154663e15f2fc9878031e92c8b379a6d31d2422b26d80dec9bc3e587b423",
+        "source_sha256": "2aa5b5b98caa47758f3eaa16e00721b481fdf476b381f5ee24b8c47da129d650",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 3.0,
+        "column_span": 4.0,
+        "compiler_instance": "PINV",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "6bd0d7fc45643aa2a7575c9b4a0527a533d991f76f496fb19bb0a57571051ee4",
+        "nets": 4,
+        "capacitance": {
+          "shunt_f": 8.556225860000001e-16,
+          "coupling_f": 6.428918160000002e-16,
+          "annotated_total_f": 2.141406e-15
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    },
+    {
+      "cell": "COLUMN_93ef44f15892cb00",
+      "exit": 0,
+      "verification": {
+        "status": "extracted",
+        "scope": "compiler component WRITEDRIVER; no SRAM waveform or yield qualification",
+        "rows": null,
+        "cols": null,
+        "primary": "COLUMN_93ef44f15892cb00",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "fa98585d64df9ba54a32963cea03e40d4a64d0a19f0694708a631e57569048db",
+        "source_sha256": "e49fdca91d813765ba75bff7bead123dc108342c00883389ee0c2d343260d8ff",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "component",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "row_span": 51.0,
+        "column_span": 1.0,
+        "compiler_instance": "WRITEDRIVER",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "0ecaeeafa3b75c2d42f8bdaa874b2856448a62a2d0a2b7b72ae1a988dd5b596b",
+        "nets": 12,
+        "capacitance": {
+          "shunt_f": 4.1523945389999985e-15,
+          "coupling_f": 4.4851878279999964e-15,
+          "annotated_total_f": 1.31227724e-14
+        },
+        "extraction": "distributed R+C+CC"
+      }
+    }
+  ],
+  "root_case_count": 9,
+  "exported_leaf_variant_count": 10,
+  "local_regression_checks": 48,
+  "local_regression_result": "passed",
+  "waveform_validation": "not run",
+  "new_full_bank_qualification": false,
+  "release_qualification": false,
+  "rc_defaults_promoted": false,
+  "artifact_root": "outputs/layout/cells/campaign_07",
+  "rejected_attempts_retained": "outputs/layout/cells/campaign_01 through campaign_03; earlier attempts remain unqualified"
+}
