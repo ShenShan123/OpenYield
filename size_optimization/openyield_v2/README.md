@@ -32,19 +32,19 @@ python -m pip install -r size_optimization/openyield_v2/requirements.txt
 先检查解析后的命令，不启动 TabPFN：
 
 ```bash
-python -m size_optimization.openyield_v2.run_experiment --dry-run
+python main_sram.py experiment --dry-run
 ```
 
 按 YAML 运行默认对比：
 
 ```bash
-python -m size_optimization.openyield_v2.run_experiment
+python main_sram.py experiment
 ```
 
 选择算法运行：
 
 ```bash
-python -m size_optimization.openyield_v2.run compare -- \
+python main_sram.py compare -- \
   --algorithms NSGA2,CTAEA,PAREGO,MACE,PROPOSED \
   --max-evals 1000 \
   --device auto
@@ -53,13 +53,13 @@ python -m size_optimization.openyield_v2.run compare -- \
 运行单个算法族：
 
 ```bash
-python -m size_optimization.openyield_v2.run optimize \
+python main_sram.py optimize \
   --family evolutionary -- --algorithms NSGA2,CTAEA
 
-python -m size_optimization.openyield_v2.run optimize \
+python main_sram.py optimize \
   --family bayesian -- --algorithms PAREGO,MACE
 
-python -m size_optimization.openyield_v2.run optimize \
+python main_sram.py optimize \
   --family proposed
 ```
 

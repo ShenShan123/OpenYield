@@ -9,11 +9,19 @@ were condensed after V2.2.6; the previous full text is at
 proposals and that circuit review were purged after V2.2.6; retrieve them with
 `git show b4987df:<path>`.
 
-## V2.2.7 development — 2026-10-10 — independent signal and power RC calibration
+## V2.2.7 — 2026-10-10 — independent signal and power RC calibration
 
+[Organization and entrance record](design/ORGANIZATION_V2_2_7.md).
 [Complete macro record](design/FULL_RC_CALIBRATION_V2_2_7.md), preserving the
-[initial record](design/RC_CALIBRATION_V2_2_7.md). Not a completed release.
+[initial record](design/RC_CALIBRATION_V2_2_7.md). No full release screen is complete.
 
+- Compiler organization separates configuration loading, variation policy and
+  experiment execution. `per_device_mc/` is removed; independent per-device
+  mismatch remains the standard testbench and entrance default.
+- `main_sram.py` unifies settings and CLI simulation, 6T/10T transient and SNM,
+  equivalent comparisons, layout/RC tools, circuit-backed sizing and offline
+  optimization campaigns. All simulations share deck export, result validation,
+  preserved attempt directories and provenance. Version metadata is V2.2.7.
 - A reproducible 8x8 6T FreePDK45 macro and standalone array tile use KLayout
   geometry and official Calibre DRC/LVS and coupled xRC extraction.
 - Complete controller/register/output-latch layout passes official Calibre DRC

@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Union
 
-from sram_compiler.per_device_mc.netlist import parse_spice_models as _parse_active_models
+from sram_compiler.variation.netlist import parse_spice_models as _parse_active_models
 
 
 def parse_spice_models(filepath: str) -> Dict[str, Dict[str, Any]]:

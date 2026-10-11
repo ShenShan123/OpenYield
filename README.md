@@ -1,8 +1,8 @@
-# OpenYield V2.2.7 development
+# OpenYield V2.2.7
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
 
-**V2.2.7 development:** [FreePDK45 layout and Calibre xRC calibration](sram_compiler/layout/README.md)
+**V2.2.7:** [FreePDK45 layout and Calibre xRC calibration](sram_compiler/layout/README.md)
 now includes the complete 8×8 6T macro, TIME_CONTROL, registers, physical RC
 filters and output latch. Controller sizing is legalized in
 [`time_control.yaml`](sram_compiler/config_yaml/time_control.yaml).
@@ -15,8 +15,7 @@ The [additional-size calibration](docs/design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.m
 compares 8×16, 16×8 and 16×16 macros, including SNM curves and four-access
 waveforms. Explicit size-specific profiles reduce mean edge error to
 4.05–6.00 ps; all 22,881 waveform checks pass at the fixed 30 ns diagnostic clock.
-This development tree
-is not a completed V2.2.7 release or full waveform screen.
+V2.2.7 has no completed full waveform screen.
 
 **Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The V2.2.5 campaign stopped incomplete; the [V2.2.5 simulation summary](docs/V2_2_5_SIMULATION_SUMMARY.md) records it with the corrected-model diagnostics, which retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
 
@@ -38,10 +37,22 @@ python main_sram.py
 
 Set `RUN_XYCE = True` to simulate the configured macro. The default seed makes the local process sample repeatable; set `MC_RUNS` to draw more samples. Decks and results go under `outputs/main_sram/`. Xyce is also needed during deck construction if you select equivalent mode 1–4.
 
-`MC_RUNS` must be a positive integer, or `None` to use the YAML setting.
+`MC_RUNS` must be a positive integer, or `None` to use the YAML count for sampled
+modes. Nominal uses one run; custom mode uses its process-table row count.
 SNM operations simulate one cell and do not provide full-array mismatch coverage.
 
-The optional [command-line runner](sram_compiler/per_device_mc/README.md) supports batch generation and explicit overrides. It uses the same local variation default.
+The [unified experiment guide](sram_compiler/experiments/README.md) covers command-line overrides and all workflows:
+
+```bash
+python main_sram.py --help
+python main_sram.py simulate --rows 8 --cols 4 --operation read --mc-runs 10 --no-run-xyce
+python main_sram.py simulate --variation-mode nominal --operation read --run-xyce
+python main_sram.py layout --help
+```
+
+`simulate` is optional when passing simulation flags directly. CLI options override
+the script settings. Per-device mismatch is the default; `--seed random` requests
+fresh draws. `--version` reports V2.2.7.
 
 ## Configure an array
 
@@ -63,15 +74,15 @@ Circuit defaults live in `sram_compiler/config_yaml/`. `global.yaml` sets supply
 Circuit-backed optimization is under [`size_optimization/`](size_optimization/README.md). For example, after installing its optional dependencies:
 
 ```bash
-python size_optimization/demo_sa.py
-python size_optimization/experiment.py
+python main_sram.py circuit-optimize --algorithm sa
+python main_sram.py circuit-experiment
 ```
 
 `experiment.py` offers joint architecture and transistor sizing or sizing at fixed configurations. The separate [OpenYield V2 offline package](size_optimization/openyield_v2/README.md) trains on bundled static data and does not call Xyce during optimization:
 
 ```bash
 python -m pip install -r size_optimization/openyield_v2/requirements.txt
-python -m size_optimization.openyield_v2.run_experiment --dry-run
+python main_sram.py experiment --dry-run
 ```
 
 Legacy importance-sampling estimators are retained in [`yield_estimation/`](yield_estimation/README.md), but they are not a validated V2.2.6 yield workflow. Use `MC_RUNS` in `main_sram.py` for current sampling, and read the [open items](docs/README.md#open-items) before reporting a yield estimate.
@@ -80,7 +91,7 @@ Legacy importance-sampling estimators are retained in [`yield_estimation/`](yiel
 
 ```bash
 python -m compileall -q sram_compiler utils size_optimization yield_estimation
-python main_sram.py  # set RUN_XYCE=False for deck generation without Xyce
+python main_sram.py simulate --rows 2 --cols 2 --no-run-xyce
 ```
 
 The regression and waveform Python scripts are retained only in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the unfinished V2.2.5 screen; no V2.2.5 or V2.2.6 full screen has completed. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.

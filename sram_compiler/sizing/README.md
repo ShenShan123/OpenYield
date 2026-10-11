@@ -35,7 +35,7 @@ For an unseen array inside the envelope, the row and column counts round up to t
 ## Resolve once in Python
 
 ```python
-from sram_compiler.per_device_mc.run import load_config
+from sram_compiler.config_yaml.loader import load_config
 from sram_compiler.sizing import resolve_driver_sizes, resolve_timing
 
 config = load_config(8, 4, "TT")

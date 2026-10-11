@@ -1,4 +1,4 @@
-# OpenYield V2.2.7 development documentation
+# OpenYield V2.2.7 documentation
 
 Design and validation records (`design/`), the supplied evidence (`data/`,
 `qualification/`) and the release history live here; usage
@@ -7,13 +7,15 @@ repository root unless stated otherwise. Every release entry of the
 [changelog](CHANGELOG.md) names its record; earlier entries, snapshots and
 evidence keep their original version labels.
 
-The [V2.2.7 development record](design/RC_CALIBRATION_V2_2_7.md) covers the
+The [V2.2.7 record](design/RC_CALIBRATION_V2_2_7.md) covers the
 FreePDK45 8x8 physical calibration and the TIME_CONTROL configuration refactor.
 The [complete macro record](design/FULL_RC_CALIBRATION_V2_2_7.md) supersedes
 the original controller deferral and scopes automatic defaults to its 8×8
 reference. The [additional-size record](design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
 covers explicit 8×16, 16×8 and 16×16 calibration profiles and DC curves.
-The current release is still V2.2.6; no full V2.2.7 screen is complete.
+The [organization record](design/ORGANIZATION_V2_2_7.md) documents the unified
+experiment entrance and integrated per-device variation. The compiler version
+is V2.2.7; no full V2.2.7 screen is complete.
 
 ## Open items
 
@@ -137,7 +139,7 @@ The supplied evidence CSVs are kept unchanged in `data/`:
 | [SRAM compiler](../sram_compiler/README.md) | Configuration, circuit generation, simulations, and waveform outputs |
 | [Shared utilities](../utils/README.md) | Measurement and waveform parsing, plots, SPICE models, and area estimates |
 | [Local compiler checks](../tests/README.md) | Tracked manifests and optional ignored regression scripts |
-| [Per-device mismatch](../sram_compiler/per_device_mc/README.md) | Default local mismatch, CLI, and in-memory configuration |
+| [Unified experiments](../sram_compiler/experiments/README.md) | Default local mismatch, CLI, and in-memory configuration |
 | [Driver sizing](../sram_compiler/sizing/README.md) | Driver size classes, clock classes, and qualification workflows |
 | [Equivalent modeling](../sram_compiler/equivalent_modeling/README.md) | Equivalent circuit modes, usage, and accuracy boundaries |
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |

@@ -13,7 +13,7 @@ from math import ceil, log2
 from numbers import Integral
 from pathlib import Path
 from copy import copy
-from sram_compiler.per_device_mc.netlist import parse_spice_models as audit_spice_models
+from sram_compiler.variation.netlist import parse_spice_models as audit_spice_models
 from sram_compiler.interconnect import resolve_interconnect, add_tapped_line, cell_wire_nodes
 from sram_compiler.equivalent_modeling import resolve_equivalent
 from sram_compiler.sizing import resolve_driver_sizes, resolve_timing

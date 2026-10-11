@@ -40,7 +40,7 @@ command -v calibre
 command -v Xyce
 python -c 'import klayout.db, scipy'
 
-python -m sram_compiler.per_device_mc.run --rows 8 --cols 8 \
+python main_sram.py simulate --no-run-xyce --rows 8 --cols 8 \
   --operation write --variation-mode nominal --mc-runs 1 \
   --real-cell-mode 0 --no-waveform \
   --output-dir outputs/rc_calibration/source
@@ -54,15 +54,15 @@ external inputs rather than machine-specific repository defaults:
 export PDK_DIR=/path/to/FreePDK45
 DECK=/path/to/generated/deck.sp
 
-python -m sram_compiler.layout.freepdk45.run --deck "$DECK" \
+python main_sram.py layout reference --deck "$DECK" \
   --pdk-dir "$PDK_DIR" --output-dir outputs/rc_calibration/macro --extract
-python -m sram_compiler.layout.freepdk45.run --deck "$DECK" \
+python main_sram.py layout reference --deck "$DECK" \
   --pdk-dir "$PDK_DIR" --output-dir outputs/rc_calibration/array --array-only --extract
-python -m sram_compiler.layout.freepdk45.analyze \
+python main_sram.py layout analyze \
   --macro-dir outputs/rc_calibration/macro \
   --array-dir outputs/rc_calibration/array \
   --output-dir outputs/rc_calibration/analysis
-python -m sram_compiler.layout.freepdk45.compare \
+python main_sram.py layout compare \
   --macro-dir outputs/rc_calibration/macro --pre-layout-deck "$DECK" \
   --models tran_models/models_TT.spice --xyce Xyce \
   --output-dir outputs/rc_calibration/comparison
@@ -157,7 +157,7 @@ does not certify the full release screen or other array sizes and topologies.
 Generate a nominal 8×8 read/write baseline with explicit illustrative wiring:
 
 ```bash
-python -m sram_compiler.per_device_mc.run --rows 8 --cols 8 \
+python main_sram.py simulate --no-run-xyce --rows 8 --cols 8 \
   --operation 'read&write' --variation-mode nominal \
   --real-cell-mode 0 --corner TT --vdd 1 --temperature 25 --period 9e-9 \
   --interconnect-config sram_compiler/config_yaml/interconnect_illustrative.yaml \
@@ -167,16 +167,16 @@ python -m sram_compiler.per_device_mc.run --rows 8 --cols 8 \
 Use the generated `deck.sp` as `DECK` and a FreePDK45 installation as `PDK_DIR`:
 
 ```bash
-python -m sram_compiler.layout.freepdk45.full_macro --deck "$DECK" \
+python main_sram.py layout full --deck "$DECK" \
   --output-dir outputs/rc_calibration/full_layout
-python -m sram_compiler.layout.freepdk45.verify_full \
+python main_sram.py layout verify-full \
   --layout-dir outputs/rc_calibration/full_layout --pdk-dir "$PDK_DIR" \
   --output-dir outputs/rc_calibration/full_extraction
-python -m sram_compiler.layout.freepdk45.reduce_rc \
+python main_sram.py layout reduce-rc \
   --layout-dir outputs/rc_calibration/full_layout \
   --extraction-dir outputs/rc_calibration/full_extraction \
   --maximum-series-ohm 500 --output-dir outputs/rc_calibration/reduced
-python -m sram_compiler.layout.freepdk45.compare_full --deck "$DECK" \
+python main_sram.py layout compare-full --deck "$DECK" \
   --profile outputs/rc_calibration/reduced/profile.json \
   --extraction-dir outputs/rc_calibration/full_extraction \
   --output-dir outputs/rc_calibration/full_comparison --execute --xyce Xyce
@@ -195,7 +195,7 @@ After waveform validation, `split_rc` exports separate net files without changin
 any reduced resistor/capacitor value or ordering:
 
 ```bash
-python -m sram_compiler.layout.freepdk45.split_rc \
+python main_sram.py layout split-rc \
   --profile outputs/rc_calibration/reduced/profile.json \
   --output-dir outputs/rc_calibration/per_net
 ```
@@ -224,16 +224,16 @@ in [`v227_multi_size_rc_cases.json`](../../tests/spice/v227_multi_size_rc_cases.
 For a new nominal `read&write` compiler deck, use new output directories:
 
 ```bash
-python -m sram_compiler.layout.freepdk45.scaled_macro --deck "$DECK" \
+python main_sram.py layout scaled --deck "$DECK" \
   --output-dir outputs/rc_calibration/scaled_layout
-python -m sram_compiler.layout.freepdk45.verify_full \
+python main_sram.py layout verify-full \
   --layout-dir outputs/rc_calibration/scaled_layout --pdk-dir "$PDK_DIR" \
   --output-dir outputs/rc_calibration/scaled_extraction
-python -m sram_compiler.layout.freepdk45.reduce_rc \
+python main_sram.py layout reduce-rc \
   --layout-dir outputs/rc_calibration/scaled_layout \
   --extraction-dir outputs/rc_calibration/scaled_extraction \
   --maximum-series-ohm 500 --output-dir outputs/rc_calibration/scaled_reduced
-python -m sram_compiler.layout.freepdk45.compare_full --deck "$DECK" \
+python main_sram.py layout compare-full --deck "$DECK" \
   --profile outputs/rc_calibration/scaled_reduced/profile.json \
   --extraction-dir outputs/rc_calibration/scaled_extraction \
   --output-dir outputs/rc_calibration/scaled_comparison --execute --xyce Xyce
@@ -250,7 +250,7 @@ have passed.
 rail delays and far-wordline dwell, and produces PNG/PDF overlays:
 
 ```bash
-python -m sram_compiler.layout.freepdk45.waveform_metrics \
+python main_sram.py layout waveform-metrics \
   --illustrative outputs/rc_calibration/illustrative_comparison \
   --comparison-dir outputs/rc_calibration/scaled_comparison \
   --rows 16 --cols 8 --period 30e-9
@@ -262,7 +262,7 @@ The comparison profile must record the nominal TT model hash and 1 V, 25 °C
 scope. Then run:
 
 ```bash
-python -m sram_compiler.layout.freepdk45.compare_snm \
+python main_sram.py layout compare-snm \
   --profile "$PROFILE" --extraction-dir "$EXTRACTION" \
   --compiler-dir "$COMPILER_SNM" --models tran_models/models_TT.spice \
   --output-dir outputs/rc_calibration/scaled_snm --execute --xyce Xyce

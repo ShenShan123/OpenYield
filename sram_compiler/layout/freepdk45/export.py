@@ -14,7 +14,7 @@ amplifiers. TIME_CONTROL (with the address and data registers), the testbench
 sources and the startup clamps stay outside; nets they share with the macro
 become ports.
 
-Usage (deck from ``python -m sram_compiler.per_device_mc.run --operation write``):
+Usage (deck from ``python -m sram_compiler.experiments.simulation --operation write``):
 
     python -m sram_compiler.layout.freepdk45.export deck.sp sram8x8_macro.sp
 """

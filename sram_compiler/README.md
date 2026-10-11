@@ -1,4 +1,4 @@
-# SRAM compiler tutorial — V2.2.7 development
+# SRAM compiler tutorial — V2.2.7
 
 The compiler builds 6T or 10T transistor-level SRAM arrays with distributed wordline and bitline RC, a replica column, address and control logic, and column periphery. Generate SRAM macros through [`main_sram.py`](../main_sram.py). Run commands from the repository root.
 
@@ -20,6 +20,26 @@ frozen peripheral baseline and are recorded in CLI run identity and metadata.
 See the [physical calibration guide](layout/README.md) for V2.2.7's current
 layout coverage and the complete macro back-annotation workflow.
 
+## Package organization
+
+| Path | Responsibility |
+|---|---|
+| `config_yaml/` | YAML inputs, configuration types, shared in-memory loader |
+| `subcircuits/` | Transistor topology and array/peripheral composition |
+| `testbenches/` | Array and SNM stimuli, measurements and simulation APIs |
+| `variation/` | Variation policy and independent per-device model specialization |
+| `experiments/` | Unified command dispatch, simulation/result flow and equivalent comparisons |
+| `sizing/` | Frozen peripheral sizing and timing policy |
+| `equivalent_modeling/` | Equivalent-array configuration and modes |
+| `layout/` | FreePDK45 physical generation and RC calibration |
+| `interconnect.py`, `per_net_rc.py`, `calibrated_rc.py`, `parasitics.py` | Distributed wiring, scoped calibration and DSPF parsing |
+
+[`main_sram.py`](../main_sram.py) dispatches every supported workflow. See the
+[experiment guide](experiments/README.md) for simulation, layout, circuit sizing
+and offline optimization commands. Python callers load configuration through
+`from sram_compiler.config_yaml.loader import load_config`; mismatch is integrated
+into the normal testbench and needs no separate runner package.
+
 ## 1. Set up
 
 ```bash
@@ -38,7 +58,7 @@ At the top of `main_sram.py`, set `ARRAY = [8, 4, False]`, `TARGET = (7, 3)`, `O
 python main_sram.py
 ```
 
-The script reads YAML in memory and writes `deck.sp` and `summary.json` under `outputs/main_sram/`. Set `RUN_XYCE = True` to execute with Xyce. The generated deck and every simulation automatically include independent local device variation. `MC_SEED` makes a run repeatable, and `MC_RUNS` sets the number of samples. `read&write`, `hold_snm`, `read_snm`, and `write_snm` are also supported. Check the Xyce log and waveform crossings before treating a run as a correct access; a generated deck or passing `.MEASURE` alone is not enough. The [batch runner guide](per_device_mc/README.md) covers command-line overrides and output files.
+The script reads YAML in memory and writes `deck.sp` and `summary.json` under `outputs/main_sram/`. Set `RUN_XYCE = True` to execute with Xyce. The generated deck and every simulation automatically include independent local device variation. `MC_SEED` makes a run repeatable, and `MC_RUNS` sets the number of samples. `read&write`, `hold_snm`, `read_snm`, and `write_snm` are also supported. Check the Xyce log and waveform crossings before treating a run as a correct access; a generated deck or passing `.MEASURE` alone is not enough. The [experiment guide](experiments/README.md) covers command-line overrides and output files.
 
 ## 3. Change the circuit
 
@@ -88,6 +108,6 @@ frozen sizing contexts; keep them fixed across candidate comparisons.
 
 ## 5. Read the results
 
-The main entrance records the resolved configuration, timing and sizing identities, model hash, seed, and variation metadata in `summary.json` for deck-only runs; simulation results and logs are saved beside the deck. The batch runner also records solver path and run status and retains failed attempts separately. Inspect the `.prn` data for `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, and `sa_iso` first when an access fails. Clock-high is access; clock-low is recovery and precharge, including after writes.
+The main entrance records configuration, timing and sizing identities, model hash, seed, and variation metadata in `summary.json` for every run. It also records solver path and run status for simulations and retains failed attempts separately. Simulation results and logs are saved beside the deck. Inspect the `.prn` data for `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, and `sa_iso` first when an access fails. Clock-high is access; clock-low is recovery and precharge, including after writes.
 
 The configured V2.2.5 envelope is not fully qualified: its waveform screen has not completed and 256x256 has no working operating point. The [release record](../docs/design/COMPILER_ENTRY_V2_2_5.md) explains the current limits. The [root guide](../README.md) links the sizing, optimization, and yield workflows.

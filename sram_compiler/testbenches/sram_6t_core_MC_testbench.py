@@ -4,7 +4,7 @@ import json
 import shutil
 import re
 from pathlib import Path
-from sram_compiler.per_device_mc.netlist import specialize_netlist
+from sram_compiler.variation.netlist import specialize_netlist
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
 # Only for yield analysis
 from utils import (  # type: ignore

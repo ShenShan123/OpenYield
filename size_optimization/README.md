@@ -1,6 +1,6 @@
 # SRAM sizing optimization
 
-This directory contains two independent workflows: circuit-backed searches that call the current SRAM compiler and Xyce, and the offline `openyield_v2/` surrogate package. Run commands from the repository root. The current release is V2.2.5; array and clock limits are in the [compiler tutorial](../sram_compiler/README.md).
+This directory contains two independent workflows: circuit-backed searches that call the current SRAM compiler and Xyce, and the offline `openyield_v2/` surrogate package. Run commands from the repository root. The compiler version is V2.2.7; array and clock limits are in the [compiler tutorial](../sram_compiler/README.md).
 
 ## Circuit-backed search
 
@@ -16,13 +16,13 @@ Install the OpenYield environment from `environment.yml`, confirm `Xyce` is on `
 A small entry-point example:
 
 ```bash
-python size_optimization/demo_sa.py
+python main_sram.py circuit-optimize --algorithm sa
 ```
 
-`main_opt.py` at the repository root offers an interactive selector for the demo algorithms. `experiment.py` offers joint architecture and transistor sizing or sizing on one or all five fixed array configurations:
+`main_sram.py circuit-optimize --algorithm NAME` selects a demo algorithm through the unified entrance. `experiment.py` offers joint architecture and transistor sizing or sizing on one or all five fixed array configurations:
 
 ```bash
-python size_optimization/experiment.py
+python main_sram.py circuit-experiment
 ```
 
 The earlier standalone architecture-stage SMAC class was unused and has been removed. `experiment.py` still uses the historical `TwoStageOptimizer` class name internally; its current interactive choices are joint search and fixed-configuration sizing. Search outputs are written under the optimizer's experiment directories; keep generated runs out of Git.
@@ -35,8 +35,10 @@ The [detailed algorithm notes](电路算法说明文档.md) describe the paramet
 
 ```bash
 python -m pip install -r size_optimization/openyield_v2/requirements.txt
-python -m size_optimization.openyield_v2.run_experiment --dry-run
-python -m size_optimization.openyield_v2.run_experiment
+python main_sram.py experiment --dry-run
+python main_sram.py experiment
 ```
 
 See the [offline package guide](openyield_v2/README.md) for algorithm selection, budgets, and output files.
+
+All supported workflows use [the unified experiment entrance](../sram_compiler/experiments/README.md). Algorithm modules remain available to Python callers.
