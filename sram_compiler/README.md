@@ -17,8 +17,8 @@ remain in `subcircuits/time_generate.py`. Defaults use a 90 nm minimum active
 width and a 5 nm width grid; delay drivers and dummy loads have separate sizes.
 Settings changes invalidate a
 frozen peripheral baseline and are recorded in CLI run identity and metadata.
-See the [physical calibration guide](layout/README.md) for V2.2.7's current
-layout coverage and the complete macro back-annotation workflow.
+See the [physical layout guide](layout/README.md) for component-based banks,
+TIME_CONTROL and physical verification tools.
 
 ## Package organization
 
@@ -110,4 +110,4 @@ frozen sizing contexts; keep them fixed across candidate comparisons.
 
 The main entrance records configuration, timing and sizing identities, model hash, seed, and variation metadata in `summary.json` for every run. It also records solver path and run status for simulations and retains failed attempts separately. Simulation results and logs are saved beside the deck. Inspect the `.prn` data for `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, and `sa_iso` first when an access fails. Clock-high is access; clock-low is recovery and precharge, including after writes.
 
-The configured V2.2.5 envelope is not fully qualified: its waveform screen has not completed and 256x256 has no working operating point. The [release record](../docs/design/COMPILER_ENTRY_V2_2_5.md) explains the current limits. The [root guide](../README.md) links the sizing, optimization, and yield workflows.
+The configured V2.2.5 envelope is not fully qualified: its waveform screen has not completed and 256x256 has no working operating point. The [release record](../docs/design/compiler/COMPILER_ENTRY_V2_2_5.md) explains the current limits. The [root guide](../README.md) links the sizing, optimization, and yield workflows.

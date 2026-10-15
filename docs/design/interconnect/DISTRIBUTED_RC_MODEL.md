@@ -1,0 +1,183 @@
+# Distributed signal-wire RC — V2.1.2
+
+Introduced in V2.0.7 and audited in V2.0.8 (see the
+[validation record](DISTRIBUTED_RC_VALIDATION.md)).
+The [V2.0.10 corrections](DISTRIBUTED_RC_V210_REVIEW.md) add large-array diagnostics
+and correct sense-control load accounting and transient result validation. The
+[V2.0.11 audit](../timing/WRITE_VALIDATION_V211.md) extends distributed control wiring,
+fixes the last sequence cycle's release window and retry/rejection paths,
+and records the historical star-topology screen.
+
+V2.1.1 makes distributed wiring the only supported topology and the default.
+Explicit `mode: star` is rejected. Omitting geometry selects the illustrative
+1-ohm / 0.1-fF pitch reference; the compiler supplies no extracted defaults.
+The [distributed-only change](DISTRIBUTED_ONLY_V2_1_1.md) describes current
+routing and fresh validation. Earlier records below retain their original
+versions; the original V2.0.7 implementation plan is historical
+(`git show 61d01a7:docs/design/DISTRIBUTED_RC_PLAN.md`).
+
+Customize it through `global.yaml`'s `interconnect` mapping, the appended
+`interconnect=` testbench argument, or `INTERCONNECT_CONFIG` in
+`main_sram.py` (a YAML path applied in memory). For one generated macro, set
+`ARRAY = [4, 4, False]`, `OPERATION = "read&write"`,
+`INTERCONNECT_CONFIG = "sram_compiler/config_yaml/interconnect_example.yaml"`,
+and `RUN_XYCE = False`, then run:
+
+```bash
+python main_sram.py
+```
+
+This generates a deck. Set `RUN_XYCE = True` to simulate. The
+[example configuration](../../../sram_compiler/config_yaml/interconnect_example.yaml)
+uses illustrative 1-ohm / 0.1-fF pitches for diagnostics; replace them with
+technology/layout extraction before drawing physical timing or yield conclusions.
+Independent local device variation is included automatically.
+
+## Configuration and topology
+
+| Field | Meaning |
+|---|---|
+| `mode` | Only `distributed`; default when omitted |
+| `cell_pin_rc` | Optional local series WL/BL/BLB stubs, false by default through every construction path |
+| `wl`, `bl` | Separate geometry mappings; BL and BLB use the same geometry |
+| `layer` | Technology/layer identifier, included in the physical fingerprint |
+| `pitch_m`, `width_m` | Cell pitch along the wire and metal width, in metres |
+| `sheet_resistance_ohm` | Metal sheet resistance in ohms per square |
+| `capacitance_f_per_m` | Total ground capacitance per metre, excluding cell device capacitance |
+| `sections_per_half_pitch` | Positive integer subdivision count; increase to check convergence |
+
+For each pitch, `R = sheet_resistance_ohm * pitch_m / width_m` and
+`C = capacitance_f_per_m * pitch_m`. All geometry/R/C values must be finite
+and positive. Unknown fields are rejected. Wire coupling between adjacent
+lines is not included in this first implementation.
+
+WL drivers connect at column zero. Each bitline extends from its row-zero
+array port through a separate three-pitch peripheral ladder: precharge at
+tap 0, write driver at tap 1, mux/sense amplifier at tap 2. Replica bitlines
+have the same extension. These positions are illustrative routing assumptions.
+Cells sit at half-pitch centers. Each array row has
+`num_cols * wl.pitch_m` wire length and each bitline has
+`num_rows * bl.pitch_m`. There is a half pitch before the first cell and after
+the last cell. Every resistor segment has half its capacitance at each end;
+subdivision conserves total R/C.
+
+Inside the array, taps are `WL{row}_tap{col}`, `BL{col}_tap{row}` and
+`BLB{col}_tap{row}`. Opposite wire endpoints are `WL{row}_far`,
+`BL{col}_far` and `BLB{col}_far`. The public array ports retain their names.
+
+`w_rc` continues to control local storage-node and peripheral RC. Distributed
+metal remains present even with `w_rc=False`. With `w_rc=True`, the default
+distributed mode removes the generic cell WL/BL/BLB stubs while retaining Q/QB
+and peripheral stubs. Set `cell_pin_rc: true` only when those additional
+branches represent separately budgeted local parasitics.
+
+## Replica, measurements and equivalent cells
+
+Distributed mode uses the real wordline-driver topology for RWL and requires
+matched replica/canonical read operation. The replica column has exactly the
+array row count; its K active cells occupy the far rows and the last K RWL
+taps. Dummy gates fill the remaining RWL taps. Replica bitlines have the same
+wire length as array bitlines, and the replica also carries the corresponding
+mux (when enabled), sense-input circuit, precharge and write-driver load.
+The TIME precharge guard observes `RWL_far`. With `w_rc`, TIME's replica
+bitline input is the replica sense amplifier's internal node after its input
+RC (`XREPLICA_SENSEAMP:IN_end`); without `w_rc` it is the mux output or
+`RBL_periph_tap2`.
+That connection is a Xyce hierarchical node reference and is not portable to
+simulators that only allow such names in probes.
+
+V2.1.1 also observes the actual far replica precharge terminal before allowing
+WL, write or sense assertion. The guard combines immediate PRE inhibition,
+four settling stages and a physical wire/load RC scale frozen in DriverSizes.
+Raw request deassertion bypasses that delay. Runtime `VPRE_ACCESS_ERROR_n`
+checks the target local PRE during WL/write activity; independent waveforms
+check every column. This access-start guard is separate from the existing
+RWL-based precharge-on guard. See the [repair and validation](DISTRIBUTED_ONLY_V2_1_1.md#access-start-repair).
+
+Transient wordline and write-bitline measurements use the selected cell's
+local terminal. Read swing uses the actual sense-amplifier input; restoration
+uses the far bitline endpoint. Additional waveform probes expose near/far
+line endpoints, sense inputs and storage nodes. `cell_probe()` and
+`sense_input_probe()` expose the same node names to external scorers.
+
+V2.0.10 adds `VWL_PRE_FAR_n` and `VWL_PRE_LOCAL_n`: the far wire and
+selected cell pin at the 90%-VDD falling crossing of PRE, with a separate
+window for each access. `VWL_PRE_PEAK_n` also checks the maximum magnitude
+while precharge is active, including bitline-restoration kickback. The Python
+simulation API and CLI reject a missing
+measurement or magnitude above 10% VDD and retain the raw measurements.
+The replica observer alone does not guarantee safe precharge for arbitrary
+wire R/C; the review includes a failing wire-stress case. A passing simulator
+exit or data value is insufficient. Read-swing measurements also exclude
+startup crossings. With local RC, TIME load accounting includes both EN/ISO
+sections of every real and replica sense amplifier.
+
+## Control lines (V2.0.11)
+
+A control net that spans an array dimension is a wire, not a node. In
+distributed mode the compiler builds a tapped pi ladder for each one and every
+consumer connects at its own column or row:
+
+| Net | Direction | Pitch | Taps | Consumers |
+|---|---|---|---|---|
+| `PRE` | across columns | `wl` | `num_cols` | one precharge cell per column; the replica precharge at `PRE_line_far` |
+| `w_en` | across columns | `wl` | `num_cols` | one write driver per column |
+| `w_en_bar` | across columns | `wl` | `num_cols` | one write-data hold latch per column (write decks only) |
+| `s_en` | across columns | `wl` | `num_cols` | one sense amplifier per mux group, tapped at its first column; the replica amplifier at `s_en_line_far` |
+| `sa_iso` | across columns | `wl` | `num_cols` | as `s_en` |
+| `wl_en` | down rows | `bl` | `num_rows` | one wordline driver per row; the replica wordline driver at `wl_en_line_far` |
+
+Node names follow the array wires: `<net>_line_tap<i>` and `<net>_line_far`,
+with the driver output keeping the original net name as the line's near end, so
+`.MEASURE` cards and `.PRINT` lines that reference `V(PRE)`, `V(s_en)` or
+`V(wl_en)` still observe the driver. `Sram6TCoreTestbench.control_tap(name,
+index)` resolves that consumer's tap, or the far endpoint for the replica.
+
+Control-line wire RC is deliberately **not** added to `DriverLoads`, exactly as
+WL and BL wire RC is not: the driver size classes stay independent of the
+wire geometry. The wire therefore shows up as delay and skew in the
+waveform, not as a larger buffer.
+
+Distributed TIME adds a four-stage non-inverting settling delay after the
+replica observer and ANDs it with the immediate observer output before
+allowing precharge. `DriverSizes.precharge_guard_stages` freezes that count.
+The clock's high phase must cover this
+additional delay and restoration. The release measurements still apply:
+the added delay is not a guarantee for arbitrary extracted R/C or cell sizes.
+
+Equivalent modes 1–4 retain every wire segment and attach each omitted cell's
+five-capacitor network at its local taps. Optional local stubs remain separate;
+write-power approximations follow local WL voltage. Extraction includes the
+configured storage-node RC and uses the effective corner, VDD and temperature,
+with the same 27 C nominal model temperature as the main simulator. The cache
+includes selected model contents and extraction settings.
+
+Equivalent cells remain approximations: they do not reproduce arbitrary cell
+state changes, conductive loading or independent mismatch in omitted devices.
+Their accuracy must be compared with full-real arrays for the intended use.
+Equivalent extraction requires numeric geometry; SPICE dimension sweeps use
+`real_cell_mode=0`.
+
+## Compatibility and qualification
+
+V2.0.7 corrects the testbench's former 10-ohm default to the common
+100-ohm / 1-fF local RC default and forwards custom values everywhere.
+Compared with V2.0.6 commit `029626b`, all eight checked 4x4 6T/10T read/write
+star decks with RC off or explicit 100 ohm are byte-for-byte identical.
+The four decks using the old default differ only at ten replica-path resistors,
+now 100 ohm. Custom RC settings and equivalent extraction intentionally change.
+V2.0.8 changes no generated deck: 72 star decks (6T/10T, read/write/read&write,
+mux on/off, RC off/default/custom, fixed and rules_only) generated from commit
+`315333b` and from V2.0.8 are byte-for-byte identical apart from the checkout
+path inside `.include`.
+
+Frozen driver baselines and qualification identities include the wire model,
+geometry, subdivisions and local RC configuration. Changes cannot silently
+reuse an earlier baseline. CLI run directories include the new topology and
+compiler version. Runtime scoring fingerprints cover compiler sources and
+work without the ignored `dev/` directory.
+
+Historical V2.0.5 artifacts and sizing coefficients retain their labels.
+Distributed support does not qualify those coefficients for an extracted
+array, and no sizing-table record is promoted by this implementation.
+See the [V2.0.7 changelog](../../CHANGELOG.md) for the validation performed.

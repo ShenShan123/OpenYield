@@ -181,8 +181,10 @@ def _budget_ladders(table, cell_type, mux):
     return table, 'shared'
 
 
-def require_envelope(rows, cols, table=None):
-    """Reject an array outside the supported envelope of ``table`` (the default lookup)."""
+def require_envelope(rows, cols, table=None, *, fixed_diagnostic: bool = False):
+    """Allow explicitly timed physical diagnostics through 512x512."""
+    if fixed_diagnostic and rows <= 512 and cols <= 512:
+        return
     envelope = (load_timing_lookup() if table is None else table)['supported_envelope']
     if rows > envelope['max_rows'] or cols > envelope['max_cols']:
         raise ValueError(
@@ -211,8 +213,9 @@ def resolve_timing(config, driver_sizes, context=None):
     """Select one period by array class, without simulation or PVT/cell refitting.
 
     Unseen dimensions round up to the next anchor; a dimension beyond the
-    supported envelope is rejected, in every timing mode, because the array
-    itself is out of scope and not only its clock. Use integer ps until
+    supported envelope is rejected by automatic timing. An explicit fixed
+    period permits diagnostic layout sources through 512x512, without timing
+    qualification. Use integer ps until
     conversion to seconds. A table variant keyed by cell type and optionally
     mux (V2.1.3: 10T cells with or without a column mux; V2.1.4: 6T cells with
     a column mux) replaces the shared ladders for that architecture only.
@@ -221,7 +224,8 @@ def resolve_timing(config, driver_sizes, context=None):
     driver_sizes.validate_for(config, driver_sizes.cell_type, driver_sizes.mux, context)
     options = _timing_options(config)
     table = load_timing_lookup(options.get('lookup'))
-    require_envelope(driver_sizes.rows, driver_sizes.cols, table)
+    require_envelope(driver_sizes.rows, driver_sizes.cols, table,
+                     fixed_diagnostic=options.get('mode') == 'fixed')
     if options.get('mode', 'lookup') == 'fixed':
         period = options.get('t_period')
         if isinstance(period, bool):

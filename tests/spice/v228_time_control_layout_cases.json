@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "32x32 bank with TIME_CONTROL, all input registers, intentional RC guards, replica driver and output latch",
+  "sizes": [
+    [
+      32,
+      32
+    ]
+  ],
+  "core_pitch_nm": {
+    "row": 1365,
+    "column": 705
+  },
+  "source": {
+    "operation": "read&write",
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 25,
+    "interconnect_config": "sram_compiler/config_yaml/interconnect_illustrative.yaml",
+    "seed": 20260711,
+    "readout_column": 31
+  },
+  "generation": [
+    "python main_sram.py layout bank --with-controller --deck DECK --output-dir BANK",
+    "python main_sram.py layout verify-full --layout-dir BANK --pdk-dir PDK_DIR --output-dir VERIFY",
+    "python main_sram.py layout time-control --deck DECK --output-dir CONTROL  # standalone controller, unchanged"
+  ],
+  "checks": [
+    "Control logic sits left of the decoder; every bank-facing pin is on its right edge at the height of the bank conductor it drives or observes",
+    "The 32 data registers form a 4x8 array below the column periphery and reach the write path through a left-edge M3/M4 channel ordered like the bank escapes (no crossings; vertical constraints honoured)",
+    "Drives are single straight M6 lines into the bank control trunks; far-end returns are straight M7 lines (PRE one jog, RWL M7/M8/M7); no maze search or negotiation",
+    "Actual GDS preserves 705 nm columns and 1365 nm rows and integrates the replica column",
+    "Retain every source MOS, including 1390 TIME_CONTROL devices and 39 input/control DFFs",
+    "Physical finger counts and gate area match the inventory; total W, L, model and topology are conserved for every logical MOS",
+    "Reject unsupported DFF connectivity/size, unpaired intentional passives, source-mismatched parts and control logic generated for a different bank pin plan",
+    "Feedback uses separate routes from the actual far-end taps, at most M8; drives and returns meet only through bank conductors",
+    "Calibre DRC zero, strict LVS CORRECT and distributed R+C+CC extraction for the complete bank",
+    "LVS R-short/C-open does not qualify values: verify three unique resistor values in the complete-bank DSPF and 1 fF capacitor plates through paired extracted coupons",
+    "Standalone controller <=872.20185 um2 and regenerates identically to control_20; complete macro <=8811.4131 um2 and smaller than the maze-routed full_40",
+    "Hash source, GDS, generator, PDK rules, tool and extracted DSPF; preserve superseded and failed attempts",
+    "Existing 8x8/32x32 external-controller bank regressions remain passing; reject source decks selecting an unplanned readout column",
+    "Layout-level width/spacing check of every planned shape; audit metal/poly endpoint ownership with no cross-net shorts and one conductor per net"
+  ],
+  "passive_value_tolerance": {
+    "resistance_relative": 0.01,
+    "plate_capacitance_relative": 0.03
+  },
+  "controller_layout": true,
+  "waveform_validation": "not run",
+  "defaults_promotable": false,
+  "local_python_runners_tracked": false,
+  "current_status": "physically verified: planned_02 passes DRC zero, strict LVS CORRECT and distributed R+C+CC extraction; all four guard resistances pass; control_20 standalone controller unchanged; waveforms not run",
+  "current_evidence": "docs/data/TIME_CONTROL_PLANNED_INTERFACE_V2_2_8.json",
+  "preserved_failed_evidence": "docs/data/TIME_CONTROL_LAYOUT_V2_2_8.json",
+  "verified_artifacts": {
+    "controller": "outputs/layout/time_control/control_20",
+    "bank": "outputs/layout/time_control/planned_02",
+    "superseded_bank": "outputs/layout/time_control/full_40"
+  },
+  "superseded_evidence": "docs/data/TIME_CONTROL_COMPACTION_V2_2_8.json"
+}

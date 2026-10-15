@@ -2,40 +2,30 @@
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
 
-**V2.2.8:** [Compact FreePDK45 layouts](sram_compiler/layout/README.md#compact-macro-floorplan)
-reuse common compiler subcircuits, pack by actual device height, shorten pin
-escapes, and bound the bitline escape channel. `main_sram.py layout compact`
-preserves every MOS, finger, transistor size and intentional passive. Historical
-calibration generators remain available; compact geometry requires its own
-DRC/LVS, extraction and waveform evidence. No full V2.2.8 screen is complete.
-
-The fixed compact 8×8 macro passes fresh Calibre DRC/LVS and coupled xRC:
-**17.4% less area and 21.1% higher density** with frozen circuit sizing.
-See the [layout record](docs/design/LAYOUT_COMPACTION_V2_2_8.md) for matched
-source identities, measured footprints and validation scope.
-
 The opt-in [small-cell flow](sram_compiler/layout/README.md#small-cells-and-component-placement)
 builds internally routed, pitch-constrained cells, then places and routes their
-instances. Its standalone component evidence does not qualify a new full bank.
+instances. The [integrated bank flow](sram_compiler/layout/README.md#openram-pitch-bank)
+includes row logic, column periphery, the output latch, and a replica column
+inside the core. Its decoder is on the left, using OpenRAM’s 1.365 µm row
+and 0.705 µm column pitch. See the [pitch and area verification record](docs/design/layout/OPENRAM_PITCH_V2_2_8.md).
+The [OpenRAM reference run](docs/design/layout/OPENRAM_REFERENCE_V2_2_8.md) provides a
+separate generated 32×32 bank layout. The optional
+[TIME_CONTROL flow](docs/design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md) adds reusable
+standard cells, with control logic beside the decoder and data registers below
+the periphery. Its controller-to-core routing uses explicit planned tracks
+instead of maze search. The recorded complete 32×32 bank passes DRC/LVS and
+coupled extraction at 4050.7 µm², 29.7% smaller than the maze-routed export.
+Physical checks do not qualify autonomous bank operation.
 
-**V2.2.7:** [FreePDK45 layout and Calibre xRC calibration](sram_compiler/layout/README.md)
-now includes the complete 8×8 6T macro, TIME_CONTROL, registers, physical RC
-filters and output latch. Controller sizing is legalized in
-[`time_control.yaml`](sram_compiler/config_yaml/time_control.yaml).
-The [complete macro calibration record](docs/design/FULL_RC_CALIBRATION_V2_2_7.md)
-records zero Calibre DRC violations, LVS `CORRECT`, and passing complete
-nominal access waveforms. Defaults use 709 independent RC networks, including
-separate VDD/VSS meshes for IR drop, within the calibrated 8×8 reference.
-Mean edge error against coupled xRC falls from 1,334.66 ps to 3.40 ps.
-The [additional-size calibration](docs/design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
-compares 8×16, 16×8 and 16×16 macros, including SNM curves and four-access
-waveforms. Explicit size-specific profiles reduce mean edge error to
-4.05–6.00 ps; all 22,881 waveform checks pass at the fixed 30 ns diagnostic clock.
-V2.2.7 has no completed full waveform screen.
-
-**Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The V2.2.5 campaign stopped incomplete; the [V2.2.5 simulation summary](docs/V2_2_5_SIMULATION_SUMMARY.md) records it with the corrected-model diagnostics, which retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
+**Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The V2.2.5 campaign stopped incomplete; the [V2.2.5 simulation summary](docs/validation/V2_2_5_SIMULATION_SUMMARY.md) records it with the corrected-model diagnostics, which retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/timing/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
 
 ## Quick start
+
+Single-bank 512×512 layout diagnostics, extracted-load driver candidates and
+TIME_CONTROL without intentional RC guards are described in the
+[layout scaling record](docs/design/layout/LAYOUT_SCALING_V2_2_8.md). Automatic timing
+retains the 512×256 envelope; 512×512 requires an explicit diagnostic period
+and has no qualified operating point.
 
 Run commands from the repository root. The supplied Conda environment includes Python, PySpice, and Xyce:
 

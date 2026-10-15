@@ -1,0 +1,15 @@
+{
+  "upstream": "VLSIDA/OpenRAM",
+  "commit": "b2b069ce119d1488cbe6883b2240bceb5c7ce29a",
+  "license": "BSD-3-Clause",
+  "source_directory": "technology/freepdk45/gds_lib",
+  "sha256": {
+    "cell_1rw.gds": "7bd6076b0c13eb0e92894a90d4530a9f9bd4eb52966003dbe468f74e86146bb4",
+    "replica_cell_1rw.gds": "2f74ce27a7eb08e5d589113c4dcc1268f49ec44e95f67ba6094766fec3975c22",
+    "sense_amp.gds": "ebcc477d334a36aab42b63b39c88b69dfd102fa143591d7789184492dd869634",
+    "precharge.gds": "5dcf4c0727c913309004597f409eadc6baa16cf49a69d16d2cf89acab3a5c5d6"
+  },
+  "generated_assets": {
+    "precharge.gds": "precharge_0 extracted from recorded 32x32 OpenRAM macro, three 270 nm PMOS"
+  }
+}

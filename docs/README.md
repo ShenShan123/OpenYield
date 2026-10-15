@@ -1,27 +1,32 @@
 # OpenYield V2.2.8 documentation
 
-Design and validation records (`design/`), the supplied evidence (`data/`,
-`qualification/`) and the release history live here; usage
-guides live beside the code they describe. Paths are relative to the
-repository root unless stated otherwise. Every release entry of the
-[changelog](CHANGELOG.md) names its record; earlier entries, snapshots and
-evidence keep their original version labels.
+Design records are grouped by topic under `design/`; simulation reports live
+under `validation/`. Evidence and qualification data retain their existing
+contents and version labels. Usage guides live beside the code they describe.
+Paths in commands are relative to the repository root unless stated otherwise.
 
-The [V2.2.8 layout record](design/LAYOUT_COMPACTION_V2_2_8.md) documents compact
-placement, common-subcircuit reuse and physical area comparisons with frozen
-sizing. Compact geometry has separate validation from the earlier references.
+| Location | Contents |
+|---|---|
+| [Design index](design/README.md) | Layout, timing, interconnect, compiler and equivalent-model records |
+| [Validation reports](validation/README.md) | Simulation summaries, corrected-model cases and negative controls |
+| [Evidence and data](data/README.md) | Diagnostic JSON records and supplied characterization CSVs |
+| [Qualification data](qualification/) | Preserved sizing and model qualification records |
+| [Development guide](DEVELOPMENT.md) | Local tools, regressions and qualification workflows |
+| [Changelog](CHANGELOG.md) | Release history and links to its records |
 
-The [V2.2.7 record](design/RC_CALIBRATION_V2_2_7.md) covers the
-FreePDK45 8x8 physical calibration and the TIME_CONTROL configuration refactor.
-The [complete macro record](design/FULL_RC_CALIBRATION_V2_2_7.md) supersedes
-the original controller deferral and scopes automatic defaults to its 8×8
-reference. The [additional-size record](design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
-covers explicit 8×16, 16×8 and 16×16 calibration profiles and DC curves.
-The [organization record](design/ORGANIZATION_V2_2_7.md) documents the unified
+The [bank record](design/layout/OPENRAM_PITCH_V2_2_8.md) and
+[TIME_CONTROL record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md) describe the current
+component-based physical flows and their verification limits.
+The [organization record](design/compiler/ORGANIZATION_V2_2_7.md) documents the unified
 experiment entrance and integrated per-device variation. The compiler version
 is V2.2.8; no full V2.2.8 screen is complete.
 
 ## Open items
+
+The [single-bank scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md) covers
+512×512 generation, smaller-bank extracted-load driver candidates and removal
+of intentional TIME_CONTROL RC guards. Its evidence retains separate layout,
+coupon and native small-array waveform scopes.
 
 The carried Phase 6 scope. The working plans that defined it
 (`V2_1_1_TIMING_FOLLOWUP.md`, `V2_1_2_QUALIFICATION_SCOPE.md`,
@@ -49,7 +54,7 @@ The carried Phase 6 scope. The working plans that defined it
   assembled, and V2.2.4 changed the replica column of every deck. V2.2.5
   changes the compiler entrance and validation. The V2.2.4 manifests (334 main
   cases, 1,444 per-device draws, 6 negative controls) were partially run on
-  V2.2.5 before the campaign stopped ([summary](V2_2_5_SIMULATION_SUMMARY.md),
+  V2.2.5 before the campaign stopped ([summary](validation/V2_2_5_SIMULATION_SUMMARY.md),
   about 1,400 estimated solver-hours for the full plan). Four corner model files
   were then corrected; a fresh screen on their new hashes is needed. No V2.2.5
   screen or qualification has been assembled. V2.2.6 has targeted review checks
@@ -58,7 +63,7 @@ The carried Phase 6 scope. The working plans that defined it
   the V2.2.3 screen, MOSFET homotopy is erratic, and the V2.2.4 seeded
   operating point, which solves 128x128 and 256x128 in minutes, had not
   converged at 256x256 after 5.6 h
-  ([record](design/PHASED_CONTROL_V2_2_4.md#the-operating-point-of-the-largest-arrays)).
+  ([record](design/timing/PHASED_CONTROL_V2_2_4.md#the-operating-point-of-the-largest-arrays)).
   The screen cannot complete without it.
 - **Dynamic column select.** There is no column decoder: normal decks hold the
   mux `SEL` input at a DC level. Four post-release V2.2.4 runner cases switch
@@ -93,44 +98,44 @@ The carried Phase 6 scope. The working plans that defined it
 | Document | Purpose |
 |---|---|
 | [Changelog](CHANGELOG.md) | Release history, one entry per release with its record |
-| [V2.2.5 simulation summary](V2_2_5_SIMULATION_SUMMARY.md) | Reconciled old-hash, corrected-hash, negative-control, and corner-case results |
-| [V2.2.5 corrected-model corner cases](V2_2_5_CORRECTED_CORNER_CASES.md) | Boundary configurations and waveform checks on corrected model hashes |
-| [V2.2.5 negative controls](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md) | Expanded failure scenarios, matched positive references, and Xyce results |
+| [V2.2.5 simulation summary](validation/V2_2_5_SIMULATION_SUMMARY.md) | Reconciled old-hash, corrected-hash, negative-control, and corner-case results |
+| [V2.2.5 corrected-model corner cases](validation/V2_2_5_CORRECTED_CORNER_CASES.md) | Boundary configurations and waveform checks on corrected model hashes |
+| [V2.2.5 negative controls](validation/V2_2_5_NEGATIVE_CONTROL_EVALUATION.md) | Expanded failure scenarios, matched positive references, and Xyce results |
 | [Development guide](DEVELOPMENT.md) | Optional local regression and qualification tools |
-| [V2.2.6 configuration review](design/CONFIGURATION_REVIEW_V2_2_6.md) | Current release: custom SNM, model audit, sample counts, coverage metadata |
-| [V2.2.5 compiler entrance](design/COMPILER_ENTRY_V2_2_5.md) | Macro entrance, model-card correction, input checks, and validation limits |
-| [V2.2.4 replica loads and review fixes](design/PHASED_CONTROL_V2_2_4.md) | Passive replica load cells, V2.2.3 review fixes, seeded operating point, pending screen |
-| [V2.2.3 envelope and clocks](design/PHASED_CONTROL_V2_2_3.md) | Array envelope, joint-dimension clocks, shared access deadline |
-| [V2.2.2 review and screen](design/PHASED_CONTROL_V2_2_2.md) | Executed screen, reported margins, and the coverage it does not reach |
-| [V2.2.1 control path](design/PHASED_CONTROL_V2_2_1.md) | Phase ordering and timing contract |
-| [V2.1.10 control path](design/TIME_CONTROL_PATH.md) | Preserved previous architecture and naming contract |
+| [V2.2.6 configuration review](design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) | Current release: custom SNM, model audit, sample counts, coverage metadata |
+| [V2.2.5 compiler entrance](design/compiler/COMPILER_ENTRY_V2_2_5.md) | Macro entrance, model-card correction, input checks, and validation limits |
+| [V2.2.4 replica loads and review fixes](design/timing/PHASED_CONTROL_V2_2_4.md) | Passive replica load cells, V2.2.3 review fixes, seeded operating point, pending screen |
+| [V2.2.3 envelope and clocks](design/timing/PHASED_CONTROL_V2_2_3.md) | Array envelope, joint-dimension clocks, shared access deadline |
+| [V2.2.2 review and screen](design/timing/PHASED_CONTROL_V2_2_2.md) | Executed screen, reported margins, and the coverage it does not reach |
+| [V2.2.1 control path](design/timing/PHASED_CONTROL_V2_2_1.md) | Phase ordering and timing contract |
+| [V2.1.10 control path](design/timing/TIME_CONTROL_PATH.md) | Preserved previous architecture and naming contract |
 
 ## Release records
 
 | Release | Record |
 |---|---|
-| V2.2.8 | [compact macro layouts and common-subcircuit reuse](design/LAYOUT_COMPACTION_V2_2_8.md) |
-| V2.2.7 | [complete signal and power RC calibration](design/FULL_RC_CALIBRATION_V2_2_7.md) |
-| V2.2.6 | [configuration review and fixes](design/CONFIGURATION_REVIEW_V2_2_6.md) |
-| V2.2.5 | [macro entrance and generation checks](design/COMPILER_ENTRY_V2_2_5.md) |
-| V2.2.4 | [replica load cells that do not leak, review fixes](design/PHASED_CONTROL_V2_2_4.md) |
-| V2.2.3 | [envelope, joint-dimension clocks, one access deadline](design/PHASED_CONTROL_V2_2_3.md) |
-| V2.2.2 | [production review, precharged startup, margins](design/PHASED_CONTROL_V2_2_2.md) |
-| V2.2.1 | [capture/access/recovery phase control](design/PHASED_CONTROL_V2_2_1.md) |
-| V2.1.10 | [write-data latch on the registered write](design/WRITE_LATCH_V2_1_10.md) |
-| V2.1.9 | [write hold and read clocks under mismatch](design/WRITE_HOLD_V2_1_9.md) |
-| V2.1.8 | [enable overlaps](design/ENABLE_OVERLAP_V2_1_8.md) |
-| V2.1.7 | [select gate](design/SELECT_GATE_V2_1_7.md) |
-| V2.1.6 | [write slot](design/WRITE_SLOT_V2_1_6.md) |
-| V2.1.5 | [10T round](design/TIMING_10T_BUDGET_V2_1_5.md), [equivalent model](design/EQUIVALENT_MODEL_V2_1_5.md) |
-| V2.1.4 | [6T timing budget](design/TIMING_6T_BUDGET_V2_1_4.md) |
-| V2.1.3 | [10T timing budget](design/TIMING_10T_BUDGET_V2_1_3.md) |
-| V2.1.2 | [timing follow-up](design/TIMING_FOLLOWUP_V2_1_2.md); the resolved first-500 write-failure audit is archived in Git history |
-| V2.1.1 | [distributed-only wiring](design/DISTRIBUTED_ONLY_V2_1_1.md) |
-| V2.1.0 | [timing lookup](design/TIMING_LOOKUP_V2_1_0.md) |
-| V2.0.11 | [audit and write screen](design/WRITE_VALIDATION_V211.md) |
-| V2.0.10 | [distributed-RC review](design/DISTRIBUTED_RC_V210_REVIEW.md) |
-| V2.0.7 / V2.0.8 | [distributed RC model](design/DISTRIBUTED_RC_MODEL.md), [validation](design/DISTRIBUTED_RC_VALIDATION.md) |
+| V2.2.8 | [component-based banks](design/layout/OPENRAM_PITCH_V2_2_8.md), [TIME_CONTROL](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md) |
+| V2.2.7 | [compiler organization and experiment entrance](design/compiler/ORGANIZATION_V2_2_7.md) |
+| V2.2.6 | [configuration review and fixes](design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) |
+| V2.2.5 | [macro entrance and generation checks](design/compiler/COMPILER_ENTRY_V2_2_5.md) |
+| V2.2.4 | [replica load cells that do not leak, review fixes](design/timing/PHASED_CONTROL_V2_2_4.md) |
+| V2.2.3 | [envelope, joint-dimension clocks, one access deadline](design/timing/PHASED_CONTROL_V2_2_3.md) |
+| V2.2.2 | [production review, precharged startup, margins](design/timing/PHASED_CONTROL_V2_2_2.md) |
+| V2.2.1 | [capture/access/recovery phase control](design/timing/PHASED_CONTROL_V2_2_1.md) |
+| V2.1.10 | [write-data latch on the registered write](design/timing/WRITE_LATCH_V2_1_10.md) |
+| V2.1.9 | [write hold and read clocks under mismatch](design/timing/WRITE_HOLD_V2_1_9.md) |
+| V2.1.8 | [enable overlaps](design/timing/ENABLE_OVERLAP_V2_1_8.md) |
+| V2.1.7 | [select gate](design/timing/SELECT_GATE_V2_1_7.md) |
+| V2.1.6 | [write slot](design/timing/WRITE_SLOT_V2_1_6.md) |
+| V2.1.5 | [10T round](design/timing/TIMING_10T_BUDGET_V2_1_5.md), [equivalent model](design/equivalent/EQUIVALENT_MODEL_V2_1_5.md) |
+| V2.1.4 | [6T timing budget](design/timing/TIMING_6T_BUDGET_V2_1_4.md) |
+| V2.1.3 | [10T timing budget](design/timing/TIMING_10T_BUDGET_V2_1_3.md) |
+| V2.1.2 | [timing follow-up](design/timing/TIMING_FOLLOWUP_V2_1_2.md); the resolved first-500 write-failure audit is archived in Git history |
+| V2.1.1 | [distributed-only wiring](design/interconnect/DISTRIBUTED_ONLY_V2_1_1.md) |
+| V2.1.0 | [timing lookup](design/timing/TIMING_LOOKUP_V2_1_0.md) |
+| V2.0.11 | [audit and write screen](design/timing/WRITE_VALIDATION_V211.md) |
+| V2.0.10 | [distributed-RC review](design/interconnect/DISTRIBUTED_RC_V210_REVIEW.md) |
+| V2.0.7 / V2.0.8 | [distributed RC model](design/interconnect/DISTRIBUTED_RC_MODEL.md), [validation](design/interconnect/DISTRIBUTED_RC_VALIDATION.md) |
 
 Raw simulation outputs of releases before V2.1.9 were purged from the ignored
 `outputs/` directory in the V2.1.10 cleanup; the records above, `data/` and
@@ -150,3 +155,6 @@ The supplied evidence CSVs are kept unchanged in `data/`:
 | [Equivalent modeling](../sram_compiler/equivalent_modeling/README.md) | Equivalent circuit modes, usage, and accuracy boundaries |
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |
 | [Yield estimation](../yield_estimation/README.md) | Monte Carlo and importance-sampling algorithms |
+
+- [OpenRAM-pitch bank implementation and physical verification](design/layout/OPENRAM_PITCH_V2_2_8.md)
+- [TIME_CONTROL compaction and larger array readiness report](design/layout/TIME_CONTROL_COMPACTION_REPORT_V2_2_8.md)

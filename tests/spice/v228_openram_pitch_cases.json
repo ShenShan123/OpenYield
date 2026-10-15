@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "OpenRAM-pitch bank: left decoder, row drivers, data/replica core, column periphery, RWL driver and output latch",
+  "sizes": [[8, 8], [32, 32]],
+  "core_pitch_nm": {"row": 1365, "column": 705},
+  "source": {
+    "operation": "read&write", "variation_mode": "nominal", "real_cell_mode": 0,
+    "corner": "TT", "vdd": 1, "temperature_c": 25,
+    "interconnect_config": "sram_compiler/config_yaml/interconnect_illustrative.yaml"
+  },
+  "checks": [
+    "Physical GDS array-instance centers have 705 nm column and 1365 nm row pitch",
+    "Decoder is entirely left of the core; each WL connects on M3 at array_y+(row+0.5)*1365",
+    "All source MOS except XTIME_CONTROL retained, including disabled predecode branches, replica and dummy cells",
+    "Physical finger widths sum to each source MOS total width; model, L and topology remain unchanged",
+    "Every physical MOS has four mapped terminal accesses; gate area and count agree with the physical finger inventory",
+    "Declared standalone cell and 32x32 decoder/core/bank bounding-box area ceilings are no larger than recorded OpenRAM references",
+    "Calibre DRC zero, strict LVS CORRECT, distributed R+C+CC extraction at both sizes",
+    "Retain GDS/source/deck/assets/generator/tool/rule hashes; retain failed attempts separately"
+  ],
+  "controller_layout": false,
+  "waveform_validation": "not run",
+  "defaults_promotable": false,
+  "local_python_runners_tracked": false
+}

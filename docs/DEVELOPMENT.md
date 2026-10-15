@@ -1,5 +1,42 @@
 # OpenYield V2.2.8 development tools
 
+Single-bank scaling is recorded in
+[the scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md). Local tools under
+`dev/layout_scaling/` audit coupled DSPF loads, sweep driver coupons, score
+native 8×8 waveforms and preserve every layout attempt. The tracked protocol
+is `tests/spice/v228_scaling_cases.json`; the explicit sizing candidate is
+`sram_compiler/sizing/layout_sizing_lookup.json`. Local regressions cover
+bounded fixed timing, controller ports and Boolean factoring, RC deletion,
+width-preserving fingers, routing and physical conductor connectivity.
+
+The optional 32×32 TIME_CONTROL physical flow is documented in
+[the controller layout record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md).
+Local `dev/time_control/` scripts retain primitive, register, passive-coupon,
+controller and complete-bank experiments, including failed attempts.
+The resumed compaction and evidence assembler live under
+`dev/time_control/resume_20261012/`. Current verified artifacts are `control_20`
+(standalone controller) and `planned_02` (planned interface). The superseded
+maze integration `full_40` and the `full_29` LVS failure remain preserved.
+`dev/time_control/record_planned.py` writes the planned-interface evidence. The
+old integration and its router are kept locally as
+`dev/time_control/macro_control_maze_v228.py`, `macro_negotiation.py` and
+`route_search.{py,cpp}`.
+`tests/test_time_control_layout.py` checks source-device conservation, RC
+coverage, frozen register contracts, actual GDS placement/pitch and hashed
+physical verification receipts. The tracked reproduction scope is
+`tests/spice/v228_time_control_layout_cases.json`; the Python runner remains
+local. These are physical-layout checks, not a transient/waveform screen.
+
+On 2026-10-11, workspace cleanup removed 25,603 obsolete simulation artifacts
+and logs (about 1.905 TB) from `outputs/validation/`, older smoke and CLI runs,
+and the top-level output logs. Historical raw decks, generated model cards and
+waveforms at those paths are no longer available. Result summaries, CSVs,
+source archives and local scripts remain, along with the newer bank, TIME_CONTROL
+and OpenRAM artifacts. That cleanup preserved supplied documentation evidence.
+The subsequent legacy-layout purge removes its dedicated reports and artifacts;
+other simulation and qualification evidence remains unchanged. The local deletion
+inventory is `dev/cleanup/2026-10-11-stale-outputs.json`.
+
 V2.2.2's opt-in transistor-level transition checks are kept locally under
 [`tests/spice/`](../tests/spice/README.md); their case manifests remain tracked. They use full cells, record solver,
 model, seed and source identities, and preserve failed runs. The historical
@@ -10,13 +47,13 @@ V2.2.2 functional screen. The V2.2.2 campaign tools (queue split, status,
 record assembler) live under ignored `dev/v222/`.
 
 
-V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/TIMING_LOOKUP_V2_1_0.md); its raw decks and waveforms were purged in the V2.1.10 cleanup.
+V2.1.0 adds tracked timing-class, frozen-candidate, CLI evidence and yield return-contract tests. The release screen and exact limits are recorded in [the timing review](design/timing/TIMING_LOOKUP_V2_1_0.md); its raw decks and waveforms were purged in the V2.1.10 cleanup.
 
 V2.1.1 carries forward the full retention and finite CLI metric checks of the
 V2.1.0 follow-up review (see the V2.1.0 and V2.1.1 [changelog](CHANGELOG.md) entries),
 and adds distributed-only defaults, periphery/decoder/clock/select routing and
 local write-capture checks. See the
-[release report](design/DISTRIBUTED_ONLY_V2_1_1.md) for current validation status. Local `dev/v210_waveform_checks.py` checks every probed write column
+[release report](design/interconnect/DISTRIBUTED_ONLY_V2_1_1.md) for current validation status. Local `dev/v210_waveform_checks.py` checks every probed write column
 and final sequence retention directly from waveforms.
 `dev/v210_followup_queue.py` runs the full-array follow-up serially with
 preserved attempts, source identities and bounded lifetimes; it accepts nominal
@@ -54,70 +91,52 @@ checkout. Run commands from the repository root.
 
 ## Local regression checks
 
+`tests/test_integrated_bank.py` extends the bank checks to the complete
+non-TIME_CONTROL instance set, physical replica/dummy hierarchy, internal
+wordlines, output latch, complete finger terminals and real GDS area. Its
+asymmetric 8×4 source exercises the default `layout bank` CLI and verifies
+decoder-left placement, full row-height alignment and every direct M2 WL link.
+The combined
+suite has 59 passing checks; official 8×8/32×32 checks are recorded in
+[`v228_bank_integration_cases.json`](../tests/spice/v228_bank_integration_cases.json)
+and [the integration record](design/layout/BANK_INTEGRATION_V2_2_8.md). Local helpers
+are in ignored `dev/bank_integration/`.
+
+The current pitch-matched floorplan is recorded in
+[`v228_bank_row_pitch_cases.json`](../tests/spice/v228_bank_row_pitch_cases.json)
+and [the row-pitch record](design/layout/BANK_ROW_PITCH_V2_2_8.md). Its local runners and
+previews are under `dev/bank_pitch/`. The executed external OpenRAM reference
+has local helpers under `dev/openram_reference/` and an isolated environment
+under `outputs/openram_reference/`; the cloned OpenRAM source is unchanged.
+
+`tests/test_bank_layout.py` generates an asymmetric nominal 2×4 source and checks
+bank scope, all-device/finger coverage, real GDS gate area, mirrored bitlines and
+terminal maps, column-track reuse, rejected bitcell changes and preserved failed
+attempts. Run it with the component suite below. The tracked
+[`v228_bank_cases.json`](../tests/spice/v228_bank_cases.json) records the physical
+protocol; [the bank record](design/layout/BANK_LAYOUT_V2_2_8.md) states the checked sizes
+and remaining integration scope. Local runners and native GDS preview scripts
+are in ignored `dev/bank_layout/`.
+
 The component layout flow has local `tests/test_physical_cells.py` checks for
 actual active/poly gate area and finger count, geometry and connectivity cache
 identity, independent formal ports, diffusion sharing, pitch frames, array
 access coordinates, component placement and preserved failures. Run
-`python -m unittest tests.test_physical_cells tests.test_compact_layout
+`python -m unittest tests.test_physical_cells tests.test_component_routing
 tests.test_router_clearance tests.test_calibrated_rc tests.test_unified_entrance
 tests.test_time_control_config`. Campaign helpers remain under ignored
 `dev/cell_layout/`. The tracked
 [`v228_component_cases.json`](../tests/spice/v228_component_cases.json) and
-[component record](design/COMPONENT_LAYOUT_V2_2_8.md) preserve the checked scope.
+[component record](design/layout/COMPONENT_LAYOUT_V2_2_8.md) preserve the checked scope.
 
-V2.2.8's local `tests/test_compact_layout.py` checks common-subcircuit reuse,
-size-sensitive cache identity, complete folded-device coverage, on-grid
-nonoverlapping placement, and unchanged active/poly/contact geometry. Run
-`python -m unittest tests.test_compact_layout tests.test_router_clearance
-tests.test_calibrated_rc`. The tracked
-[`v228_layout_cases.json`](../tests/spice/v228_layout_cases.json) records the
-physical comparison protocol; the [layout record](design/LAYOUT_COMPACTION_V2_2_8.md)
-states the actual area and official verification results. These local Python
-checks remain ignored and are absent from a fresh clone.
-
-V2.2.7's tracked [physical calibration workflow](../sram_compiler/layout/README.md)
-builds an 8x8 FreePDK45 macro and array tile and runs Calibre DRC/LVS/xRC. The
-local `tests/test_parasitics.py` and `tests/test_time_control_config.py` cover
-DSPF handling, configuration validation and stale-baseline rejection. The local
-baseline experiment saved 30 controller blocks and seven primitives before
-the YAML refactor; all emitted netlists and a full 8x8 nominal write deck match
-byte for byte. Configuration and calibration scope are recorded in the
-[V2.2.7 development record](design/RC_CALIBRATION_V2_2_7.md).
-
-The [extended RC investigation](design/EXTENDED_RC_VALIDATION_V2_2_7.md) uses
-local `dev/v227/extended_campaign.py`, `critical_rc_metrics.py`,
-`critical_rc_inventory.py`, `ordering_diagnostic.py` and `render_layout_png.py`.
-`assemble_extended_evidence.py` preserves compact results and artifact hashes;
-solver/setup failures are excluded from completed scientific case counts.
-`tests/test_rc_pvt.py` checks voltage-scoped initialization and metrics;
-`tests/test_router_clearance.py` checks same-net via clearance and fixed
-supply-stack protection. `test_critical_rc_frequency.py` independently checks
-the passive frequency solver against closed-form networks. Numerical
-reproduction and unloaded-alias initialization references are separate from
-PVT/mismatch samples. These Python scripts remain ignored. The tracked
-[`v227_extended_rc_cases.json`](../tests/spice/v227_extended_rc_cases.json)
-records the protocol; the report states which waveforms actually completed.
-
-The subsequent [complete macro record](design/FULL_RC_CALIBRATION_V2_2_7.md)
-covers controller legalization, intentional physical filters, coupled extraction,
-terminal-preserving RC reduction, compiler back-annotation and a fixed 9 ns
-nominal comparison. Local `tests/test_calibrated_rc.py` additionally checks
-mesh resistance/coupling conservation, load-terminal probes, folded grid widths,
-analog initial conditions, independent net configuration, and rejection of
-changed geometry/passives. `tests/test_power_rc.py` checks separate power-mesh
-IR drops and selective VDD resistance scaling. The qualified default reproduces
-the simulated hardware through both user entrances. Earlier
-failed physical attempts remain unqualified under `outputs/rc_calibration/`.
-
-The [additional-size record](design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md) covers
-complete 8×16, 16×8 and 16×16 references, four-access comparisons, DC coupons
-and explicit per-net profiles. All 22,881 waveform checks pass; mean edge
-error is 4.05–6.00 ps. Local `test_scaled_rc.py` checks asymmetric endpoint
-mapping, `.IC`-only parsing and capacitance-only net ownership without changing
-initialization. The relevant 46-test suite passes. Thirteen legacy fanout
-expectations reproduce unchanged on `2521ccf`; broad discovery is not claimed
-to pass. Size campaign runners and rejected attempts remain local in
-`dev/v227/` and `outputs/rc_calibration/V2.2.7/multi_size/`.
+The older fixed/scaled/compact macro generators, calibration campaigns,
+reports and local artifacts have been purged. Component routing checks remain
+in `tests/test_component_routing.py` and `tests/test_router_clearance.py`.
+Shared RC reduction, back-annotation, DSPF and configuration checks remain in
+`test_calibrated_rc.py`, `test_power_rc.py`, `test_scaled_rc.py`,
+`test_rc_pvt.py`, `test_parasitics.py` and `test_time_control_config.py`.
+The scoped compiler RC profiles remain runtime inputs; they do not validate
+new bank/controller geometry.
 
 ```bash
 python3 -m unittest discover -s tests -v
@@ -156,7 +175,7 @@ The following commands require the ignored `dev/` workspace:
 | `dev/sizing/wordline_model.py` | Compare distributed wire geometry and refinement |
 | `dev/sizing/execution.py` | Support campaign MPI execution and timeout cleanup |
 | `dev/sizing/provenance.py` | Verify local scoring sources against the tracked manifest |
-| `dev/v216_time_audit/` | TIME_CONTROL / replica-column netlist tools (V2.1.6): `topo_check.py` (static connectivity and subcircuit-collision audit over a size matrix), `snapshot_decks.py` + `compare_snapshots.py` (netlist equivalence proof for refactors); see `docs/design/TIME_CONTROL_PATH.md` |
+| `dev/v216_time_audit/` | TIME_CONTROL / replica-column netlist tools (V2.1.6): `topo_check.py` (static connectivity and subcircuit-collision audit over a size matrix), `snapshot_decks.py` + `compare_snapshots.py` (netlist equivalence proof for refactors); see `docs/design/timing/TIME_CONTROL_PATH.md` |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash
@@ -378,7 +397,7 @@ change to the RC topology. Use a fresh `--output-dir` to keep earlier evidence.
 Half-select qualification remains open. The purged working proposal and its
 historical evidence are retrievable with `git show b4987df:docs/DRIVER_SIZING_PROPOSAL.md`.
 
-V2.0.7 adds the [distributed RC model](design/DISTRIBUTED_RC_MODEL.md).
+V2.0.7 adds the [distributed RC model](design/interconnect/DISTRIBUTED_RC_MODEL.md).
 Local `Case` settings accept `interconnect`, `pi_res` (ohms) and `pi_cap`
 (farads); scorers read physical endpoints and actual sense inputs.
 The release diagnostic runner is `dev/validate_distributed_rc.py`; `--output`
@@ -387,9 +406,9 @@ cleanup).
 V2.0.8 case files additionally accept `w_rc`, `cell_pin_rc`, `replica_k`,
 `wire_scale` (multiplies the illustrative per-pitch R and C), `pi_res_ohm`,
 `pi_cap_pf` and a per-case Xyce `timeout`. These diagnostics do not promote
-a sizing-table record. See the [validation scope](design/DISTRIBUTED_RC_VALIDATION.md).
+a sizing-table record. See the [validation scope](design/interconnect/DISTRIBUTED_RC_VALIDATION.md).
 
-The [V2.0.9 review](design/DISTRIBUTED_RC_V210_REVIEW.md) kept its local
+The [V2.0.9 review](design/interconnect/DISTRIBUTED_RC_V210_REVIEW.md) kept its local
 cases and waveforms under `outputs/validation/V2.0.9-review/` until the V2.1.10
 cleanup. The diagnostic
 now defaults to `lookup`, matching the compiler; historical `fixed` cases
@@ -404,7 +423,7 @@ with `"interconnect": "star"` in a case. At that revision, the compiler emitted
 and traces retain their original scope; the current compiler requires release
 checks on every transient array. Write cases additionally check that precharge stays off
 for the whole write-enable window and that the write driver, not the initial
-condition, pulls the bitline down. The [V2.0.11 screen](design/WRITE_VALIDATION_V211.md)
+condition, pulls the bitline down. The [V2.0.11 screen](design/timing/WRITE_VALIDATION_V211.md)
 kept its cases under `outputs/validation/V2.0.11-write/` until the V2.1.10 cleanup.
 
 The current validator rejects star cases. Five historical star-generation
@@ -412,3 +431,15 @@ scripts were retired from active `dev/` in V2.1.1; the archive that kept them
 (`outputs/validation/distributed-only-V2.1.0/incoming-source.tar.gz`) was
 purged in the V2.1.10 cleanup. The reviewed `dev/sizing/` source manifest was refreshed;
 old evidence is incompatible with the new scoring identity.
+
+
+### OpenRAM-pitch bank validation
+
+The current physical plans and area ceilings are recorded in
+[OPENRAM_PITCH_V2_2_8.md](design/layout/OPENRAM_PITCH_V2_2_8.md), with the tracked protocol
+in `tests/spice/v228_openram_pitch_cases.json`. Local `tests/test_openram_pitch.py`
+checks actual GDS placement pitch, source MOS conservation under refingering,
+terminal coverage, area bounds, rejection of changed fixed-cell sources, and
+hash-matched strict Calibre receipts. `dev/openram_pitch/render.py` generates
+geometry previews. Older integrated-bank regression fixtures explicitly use
+`--legacy-pitch` to retain their historical 400 nm row assertions.

@@ -23,8 +23,7 @@ import time
 from sram_compiler.calibrated_rc import apply_to_deck, initial_state, validate_source, read_initial_conditions
 from sram_compiler.parasitics import read_dspf, spice_value
 from utils.xyce import execute_xyce
-from .reduce_rc import reduce
-from .run import sha256
+from .reduce_rc import reduce, sha256
 
 
 def comparison_vdd(deck, scope):

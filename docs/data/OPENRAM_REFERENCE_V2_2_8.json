@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "scope": "OpenRAM generated 32-word x 32-bit 1RW FreePDK45 reference",
+  "openram_commit": "b2b069ce119d1488cbe6883b2240bceb5c7ce29a",
+  "checkout_modified": false,
+  "geometry": {
+    "primary": "openram_1rw_32x32_freepdk45",
+    "dbu_um": 0.0005,
+    "bbox_um": [
+      0.0,
+      0.0,
+      115.605,
+      76.22
+    ],
+    "area_um2": 8811.4131
+  },
+  "organization": {
+    "rows": 32,
+    "cols": 32,
+    "num_words": 32,
+    "word_size": 32,
+    "words_per_row": 1,
+    "banks": 1,
+    "rw_ports": 1
+  },
+  "core_pitch_um": {
+    "row": 1.365,
+    "column": 0.705
+  },
+  "configuration": {
+    "tech_name": "freepdk45",
+    "corner": "TT",
+    "vdd": 1.0,
+    "temperature_c": 25,
+    "use_nix": false,
+    "route_supplies": false,
+    "perimeter_pins": true,
+    "check_lvsdrc_during_generation": false,
+    "analytical_delay": true,
+    "spice_characterization": false
+  },
+  "includes_controller_and_input_registers": true,
+  "artifact_root": "outputs/openram_reference/32x32_04/macro",
+  "artifacts_sha256": {
+    "openram_1rw_32x32_freepdk45.log": "518efb44ccf7e9daac86ffed06de906bb30937f887cc544f59650d810e065dbf",
+    "openram_1rw_32x32_freepdk45.sp": "63f12a4952e24bbd42b4b50a9792c6b62f294d723fab17e60040fdcff1047d33",
+    "functional_stim.sp": "62754a04d9f728ca17fab839ff6a1c46d83c1d7802beadfefad18106ccf1f233",
+    "functional_meas.sp": "90eafe657812126d845866638b9a558f0d5bd99902b32c6c6132426af1d528ef",
+    "sram.sp": "63f12a4952e24bbd42b4b50a9792c6b62f294d723fab17e60040fdcff1047d33",
+    "delay_stim.sp": "33fb6404093cfe06fa79d2d1cad926b1c6ec0970112ae4ff4c354669181dd0cf",
+    "delay_meas.sp": "c5192eacb6b28df2a193e3c37ccf48c642efe304ac1a08b3b9e8e364cf50d1f0",
+    "trimmed.sp": "eefe66a8bd24674de622b100f45b96d419a9eafa20a94a26722662fbee891190",
+    "openram_1rw_32x32_freepdk45.gds": "597f395c1bfa413d0816429e177c1e0fb94d2a437e09321e21478a92979f3fe4",
+    "openram_1rw_32x32_freepdk45.lef": "b4af87dbbe694a2c805e7d3a4be2bbf3750e5a2a74639a68cd8e52c9ee7d0293",
+    "openram_1rw_32x32_freepdk45.lvs.sp": "41208b3cd28c6d638e0fdbb62cdeb8e119c92932e62ad63f38b494387b89e232",
+    "openram_1rw_32x32_freepdk45_TT_1p0V_25C.lib": "e1d2758b04e39e0b746690afa7f73cad0c33958acb40cc2b8cab6c0c6c44d004",
+    "openram_1rw_32x32_freepdk45.py": "2750759937872e3abbae54b0d9a9cd60a60dfe14e3120c91bc33eae0fceb462a",
+    "openram_1rw_32x32_freepdk45.html": "856311cad10edc2f2d5c0b366662c84f3b37f4efc96c5bf1c0929d9b467de469",
+    "openram_1rw_32x32_freepdk45.v": "84d78a322f3ac237d56961341ff66dcbfc814596fd8ce67021fdda96dc6aefeb"
+  },
+  "input_config_sha256": "2750759937872e3abbae54b0d9a9cd60a60dfe14e3120c91bc33eae0fceb462a",
+  "normalization": {
+    "original_sha256": "597f395c1bfa413d0816429e177c1e0fb94d2a437e09321e21478a92979f3fe4",
+    "normalized_sha256": "ca87a83917e43dbe6e7b504f65e18f5fdf6234fe7af26b2a33b64b4520f57337",
+    "removed_zero_area_boundaries": [
+      {
+        "cell": "sense_amp",
+        "layer": "11/0",
+        "bbox": "(0,2905;0,2905)"
+      }
+    ],
+    "physical_area_removed_um2": 0,
+    "original_preserved": true
+  },
+  "verification": {
+    "native_gds_status": "Calibre read rejected a zero-area sense_amp M1 boundary",
+    "normalized_copy_drc_violations": 0,
+    "normalized_copy_lvs": "INCORRECT",
+    "openram_adapter_error_counts": {
+      "drc_errors": 0,
+      "lvs_errors": 6
+    },
+    "lvs_policy": "OpenRAM Calibre adapter: ignore ports, virtual-connect vdd/gnd because route_supplies=False",
+    "report_sha256": "88ed4e4a13d4684053f8ea4d1447eb6fd5acbe706cd7afe174d05df935cf9294",
+    "rule_sha256": {
+      "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+      "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49"
+    }
+  },
+  "attempts": {
+    "dependency_failures": [
+      "32x32_01: default Nix unavailable",
+      "32x32_02: scikit-learn absent"
+    ],
+    "optional_power_ring": "32x32_03 interrupted during expensive supply graph routing; unqualified",
+    "primary": "32x32_04 completed with perimeter pins and multiple must-connect supplies",
+    "alternative": "32x32_05 completed without perimeter escape routing"
+  },
+  "qualified": false,
+  "waveform_validation": "not run",
+  "openyield_defaults_promoted": false,
+  "bank_reference": {
+    "artifact_root": "outputs/openram_reference/32x32_04/bank_reference",
+    "geometry": {
+      "primary": "openram_1rw_32x32_freepdk45_bank",
+      "dbu_um": 0.0005,
+      "bbox_um": [
+        0.0,
+        0.0,
+        40.07,
+        61.33
+      ],
+      "area_um2": 2457.4931
+    },
+    "gds_sha256": "28902992c2329c9ab3f3351e3d6f4d94005471e4a9855e66ed4dc5d20f6e2557",
+    "source": "bank cell exported from normalized parent GDS; source primary selected from original LVS SPICE",
+    "drc_violations": 0,
+    "lvs": "CORRECT",
+    "virtual_supply_connections": [
+      "vdd",
+      "gnd"
+    ],
+    "ignore_ports": true,
+    "lvs_report_sha256": "8fe9f90611715d22f6ed5f12d7d81a1919505d0b5c8b7a3566fbce7c48f39b20",
+    "supply_routing_complete": false,
+    "spice_characterization": false
+  }
+}

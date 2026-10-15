@@ -1,0 +1,150 @@
+{
+  "reference_commit": "b2b069ce119d1488cbe6883b2240bceb5c7ce29a",
+  "reference_gds_sha256": "597f395c1bfa413d0816429e177c1e0fb94d2a437e09321e21478a92979f3fe4",
+  "configuration": {
+    "rows": 32,
+    "cols": 32,
+    "technology": "FreePDK45"
+  },
+  "metric": "recursive physical GDS bounding-box area in square micrometres",
+  "cells": {
+    "openram_1rw_32x32_freepdk45_pinv": {
+      "cell": "openram_1rw_32x32_freepdk45_pinv",
+      "width_um": 0.7975000000000001,
+      "height_um": 1.4325,
+      "area_um2": 1.1424187500000003
+    },
+    "openram_1rw_32x32_freepdk45_pnand2": {
+      "cell": "openram_1rw_32x32_freepdk45_pnand2",
+      "width_um": 1.0125,
+      "height_um": 1.4325,
+      "area_um2": 1.4504062500000001
+    },
+    "openram_1rw_32x32_freepdk45_pnand3": {
+      "cell": "openram_1rw_32x32_freepdk45_pnand3",
+      "width_um": 1.3575,
+      "height_um": 1.4325,
+      "area_um2": 1.94461875
+    },
+    "replica_cell_1rw": {
+      "cell": "replica_cell_1rw",
+      "width_um": 0.895,
+      "height_um": 1.5650000000000002,
+      "area_um2": 1.4006750000000001
+    },
+    "openram_1rw_32x32_freepdk45_and2_dec": {
+      "cell": "openram_1rw_32x32_freepdk45_and2_dec",
+      "width_um": 1.7,
+      "height_um": 1.4325,
+      "area_um2": 2.43525
+    },
+    "openram_1rw_32x32_freepdk45_and3_dec": {
+      "cell": "openram_1rw_32x32_freepdk45_and3_dec",
+      "width_um": 2.045,
+      "height_um": 1.4325,
+      "area_um2": 2.9294625
+    },
+    "openram_1rw_32x32_freepdk45_pinv_0": {
+      "cell": "openram_1rw_32x32_freepdk45_pinv_0",
+      "width_um": 2.1725000000000003,
+      "height_um": 1.4325,
+      "area_um2": 3.1121062500000005
+    },
+    "openram_1rw_32x32_freepdk45_bitcell_array": {
+      "cell": "openram_1rw_32x32_freepdk45_bitcell_array",
+      "width_um": 22.75,
+      "height_um": 43.88,
+      "area_um2": 998.2700000000001
+    },
+    "openram_1rw_32x32_freepdk45_replica_column": {
+      "cell": "openram_1rw_32x32_freepdk45_replica_column",
+      "width_um": 0.895,
+      "height_um": 45.245000000000005,
+      "area_um2": 40.494275
+    },
+    "openram_1rw_32x32_freepdk45_precharge_0": {
+      "cell": "openram_1rw_32x32_freepdk45_precharge_0",
+      "width_um": 0.7125,
+      "height_um": 1.3900000000000001,
+      "area_um2": 0.9903750000000001
+    },
+    "sense_amp": {
+      "cell": "sense_amp",
+      "width_um": 0.775,
+      "height_um": 6.01,
+      "area_um2": 4.65775
+    },
+    "write_driver": {
+      "cell": "write_driver",
+      "width_um": 0.84,
+      "height_um": 4.175,
+      "area_um2": 3.5069999999999997
+    },
+    "openram_1rw_32x32_freepdk45_wordline_driver": {
+      "cell": "openram_1rw_32x32_freepdk45_wordline_driver",
+      "width_um": 3.075,
+      "height_um": 1.4325,
+      "area_um2": 4.404937500000001
+    },
+    "openram_1rw_32x32_freepdk45_replica_bitcell_array": {
+      "cell": "openram_1rw_32x32_freepdk45_replica_bitcell_array",
+      "width_um": 23.455,
+      "height_um": 45.245000000000005,
+      "area_um2": 1061.221475
+    },
+    "openram_1rw_32x32_freepdk45_precharge_array": {
+      "cell": "openram_1rw_32x32_freepdk45_precharge_array",
+      "width_um": 24.9725,
+      "height_um": 1.3900000000000001,
+      "area_um2": 34.711775
+    },
+    "openram_1rw_32x32_freepdk45_sense_amp_array": {
+      "cell": "openram_1rw_32x32_freepdk45_sense_amp_array",
+      "width_um": 25.0075,
+      "height_um": 6.01,
+      "area_um2": 150.295075
+    },
+    "openram_1rw_32x32_freepdk45_write_driver_array": {
+      "cell": "openram_1rw_32x32_freepdk45_write_driver_array",
+      "width_um": 24.9725,
+      "height_um": 4.175,
+      "area_um2": 104.2601875
+    },
+    "openram_1rw_32x32_freepdk45_hierarchical_decoder": {
+      "cell": "openram_1rw_32x32_freepdk45_hierarchical_decoder",
+      "width_um": 8.865,
+      "height_um": 43.9225,
+      "area_um2": 389.3729625
+    },
+    "openram_1rw_32x32_freepdk45_wordline_driver_array": {
+      "cell": "openram_1rw_32x32_freepdk45_wordline_driver_array",
+      "width_um": 4.03,
+      "height_um": 43.885,
+      "area_um2": 176.85655
+    },
+    "openram_1rw_32x32_freepdk45_and2_dec_0": {
+      "cell": "openram_1rw_32x32_freepdk45_and2_dec_0",
+      "width_um": 3.075,
+      "height_um": 1.4325,
+      "area_um2": 4.404937500000001
+    },
+    "openram_1rw_32x32_freepdk45_capped_replica_bitcell_array": {
+      "cell": "openram_1rw_32x32_freepdk45_capped_replica_bitcell_array",
+      "width_um": 26.545,
+      "height_um": 48.125,
+      "area_um2": 1277.478125
+    },
+    "openram_1rw_32x32_freepdk45_port_data": {
+      "cell": "openram_1rw_32x32_freepdk45_port_data",
+      "width_um": 25.0075,
+      "height_um": 13.040000000000001,
+      "area_um2": 326.0978
+    }
+  },
+  "dff": {
+    "width_um": 2.86,
+    "height_um": 2.67,
+    "area_um2": 7.6362
+  },
+  "bank_area_um2": 2457.4931
+}

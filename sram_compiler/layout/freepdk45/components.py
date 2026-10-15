@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import hashlib
+from functools import cached_property
 import json
 from math import ceil, isfinite
 from pathlib import Path
 
 from . import bitcell
-from .export import Nets, WIRE_C, WIRE_R, instance_parts, parse
+from .export import Nets, WIRE_C, WIRE_R, instance_parts, parse, parse_file
 from .lib import Builder, pya, u
 from .router import Router
 from sram_compiler.parasitics import spice_value
@@ -40,18 +41,28 @@ class Instance:
 
 
 @dataclass(frozen=True)
+class Passive:
+    name: str
+    nodes: tuple
+    value: float
+
+
+@dataclass(frozen=True)
 class Component:
     """One schematic and its ordered interface, before instance-level ties."""
     name: str
     ports: tuple
     devices: tuple
     children: tuple = ()
+    passives: tuple = ()
 
-    @property
+    @cached_property
     def identity(self):
         body = (self.ports, tuple((d.name, d.nodes, d.model, d.width_m,
                                   d.length_m, d.fingers) for d in self.devices),
                 tuple((i.name, i.nodes, i.component.identity) for i in self.children))
+        if self.passives:
+            body += (tuple((p.name, p.nodes, p.value) for p in self.passives),)
         return hashlib.sha256(json.dumps(body, separators=(',', ':')).encode()).hexdigest()
 
     def schematic(self, cell_names=None):
@@ -65,16 +76,18 @@ class Component:
         for child in self.children:
             ref = cell_names.get(child.component.identity, 'CELL_' + child.component.identity[:16])
             lines.append(child.name + ' ' + ' '.join(child.nodes) + ' ' + ref)
+        for passive in self.passives:
+            lines.append(passive.name + ' ' + ' '.join(passive.nodes) + f' {passive.value:.15g}')
         return '\n'.join([*lines, f'.ends {name}', ''])
 
 
-def read_component(deck, instance):
+def read_component(deck, instance, allow_passives=False):
     """Resolve a compiler instance without collapsing its formal port ties.
 
     Wiring RC is removed within each definition. Intentional passives,
     unresolved sweep expressions and unknown MOS parameters fail explicitly.
     """
-    scope = parse(Path(deck).read_text().splitlines())
+    scope = parse_file(deck)
     for name in instance.split('/'):
         matches = [t for t in scope.lines if t[0].upper() == name.upper()]
         if len(matches) != 1 or matches[0][0][0].upper() != 'X':
@@ -94,13 +107,15 @@ def read_component(deck, instance):
             if t[0][0].upper() == 'R' and WIRE_R.match(t[0]):
                 nets.union(t[1], t[2])
         canonical = {}
+        formal_ports = set(sub.pins)
         for members in nets.groups().values():
-            ports = [n for n in sub.pins if n in members]
+            matched = formal_ports.intersection(members)
+            ports = [n for n in sub.pins if n in matched] if matched else []
             if len(ports) > 1:
                 raise ValueError(f'{sub.name}: wiring shorts formal ports {ports}')
             chosen = ports[0] if ports else min(members, key=lambda n: (len(n), n))
             canonical.update((n, chosen) for n in members)
-        devices, children = [], []
+        devices, children, passives = [], [], []
         for t in sub.lines:
             kind = t[0][0].upper()
             if kind == 'M':
@@ -121,9 +136,14 @@ def read_component(deck, instance):
                 children.append(Instance(t[0], tuple(canonical.get(n, n) for n in pins), component))
             elif (kind == 'R' and WIRE_R.match(t[0])) or (kind == 'C' and WIRE_C.match(t[0])):
                 continue
+            elif allow_passives and kind in ('R', 'C') and len(t) == 4:
+                value = spice_value(t[3])
+                if not isfinite(value) or value <= 0:
+                    raise ValueError(f'{sub.name}: invalid intentional passive {t[0]}')
+                passives.append(Passive(t[0], tuple(canonical.get(n, n) for n in t[1:3]), value))
             else:
                 raise ValueError(f'{sub.name}: intentional/unsupported element {t[0]} needs a physical view')
-        result = Component(sub.name, tuple(sub.pins), tuple(devices), tuple(children))
+        result = Component(sub.name, tuple(sub.pins), tuple(devices), tuple(children), tuple(passives))
         cache[id(sub)] = result
         return result
 
@@ -181,9 +201,9 @@ class CellView:
     children: tuple = ()
     array_pins: dict = field(default_factory=dict)
 
-    def abstract(self):
+    def abstract(self, obstructions=True):
         obstacles={}
-        for layer in ('m1','m2','m3','m4','m5'):
+        for layer in (('m1','m2','m3','m4','m5') if obstructions else ()):
             region=pya.Region(self.builder.cell.begin_shapes_rec(self.builder.li(layer))).merged()
             if not region.is_empty():
                 boxes=[polygon.bbox() for polygon in region.each()]
@@ -300,7 +320,9 @@ class CellLibrary:
                 terminals[f'{d.name}@{f}:s'] = source
                 terminals[f'{d.name}@{f}:g'] = gate
                 terminals[f'{d.name}@{f}:b'] = body
-            cursor = top+2*LOCAL_GRID
+            # The next strip starts with a full tap/access row. The former
+            # two additional empty routing rows duplicated that clearance.
+            cursor = top
         if not terminals:
             raise ValueError(f'{component.name}: no transistor geometry')
         pins = {}
@@ -317,6 +339,11 @@ class CellLibrary:
         strip_height = ceil((cursor+(len(pins)+2)*2*LOCAL_GRID)/quantum)*quantum
         router = CellRouter(raw, (1, 0, int((strip_width-35)/LOCAL_GRID), int((strip_height-35)/LOCAL_GRID)),
                             use_tree_heuristic=True)
+        # A via1 M1 landing extends 70 nm sideways. Keep at least half of
+        # the 65 nm M1 spacing at the cell edge for mirrored neighbours.
+        for xi in range(1, router.bounds[2]+1):
+            if xi*LOCAL_GRID+70 > strip_width-32.5:
+                router.blocked.update((xi,yi,0) for yi in range(router.bounds[1],router.bounds[3]+1))
         for net, items in points.items():
             for x, y, _ in items:
                 q = router.point(x, y)
@@ -329,6 +356,10 @@ class CellLibrary:
         for net, p in pins.items():
             q=router.point(*p)
             router.reserve((q[0],q[1],2),net)
+            # A parent adds a via2 landing after rotating row cells. Reserve
+            # both enclosure orientations on M2, not only access on M3.
+            router.blocked.update((q[0]+dx,q[1]+dy,1)
+                                  for dx,dy in ((-1,0),(1,0),(0,-1),(0,1)))
             router.blocked.update((q[0]+dx,q[1]+dy,2) for dx in (-1,0,1) for dy in (-1,0,1) if dx or dy)
         if axis=='row':
             for net in ('VDD','VSS'):

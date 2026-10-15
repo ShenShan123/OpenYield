@@ -1,0 +1,431 @@
+{
+  "schema": 1,
+  "date": "2026-10-14",
+  "version": "V2.2.8",
+  "request": "single 512x512 bank; extracted-RC driver reevaluation; simpler controller; delete RC guards",
+  "defaults_promotable": false,
+  "full_release_screen": false,
+  "layouts": [
+    {
+      "rows": 32,
+      "cols": 32,
+      "bank_count": 1,
+      "directory": "outputs/layout_scaling/final_32x32_13",
+      "gds": "outputs/layout_scaling/final_32x32_13/full_macro.gds",
+      "images": {
+        "layout": "outputs/layout_scaling/final_32x32_13/layout.png",
+        "placement": "outputs/layout_scaling/final_32x32_13/placement.png",
+        "time_control": "outputs/layout_scaling/final_32x32_13/time_control.png"
+      },
+      "scope": "complete bank with TIME_CONTROL in the decoder/periphery corner",
+      "width_um": 39.082499999999996,
+      "height_um": 90.535,
+      "bbox_area_um2": 3538.3341374999995,
+      "controller_frame_area_um2": 448.44,
+      "source_mos": 9568,
+      "physical_gates": 10698,
+      "intentional_passives": [],
+      "layout_sha256": "0524abf555df956a3e13e8ebd608ec54d947e8e4abb5f684c9bac7feccf82cf4",
+      "source_sha256": "f96bee97c625e3100a1b34a7a5caf747b0e3d49d10739517f1df8cf710c970fa",
+      "source_deck_sha256": "17611c9f3b0fb46f0dd6d7b39b6214d3a58c166197e55af414a32b1d58b893e3",
+      "receipt": "outputs/layout_scaling/final_32x32_13_verify/receipt.json",
+      "verification": {
+        "status": "extracted",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": "distributed R+C+CC",
+        "error": null
+      },
+      "receipt_sha256": "92010a9c0b4697d3daae46300c84726c996678f5150df0bd654dd34035055907",
+      "interface_audit_excluded_bbox_nm": null,
+      "full_release_screen": false
+    },
+    {
+      "rows": 128,
+      "cols": 128,
+      "bank_count": 1,
+      "directory": "outputs/layout_scaling/final_128x128_02",
+      "gds": "outputs/layout_scaling/final_128x128_02/full_macro.gds",
+      "images": {
+        "layout": "outputs/layout_scaling/final_128x128_02/layout.png",
+        "placement": "outputs/layout_scaling/final_128x128_02/placement.png",
+        "time_control": "outputs/layout_scaling/final_128x128_02/time_control.png"
+      },
+      "scope": "complete bank with TIME_CONTROL in the decoder/periphery corner",
+      "width_um": 109.9175,
+      "height_um": 231.27499999999998,
+      "bbox_area_um2": 25421.169812499997,
+      "controller_frame_area_um2": 697.89,
+      "source_mos": 109796,
+      "physical_gates": 113884,
+      "intentional_passives": [],
+      "layout_sha256": "188425a8952d4af6a6d0be4b7e59d3cc014cf530da2e49639e16e25d0ad07c59",
+      "source_sha256": "ad9215e9b232d8ea346bffddf3463aebc4504f67c8f1db23b8800e8bbb45f0d9",
+      "source_deck_sha256": "9037c0ec6f6f604c121e4430a04733fd47e6ac75d7c009b9c979f6e4904ea058",
+      "receipt": "outputs/layout_scaling/final_128x128_02_verify/receipt.json",
+      "verification": {
+        "status": "extracted",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": "distributed R+C+CC",
+        "error": null
+      },
+      "receipt_sha256": "2cbf10a376d1bac8f71880eaa2ec61d7921d057c802a96fdaa3f31b0e42e4590",
+      "interface_audit_excluded_bbox_nm": null,
+      "full_release_screen": false
+    },
+    {
+      "rows": 512,
+      "cols": 512,
+      "bank_count": 1,
+      "directory": "outputs/layout_scaling/final_512x512_m6",
+      "gds": "outputs/layout_scaling/final_512x512_m6/full_macro.gds",
+      "images": {
+        "layout": "outputs/layout_scaling/final_512x512_m6/layout.png",
+        "placement": "outputs/layout_scaling/final_512x512_m6/placement.png",
+        "time_control": "outputs/layout_scaling/final_512x512_m6/time_control.png"
+      },
+      "scope": "complete bank with TIME_CONTROL in the decoder/periphery corner",
+      "width_um": 383.7175000000001,
+      "height_um": 844.435,
+      "bbox_area_um2": 324024.48711250006,
+      "controller_frame_area_um2": 2273.7,
+      "source_mos": 1616144,
+      "physical_gates": 1659401,
+      "intentional_passives": [],
+      "layout_sha256": "010717fe59f6e5fc2bab0c1218cebaea7d87994127296676b47ac6a6026a12b0",
+      "source_sha256": "39d757b04406242d172ad8ede2bcc46943723ecb1057f05848ec9f3861454088",
+      "source_deck_sha256": "8743d3ecd2171028bc0945a35d161f1663d3a10b128af9723765b905d2892df1",
+      "receipt": "outputs/layout_scaling/final_512x512_m6_verify/receipt.json",
+      "verification": {
+        "status": "in_progress",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": null,
+        "error": null
+      },
+      "receipt_sha256": "643ea2565851c72cb4bce15023f2c63e9fa0f9bbbe91cb2b246320d1c6f4573e",
+      "interface_audit_excluded_bbox_nm": [
+        18090.0,
+        24620.0,
+        376935.0,
+        718040.0
+      ],
+      "full_release_screen": false
+    }
+  ],
+  "sizing": {
+    "profile": "sram_compiler/sizing/layout_sizing_lookup.json",
+    "profile_sha256": "32e80fd4013303226ee8393d8a85253ea34f1f799a7fe1eddbecc867313e3e7c",
+    "coupons": "outputs/layout_scaling/sizing_coupons_02/results.json",
+    "coupons_sha256": "20c4e53889a9926158535e112f4b089d116769925f93be130710514731c2856e",
+    "coupon_count": 375,
+    "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+    "selected": [
+      {
+        "size": 32,
+        "family": "wl",
+        "scale": 1,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 9.549105e-10,
+        "budget_s": 2e-09
+      },
+      {
+        "size": 32,
+        "family": "wd",
+        "scale": 1.5,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 4.895178e-10,
+        "budget_s": 2.5e-09
+      },
+      {
+        "size": 32,
+        "family": "pre",
+        "scale": 0.5,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 1.036218e-09,
+        "budget_s": 3e-09
+      },
+      {
+        "size": 32,
+        "family": "dec",
+        "scale": 1,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 4.041835e-11,
+        "budget_s": 5e-10
+      },
+      {
+        "size": 64,
+        "family": "wl",
+        "scale": 1,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 1.87795e-09,
+        "budget_s": 2e-09
+      },
+      {
+        "size": 64,
+        "family": "wd",
+        "scale": 1.5,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 9.454031e-10,
+        "budget_s": 2.5e-09
+      },
+      {
+        "size": 64,
+        "family": "pre",
+        "scale": 0.5,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 2.076177e-09,
+        "budget_s": 3e-09
+      },
+      {
+        "size": 64,
+        "family": "dec",
+        "scale": 1,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 4.041835e-11,
+        "budget_s": 5e-10
+      },
+      {
+        "size": 128,
+        "family": "wl",
+        "scale": 2,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 1.813295e-09,
+        "budget_s": 2e-09
+      },
+      {
+        "size": 128,
+        "family": "wd",
+        "scale": 1.5,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 1.866012e-09,
+        "budget_s": 2.5e-09
+      },
+      {
+        "size": 128,
+        "family": "pre",
+        "scale": 1,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 2.072177e-09,
+        "budget_s": 3e-09
+      },
+      {
+        "size": 128,
+        "family": "dec",
+        "scale": 1,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 4.041835e-11,
+        "budget_s": 5e-10
+      },
+      {
+        "size": 256,
+        "family": "wl",
+        "scale": 4,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 1.845011e-09,
+        "budget_s": 2e-09
+      },
+      {
+        "size": 256,
+        "family": "wd",
+        "scale": 4,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 1.553346e-09,
+        "budget_s": 2.5e-09
+      },
+      {
+        "size": 256,
+        "family": "pre",
+        "scale": 2,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 2.283058e-09,
+        "budget_s": 3e-09
+      },
+      {
+        "size": 256,
+        "family": "dec",
+        "scale": 1,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 5.263047e-11,
+        "budget_s": 5e-10
+      },
+      {
+        "size": 512,
+        "family": "wl",
+        "scale": 16,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 1.239798e-09,
+        "budget_s": 2e-09
+      },
+      {
+        "size": 512,
+        "family": "wd",
+        "scale": 8,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 2.268766e-09,
+        "budget_s": 2.5e-09
+      },
+      {
+        "size": 512,
+        "family": "pre",
+        "scale": 8,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 2.512006e-09,
+        "budget_s": 3e-09
+      },
+      {
+        "size": 512,
+        "family": "dec",
+        "scale": 1,
+        "all_three_corners_pass": true,
+        "worst_edge_s": 7.680773e-11,
+        "budget_s": 5e-10
+      }
+    ],
+    "load_audits": [
+      {
+        "path": "outputs/layout_scaling/driver_audit_corner_32_03/driver_loads.json",
+        "sha256": "e37c196d708c2a17b666801d5f7cecac3e62d042ceaa6930aa0d6a43707d9ea0",
+        "physical_receipt_sha256": "da94f6ad937fbdd640765bca257535fe2139e1d56158bc35f5f6e18a390cef78"
+      },
+      {
+        "path": "outputs/layout_scaling/final_driver_audit_32/driver_loads.json",
+        "sha256": "5c5b3cf0f1a4c166c78fcfcb8492a8a82b24ba220802aab08293183b92521622",
+        "physical_receipt_sha256": "92010a9c0b4697d3daae46300c84726c996678f5150df0bd654dd34035055907"
+      },
+      {
+        "path": "outputs/layout_scaling/final_driver_audit_128/driver_loads.json",
+        "sha256": "cd5913f49a366c519881eb0a8477c876cc4dc6206eb28839e6f462e840a6433b",
+        "physical_receipt_sha256": "2cbf10a376d1bac8f71880eaa2ec61d7921d057c802a96fdaa3f31b0e42e4590"
+      }
+    ],
+    "measured_geometry": "32x32 baseline; new 32x32 and 128x128 audits retained separately",
+    "larger_coupon_loads": "explicit extrapolation of baseline 32x32 extraction",
+    "metal_temperature_model": "nominal extracted resistance; no measured temperature coefficient",
+    "controller_buffers": "recomputed from resized source widths; no independent clock/register/sense/storage optimization",
+    "model_sha256": {
+      "TT": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+      "SS": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "FF": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86"
+    }
+  },
+  "waveforms": [
+    {
+      "result": "outputs/layout_scaling/waveforms/final_8x8_tt/result.json",
+      "result_sha256": "c89b4265382bc637ccd3dafa675395eb5c947f94301d983aeaa8067beadd0bbb",
+      "passed": true,
+      "checks": 2546,
+      "rows": 8,
+      "cols": 8,
+      "corner": "TT",
+      "vdd": 1.0,
+      "temperature_c": 25,
+      "period_s": 9e-09,
+      "metrics": {
+        "min_sense_margin_v": 1.0079887444743336,
+        "min_wl_off_before_capture_ps": 4090.5017838771546,
+        "min_driver_release_after_wl_ps": 119.38400124946716,
+        "min_wl_off_before_sense_ps": 122.75146449226871,
+        "min_isolation_before_enable_ps": 124.86404629396364,
+        "min_driver_on_before_wl_ps": 194.07304846699452,
+        "min_enable_off_before_precharge_ps": 110.46480216474318,
+        "min_storage_polarity_margin_v": 0.368731201,
+        "min_read_output_margin_ps": 3282.900781941693,
+        "min_write_wl_after_flip_ps": 4144.747632990174,
+        "min_restore_before_capture_ps": 3683.0573609500298,
+        "min_precharge_on_before_capture_ps": 3819.356067666984
+      },
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "wiring": "illustrative distributed",
+      "variation_mode": "nominal",
+      "seed": 20260711,
+      "scope": "native full-mode read/write/hold/sense/recovery; not post-layout or yield"
+    },
+    {
+      "result": "outputs/layout_scaling/waveforms/final_8x8_ss/result.json",
+      "result_sha256": "20d8facdb8f81afeadaa32211a8381e69ba3ca145a0000b9e3779a0375437ca1",
+      "passed": true,
+      "checks": 2546,
+      "rows": 8,
+      "cols": 8,
+      "corner": "SS",
+      "vdd": 0.9,
+      "temperature_c": 125,
+      "period_s": 9e-09,
+      "metrics": {
+        "min_sense_margin_v": 0.9028728021655158,
+        "min_wl_off_before_capture_ps": 3771.9055964114114,
+        "min_driver_release_after_wl_ps": 277.0337442453307,
+        "min_wl_off_before_sense_ps": 293.1056547208781,
+        "min_isolation_before_enable_ps": 287.5768522962428,
+        "min_driver_on_before_wl_ps": 448.90877241192874,
+        "min_enable_off_before_precharge_ps": 262.22194032884556,
+        "min_storage_polarity_margin_v": 0.328045612,
+        "min_read_output_margin_ps": 2032.8397212502362,
+        "min_write_wl_after_flip_ps": 3565.4917972255475,
+        "min_restore_before_capture_ps": 2825.4357039119045,
+        "min_precharge_on_before_capture_ps": 3146.4813016228886
+      },
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "wiring": "illustrative distributed",
+      "variation_mode": "nominal",
+      "seed": 20260711,
+      "scope": "native full-mode read/write/hold/sense/recovery; not post-layout or yield"
+    },
+    {
+      "result": "outputs/layout_scaling/waveforms/final_8x8_ff/result.json",
+      "result_sha256": "537709c04583e8be1f5c68ff6fb9b1f0f514aefe2b63bb615d1d7d2f568730f1",
+      "passed": true,
+      "checks": 2546,
+      "rows": 8,
+      "cols": 8,
+      "corner": "FF",
+      "vdd": 1.0,
+      "temperature_c": -40,
+      "period_s": 9e-09,
+      "metrics": {
+        "min_sense_margin_v": 1.0091761320892139,
+        "min_wl_off_before_capture_ps": 4179.127646318837,
+        "min_driver_release_after_wl_ps": 76.60824809267005,
+        "min_wl_off_before_sense_ps": 77.80567305312417,
+        "min_isolation_before_enable_ps": 81.57851069690527,
+        "min_driver_on_before_wl_ps": 125.87365760157893,
+        "min_enable_off_before_precharge_ps": 69.84451982137998,
+        "min_storage_polarity_margin_v": 0.37829456100000003,
+        "min_read_output_margin_ps": 3620.2112212079214,
+        "min_write_wl_after_flip_ps": 4298.666997468752,
+        "min_restore_before_capture_ps": 3923.0017633490684,
+        "min_precharge_on_before_capture_ps": 4003.4869790890784
+      },
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "wiring": "illustrative distributed",
+      "variation_mode": "nominal",
+      "seed": 20260711,
+      "scope": "native full-mode read/write/hold/sense/recovery; not post-layout or yield"
+    }
+  ],
+  "waveform_checks": 7638,
+  "comparison_32": {
+    "baseline_bbox_area_um2": 4247.24210625,
+    "new_bbox_area_um2": 3538.3341374999995,
+    "baseline_controller_frame_area_um2": 620.14,
+    "new_controller_frame_area_um2": 448.44,
+    "controller_reduction_percent": 27.68729641693811
+  },
+  "regressions": [
+    {
+      "log": "dev/layout_scaling/regression_final.log",
+      "passed": true,
+      "count": 62,
+      "scope": "scaling, layout, routing, control, stale RC, numeric/sweep and CLI"
+    }
+  ],
+  "limitations": [
+    "512x512 operating point unqualified",
+    "native 8x8 waveforms use illustrative wiring",
+    "coupon loads exclude storage contention",
+    "no Monte Carlo yield screen",
+    "failed and superseded attempts retained"
+  ]
+}

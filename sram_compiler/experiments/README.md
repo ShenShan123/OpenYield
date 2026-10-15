@@ -58,7 +58,7 @@ circuit = testbench.create_testbench("read", 7, 3)
 
 `experiments/simulation.py` implements the shared deck/result workflow. `config_yaml/loader.py` loads configuration in memory; `variation/netlist.py` specializes model cards and audits connectivity. Local waveform and MPI sampling scripts can live in ignored `tests/` and `dev/` workspaces; they are not needed to generate a deck.
 
-A generated deck, passing measures, or one Monte Carlo draw does not establish read/write correctness or yield. Inspect waveforms and the reported margins. The [V2.2.5 record](../../docs/design/COMPILER_ENTRY_V2_2_5.md) describes the pending screen and the unresolved 256x256 operating point; [the compiler tutorial](../README.md) explains the full flow.
+A generated deck, passing measures, or one Monte Carlo draw does not establish read/write correctness or yield. Inspect waveforms and the reported margins. The [V2.2.5 record](../../docs/design/compiler/COMPILER_ENTRY_V2_2_5.md) describes the pending screen and the unresolved 256x256 operating point; [the compiler tutorial](../README.md) explains the full flow.
 
 ## Experiment commands
 
@@ -66,7 +66,7 @@ A generated deck, passing measures, or one Monte Carlo draw does not establish r
 |---|---|
 | `simulate` (also direct flags or no command) | 6T/10T read, write, read/write, and SNM; per-device mismatch by default |
 | `equivalent` | Modes 0–4 accuracy and runtime comparison; nominal is its diagnostic comparison default |
-| `layout ACTION` | FreePDK45 reference/full/scaled/compact macro generation, export, extraction, RC analysis and comparisons |
+| `layout ACTION` | FreePDK45 component, bank and TIME_CONTROL generation, verification, extraction and RC comparisons |
 | `circuit-optimize` | Circuit-backed SA, PSO, CMA-ES, random, SMAC, CBO, RoSEOpt, CPN, TSSBO, MOBO, MOEA/D or NSGA-II |
 | `circuit-experiment` | Interactive joint architecture/sizing or fixed-configuration experiment |
 | `optimize --family FAMILY` | Offline evolutionary, Bayesian or proposed optimizer |
@@ -79,7 +79,7 @@ python main_sram.py simulate --help
 python main_sram.py simulate --cell-type SRAM_10T_CELL --rows 2 --cols 2 --no-run-xyce
 python main_sram.py simulate --variation-mode nominal --operation hold_snm --no-run-xyce
 python main_sram.py equivalent --sizes 16x16 --modes 0,1,4 --operations read,write --plot
-python main_sram.py layout full --help
+python main_sram.py layout bank --help
 python main_sram.py circuit-optimize --algorithm sa --max-iter 10
 python main_sram.py circuit-experiment
 python main_sram.py optimize --family evolutionary -- --help

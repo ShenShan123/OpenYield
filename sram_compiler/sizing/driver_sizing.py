@@ -19,7 +19,8 @@ from typing import Any
 
 _RULES = json.loads(Path(__file__).with_name('sizing_rules.json').read_text())
 RULE_VERSION = _RULES['rule_version']
-CONTROL_ARCHITECTURE = 'v2.2.0-high-access'
+CONTROL_ARCHITECTURE = 'v2.2.8-digital-guards-high-access'
+COMPACT_CONTROL_ARCHITECTURE = 'v2.2.8-compact-digital-guards-high-access'
 DEFAULT_LOOKUP = Path(__file__).with_name('sizing_lookup.json')
 _MODES = ("lookup", "rules_only", "auto")
 _PERIPHERALS = (
@@ -90,6 +91,7 @@ class DriverSizes:
     control_architecture: str = ""
     enable_off_tau: float = 0.0
     isolation_tau: float = 0.0
+    compact_control: bool = False
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -97,9 +99,13 @@ class DriverSizes:
 
     def validate_for(self, sram_config, cell_type, mux, context=None):
         """Allow cell candidates, but reject changed geometry or periphery."""
-        if self.control_architecture != CONTROL_ARCHITECTURE:
+        architecture = COMPACT_CONTROL_ARCHITECTURE if self.compact_control else CONTROL_ARCHITECTURE
+        if self.control_architecture != architecture:
             raise ValueError("Frozen driver sizes belong to a different control architecture")
         cfg = sram_config.global_config
+        if isinstance(cfg.sizing, dict) and 'compact_control' in cfg.sizing:
+            if cfg.sizing['compact_control'] != self.compact_control:
+                raise ValueError('Frozen driver sizes belong to a different control architecture')
         if (cfg.num_rows, cfg.num_cols, cell_type, mux) != (
             self.rows, self.cols, self.cell_type, self.mux
         ):
@@ -340,7 +346,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     unknown = options.keys() - {
         "mode", "parasitic_factor", "wd_floor_margin", "k_w", "pre_min",
         "replica", "scale_decoder", "effort_buffers", "canonical_read",
-        "table", "lookup", "precharge_guard_stages",
+        "table", "lookup", "precharge_guard_stages", "compact_control",
     }
     if unknown:
         raise ValueError(f"Unsupported sizing options: {sorted(unknown)}")
@@ -374,8 +380,9 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     scale_decoder = options.get("scale_decoder", True)
     effort_buffers = options.get("effort_buffers", True)
     canonical_read = options.get("canonical_read", True)
+    compact_control = options.get('compact_control', False)
     if any(not isinstance(value, bool) for value in
-           (replica_matched, scale_decoder, effort_buffers, canonical_read)):
+           (replica_matched, scale_decoder, effort_buffers, canonical_read, compact_control)):
         raise ValueError("replica.matched and circuit feature switches must be boolean")
     if not replica_matched or not canonical_read:
         raise ValueError('Distributed wiring requires a matched replica and canonical read')
@@ -437,12 +444,12 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         pre_load=(cols + 1) * 3 * pre_width / 0.36e-6 + (cols + 1) * rc_input_units + observer_units,
         # The replica write driver is enabled with the real ones (write slot).
         wen_load=(cols + 1) * (2 * wn * scales["wd_out"] + (wn + wp) * scales["wd_in"])
-        / 0.36e-6 + 4 * wenb_scale + (cols + 1) * rc_input_units + 1.75,
+        / 0.36e-6 + (0 if compact_control else 4 * wenb_scale) + (cols + 1) * rc_input_units + 1.75,
         # The matched replica driver adds one NAND2 with the same local RC.
         wl_load=wl_load,
         num_sa=num_sa,
         wenb_scale=wenb_scale,
-        sen_load=num_sa * (sa_n_units + rc_sa_units) + 3.5 + senb_scale + 1.75,
+        sen_load=num_sa * (sa_n_units + rc_sa_units) + 3.5 + (0 if compact_control else senb_scale) + 1.75,
         iso_load=num_sa * (sa_iso_units + rc_sa_units),
         sen_effort=3.0 if rc_input_units else 4.0,
         # Wordline-request NAND2 input (1.25 units per unit of wl_en scale) plus
@@ -480,8 +487,10 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         'replica_pmos_model': cell.pmos_model.value,
         'replica_pmos_width': cell.pmos_width.value, 'replica_length': cell.length.value,
     }
+    if compact_control:
+        path_options['compact_control'] = True
     baseline = {
-        "version": RULE_VERSION, "control_architecture": CONTROL_ARCHITECTURE, "cell_type": cell_type,
+        "version": RULE_VERSION, "control_architecture": COMPACT_CONTROL_ARCHITECTURE if compact_control else CONTROL_ARCHITECTURE, "cell_type": cell_type,
         "cell": _circuit_inputs(getattr(sram_config, cell_type.lower())),
         "periphery": periphery, "pdk": pdk, "rows": rows, "cols": cols, "mux": mux,
         "mode": mode, "parasitic_factor": p, "wd_floor_margin": margin,
@@ -501,7 +510,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
                               "row_class": row_class, "column_class": col_class}
     result = DriverSizes(
         rows=rows, cols=cols, cell_type=cell_type, mux=mux, **scales, loads=loads,
-        control_architecture=CONTROL_ARCHITECTURE,
+        control_architecture=COMPACT_CONTROL_ARCHITECTURE if compact_control else CONTROL_ARCHITECTURE,
         source="lookup" if mode == "lookup" else "rule",
         size_class=size_class, extrapolated=extrapolated,
         key=_digest(baseline), peripheral_key=_digest(periphery), pdk_key=_digest(pdk),

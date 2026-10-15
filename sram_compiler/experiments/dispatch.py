@@ -10,20 +10,18 @@ from sram_compiler.version import VERSION
 
 
 LAYOUT_ACTIONS = {
-    'reference': 'run',
-    'full': 'full_macro',
-    'scaled': 'scaled_macro',
-    'compact': 'compact_macro',
     'cells': 'cell_flow',
-    'export': 'export',
-    'analyze': 'analyze',
-    'compare': 'compare',
+    'bank': 'bank',
+    'time-control': 'time_control',
+    'controlled-bank': 'macro_control',
     'compare-full': 'compare_full',
     'compare-snm': 'compare_snm',
     'verify-full': 'verify_full',
     'reduce-rc': 'reduce_rc',
     'split-rc': 'split_rc',
     'waveform-metrics': 'waveform_metrics',
+    'driver-audit': 'driver_audit',
+    'preview': 'preview',
 }
 CIRCUIT_ALGORITHMS = (
     'sa', 'pso', 'cmaes', 'random', 'smac', 'cbo', 'roseopt',
@@ -68,7 +66,7 @@ def circuit_optimize(argv: Sequence[str]) -> int:
 
 def layout(argv: Sequence[str]) -> int:
     parser = argparse.ArgumentParser(prog='main_sram.py layout',
-                                     description='FreePDK45 layout and RC calibration tools.')
+                                     description='FreePDK45 component, bank, TIME_CONTROL and RC tools.')
     parser.add_argument('action', choices=LAYOUT_ACTIONS)
     parser.add_argument('options', nargs=argparse.REMAINDER,
                         help='options for the selected tool; ACTION --help lists them')

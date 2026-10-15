@@ -7,7 +7,7 @@ the V2.1.10 cleanup.
 
 V2.1.1 retains complete access/retention/release rejection and preserved
 numerical retry evidence, including nonfinite primary metric rejection. See
-the [release report](../docs/design/DISTRIBUTED_ONLY_V2_1_1.md) for validation
+the [release report](../docs/design/interconnect/DISTRIBUTED_ONLY_V2_1_1.md) for validation
 and the original version labels attached to historical results.
 V2.1.2 applies the single bounded-step retry to `.TRAN` lines with a start
 time or a step ceiling coarser than 20 ps.

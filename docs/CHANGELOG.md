@@ -9,87 +9,92 @@ were condensed after V2.2.6; the previous full text is at
 proposals and that circuit review were purged after V2.2.6; retrieve them with
 `git show b4987df:<path>`.
 
-## V2.2.8 — 2026-10-11 — compact macro layout features
+## V2.2.8 — 2026-10-11 — component-based bank and controller layouts
 
-[Layout design and verification record](design/LAYOUT_COMPACTION_V2_2_8.md).
+[Bank record](design/layout/OPENRAM_PITCH_V2_2_8.md) and
+[TIME_CONTROL record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md).
 
-- Common source subcircuits, including DFFs and driver child gates, reuse
-  matching GDS geometry and pack by actual height. Body pins share the source
-  access row, and repeated array escapes reduce routing-channel depth.
-- `layout full --floorplan compact` retains the fixed 8×8 pitch-aligned
-  periphery. `layout compact` adds a generic diagnostic floorplan; historical
-  reference/full/scaled defaults retain their original placement policy.
-- Reserved M4 pin escapes, width-aware supply clearance, protected off-grid
-  landings and same-net corner joins preserve routing access and metal spacing.
-- The complete fixed 8×8 macro falls from 7,956.89 to 6,573.02 µm²: 17.4%
-  less area and 21.1% higher bit density at identical transistor sizes,
-  topology, fingers and intentional passives. Fresh Calibre DRC has zero
-  violations, LVS is `CORRECT`, and xRC extracts 709 coupled networks.
-- Forty local regression checks pass. Version metadata and current guides
-  report V2.2.8. Compact waveform qualification, additional-size physical
-  certification and new RC-default promotion remain pending; prior evidence
-  keeps its original geometry and scope.
+The older fixed, full, scaled and compact macro generators, their local
+campaigns, output data, logs and reports were purged on 2026-10-14. Current
+component/bank/TIME_CONTROL flows and scoped runtime RC profiles remain.
+
+- 2026-10-14 diagnostics add single-bank 512×512 generation, an explicit
+  driver candidate based on smaller-bank coupled extraction, compact control
+  logic and deletion of intentional RC guards. Automatic timing retains its
+  previous envelope. See [the scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md)
+  for layout, coupon and waveform scopes; full-array operating-point
+  qualification remains pending.
+
+- The default `layout bank` now uses OpenRAM's 705 nm column / 1365 nm row
+  pitch, source-preserving physical refingering, compact left-side row logic,
+  and an integrated replica column. The previous bank is available with
+  `--legacy-pitch`. See [the current area and verification record](design/layout/OPENRAM_PITCH_V2_2_8.md).
+  The default bank retains external control; sizing, timing and RC defaults are unchanged.
+- The optional 32×32 `layout bank --with-controller` flow adds TIME_CONTROL
+  with source-matched standard cells, 39 input/control registers and four
+  calibrated RC guards. Its controller-to-core interface is now planned, not
+  maze-routed:
+  - Control logic sits left of the decoder, with every bank-facing pin on its
+    right edge at the height of the conductor it drives or observes.
+  - The 32 data registers form a 4×8 array below the column periphery,
+    connected by a left-edge channel.
+  - Drives are single M6 lines, and far-end returns are single M7 lines.
+  - M7–M10 interface wire falls from 4062 µm to 400 µm, and via cuts from
+    853 to 329.
+  - The complete bank falls from 5760.7131 µm² to 4050.6731 µm² (−29.7%).
+
+  It passes strict DRC/LVS/xRC, and all four guard resistances stay within
+  0.46%. The standalone controller (838.7843625 µm²) regenerates identically.
+  See the [controller layout record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md).
+  The superseded maze integration and earlier failed attempts remain
+  preserved. No waveform or release qualification is promoted.
+
 - The opt-in `layout cells` flow adds circuit-owned small cells, shared
   diffusion, preserved W/L/NF, local wiring and physical interfaces, followed
   by placement and routing of cell instances. Column widths and wordline/
   bitline access follow the core pitch; row spans are explicit. See the
-  [OpenRAM/SRAM22 comparison and component record](design/COMPONENT_LAYOUT_V2_2_8.md).
+  [OpenRAM/SRAM22 comparison and component record](design/layout/COMPONENT_LAYOUT_V2_2_8.md).
   This component development stage does not replace or qualify a full bank.
+- The follow-up density review removes duplicate diffusion-strip gaps and fixes
+  parent-via and mirrored-boundary clearance. Column composites reuse routing
+  tracks by physical span. `layout bank` integrates the dense data array with
+  precharge, sense, write drivers and data buffers through their ports. The
+  [bank record](design/layout/BANK_LAYOUT_V2_2_8.md) preserves size-specific physical
+  checks; the original data-path boundary remains available with
+  `--data-path-only`. Sizing, timing and RC defaults are unchanged.
+- `layout bank` now integrates the decoder, data/RWL drivers, replica column
+  and dummy loads inside the dense core, replica periphery, and output latch.
+  Folded row placement routes source-owned leaf ports and records every MOS
+  terminal. TIME_CONTROL and its input registers remain deferred. The
+  [integration record](design/layout/BANK_INTEGRATION_V2_2_8.md) records independent
+  DRC/LVS/R+C+CC checks at 8×8 and 32×32; no waveform qualification is claimed.
+- The decoder floorplan is corrected to the left side of the core with exactly
+  400 nm M2 wordline spacing and the same total data-row height. Eight-row bands
+  preserve every source device, including unused predecode branches. Both sizes
+  retain identical schematic hashes and pass physical verification. The
+  [row-pitch record](design/layout/BANK_ROW_PITCH_V2_2_8.md) reports the wider footprint
+  and area tradeoff. A separate [OpenRAM run](design/layout/OPENRAM_REFERENCE_V2_2_8.md)
+  supplies a 32×32 reference bank GDS; its conditional supply-connectivity check
+  is distinguished from the full OpenRAM macro's failed LVS.
 
-## V2.2.7 — 2026-10-10 — independent signal and power RC calibration
+## V2.2.7 — 2026-10-10 — compiler organization and scoped RC configuration
 
-[Organization and entrance record](design/ORGANIZATION_V2_2_7.md).
-[Complete macro record](design/FULL_RC_CALIBRATION_V2_2_7.md), preserving the
-[initial record](design/RC_CALIBRATION_V2_2_7.md). No full release screen is complete.
+[Organization and entrance record](design/compiler/ORGANIZATION_V2_2_7.md).
 
-- Compiler organization separates configuration loading, variation policy and
-  experiment execution. `per_device_mc/` is removed; independent per-device
-  mismatch remains the standard testbench and entrance default.
-- `main_sram.py` unifies settings and CLI simulation, 6T/10T transient and SNM,
-  equivalent comparisons, layout/RC tools, circuit-backed sizing and offline
-  optimization campaigns. All simulations share deck export, result validation,
-  preserved attempt directories and provenance. Version metadata is V2.2.7.
-- A reproducible 8x8 6T FreePDK45 macro and standalone array tile use KLayout
-  geometry and official Calibre DRC/LVS and coupled xRC extraction.
-- Complete controller/register/output-latch layout passes official Calibre DRC
-  with zero violations and LVS `CORRECT`; xRC retains R, C and coupling.
-- TIME_CONTROL sizes, model defaults, guard/delay settings and fallback sizing
-  policy move to `config_yaml/time_control.yaml`. Authorized controller sizing
-  legalization and delay-driver changes pass scoped native waveform checks.
-- Defaults bind 709 independently configurable per-net networks, including
-  separate VDD/VSS resistive meshes for IR drop. Critical route classes have
-  separate fallback settings. Extracted junction geometry is back-annotated.
-- At nominal 8×8 TT, 1 V, 25 °C, 9 ns, four complete W1/R1/W0/R0 accesses pass
-  1,241 waveform checks for each of three models. Mean edge error against xRC
-  falls from 1,334.66 ps to 3.40 ps in the calibrated compiler.
-- Automatic defaults apply only to this reference. Other configurations retain
-  illustrative routing and ideal supplies unless an explicit accepted profile
-  is supplied. No full V2.2.7 screen is complete.
-- [Additional-size calibration](design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
-  adds complete 8×16, 16×8 and 16×16 physical references, SNM coupons and
-  explicit per-net profiles. At nominal TT / 1 V / 25 °C and a fixed 30 ns
-  clock, all 22,881 checks pass; mean edge error falls to 4.05–6.00 ps.
-  Physical supply feeds correct small-macro wordline glitches with schematic
-  sizing frozen. `.IC` parsing excludes measurement thresholds; cap-only
-  dummy-net export preserves initialization. Automatic 8×8 selection stays
-  scoped; larger unseen sizes and the full release screen remain unqualified.
-- [Extended RC verification](design/EXTENDED_RC_VALIDATION_V2_2_7.md)
-  evaluates nine nominal MOS PVT points and six per-device mismatch samples
-  with fixed 8×8 geometry and metal RC. Five nominal points and all five TT
-  mismatch samples pass; failed hot points remain unqualified. A 20 Ω
-  reduction restores RC accuracy at two hot points without fixing their
-  control-ordering failures. Comparison initialization and thresholds follow
-  the actual supply, and unloaded observation aliases start consistently.
-- A 32×32 diagnostic layout passes fresh DRC/LVS/xRC after protecting fixed
-  supply-stack landings. Five-size terminal-resistance inventories and 65
-  passive frequency coupons preserve explicit boundary assumptions. Native
-  layout PNGs aid inspection. The 32×32 physical waveform runs remain
-  computationally incomplete; sizing, timing policy, automatic reference
-  scope, release qualification and statistical-yield status stay unchanged.
+- Configuration loading, variation policy and experiment execution are separated.
+  Per-device mismatch remains the standard testbench and entrance default.
+- `main_sram.py` unifies settings and CLI experiments through shared deck export,
+  result validation and provenance.
+- TIME_CONTROL device sizes, model defaults, guard/delay settings and fallback
+  sizing policy live in `config_yaml/time_control.yaml`.
+- Simulation retains scoped signal and power RC profiles for its original
+  reference geometry. Changed configurations require independent validation.
+- Legacy layout generation and its calibration reports/artifacts were removed
+  on 2026-10-14. No full V2.2.7 release screen is complete.
 
 ## V2.2.6 — 2026-10-01 — configuration review fixes
 
-[Review record](design/CONFIGURATION_REVIEW_V2_2_6.md).
+[Review record](design/compiler/CONFIGURATION_REVIEW_V2_2_6.md).
 
 - Custom 6T/10T SNM construction passes valid factory keywords.
 - The audit and the shared/custom model-card builder use one active-statement
@@ -103,7 +108,7 @@ waveform screen is complete; 256x256 remains unresolved.
 
 ## V2.2.5 — 2026-09-28 — macro entrance and generation checks
 
-[Design record](design/COMPILER_ENTRY_V2_2_5.md). `main_sram.py` is the documented
+[Design record](design/compiler/COMPILER_ENTRY_V2_2_5.md). `main_sram.py` is the documented
 macro entrance. It generates decks without Xyce, applies local variation by
 default, and saves configuration provenance. Invalid targets, operations, sample
 controls and dimensions fail before a deck or result is reported.
@@ -111,22 +116,22 @@ controls and dimensions fail before a deck or result is reported.
 - Model cards: SS, FF, FS and SF set `NMOS_VTH u0` twice. The earlier `0.05` is
   commented out, so each card keeps `0.049`, as TT already did. A compiler
   guard rejects future duplicates
-  ([follow-up](design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up)).
+  ([follow-up](design/compiler/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up)).
 - Diagnostics, not a screen:
   - Eight new short-clock negative controls and the six preserved ones failed
-    as intended ([evaluation](V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)).
+    as intended ([evaluation](validation/V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)).
   - On the corrected model hashes, 22 of 22
-    [corner cases](V2_2_5_CORRECTED_CORNER_CASES.md) (20,960 checks) and 4 of 4
+    [corner cases](validation/V2_2_5_CORRECTED_CORNER_CASES.md) (20,960 checks) and 4 of 4
     class-boundary cases (87,975 checks) passed.
   - The positive screen ran on the old hashes and stopped incomplete; the
-    [simulation summary](V2_2_5_SIMULATION_SUMMARY.md) reconciles it with the
+    [simulation summary](validation/V2_2_5_SIMULATION_SUMMARY.md) reconciles it with the
     diagnostics.
 - Docs: the resolved first-500 write-failure inventory is retrievable with
   `git show 39ccae8:docs/issue_reports/write_failure_cases_first_500.md`.
 
 ## V2.2.4 — 2026-09-26 — passive replica loads and V2.2.3 review fixes
 
-[Design record](design/PHASED_CONTROL_V2_2_4.md). **Not screened; 256x256 has no
+[Design record](design/timing/PHASED_CONTROL_V2_2_4.md). **Not screened; 256x256 has no
 working operating point.** The replica column changed, so no V2.2.3 result
 carries over.
 
@@ -160,7 +165,7 @@ carries over.
 
 ## V2.2.3 — 2026-09-20 — supported envelope, joint-dimension clocks, one access deadline
 
-[Design record](design/PHASED_CONTROL_V2_2_3.md). **Not screened; the V2.2.2
+[Design record](design/timing/PHASED_CONTROL_V2_2_3.md). **Not screened; the V2.2.2
 evidence does not certify it.**
 
 - Envelope: `supported_envelope` in `timing_lookup.json` sets the limit at
@@ -179,7 +184,7 @@ evidence does not certify it.**
 
 ## V2.2.2 — 2026-09-20 — precharged startup, reported margins, re-screen
 
-[Design and validation record](design/PHASED_CONTROL_V2_2_2.md). The controller
+[Design and validation record](design/timing/PHASED_CONTROL_V2_2_2.md). The controller
 netlist is unchanged.
 
 - Decks start from the precharged clock-low state (`_init_precharged_columns`).
@@ -193,7 +198,7 @@ netlist is unchanged.
   - The 2 ns negative control fails.
   - 170 tracked tests.
 - A post-release pass recorded
-  [coverage gaps](design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover):
+  [coverage gaps](design/timing/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover):
   - The clock policy takes the maximum of the row and column budgets, and no
     screened array is large in both.
   - Sense margin falls from 0.90 V at 32 rows to 0.47 V at 512 rows.
@@ -202,7 +207,7 @@ netlist is unchanged.
 
 ## V2.2.1 — 2026-09-20 — clock-high access and clock-low recovery
 
-[Design and validation record](design/PHASED_CONTROL_V2_2_1.md).
+[Design and validation record](design/timing/PHASED_CONTROL_V2_2_1.md).
 
 - Access happens while the clock is high. Clock-low releases the array and
   precharges it after every operation.
@@ -223,7 +228,7 @@ netlist is unchanged.
 
 ## V2.1.10 — 2026-09-19 — registered write data
 
-[Record](design/WRITE_LATCH_V2_1_10.md).
+[Record](design/timing/WRITE_LATCH_V2_1_10.md).
 
 - Write data and the write request are rising-edge DFF outputs, so the
   drivers stay on between writes.
@@ -241,7 +246,7 @@ netlist is unchanged.
 
 ## V2.1.9 — 2026-09-18 — write drivers held until the wordline is off
 
-[Record](design/WRITE_HOLD_V2_1_9.md).
+[Record](design/timing/WRITE_HOLD_V2_1_9.md).
 
 - `wordline_busy` holds `w_en` until the wordline is observed off. Drivers had
   released with up to 0.90 V still on the wordline at 512x4 SS.
@@ -251,7 +256,7 @@ netlist is unchanged.
 
 ## V2.1.8 — 2026-09-17 — no enable overlaps
 
-[Record](design/ENABLE_OVERLAP_V2_1_8.md).
+[Record](design/timing/ENABLE_OVERLAP_V2_1_8.md).
 
 - The read wordline is released at the sense trigger.
 - The precharge waits for the previous access's enables (`enables_off`).
@@ -259,16 +264,16 @@ netlist is unchanged.
 
 ## V2.1.7 — 2026-09-17 — select gate; TIME_CONTROL rename
 
-[Record](design/SELECT_GATE_V2_1_7.md).
+[Record](design/timing/SELECT_GATE_V2_1_7.md).
 
 - `cs_pre = cs & cs_delayed` gates the precharge and write enable. Four
   boundary fixes.
-- `TIME` is renamed `TIME_CONTROL` ([map](design/TIME_CONTROL_PATH.md)).
+- `TIME` is renamed `TIME_CONTROL` ([map](design/timing/TIME_CONTROL_PATH.md)).
   1,351 netlists are identical. Evidence: 74 of 74 cases, 236,570 checks.
 
 ## V2.1.6 — 2026-09-16 — write drivers in the precharge slot
 
-[Record](design/WRITE_SLOT_V2_1_6.md).
+[Record](design/timing/WRITE_SLOT_V2_1_6.md).
 
 - The bitlines reach their rails before the write wordline rises.
 - Write decks measure `TWSLOT`, and `select_every` probes idle→write.
@@ -277,7 +282,7 @@ netlist is unchanged.
 
 ## V2.1.5 — 2026-09-16 — equivalent model as an input; 10T read-path resize
 
-[10T record](design/TIMING_10T_BUDGET_V2_1_5.md), [equivalent-model record](design/EQUIVALENT_MODEL_V2_1_5.md).
+[10T record](design/timing/TIMING_10T_BUDGET_V2_1_5.md), [equivalent-model record](design/equivalent/EQUIVALENT_MODEL_V2_1_5.md).
 
 - Equivalent modes 0-4 (`equivalent:` in `global.yaml`, `compare.py`): delays
   are within 0.5 % of mode 0.
@@ -287,13 +292,13 @@ netlist is unchanged.
 
 ## V2.1.4 — 2026-09-15 — write-request hold latch and 6T ladders
 
-[Record](design/TIMING_6T_BUDGET_V2_1_4.md). `Xwe_hold` holds the write request
+[Record](design/timing/TIMING_6T_BUDGET_V2_1_4.md). `Xwe_hold` holds the write request
 while a wordline is on. New shared 6T and 6T-mux ladders. Evidence: 92 of 92
 attempts, 305,371 checks.
 
 ## V2.1.3 — 2026-09-14 — separate 10T timing budget
 
-[Record](design/TIMING_10T_BUDGET_V2_1_3.md). `timing_lookup.json` gains cell-type
+[Record](design/timing/TIMING_10T_BUDGET_V2_1_3.md). `timing_lookup.json` gains cell-type
 `variants`; 10T runs about 200 ps above the shared ladder. 56 of 58 attempts.
 
 ## V2.1.2 — 2026-09-13 — run traceability and write-failure inventory audit
@@ -302,28 +307,28 @@ attempts, 305,371 checks.
   installation is recorded.
 - The supplied CSVs move to `docs/data/` ([audit](data/README.md)).
 - The first-500 write-failure inventory showed no electrical write failure.
-- [Phase 4/5 follow-up](design/TIMING_FOLLOWUP_V2_1_2.md); see
+- [Phase 4/5 follow-up](design/timing/TIMING_FOLLOWUP_V2_1_2.md); see
   [open items](README.md#open-items).
 
 ## V2.1.1 — 2026-09-13 — distributed-only wiring and access exclusion
 
-[Record](design/DISTRIBUTED_ONLY_V2_1_1.md). Star wiring is removed. WL, write and
+[Record](design/interconnect/DISTRIBUTED_ONLY_V2_1_1.md). Star wiring is removed. WL, write and
 sense assertion waits for the settled far-end precharge. 11 cases, 33,096 checks.
 
 ## V2.1.0 — 2026-09-12 — fixed timing classes
 
-[Record](design/TIMING_LOOKUP_V2_1_0.md). The clock follows a row/column lookup
+[Record](design/timing/TIMING_LOOKUP_V2_1_0.md). The clock follows a row/column lookup
 table, frozen with the baseline. Use `timing.mode: fixed` or `--period` for
 diagnostics.
 
 ## V2.0.11 — 2026-09-12 — distributed control lines
 
-[Record](design/WRITE_VALIDATION_V211.md). `PRE`, `w_en`, `w_en_bar`, `s_en`,
+[Record](design/timing/WRITE_VALIDATION_V211.md). `PRE`, `w_en`, `w_en_bar`, `s_en`,
 `sa_iso` and `wl_en` are tapped RC lines. 58 of 65 cases pass.
 
 ## V2.0.10 — 2026-09-12 — distributed timing and simulation correctness
 
-[Record](design/DISTRIBUTED_RC_V210_REVIEW.md). The precharge guard gains a
+[Record](design/interconnect/DISTRIBUTED_RC_V210_REVIEW.md). The precharge guard gains a
 replica settling delay. Failed runtime DC solves retry with line search.
 
 ## V2.0.9 — 2026-09-10 — fixed driver size classes
@@ -333,12 +338,12 @@ replica settling delay. Failed runtime DC solves retry with line search.
 
 ## V2.0.8 — 2026-09-09 — audit of the distributed interconnect
 
-[Record](design/DISTRIBUTED_RC_VALIDATION.md). The `cell_pin_rc` default is fixed.
+[Record](design/interconnect/DISTRIBUTED_RC_VALIDATION.md). The `cell_pin_rc` default is fixed.
 Adds `interconnect.load_interconnect()` and `INTERCONNECT_CONFIG`.
 
 ## V2.0.7 — 2026-09-09 — RC corrections and distributed interconnect
 
-[Guide](design/DISTRIBUTED_RC_MODEL.md). RC reaches every factory. Distributed
+[Guide](design/interconnect/DISTRIBUTED_RC_MODEL.md). RC reaches every factory. Distributed
 WL/BL ladders get matched replica paths.
 
 ## V2.0.6 — 2026-09-08 — compiler integration and documentation

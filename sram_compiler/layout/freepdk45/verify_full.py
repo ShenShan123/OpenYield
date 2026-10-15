@@ -7,9 +7,18 @@ import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
+from typing import Sequence
 
-from .run import run_command, sha256
+from .reduce_rc import sha256
 from sram_compiler.parasitics import read_dspf
+
+
+def run_command(arguments: Sequence[str], directory: Path, log: str,
+                environment: dict[str, str]) -> None:
+    with (directory / log).open('w') as stream:
+        subprocess.run(arguments, cwd=directory, env=environment, stdout=stream,
+                       stderr=subprocess.STDOUT, check=True)
 
 
 def main(argv=None):
@@ -30,12 +39,13 @@ def main(argv=None):
     manifest=json.loads((layout/'layout.json').read_text())
     primary=manifest['primary']
     component=manifest.get('artifact_kind')=='component'
+    bank=manifest.get('artifact_kind')=='bank'
     rows,cols=(None,None) if component else (manifest.get('rows',8),manifest.get('cols',8))
-    scope=manifest['scope'] if component else f'complete {rows}x{cols} 6T macro including controller and output latch'
+    scope=manifest['scope'] if component or bank else f'complete {rows}x{cols} 6T macro including controller and output latch'
     receipt=dict(status='in_progress',scope=scope,
                  rows=rows,cols=cols,primary=primary,
                  extraction_workers=args.extraction_workers,
-                 controller_layout=not component,layout_sha256=sha256(gds),source_sha256=sha256(source),
+                 controller_layout=manifest.get('controller_layout',not (component or bank)),layout_sha256=sha256(gds),source_sha256=sha256(source),
                  rule_sha256={n:sha256(rules/n) for n in ['calibreDRC.rul','calibreLVS.rul','calibrexRC.rul']},
                  lvs_passive_policy='R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.',
                  full_release_screen=False)
@@ -44,6 +54,14 @@ def main(argv=None):
         receipt.update(artifact_kind='component',core_pitch_nm=manifest['core_pitch_nm'],
                        row_span=manifest['row_span'],column_span=manifest['column_span'],
                        compiler_instance=manifest['compiler_instance'],
+                       calibre_executable=calibre,calibre_sha256=sha256(Path(calibre)) if calibre else None)
+    if bank:
+        calibre=shutil.which('calibre')
+        receipt.update(artifact_kind='bank',core_pitch_nm=manifest['core_pitch_nm'],
+                       included_instances=manifest['included_instances'],
+                       excluded_instances=manifest['excluded_instances'],
+                       source_deck_sha256=manifest['source_deck_sha256'],
+                       generator_sources_sha256=manifest['generator_sources_sha256'],
                        calibre_executable=calibre,calibre_sha256=sha256(Path(calibre)) if calibre else None)
     def save(): (output/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
     save()

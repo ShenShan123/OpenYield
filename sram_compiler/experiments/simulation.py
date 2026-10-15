@@ -284,6 +284,11 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         config.global_config.timing = {'mode': 'fixed', 't_period': args.period}
     if getattr(args, 'timing_lookup', None) is not None:
         config.global_config.timing = {'mode': 'lookup', 'lookup': str(args.timing_lookup)}
+    if getattr(args, 'sizing_lookup', None) is not None:
+        config.global_config.sizing = dict(config.global_config.sizing,
+                                          mode='lookup', lookup=str(args.sizing_lookup))
+    if getattr(args, 'compact_control', False):
+        config.global_config.sizing = dict(config.global_config.sizing, compact_control=True)
     interconnect = resolve_interconnect(config.global_config.interconnect)
     # None keeps the global.yaml `equivalent` block; the option overrides it.
     equivalent = resolve_equivalent(config.global_config.equivalent
@@ -417,6 +422,9 @@ def parse_args(argv: Optional[Sequence[str]] = None, *, defaults=None) -> argpar
     parser.add_argument("--xyce", default="Xyce")
     parser.add_argument("--seed", type=parse_seed, default=20260711,
                         help="positive integer for repeatable draws, or random")
+    parser.add_argument('--sizing-lookup', type=Path, help='explicit diagnostic driver class JSON')
+    parser.add_argument('--compact-control', action='store_true',
+                        help='use the simplified controller and remove obsolete load allowances')
     timing = parser.add_mutually_exclusive_group()
     timing.add_argument("--period", type=float, help="fixed diagnostic clock period in seconds")
     timing.add_argument("--timing-lookup", type=Path, help="alternative timing class JSON table")

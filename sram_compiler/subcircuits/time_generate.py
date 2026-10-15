@@ -17,16 +17,16 @@ Ports and internal nodes (the same names are probed by the waveform checks):
   gated_clk_buf                 cs & clk_buf: the raw clock-high request
   pre_far, rwl, iso_far,        physical feedback: far replica PRE gate, far
   sen_far, wen_far              replica wordline, far ISO / sense EN / write EN
-  pre_off_ready                 far PRE observed off and settled (4 stages + RC)
+  pre_off_ready                 far PRE observed off and delayed (4 stages)
   access_request  (A)           gated_clk_buf & pre_off_ready
   write_prepare                 we & A: isolates the sense inputs for a write
   sa_iso                        read_done | write_prepare | !enables_off (high = isolated)
-  iso_ready                     far ISO observed high and settled (4 stages + RC)
+  iso_ready                     far ISO observed high and delayed (4 stages)
   wordline_busy   (B)           wl_en | !wordline_off; wordline_off = far RWL
                                 observed low and settled (precharge_guard_stages)
   write_window / w_en           A | B;  w_en = we & write_window & iso_ready
   write_ready                   !we | wen_far: a write's WL waits for its far drivers
-  wordline_start                A & write_ready -> RC filter -> 8-stage setup chain
+  wordline_start                A & write_ready -> 8-stage setup chain
   access_settled                the settled setup output (loaded above 64 rows)
   wordline_request / wl_en      A & access_settled;  wl_en = wordline_request & !read_done
   rbl, rbl_delay                replica bitline and its odd delay chain (the sense trigger)
@@ -87,7 +87,7 @@ clk_bar, deasserts PRE; (2) the far PRE gate is observed off and settles into
 pre_off_ready; (3) access_request A rises; (4) write_prepare raises sa_iso,
 (5) the far ISO terminal is observed high and settled (iso_ready), (6) w_en
 turns the drivers on with the registered data and the driven bitline leaves
-its rail; (7) the far write enable (write_ready) starts the RC-filtered
+its rail; (7) the far write enable (write_ready) starts the digital
 8-stage setup chain, access_settled rises and wordline_request opens wl_en
 and the wordline; (8) the falling edge clears A, wordline_request and wl_en,
 so WL releases; (9) the far replica wordline is observed low and settles, so
@@ -116,7 +116,7 @@ rbl_delay low, bitlines high, PRE on), so read->read, write->read,
 read->write and write->write need no cross-cycle handover. Clock-low must
 finish (9)-(13) before the next rising edge; the checker requires it.
 
-See docs/design/PHASED_CONTROL_V2_2_2.md for the timing contract, the
+See docs/design/timing/PHASED_CONTROL_V2_2_2.md for the timing contract, the
 executed screen and its limits.
 
 Physical sizes, model defaults, guard settings and fallback sizing policy live
@@ -125,7 +125,7 @@ and the compiler's frozen driver-class settings override the YAML defaults.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import ceil, isfinite, log2
 from typing import Optional, Sequence
 
@@ -596,7 +596,8 @@ class PrechargeOffGuard(BaseSubcircuit):
     """Qualify access assertion after the physical PRE-off edge has settled.
 
     PRE is active low. Its small inverter observer switches near mid-rail;
-    a baseline wire/load RC delay and fixed even chain let the tail settle.
+    a fixed even delay chain qualifies the observed edge. No intentional
+    resistor or capacitor is added; physical interconnect RC stays in the bank.
     The raw request directly inhibits the final gate, so this settling delay
     cannot extend an access after the clock-high request ends.  The settled
     ``pre_off_ready`` is exported for waveform verification.
@@ -625,7 +626,7 @@ class PrechargeOffGuard(BaseSubcircuit):
         self.settling_tau = settling_tau
         observer = _control_inverter(nmos_model, pmos_model, *self.control_config.widths("observer"),
                         self.control_config.devices.gate_length_m, num='_pre_off_observer', control_config=self.control_config)
-        delay = PrechargeOffDelay(nmos_model, pmos_model, stages=stages, control_config=self.control_config)
+        delay = PrechargeOffDelay(nmos_model, pmos_model, stages=self.stages, control_config=self.control_config)
         ready = PNOR2(nmos_model, pmos_model, *cfg.widths("nor"), cfg.devices.gate_length_m)
         drive_scale = max(cfg.guards.minimum_access_drive_scale, ceil(access_load / cfg.guards.access_output_effort))
         gate = PrechargeAccessAnd(nmos_model, pmos_model, nmos_model, pmos_model,
@@ -637,16 +638,7 @@ class PrechargeOffGuard(BaseSubcircuit):
         for sub in (observer, delay, ready, gate):
             self.subcircuit(sub)
         self.X('observe_pre', observer.NAME, 'VDD', 'VSS', 'pre_far', 'pre_on')
-        settle_input = 'pre_on'
-        if settling_tau:
-            # Fast devices cannot make a long metal line settle faster. Add
-            # the baseline wire/load time constant only to the delayed branch.
-            # A small fixed capacitor avoids loading the half-unit observer;
-            # the first inverter's input capacitance adds conservative delay.
-            settle_input = 'pre_on_filtered'
-            self.R('settle', 'pre_on', settle_input, max(cfg.guards.minimum_filter_res_ohm, settling_tau / cfg.guards.filter_cap_f))
-            self.C('settle', settle_input, 'VSS', cfg.guards.filter_cap_f)
-        self.X('settle_pre', delay.NAME, 'VDD', 'VSS', settle_input, 'pre_on_delayed')
+        self.X('settle_pre', delay.NAME, 'VDD', 'VSS', 'pre_on', 'pre_on_delayed')
         self.X('ready', ready.NAME, 'VDD', 'VSS', 'pre_on', 'pre_on_delayed', 'pre_off_ready')
         self.X('request_gate', gate.NAME, 'VDD', 'VSS', 'request', 'pre_off_ready', 'access')
 
@@ -683,6 +675,14 @@ class IsolationNand(PNAND2):
 
 class GuardedWriteAnd(AND3):
     NAME = "GUARDED_WRITE_AND"
+
+
+class IsolationCompleteNand(PNAND2):
+    NAME = 'ISOLATION_COMPLETE_NAND'
+
+
+class IsolationAccessNand(PNAND2):
+    NAME = 'ISOLATION_ACCESS_NAND'
 
 
 def address_bits(num_rows: int) -> int:
@@ -862,7 +862,7 @@ class TIME_CONTROL(BaseSubcircuit):
                  din_hold_load: Optional[float] = None,
                  enable_off_tau: Optional[float] = None,
                  isolation_tau: Optional[float] = None,
-                 control_config=None) -> None:
+                 control_config=None, compact_control: bool = False) -> None:
         """
         num_sa:   number of sense amplifiers driven by s_en (num_cols / mux_in);
                   default num_cols.
@@ -878,8 +878,8 @@ class TIME_CONTROL(BaseSubcircuit):
                   kept as an upper bound) and the enables-off NOR input;
                   default assumes the 0.18/0.36 um base widths scaled with
                   max(8, rows)/16.
-        precharge_off_tau: frozen PRE wire/load settling scale in seconds;
-                  enabling precharge_off_guard appends the physical pre_far input.
+        precharge_off_tau: compatibility argument; it adds no RC element or delay.
+                  Enabling precharge_off_guard appends the physical pre_far input.
         din_hold_load: obsolete V2.1.10 argument; no hold-enable line is built.
         """
         self.control_config = resolve_time_control_config(control_config)
@@ -889,6 +889,9 @@ class TIME_CONTROL(BaseSubcircuit):
         pmos_width = cfg.devices.nand.pmos_width_m if pmos_width is None else pmos_width
         nmos_width = cfg.devices.nand.nmos_width_m if nmos_width is None else nmos_width
         length = cfg.devices.gate_length_m if length is None else length
+        if type(compact_control) is not bool:
+            raise ValueError('compact_control must be boolean')
+        self.compact_control = compact_control
         num_rows = cfg.defaults.num_rows if num_rows is None else num_rows
         num_cols = cfg.defaults.num_cols if num_cols is None else num_cols
         w_rc = cfg.defaults.w_rc if w_rc is None else w_rc
@@ -945,6 +948,9 @@ class TIME_CONTROL(BaseSubcircuit):
                                         precharge_off_guard, num_sa, wl_load, pre_load, wen_load,
                                         sen_load, iso_load, sen_effort, access_load,
                                         control_config=self.control_config)
+        if compact_control and replica_precharge_guard:
+            # Only the unit wordline-busy NAND reads this complement.
+            sizing = replace(sizing, wlb_scale=1)
         self.sizing = sizing
         # Loads and scales read back by the testbench and the tests.
         self.num_sa = sizing.num_sa
@@ -1093,7 +1099,7 @@ class TIME_CONTROL(BaseSubcircuit):
             guard = PrechargeOffGuard(self.nmos_model, self.pmos_model,
                                       stages=self.precharge_off_guard_stages,
                                       access_load=self.access_load,
-                                      settling_tau=self.precharge_off_tau, control_config=self.control_config)
+                                      settling_tau=0., control_config=self.control_config)
             self.subcircuit(guard)
             self.access_request = 'access_request'
             self.X('access_guard', guard.NAME, 'VDD', 'VSS',
@@ -1109,37 +1115,16 @@ class TIME_CONTROL(BaseSubcircuit):
         self.X('write_ready_nor', ready.NAME, 'VDD', 'VSS', 'we_bar', 'wen_far', 'write_ready_bar')
         self.X('write_ready', inverter.NAME, 'VDD', 'VSS', 'write_ready_bar', 'write_ready')
         self.X('wordline_start', start.NAME, 'VDD', 'VSS', self.access_request, 'write_ready', 'wordline_start')
-        delay = WordlineSetupDelay(self.nmos_model, self.pmos_model, stages=self.control_config.delays.wordline_setup_stages, control_config=self.control_config)
-        decoder_tau = 0.0
-        if self.num_rows > self.control_config.delays.decoder_settle_row_threshold:
-            # The third decoder level's weak complement inverter drives a
-            # full-height wire. Observe equivalent load on both polarities
-            # before allowing WL, including a first read or changed address.
-            # Existing dummy inputs model the unit decoder's gate fan-out.
-            wire_cap = self.num_rows * self.interconnect.wire('decoder_address').capacitance_per_pitch
-            for stage in (1, 2):
-                delay.C(f'decoder_settle_{stage}', f'wen_dly_{stage}', 'VSS', self.control_config.delays.decoder_wire_cap_multiplier * wire_cap)
-            # Bound the low-bit trunk plus one local complement line. This
-            # includes their gate loads, not just the metal's passive R*C.
-            trunk_cap = self.control_config.delays.decoder_wire_cap_multiplier * wire_cap + ceil(self.num_rows / self.control_config.delays.decoder_group_rows) * self.control_config.delays.decoder_gate_cap_per_group_f
-            local_cap = wire_cap + self.control_config.delays.decoder_local_gate_cap_f
-            decoder_tau = self.control_config.delays.decoder_tau_multiplier * self.num_rows * self.interconnect.wire('decoder_address').resistance_per_pitch * (trunk_cap + local_cap)
         scale = self.sizing.access_drive_scale
         output_sizes = (self.control_config.widths("gated_clock_inverter") if scale == self.control_config.guards.minimum_access_drive_scale else
                         (self.control_config.devices.unit_inverter.nmos_width_m * scale, self.control_config.devices.unit_inverter.pmos_width_m * scale))
         gate = self._and_gate(WordlineSetupAnd, output_sizes)
+        delay = WordlineSetupDelay(self.nmos_model,self.pmos_model,
+                    stages=self.control_config.delays.wordline_setup_stages,
+                    control_config=self.control_config)
         self.subcircuit(delay)
         self.subcircuit(gate)
-        setup_input = 'wordline_start'
-        setup_tau = max(self.enable_off_tau, decoder_tau)
-        if setup_tau:
-            # The observer switches near mid-rail; the same frozen enable-wire
-            # scale covers the remaining rise to a fully enabled driver. Reads
-            # share this conservative preparation interval.
-            setup_input = 'wordline_start_filtered'
-            self.R('wordline_setup', 'wordline_start', setup_input, max(self.control_config.guards.minimum_filter_res_ohm, setup_tau / self.control_config.guards.filter_cap_f))
-            self.C('wordline_setup', setup_input, 'VSS', self.control_config.guards.filter_cap_f)
-        self.X('wordline_setup_delay', delay.NAME, 'VDD', 'VSS', setup_input, 'access_settled')
+        self.X('wordline_setup_delay', delay.NAME, 'VDD', 'VSS', 'wordline_start', 'access_settled')
         self.X('wordline_setup_gate', gate.NAME, 'VDD', 'VSS', self.access_request,
                'access_settled', 'wordline_request')
 
@@ -1193,7 +1178,8 @@ class TIME_CONTROL(BaseSubcircuit):
         self.wordline_off = 'rwl_pre_bar'
         if not self.precharge_guard_stages:
             return
-        delay = PrechargeGuardDelay(self.nmos_model, self.pmos_model, stages=self.precharge_guard_stages, control_config=self.control_config)
+        delay = PrechargeGuardDelay(self.nmos_model, self.pmos_model,
+                    stages=self.precharge_guard_stages, control_config=self.control_config)
         ready = PrechargeGuardAnd(self.nmos_model, self.pmos_model, self.nmos_model, self.pmos_model,
                                   nand_nmos_width=self.control_config.devices.nand.nmos_width_m,
                                   nand_pmos_width=self.control_config.devices.nand.pmos_width_m,
@@ -1259,13 +1245,33 @@ class TIME_CONTROL(BaseSubcircuit):
         The request raises ISO ahead of the enables. Their observed outputs
         then keep it high until both have released; no storage latch is needed.
         """
-        write = self._and_gate(WritePrepareAnd, self.control_config.widths("enable_inverter"))
-        request = IsolationRequestNor(self.nmos_model, self.pmos_model, *self.control_config.widths("nor"), self.control_config.devices.gate_length_m)
         gate = IsolationNand(self.nmos_model, self.pmos_model, *self.control_config.widths("isolation_nand"), self.control_config.devices.gate_length_m)
-        for sub in (write, request, gate):
-            self.subcircuit(sub)
-        self.X('write_prepare', write.NAME, 'VDD', 'VSS', 'we', self.access_request, 'write_prepare')
-        self.X('isolation_request', request.NAME, 'VDD', 'VSS', 'read_done', 'write_prepare', 'isolation_request_bar')
+        if self.compact_control:
+            # read_done | write_prepare = A & (we | rbl_delay).
+            # Two NAND2s share the existing request complements and remove
+            # the write-prepare inverter and its separate routed output.
+            args = (self.nmos_model, self.pmos_model,
+                    self.control_config.devices.nand.nmos_width_m,
+                    self.control_config.devices.nand.pmos_width_m,
+                    self.control_config.devices.gate_length_m)
+            complete = IsolationCompleteNand(*args, w_rc=self.w_rc,
+                                             pi_res=self.pi_res, pi_cap=self.pi_cap)
+            request = IsolationAccessNand(*args, w_rc=self.w_rc,
+                                          pi_res=self.pi_res, pi_cap=self.pi_cap)
+            self.subcircuit(complete)
+            self.subcircuit(request)
+            self.subcircuit(gate)
+            self.X('isolation_complete', complete.NAME, 'VDD', 'VSS',
+                   'we_bar', 'rbl_delay_bar', 'isolation_complete')
+            self.X('isolation_request', request.NAME, 'VDD', 'VSS',
+                   self.access_request, 'isolation_complete', 'isolation_request_bar')
+        else:
+            write = self._and_gate(WritePrepareAnd, self.control_config.widths("enable_inverter"))
+            request = IsolationRequestNor(self.nmos_model, self.pmos_model, *self.control_config.widths("nor"), self.control_config.devices.gate_length_m)
+            for sub in (write, request, gate):
+                self.subcircuit(sub)
+            self.X('write_prepare', write.NAME, 'VDD', 'VSS', 'we', self.access_request, 'write_prepare')
+            self.X('isolation_request', request.NAME, 'VDD', 'VSS', 'read_done', 'write_prepare', 'isolation_request_bar')
         s = self.sizing
         self._buffered_output(
             'sa_iso', gate, ('isolation_request_bar', 'enables_off'), 'sa_iso', s.iso_buffered(self.effort_buffers),
@@ -1276,7 +1282,7 @@ class TIME_CONTROL(BaseSubcircuit):
         guard = IsolationOffGuard(self.nmos_model, self.pmos_model,
                                   stages=self.control_config.guards.isolation_stages,
                                   access_load=self.control_config.guards.isolation_access_load_units,
-                                  settling_tau=self.isolation_tau, control_config=self.control_config)
+                                  settling_tau=0., control_config=self.control_config)
         self.subcircuit(guard)
         self.X('isolation_guard', guard.NAME, 'VDD', 'VSS', 'VDD', 'iso_far',
                'isolation_observed', 'iso_ready')
@@ -1305,17 +1311,21 @@ class TIME_CONTROL(BaseSubcircuit):
         ISO release must wait for the actual peripheral terminals, including
         their RC tail. The root inhibit still responds immediately to assertion.
         """
-        inverter = self._unit_inverter('_s_en_bar', self.sizing.senb_scale)
         nor = EnablesOffNor(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
                             nmos_width=self.control_config.devices.nor.nmos_width_m,
                             pmos_width=self.control_config.devices.nor.pmos_width_m, length=self.control_config.devices.gate_length_m, w_rc=self.w_rc)
-        self.subcircuit(inverter)
+        if not self.compact_control:
+            inverter = self._unit_inverter('_s_en_bar', self.sizing.senb_scale)
+            self.subcircuit(inverter)
         self.subcircuit(nor)
-        self.X('inv_s_en_bar', inverter.NAME, 'VDD', 'VSS', 's_en', 's_en_bar')
+        if not self.compact_control:
+            self.X('inv_s_en_bar', inverter.NAME, 'VDD', 'VSS', 's_en', 's_en_bar')
         self.X('enables_off_nor', nor.NAME, 'VDD', 'VSS', 's_en', 'w_en', 'local_enables_off')
         far = FarEnablesOffNor(self.nmos_model, self.pmos_model, *self.control_config.widths("far_enables_nor"), self.control_config.devices.gate_length_m)
-        guard = EnableOffGuard(self.nmos_model, self.pmos_model, stages=self.control_config.guards.enable_off_stages,
-                               access_load=self.control_config.guards.enable_off_access_load_units, settling_tau=self.enable_off_tau, control_config=self.control_config)
+        guard = EnableOffGuard(self.nmos_model, self.pmos_model,
+                               stages=self.control_config.guards.enable_off_stages,
+                               access_load=self.control_config.guards.enable_off_access_load_units,
+                               settling_tau=0., control_config=self.control_config)
         self.subcircuit(far)
         self.subcircuit(guard)
         self.X('far_enables_off', far.NAME, 'VDD', 'VSS', 'sen_far', 'wen_far', 'far_enables_off')

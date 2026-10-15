@@ -908,6 +908,7 @@ class TimeControlFactory:
                  enable_off_tau=None,
                  isolation_tau=None,
                  control_config=None,
+                 compact_control: bool = False,
                  ):
 
         self.interconnect = interconnect
@@ -940,6 +941,7 @@ class TimeControlFactory:
         self.enable_off_tau = enable_off_tau
         self.isolation_tau = isolation_tau
         self.control_config = control_config
+        self.compact_control = compact_control
     def create(self):
         return TIME_CONTROL(
             nmos_model=self.nmos_model,
@@ -971,6 +973,7 @@ class TimeControlFactory:
             enable_off_tau=self.enable_off_tau,
             isolation_tau=self.isolation_tau,
             control_config=self.control_config,
+            compact_control=self.compact_control,
         )
     
 class Sram10TCellFactory:

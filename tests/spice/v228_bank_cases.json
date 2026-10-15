@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "6T bank data path: array, precharge, sense amplifiers, write drivers and data buffers; external decoded wordlines and controls; excludes decoder, replica, TIME_CONTROL and output latch",
+  "sources": [
+    {
+      "rows": 8,
+      "cols": 8,
+      "operation": "read&write",
+      "variation_mode": "nominal",
+      "real_cell_mode": 0,
+      "corner": "TT",
+      "vdd": 1,
+      "temperature_c": 25,
+      "period_s": 9e-09,
+      "interconnect_config": "sram_compiler/config_yaml/interconnect_illustrative.yaml"
+    },
+    {
+      "rows": 32,
+      "cols": 32,
+      "operation": "read&write",
+      "variation_mode": "nominal",
+      "real_cell_mode": 0,
+      "corner": "TT",
+      "vdd": 1,
+      "temperature_c": 25,
+      "period_s": 9e-09,
+      "interconnect_config": "sram_compiler/config_yaml/interconnect_illustrative.yaml"
+    }
+  ],
+  "commands": [
+    "main_sram.py layout bank --data-path-only --deck DECK --output-dir NEW_LAYOUT",
+    "main_sram.py layout verify-full --layout-dir NEW_LAYOUT --pdk-dir PDK --output-dir NEW_VERIFICATION"
+  ],
+  "required_checks": [
+    "exact fixed 6T bitcell topology and W/L/NF",
+    "native source subset includes every array and column-peripheral device",
+    "all four source terminals for every explicit finger",
+    "GDS active/poly gate count and area match selected schematic",
+    "odd-column pin and terminal reflection follows geometry",
+    "M5 peripheral bitlines connect explicitly to core M3",
+    "independent Calibre DRC zero, LVS CORRECT and distributed R+C+CC at each size",
+    "source, GDS, generator, model, rule and tool hashes retained",
+    "generated and failed artifacts never promoted to verified"
+  ],
+  "component_protocol": "tests/spice/v228_component_cases.json",
+  "waveform_validation": "not run",
+  "defaults_promotable": false,
+  "excluded": [
+    "decoder",
+    "replica",
+    "TIME_CONTROL",
+    "output latch"
+  ],
+  "local_python_runners_tracked": false
+}

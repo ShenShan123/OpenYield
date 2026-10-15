@@ -1,40 +1,33 @@
 # Characterisation and diagnostic data
 
-[`V2_2_7_MULTI_SIZE_RC_CALIBRATION.json`](V2_2_7_MULTI_SIZE_RC_CALIBRATION.json)
-records complete 8×16, 16×8 and 16×16 nominal FreePDK45 RC/SNM comparisons,
-physical receipts, timing/voltage errors, compiler-loading proofs and artifact
-hashes. The [report](../design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md) states the
-30 ns clock, four-access protocol and DC-coupon limits. This is development
-calibration evidence, not a full release or yield qualification.
-
 [`V2_2_6_CONFIGURATION_REVIEW.json`](V2_2_6_CONFIGURATION_REVIEW.json) records
 targeted software, DC and four-case waveform diagnostics for the
-[configuration fixes](../design/CONFIGURATION_REVIEW_V2_2_6.md). It is not a
+[configuration fixes](../design/compiler/CONFIGURATION_REVIEW_V2_2_6.md). It is not a
 complete release screen or qualification record. Older evidence below retains
 its original version and scope.
 
 `V2_2_5_NEGATIVE_CONTROLS.json` is a new **diagnostic** record for 14 short-clock
 negative controls. It stores each case's solver outcome, waveform failures,
 expected-check matches, model and source hashes, and the eight passing matched
-references. It is described in the [V2.2.5 negative-control evaluation](../V2_2_5_NEGATIVE_CONTROL_EVALUATION.md).
+references. It is described in the [V2.2.5 negative-control evaluation](../validation/V2_2_5_NEGATIVE_CONTROL_EVALUATION.md).
 It is not an assembled positive screen or a qualification record.
 
 `V2_2_5_NMOS_VTH_U0.json` records the V2.2.5 SS/FF/FS/SF `NMOS_VTH u0`
 duplicate correction: old and corrected model hashes, direct Xyce parse and DC
 outcomes, and eight targeted waveform cases on the corrected model hashes.
-It is [described in the V2.2.5 design record](../design/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up)
+It is [described in the V2.2.5 design record](../design/compiler/COMPILER_ENTRY_V2_2_5.md#nmos_vth-model-card-follow-up)
 and does not replace the incomplete full waveform screen.
 
 `V2_2_5_CORRECTED_CORNER_CASES.json` records 22 passing boundary and PVT
 waveform cases on the corrected V2.2.5 model hashes, eight intended negative
 rejections, paired old-run metric comparisons, and per-case provenance. The
-[corner-case evaluation](../V2_2_5_CORRECTED_CORNER_CASES.md) explains its
+[corner-case evaluation](../validation/V2_2_5_CORRECTED_CORNER_CASES.md) explains its
 coverage limits; it is a targeted diagnostic, not a full-screen record.
 
 `V2_2_5_CORRECTED_MEDIUM_CASES.json` records four passing medium class-boundary
 waveform cases (87,975 checks) on corrected SS/FF model hashes. It includes
 the pinned source identity, frozen manifest hash, per-case result hashes and
-timing margins. See the [simulation summary](../V2_2_5_SIMULATION_SUMMARY.md)
+timing margins. See the [simulation summary](../validation/V2_2_5_SIMULATION_SUMMARY.md)
 for how it relates to the first corner-case tranche and the stopped old-hash
 campaign. It is diagnostic, not qualification.
 
@@ -44,10 +37,10 @@ scorer hashes and the worst value of every ordering and budget margin, the
 tracked source hashes every trace was generated from, and the negative
 control. It is written by the ignored assembler (`dev/v222/assemble_release.py`),
 which refuses an incomplete, failing or drifted screen, and it is described in
-[the V2.2.2 record](../design/PHASED_CONTROL_V2_2_2.md).
+[the V2.2.2 record](../design/timing/PHASED_CONTROL_V2_2_2.md).
 `PHASED_CONTROL_V2_2_1.json` is the preceding V2.2.1 screen with its
 deck-reproduction and equivalence proofs, described in
-[the phase-control record](../design/PHASED_CONTROL_V2_2_1.md).
+[the phase-control record](../design/timing/PHASED_CONTROL_V2_2_1.md).
 Like the CSVs below, keep it as written; corrections belong in the documents
 that cite it.
 
@@ -57,7 +50,7 @@ waveform checker, which are hashed sources of the screen, so its recorded
 source hashes no longer equal the tree. V2.2.3's screen ran but was never
 assembled, and V2.2.4 changed the replica column of every deck; there is no
 V2.2.3 or V2.2.4 record. See
-[the V2.2.4 design record](../design/PHASED_CONTROL_V2_2_4.md).
+[the V2.2.4 design record](../design/timing/PHASED_CONTROL_V2_2_4.md).
 
 Read the V2.2.2 record's `coverage` block before quoting a minimum from it. The
 254 records are 131 SS, 49 FF, 32 SF, 30 FS and 12 TT; each corner appears at
@@ -66,7 +59,7 @@ and every array satisfies `rows * cols <= 4096`. The `minimum_metrics` block is
 therefore the worst value over that population, not over the compiler's input
 space, and several of its minima are single per-device draws. The population's
 gaps are enumerated in
-[what the screen does not cover](../design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover).
+[what the screen does not cover](../design/timing/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover).
 
 These two CSVs are the only numeric record of the V2.0.2–V2.0.4 timing and
 driver-sizing campaigns; their raw decks and waveforms were not retained. They
@@ -97,7 +90,7 @@ manifest pins, not to the CSVs.
   changelog entries. The local `dev/sizing/campaign.py` reads its 27
   `v202_sweep` array sizes as the default campaign matrix. The compiler's
   `timing_lookup.json` is **not** derived from it (see
-  [the V2.1.0 timing review](../design/TIMING_LOOKUP_V2_1_0.md));
+  [the V2.1.0 timing review](../design/timing/TIMING_LOOKUP_V2_1_0.md));
   `provisional_period()` in `sram_compiler/sizing/timing.py` hard-codes the
   proposal's section 3.3 fit coefficients for the calibration clock only.
 

@@ -1,0 +1,1596 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "bank with decoder left of core and 400 nm wordline pitch; TIME_CONTROL external",
+  "cases": [
+    {
+      "artifact_root": "outputs/layout/bank_pitch/final_8x8",
+      "rows": 8,
+      "cols": 8,
+      "source_mos": 894,
+      "source_fingers": 894,
+      "physical_gate_count": 894,
+      "macro_bbox_nm": [
+        0,
+        0,
+        377025.0,
+        50025.0
+      ],
+      "macro_area_um2": 18860.675625,
+      "density_bits_per_um2": 0.0033933036797031495,
+      "decoder_bbox_nm": [
+        3300,
+        45600.0,
+        363540.0,
+        48800.0
+      ],
+      "array_origin_nm": [
+        363940.0,
+        45600.0
+      ],
+      "source_deck_sha256": "24cb427267694464be142a72d538607302fae1819df49135a62b565d3cb8949d",
+      "compiler_provenance": {
+        "compiler_version": "V2.2.8",
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature": 25.0,
+        "variation_mode": "nominal",
+        "real_cell_mode": 0,
+        "seed": 20260711,
+        "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+        "interconnect": {
+          "bl": {
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "layer": "M3-reference",
+            "pitch_m": 6e-07,
+            "sections_per_half_pitch": 1,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "width_m": 1e-07
+          },
+          "calibrated_profile": null,
+          "calibrated_profile_sha256": null,
+          "cell_pin_rc": false,
+          "mode": "per_net",
+          "net_models": {},
+          "power_models": {
+            "VDD": {
+              "capacitance_scale": 1.0,
+              "resistance_scale": 1.0
+            },
+            "VSS": {
+              "capacitance_scale": 1.0,
+              "resistance_scale": 1.0
+            }
+          },
+          "reference_profile": null,
+          "reference_profile_sha256": null,
+          "routes": {
+            "data_register_clock": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "data_register_clock-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "decoder_address": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "decoder_address-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "isolation_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "isolation_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "mux_select": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "mux_select-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "peripheral_bitline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "peripheral_bitline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "peripheral_bitline_bar": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "peripheral_bitline_bar-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "precharge_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "precharge_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "replica_bitline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "replica_bitline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "replica_wordline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "replica_wordline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "sense_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "sense_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "wordline_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "wordline_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "write_data": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "write_data-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "write_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "write_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            }
+          },
+          "wl": {
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "layer": "M2-reference",
+            "pitch_m": 6e-07,
+            "sections_per_half_pitch": 1,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "width_m": 1e-07
+          }
+        },
+        "timing": {
+          "budget": "shared",
+          "driver_key": "a72310b1088d17b7e45a8721b93dfc6f7398bd571ab5f13a91515989ff2219c0",
+          "extrapolated": false,
+          "high": 0,
+          "low_read": 0,
+          "low_write": 0,
+          "margin": 0,
+          "options_key": "6c3c2baefa3d302e214d2a377329287ec055ef233c375a966e6cd14464fd4e9c",
+          "qualified": false,
+          "size_class": "",
+          "source": "fixed",
+          "t_period": 9e-09,
+          "table_sha256": "",
+          "table_version": ""
+        },
+        "driver_sizes": {
+          "area_precharge_width": 2.7e-07,
+          "area_senseamp_width": 5.4e-07,
+          "area_wordline_width": 5.4e-07,
+          "canonical_read": true,
+          "cell_type": "SRAM_6T_CELL",
+          "cols": 8,
+          "control_architecture": "v2.2.0-high-access",
+          "dc_stages": 9,
+          "dec_inv": 1.0,
+          "effort_buffers": true,
+          "enable_off_tau": 6.664000000000001e-13,
+          "extrapolated": false,
+          "isolation_tau": 6.984e-13,
+          "key": "a72310b1088d17b7e45a8721b93dfc6f7398bd571ab5f13a91515989ff2219c0",
+          "loads": {
+            "access_load": 5.0,
+            "far_enable_observer_load_units": 1.75,
+            "iso_load": 72.0,
+            "num_sa": 9,
+            "observer_load_units": 1.0,
+            "pre_load": 39.25,
+            "sen_effort": 3.0,
+            "sen_load": 49.0,
+            "wen_load": 63.25,
+            "wenb_scale": 3,
+            "wl_load": 37.8
+          },
+          "mux": false,
+          "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+          "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+          "physical_key": "5a94fbb1c60c16a4bc159c7fb14fca0ed84f049347a7d425221a3c2fb09d49a5",
+          "pre": 1.0,
+          "precharge_guard_stages": 4,
+          "precharge_off_guard": true,
+          "precharge_off_guard_stages": 4,
+          "precharge_off_tau": 2.634e-13,
+          "qualified_context_key": "",
+          "replica_k": 1,
+          "replica_length": 5e-08,
+          "replica_matched": true,
+          "replica_nmos_models": [
+            "NMOS_VTG",
+            "NMOS_VTG"
+          ],
+          "replica_nmos_widths": [
+            2.05e-07,
+            1.35e-07
+          ],
+          "replica_pmos_model": "PMOS_VTG",
+          "replica_pmos_width": 9e-08,
+          "replica_precharge_guard": true,
+          "rows": 8,
+          "rule_version": "v2.0.5-local-1",
+          "size_class": "rows<=32/cols<=8",
+          "source": "lookup",
+          "wd_in": 1.0,
+          "wd_out": 2.0,
+          "wl_inv": 2.0,
+          "wl_nand": 1.0
+        }
+      },
+      "compiler_summary_sha256": "f02bdeceb91be33337306828a4b7e63dc17db7356760720d67aa0aa4bdc77cd9",
+      "generator_sources_sha256": {
+        "lib.py": "ee20b9b25a86191a4804cd9adaeb0b7706c86f7a505a8b001f3b1ed664a0a2eb",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "1e39903cd761279f7404731ee51f142995b53b98dd1270e10b184a1c6d6a962b",
+        "rowperi.py": "c880c2a23fc4c1810d929bc233cdfdf62574e1a5875b297ace30bc7135480eb0",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "top.py": "e29c8308cf01813cd356537480f5fc1335531f9438b939de5cb9313881e6686e",
+        "export.py": "4bd10cc660a748d7789c9b3ad03e8575815b6c338eca5fac3a6a3c8fba44fd07",
+        "__init__.py": "dae833b75f167aa19c153bd1a342efca44c7090e7928e2eb75a74a0560ae7808",
+        "run.py": "f32bff277d33388bb48736e96c6f611d7da1efbed724e9e058f327606a95b100",
+        "array.py": "efddf5efa881f70a6066e137aaad9c11f9608d7ae4d384b9aa7ccc8be85c42e9",
+        "analyze.py": "21a003f7629bba54fd343c2ab3d0fc2557cbbf2f9d96fa744ed7c0aceb429bf8",
+        "compare.py": "29d7fe4294e323c090589d05ad1143716fb73b26cd5417269b9d3e116538b052",
+        "controller.py": "54ddc219ba14e109dcaf8ecb94cd685ccfb0148dc87bf03b173c53df3de21502",
+        "full_source.py": "f7deacfcbbbcd17d13a8f518fa487a0f74a5e317e18f3c7419224f2daf30cc3a",
+        "router.py": "31d53fa50517e4df7444ed8d1cafe12f1ce5c2f2e4726a4f7466918e723abe66",
+        "full_macro.py": "d249001225abd9dce2645f3fdab457a6e260d262415b7a2b28c458bfa726b712",
+        "verify_full.py": "8247b3a9a079b1ed7d14e0c914fdde3ae02adae1adc35dd636033046101b0a32",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "fd17a570ce172f044c5763a70ac44f2aa2585a57e7973fa48961c50a906e72b1",
+        "power.py": "5fe421c664464675b819de2fc3e6c278dad127356958811136aa6180f2f552d7",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "scaled_macro.py": "9078b3817afadd4960d24d192e68feed5c714b5b9d15533a2a8eefbb231d8126",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "a8e48dd352fdc8b878e5147b2274bc665b2da4d28ca202974acca3126853a908",
+        "compact_macro.py": "0946380768dee3f9b28cc0e00c2902b5522360a476fea02405e32214937de19a",
+        "components.py": "ca2edd48071be5c8b2ef1e43915aa720a97e445b812f308551652eb38e55c0ba",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "18ab6921fbe57aa6ea0dabe97aec6fc24ad94a946205eceb573c6a1f721985b8",
+        "bank_core.py": "7e7b53cb8b0c3c0fcf07c71cc1c0b2cf7a070a515c8117f86b6d40e5e76e98f6",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c"
+      },
+      "excluded_instances": [
+        "XTIME_CONTROL"
+      ],
+      "receipt": {
+        "status": "extracted",
+        "scope": "6T bank including decoder, wordline drivers, data and replica core, dummy loads, column periphery and output latch; TIME_CONTROL and input registers remain external",
+        "rows": 8,
+        "cols": 8,
+        "primary": "BANK_8X8",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "4e2202700ca5310929b00985c8fdaecb440e446749e482949ac61771d39fc49a",
+        "source_sha256": "66df2da9a4a9e8ed5cda286b7481568b05fc763e9b51e5619045beb9045d3eda",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "bank",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "included_instances": [
+          "XSRAM_6T_CORE_8x8",
+          "XDIN_BUF_0",
+          "XDIN_BUF_1",
+          "XDIN_BUF_2",
+          "XDIN_BUF_3",
+          "XDIN_BUF_4",
+          "XDIN_BUF_5",
+          "XDIN_BUF_6",
+          "XDIN_BUF_7",
+          "XWRITEDRIVER_0",
+          "XWRITEDRIVER_1",
+          "XWRITEDRIVER_2",
+          "XWRITEDRIVER_3",
+          "XWRITEDRIVER_4",
+          "XWRITEDRIVER_5",
+          "XWRITEDRIVER_6",
+          "XWRITEDRIVER_7",
+          "XSENSEAMP_0",
+          "XSENSEAMP_1",
+          "XSENSEAMP_2",
+          "XSENSEAMP_3",
+          "XSENSEAMP_4",
+          "XSENSEAMP_5",
+          "XSENSEAMP_6",
+          "XSENSEAMP_7",
+          "XPRECHARGE_0",
+          "XPRECHARGE_1",
+          "XPRECHARGE_2",
+          "XPRECHARGE_3",
+          "XPRECHARGE_4",
+          "XPRECHARGE_5",
+          "XPRECHARGE_6",
+          "XPRECHARGE_7",
+          "Xsram_8x1_replica_column",
+          "XPRECHARGE_RBL",
+          "XREPLICA_SENSEAMP",
+          "XREPLICA_WDRV_LOAD",
+          "XRWL_LOAD_0",
+          "XRWL_LOAD_1",
+          "XRWL_LOAD_2",
+          "XRWL_LOAD_3",
+          "XRWL_LOAD_4",
+          "XRWL_LOAD_5",
+          "XRWL_LOAD_6",
+          "XDECODER",
+          "XWL_DRV_0",
+          "XWL_DRV_1",
+          "XWL_DRV_2",
+          "XWL_DRV_3",
+          "XWL_DRV_4",
+          "XWL_DRV_5",
+          "XWL_DRV_6",
+          "XWL_DRV_7",
+          "XRWL",
+          "XD_LATCH"
+        ],
+        "excluded_instances": [
+          "XTIME_CONTROL"
+        ],
+        "source_deck_sha256": "24cb427267694464be142a72d538607302fae1819df49135a62b565d3cb8949d",
+        "generator_sources_sha256": {
+          "lib.py": "ee20b9b25a86191a4804cd9adaeb0b7706c86f7a505a8b001f3b1ed664a0a2eb",
+          "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+          "colperi.py": "1e39903cd761279f7404731ee51f142995b53b98dd1270e10b184a1c6d6a962b",
+          "rowperi.py": "c880c2a23fc4c1810d929bc233cdfdf62574e1a5875b297ace30bc7135480eb0",
+          "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+          "top.py": "e29c8308cf01813cd356537480f5fc1335531f9438b939de5cb9313881e6686e",
+          "export.py": "4bd10cc660a748d7789c9b3ad03e8575815b6c338eca5fac3a6a3c8fba44fd07",
+          "__init__.py": "dae833b75f167aa19c153bd1a342efca44c7090e7928e2eb75a74a0560ae7808",
+          "run.py": "f32bff277d33388bb48736e96c6f611d7da1efbed724e9e058f327606a95b100",
+          "array.py": "efddf5efa881f70a6066e137aaad9c11f9608d7ae4d384b9aa7ccc8be85c42e9",
+          "analyze.py": "21a003f7629bba54fd343c2ab3d0fc2557cbbf2f9d96fa744ed7c0aceb429bf8",
+          "compare.py": "29d7fe4294e323c090589d05ad1143716fb73b26cd5417269b9d3e116538b052",
+          "controller.py": "54ddc219ba14e109dcaf8ecb94cd685ccfb0148dc87bf03b173c53df3de21502",
+          "full_source.py": "f7deacfcbbbcd17d13a8f518fa487a0f74a5e317e18f3c7419224f2daf30cc3a",
+          "router.py": "31d53fa50517e4df7444ed8d1cafe12f1ce5c2f2e4726a4f7466918e723abe66",
+          "full_macro.py": "d249001225abd9dce2645f3fdab457a6e260d262415b7a2b28c458bfa726b712",
+          "verify_full.py": "8247b3a9a079b1ed7d14e0c914fdde3ae02adae1adc35dd636033046101b0a32",
+          "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+          "compare_full.py": "fd17a570ce172f044c5763a70ac44f2aa2585a57e7973fa48961c50a906e72b1",
+          "power.py": "5fe421c664464675b819de2fc3e6c278dad127356958811136aa6180f2f552d7",
+          "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+          "scaled_macro.py": "9078b3817afadd4960d24d192e68feed5c714b5b9d15533a2a8eefbb231d8126",
+          "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+          "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+          "placement.py": "a8e48dd352fdc8b878e5147b2274bc665b2da4d28ca202974acca3126853a908",
+          "compact_macro.py": "0946380768dee3f9b28cc0e00c2902b5522360a476fea02405e32214937de19a",
+          "components.py": "ca2edd48071be5c8b2ef1e43915aa720a97e445b812f308551652eb38e55c0ba",
+          "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+          "bank.py": "18ab6921fbe57aa6ea0dabe97aec6fc24ad94a946205eceb573c6a1f721985b8",
+          "bank_core.py": "7e7b53cb8b0c3c0fcf07c71cc1c0b2cf7a070a515c8117f86b6d40e5e76e98f6",
+          "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+          "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+          "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c"
+        },
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "3ea2d07211b0722b023c395e1529cf9b54dd83bcb5433f02235b26d24cefa69e",
+        "nets": 371,
+        "capacitance": {
+          "shunt_f": 3.010353030080024e-13,
+          "coupling_f": 5.503367367320252e-13,
+          "annotated_total_f": 1.4017091453000042e-12
+        },
+        "extraction": "distributed R+C+CC"
+      },
+      "unchanged_schematic_sha256": "66df2da9a4a9e8ed5cda286b7481568b05fc763e9b51e5619045beb9045d3eda",
+      "prior_folded_bank_area_um2": 5621.184625,
+      "terminal_count": 3576,
+      "decoder_band_rows": 8,
+      "wordline_links": [
+        {
+          "net": "WL0",
+          "row": 0,
+          "start_nm": [
+            363220.0,
+            45800.0,
+            "m2"
+          ],
+          "end_nm": [
+            363640.0,
+            45800.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL1",
+          "row": 1,
+          "start_nm": [
+            363220.0,
+            46200.0,
+            "m2"
+          ],
+          "end_nm": [
+            363640.0,
+            46200.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL2",
+          "row": 2,
+          "start_nm": [
+            363220.0,
+            46600.0,
+            "m2"
+          ],
+          "end_nm": [
+            363640.0,
+            46600.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL3",
+          "row": 3,
+          "start_nm": [
+            363220.0,
+            47000.0,
+            "m2"
+          ],
+          "end_nm": [
+            363640.0,
+            47000.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL4",
+          "row": 4,
+          "start_nm": [
+            363220.0,
+            47400.0,
+            "m2"
+          ],
+          "end_nm": [
+            363640.0,
+            47400.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL5",
+          "row": 5,
+          "start_nm": [
+            363220.0,
+            47800.0,
+            "m2"
+          ],
+          "end_nm": [
+            363640.0,
+            47800.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL6",
+          "row": 6,
+          "start_nm": [
+            363220.0,
+            48200.0,
+            "m2"
+          ],
+          "end_nm": [
+            363640.0,
+            48200.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL7",
+          "row": 7,
+          "start_nm": [
+            363220.0,
+            48600.0,
+            "m2"
+          ],
+          "end_nm": [
+            363640.0,
+            48600.0,
+            "m2"
+          ]
+        }
+      ],
+      "retained_unconsumed_leaves": []
+    },
+    {
+      "artifact_root": "outputs/layout/bank_pitch/bank_32x32_04",
+      "rows": 32,
+      "cols": 32,
+      "source_mos": 8182,
+      "source_fingers": 8182,
+      "physical_gate_count": 8182,
+      "macro_bbox_nm": [
+        0,
+        0,
+        507465.0,
+        59625.0
+      ],
+      "macro_area_um2": 30257.600625,
+      "density_bits_per_um2": 0.033842736332302954,
+      "decoder_bbox_nm": [
+        3300,
+        45600.0,
+        461220.0,
+        58400.0
+      ],
+      "array_origin_nm": [
+        461620.0,
+        45600.0
+      ],
+      "source_deck_sha256": "5c1fc5b972d7aa01971439310fe2ff5df8ee7f4c25771745ce70be7b8c3d7098",
+      "compiler_provenance": {
+        "compiler_version": "V2.2.8",
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature": 25.0,
+        "variation_mode": "nominal",
+        "real_cell_mode": 0,
+        "seed": 20260711,
+        "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+        "interconnect": {
+          "bl": {
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "layer": "M3-reference",
+            "pitch_m": 6e-07,
+            "sections_per_half_pitch": 1,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "width_m": 1e-07
+          },
+          "calibrated_profile": null,
+          "calibrated_profile_sha256": null,
+          "cell_pin_rc": false,
+          "mode": "per_net",
+          "net_models": {},
+          "power_models": {
+            "VDD": {
+              "capacitance_scale": 1.0,
+              "resistance_scale": 1.0
+            },
+            "VSS": {
+              "capacitance_scale": 1.0,
+              "resistance_scale": 1.0
+            }
+          },
+          "reference_profile": null,
+          "reference_profile_sha256": null,
+          "routes": {
+            "data_register_clock": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "data_register_clock-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "decoder_address": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "decoder_address-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "isolation_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "isolation_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "mux_select": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "mux_select-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "peripheral_bitline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "peripheral_bitline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "peripheral_bitline_bar": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "peripheral_bitline_bar-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "precharge_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "precharge_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "replica_bitline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "replica_bitline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "replica_wordline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "replica_wordline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "sense_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "sense_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "wordline_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "wordline_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "write_data": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "write_data-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "write_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "write_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            }
+          },
+          "wl": {
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "layer": "M2-reference",
+            "pitch_m": 6e-07,
+            "sections_per_half_pitch": 1,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "width_m": 1e-07
+          }
+        },
+        "timing": {
+          "budget": "shared",
+          "driver_key": "da8ebee4870ab2683962ab21f13422cabed1f0b4279c45f240ce5d48494e332b",
+          "extrapolated": false,
+          "high": 0,
+          "low_read": 0,
+          "low_write": 0,
+          "margin": 0,
+          "options_key": "6c3c2baefa3d302e214d2a377329287ec055ef233c375a966e6cd14464fd4e9c",
+          "qualified": false,
+          "size_class": "",
+          "source": "fixed",
+          "t_period": 9e-09,
+          "table_sha256": "",
+          "table_version": ""
+        },
+        "driver_sizes": {
+          "area_precharge_width": 2.7e-07,
+          "area_senseamp_width": 5.4e-07,
+          "area_wordline_width": 2.16e-06,
+          "canonical_read": true,
+          "cell_type": "SRAM_6T_CELL",
+          "cols": 32,
+          "control_architecture": "v2.2.0-high-access",
+          "dc_stages": 9,
+          "dec_inv": 1.0,
+          "effort_buffers": true,
+          "enable_off_tau": 4.1024e-12,
+          "extrapolated": false,
+          "isolation_tau": 4.7424000000000005e-12,
+          "key": "da8ebee4870ab2683962ab21f13422cabed1f0b4279c45f240ce5d48494e332b",
+          "loads": {
+            "access_load": 13.75,
+            "far_enable_observer_load_units": 1.75,
+            "iso_load": 264.0,
+            "num_sa": 33,
+            "observer_load_units": 1.0,
+            "pre_load": 141.25,
+            "sen_effort": 3.0,
+            "sen_load": 166.0,
+            "wen_load": 223.25,
+            "wenb_scale": 10,
+            "wl_load": 204.60000000000002
+          },
+          "mux": false,
+          "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+          "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+          "physical_key": "5a94fbb1c60c16a4bc159c7fb14fca0ed84f049347a7d425221a3c2fb09d49a5",
+          "pre": 1.0,
+          "precharge_guard_stages": 4,
+          "precharge_off_guard": true,
+          "precharge_off_guard_stages": 4,
+          "precharge_off_tau": 2.4624e-12,
+          "qualified_context_key": "",
+          "replica_k": 1,
+          "replica_length": 5e-08,
+          "replica_matched": true,
+          "replica_nmos_models": [
+            "NMOS_VTG",
+            "NMOS_VTG"
+          ],
+          "replica_nmos_widths": [
+            2.05e-07,
+            1.35e-07
+          ],
+          "replica_pmos_model": "PMOS_VTG",
+          "replica_pmos_width": 9e-08,
+          "replica_precharge_guard": true,
+          "rows": 32,
+          "rule_version": "v2.0.5-local-1",
+          "size_class": "rows<=32/cols<=32",
+          "source": "lookup",
+          "wd_in": 1.0,
+          "wd_out": 2.0,
+          "wl_inv": 8.0,
+          "wl_nand": 3.0
+        }
+      },
+      "compiler_summary_sha256": "be801091e13b51e40334b11d40dab2be813fb32d748102e739ab14091ec4279c",
+      "generator_sources_sha256": {
+        "lib.py": "ee20b9b25a86191a4804cd9adaeb0b7706c86f7a505a8b001f3b1ed664a0a2eb",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "1e39903cd761279f7404731ee51f142995b53b98dd1270e10b184a1c6d6a962b",
+        "rowperi.py": "c880c2a23fc4c1810d929bc233cdfdf62574e1a5875b297ace30bc7135480eb0",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "top.py": "e29c8308cf01813cd356537480f5fc1335531f9438b939de5cb9313881e6686e",
+        "export.py": "4bd10cc660a748d7789c9b3ad03e8575815b6c338eca5fac3a6a3c8fba44fd07",
+        "__init__.py": "dae833b75f167aa19c153bd1a342efca44c7090e7928e2eb75a74a0560ae7808",
+        "run.py": "f32bff277d33388bb48736e96c6f611d7da1efbed724e9e058f327606a95b100",
+        "array.py": "efddf5efa881f70a6066e137aaad9c11f9608d7ae4d384b9aa7ccc8be85c42e9",
+        "analyze.py": "21a003f7629bba54fd343c2ab3d0fc2557cbbf2f9d96fa744ed7c0aceb429bf8",
+        "compare.py": "29d7fe4294e323c090589d05ad1143716fb73b26cd5417269b9d3e116538b052",
+        "controller.py": "54ddc219ba14e109dcaf8ecb94cd685ccfb0148dc87bf03b173c53df3de21502",
+        "full_source.py": "f7deacfcbbbcd17d13a8f518fa487a0f74a5e317e18f3c7419224f2daf30cc3a",
+        "router.py": "31d53fa50517e4df7444ed8d1cafe12f1ce5c2f2e4726a4f7466918e723abe66",
+        "full_macro.py": "d249001225abd9dce2645f3fdab457a6e260d262415b7a2b28c458bfa726b712",
+        "verify_full.py": "8247b3a9a079b1ed7d14e0c914fdde3ae02adae1adc35dd636033046101b0a32",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "fd17a570ce172f044c5763a70ac44f2aa2585a57e7973fa48961c50a906e72b1",
+        "power.py": "5fe421c664464675b819de2fc3e6c278dad127356958811136aa6180f2f552d7",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "scaled_macro.py": "9078b3817afadd4960d24d192e68feed5c714b5b9d15533a2a8eefbb231d8126",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "a8e48dd352fdc8b878e5147b2274bc665b2da4d28ca202974acca3126853a908",
+        "compact_macro.py": "0946380768dee3f9b28cc0e00c2902b5522360a476fea02405e32214937de19a",
+        "components.py": "ca2edd48071be5c8b2ef1e43915aa720a97e445b812f308551652eb38e55c0ba",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "18ab6921fbe57aa6ea0dabe97aec6fc24ad94a946205eceb573c6a1f721985b8",
+        "bank_core.py": "7e7b53cb8b0c3c0fcf07c71cc1c0b2cf7a070a515c8117f86b6d40e5e76e98f6",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c"
+      },
+      "excluded_instances": [
+        "XTIME_CONTROL"
+      ],
+      "receipt": {
+        "status": "extracted",
+        "scope": "6T bank including decoder, wordline drivers, data and replica core, dummy loads, column periphery and output latch; TIME_CONTROL and input registers remain external",
+        "rows": 32,
+        "cols": 32,
+        "primary": "BANK_32X32",
+        "extraction_workers": null,
+        "controller_layout": false,
+        "layout_sha256": "0a2bfa5ede614d9958060bc6c913c37b82d8a818e0b5222446a522ae8b0bb9f8",
+        "source_sha256": "0a3eaeb9c71d13f471512fd459f6244134422ef87c0bacc88f0bb9675011f2f5",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "lvs_passive_policy": "R SHORT SOURCE; C OPEN SOURCE. Physical passive values require separate xRC verification.",
+        "full_release_screen": false,
+        "artifact_kind": "bank",
+        "core_pitch_nm": {
+          "row": 400.0,
+          "column": 1365.0
+        },
+        "included_instances": [
+          "XSRAM_6T_CORE_32x32",
+          "XDIN_BUF_0",
+          "XDIN_BUF_1",
+          "XDIN_BUF_2",
+          "XDIN_BUF_3",
+          "XDIN_BUF_4",
+          "XDIN_BUF_5",
+          "XDIN_BUF_6",
+          "XDIN_BUF_7",
+          "XDIN_BUF_8",
+          "XDIN_BUF_9",
+          "XDIN_BUF_10",
+          "XDIN_BUF_11",
+          "XDIN_BUF_12",
+          "XDIN_BUF_13",
+          "XDIN_BUF_14",
+          "XDIN_BUF_15",
+          "XDIN_BUF_16",
+          "XDIN_BUF_17",
+          "XDIN_BUF_18",
+          "XDIN_BUF_19",
+          "XDIN_BUF_20",
+          "XDIN_BUF_21",
+          "XDIN_BUF_22",
+          "XDIN_BUF_23",
+          "XDIN_BUF_24",
+          "XDIN_BUF_25",
+          "XDIN_BUF_26",
+          "XDIN_BUF_27",
+          "XDIN_BUF_28",
+          "XDIN_BUF_29",
+          "XDIN_BUF_30",
+          "XDIN_BUF_31",
+          "XWRITEDRIVER_0",
+          "XWRITEDRIVER_1",
+          "XWRITEDRIVER_2",
+          "XWRITEDRIVER_3",
+          "XWRITEDRIVER_4",
+          "XWRITEDRIVER_5",
+          "XWRITEDRIVER_6",
+          "XWRITEDRIVER_7",
+          "XWRITEDRIVER_8",
+          "XWRITEDRIVER_9",
+          "XWRITEDRIVER_10",
+          "XWRITEDRIVER_11",
+          "XWRITEDRIVER_12",
+          "XWRITEDRIVER_13",
+          "XWRITEDRIVER_14",
+          "XWRITEDRIVER_15",
+          "XWRITEDRIVER_16",
+          "XWRITEDRIVER_17",
+          "XWRITEDRIVER_18",
+          "XWRITEDRIVER_19",
+          "XWRITEDRIVER_20",
+          "XWRITEDRIVER_21",
+          "XWRITEDRIVER_22",
+          "XWRITEDRIVER_23",
+          "XWRITEDRIVER_24",
+          "XWRITEDRIVER_25",
+          "XWRITEDRIVER_26",
+          "XWRITEDRIVER_27",
+          "XWRITEDRIVER_28",
+          "XWRITEDRIVER_29",
+          "XWRITEDRIVER_30",
+          "XWRITEDRIVER_31",
+          "XSENSEAMP_0",
+          "XSENSEAMP_1",
+          "XSENSEAMP_2",
+          "XSENSEAMP_3",
+          "XSENSEAMP_4",
+          "XSENSEAMP_5",
+          "XSENSEAMP_6",
+          "XSENSEAMP_7",
+          "XSENSEAMP_8",
+          "XSENSEAMP_9",
+          "XSENSEAMP_10",
+          "XSENSEAMP_11",
+          "XSENSEAMP_12",
+          "XSENSEAMP_13",
+          "XSENSEAMP_14",
+          "XSENSEAMP_15",
+          "XSENSEAMP_16",
+          "XSENSEAMP_17",
+          "XSENSEAMP_18",
+          "XSENSEAMP_19",
+          "XSENSEAMP_20",
+          "XSENSEAMP_21",
+          "XSENSEAMP_22",
+          "XSENSEAMP_23",
+          "XSENSEAMP_24",
+          "XSENSEAMP_25",
+          "XSENSEAMP_26",
+          "XSENSEAMP_27",
+          "XSENSEAMP_28",
+          "XSENSEAMP_29",
+          "XSENSEAMP_30",
+          "XSENSEAMP_31",
+          "XPRECHARGE_0",
+          "XPRECHARGE_1",
+          "XPRECHARGE_2",
+          "XPRECHARGE_3",
+          "XPRECHARGE_4",
+          "XPRECHARGE_5",
+          "XPRECHARGE_6",
+          "XPRECHARGE_7",
+          "XPRECHARGE_8",
+          "XPRECHARGE_9",
+          "XPRECHARGE_10",
+          "XPRECHARGE_11",
+          "XPRECHARGE_12",
+          "XPRECHARGE_13",
+          "XPRECHARGE_14",
+          "XPRECHARGE_15",
+          "XPRECHARGE_16",
+          "XPRECHARGE_17",
+          "XPRECHARGE_18",
+          "XPRECHARGE_19",
+          "XPRECHARGE_20",
+          "XPRECHARGE_21",
+          "XPRECHARGE_22",
+          "XPRECHARGE_23",
+          "XPRECHARGE_24",
+          "XPRECHARGE_25",
+          "XPRECHARGE_26",
+          "XPRECHARGE_27",
+          "XPRECHARGE_28",
+          "XPRECHARGE_29",
+          "XPRECHARGE_30",
+          "XPRECHARGE_31",
+          "Xsram_32x1_replica_column",
+          "XPRECHARGE_RBL",
+          "XREPLICA_SENSEAMP",
+          "XREPLICA_WDRV_LOAD",
+          "XRWL_LOAD_0",
+          "XRWL_LOAD_1",
+          "XRWL_LOAD_2",
+          "XRWL_LOAD_3",
+          "XRWL_LOAD_4",
+          "XRWL_LOAD_5",
+          "XRWL_LOAD_6",
+          "XRWL_LOAD_7",
+          "XRWL_LOAD_8",
+          "XRWL_LOAD_9",
+          "XRWL_LOAD_10",
+          "XRWL_LOAD_11",
+          "XRWL_LOAD_12",
+          "XRWL_LOAD_13",
+          "XRWL_LOAD_14",
+          "XRWL_LOAD_15",
+          "XRWL_LOAD_16",
+          "XRWL_LOAD_17",
+          "XRWL_LOAD_18",
+          "XRWL_LOAD_19",
+          "XRWL_LOAD_20",
+          "XRWL_LOAD_21",
+          "XRWL_LOAD_22",
+          "XRWL_LOAD_23",
+          "XRWL_LOAD_24",
+          "XRWL_LOAD_25",
+          "XRWL_LOAD_26",
+          "XRWL_LOAD_27",
+          "XRWL_LOAD_28",
+          "XRWL_LOAD_29",
+          "XRWL_LOAD_30",
+          "XDECODER",
+          "XWL_DRV_0",
+          "XWL_DRV_1",
+          "XWL_DRV_2",
+          "XWL_DRV_3",
+          "XWL_DRV_4",
+          "XWL_DRV_5",
+          "XWL_DRV_6",
+          "XWL_DRV_7",
+          "XWL_DRV_8",
+          "XWL_DRV_9",
+          "XWL_DRV_10",
+          "XWL_DRV_11",
+          "XWL_DRV_12",
+          "XWL_DRV_13",
+          "XWL_DRV_14",
+          "XWL_DRV_15",
+          "XWL_DRV_16",
+          "XWL_DRV_17",
+          "XWL_DRV_18",
+          "XWL_DRV_19",
+          "XWL_DRV_20",
+          "XWL_DRV_21",
+          "XWL_DRV_22",
+          "XWL_DRV_23",
+          "XWL_DRV_24",
+          "XWL_DRV_25",
+          "XWL_DRV_26",
+          "XWL_DRV_27",
+          "XWL_DRV_28",
+          "XWL_DRV_29",
+          "XWL_DRV_30",
+          "XWL_DRV_31",
+          "XRWL",
+          "XD_LATCH"
+        ],
+        "excluded_instances": [
+          "XTIME_CONTROL"
+        ],
+        "source_deck_sha256": "5c1fc5b972d7aa01971439310fe2ff5df8ee7f4c25771745ce70be7b8c3d7098",
+        "generator_sources_sha256": {
+          "lib.py": "ee20b9b25a86191a4804cd9adaeb0b7706c86f7a505a8b001f3b1ed664a0a2eb",
+          "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+          "colperi.py": "1e39903cd761279f7404731ee51f142995b53b98dd1270e10b184a1c6d6a962b",
+          "rowperi.py": "c880c2a23fc4c1810d929bc233cdfdf62574e1a5875b297ace30bc7135480eb0",
+          "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+          "top.py": "e29c8308cf01813cd356537480f5fc1335531f9438b939de5cb9313881e6686e",
+          "export.py": "4bd10cc660a748d7789c9b3ad03e8575815b6c338eca5fac3a6a3c8fba44fd07",
+          "__init__.py": "dae833b75f167aa19c153bd1a342efca44c7090e7928e2eb75a74a0560ae7808",
+          "run.py": "f32bff277d33388bb48736e96c6f611d7da1efbed724e9e058f327606a95b100",
+          "array.py": "efddf5efa881f70a6066e137aaad9c11f9608d7ae4d384b9aa7ccc8be85c42e9",
+          "analyze.py": "21a003f7629bba54fd343c2ab3d0fc2557cbbf2f9d96fa744ed7c0aceb429bf8",
+          "compare.py": "29d7fe4294e323c090589d05ad1143716fb73b26cd5417269b9d3e116538b052",
+          "controller.py": "54ddc219ba14e109dcaf8ecb94cd685ccfb0148dc87bf03b173c53df3de21502",
+          "full_source.py": "f7deacfcbbbcd17d13a8f518fa487a0f74a5e317e18f3c7419224f2daf30cc3a",
+          "router.py": "31d53fa50517e4df7444ed8d1cafe12f1ce5c2f2e4726a4f7466918e723abe66",
+          "full_macro.py": "d249001225abd9dce2645f3fdab457a6e260d262415b7a2b28c458bfa726b712",
+          "verify_full.py": "8247b3a9a079b1ed7d14e0c914fdde3ae02adae1adc35dd636033046101b0a32",
+          "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+          "compare_full.py": "fd17a570ce172f044c5763a70ac44f2aa2585a57e7973fa48961c50a906e72b1",
+          "power.py": "5fe421c664464675b819de2fc3e6c278dad127356958811136aa6180f2f552d7",
+          "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+          "scaled_macro.py": "9078b3817afadd4960d24d192e68feed5c714b5b9d15533a2a8eefbb231d8126",
+          "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+          "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+          "placement.py": "a8e48dd352fdc8b878e5147b2274bc665b2da4d28ca202974acca3126853a908",
+          "compact_macro.py": "0946380768dee3f9b28cc0e00c2902b5522360a476fea02405e32214937de19a",
+          "components.py": "ca2edd48071be5c8b2ef1e43915aa720a97e445b812f308551652eb38e55c0ba",
+          "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+          "bank.py": "18ab6921fbe57aa6ea0dabe97aec6fc24ad94a946205eceb573c6a1f721985b8",
+          "bank_core.py": "7e7b53cb8b0c3c0fcf07c71cc1c0b2cf7a070a515c8117f86b6d40e5e76e98f6",
+          "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+          "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+          "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c"
+        },
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "dspf_sha256": "3818a8620ff20e79ed8d8952a31f0f4b497b571ff678f8772f6f514089434ce0",
+        "nets": 2985,
+        "capacitance": {
+          "shunt_f": 1.1849664024902835e-12,
+          "coupling_f": 3.0798436166839054e-12,
+          "annotated_total_f": 7.344655980700414e-12
+        },
+        "extraction": "distributed R+C+CC"
+      },
+      "unchanged_schematic_sha256": "0a3eaeb9c71d13f471512fd459f6244134422ef87c0bacc88f0bb9675011f2f5",
+      "prior_folded_bank_area_um2": 19485.56575,
+      "terminal_count": 32728,
+      "decoder_band_rows": 8,
+      "wordline_links": [
+        {
+          "net": "WL0",
+          "row": 0,
+          "start_nm": [
+            460900.0,
+            45800.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            45800.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL1",
+          "row": 1,
+          "start_nm": [
+            460900.0,
+            46200.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            46200.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL2",
+          "row": 2,
+          "start_nm": [
+            460900.0,
+            46600.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            46600.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL3",
+          "row": 3,
+          "start_nm": [
+            460900.0,
+            47000.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            47000.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL4",
+          "row": 4,
+          "start_nm": [
+            460900.0,
+            47400.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            47400.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL5",
+          "row": 5,
+          "start_nm": [
+            460900.0,
+            47800.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            47800.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL6",
+          "row": 6,
+          "start_nm": [
+            460900.0,
+            48200.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            48200.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL7",
+          "row": 7,
+          "start_nm": [
+            460900.0,
+            48600.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            48600.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL8",
+          "row": 8,
+          "start_nm": [
+            460900.0,
+            49000.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            49000.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL9",
+          "row": 9,
+          "start_nm": [
+            460900.0,
+            49400.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            49400.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL10",
+          "row": 10,
+          "start_nm": [
+            460900.0,
+            49800.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            49800.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL11",
+          "row": 11,
+          "start_nm": [
+            460900.0,
+            50200.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            50200.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL12",
+          "row": 12,
+          "start_nm": [
+            460900.0,
+            50600.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            50600.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL13",
+          "row": 13,
+          "start_nm": [
+            460900.0,
+            51000.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            51000.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL14",
+          "row": 14,
+          "start_nm": [
+            460900.0,
+            51400.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            51400.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL15",
+          "row": 15,
+          "start_nm": [
+            460900.0,
+            51800.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            51800.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL16",
+          "row": 16,
+          "start_nm": [
+            460900.0,
+            52200.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            52200.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL17",
+          "row": 17,
+          "start_nm": [
+            460900.0,
+            52600.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            52600.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL18",
+          "row": 18,
+          "start_nm": [
+            460900.0,
+            53000.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            53000.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL19",
+          "row": 19,
+          "start_nm": [
+            460900.0,
+            53400.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            53400.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL20",
+          "row": 20,
+          "start_nm": [
+            460900.0,
+            53800.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            53800.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL21",
+          "row": 21,
+          "start_nm": [
+            460900.0,
+            54200.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            54200.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL22",
+          "row": 22,
+          "start_nm": [
+            460900.0,
+            54600.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            54600.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL23",
+          "row": 23,
+          "start_nm": [
+            460900.0,
+            55000.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            55000.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL24",
+          "row": 24,
+          "start_nm": [
+            460900.0,
+            55400.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            55400.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL25",
+          "row": 25,
+          "start_nm": [
+            460900.0,
+            55800.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            55800.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL26",
+          "row": 26,
+          "start_nm": [
+            460900.0,
+            56200.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            56200.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL27",
+          "row": 27,
+          "start_nm": [
+            460900.0,
+            56600.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            56600.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL28",
+          "row": 28,
+          "start_nm": [
+            460900.0,
+            57000.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            57000.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL29",
+          "row": 29,
+          "start_nm": [
+            460900.0,
+            57400.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            57400.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL30",
+          "row": 30,
+          "start_nm": [
+            460900.0,
+            57800.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            57800.0,
+            "m2"
+          ]
+        },
+        {
+          "net": "WL31",
+          "row": 31,
+          "start_nm": [
+            460900.0,
+            58200.0,
+            "m2"
+          ],
+          "end_nm": [
+            461320.0,
+            58200.0,
+            "m2"
+          ]
+        }
+      ],
+      "retained_unconsumed_leaves": [
+        "XDECODER/XDEC_0_0/XAND4/XPNAND3",
+        "XDECODER/XDEC_0_0/XAND4/XPINV",
+        "XDECODER/XDEC_0_0/XAND_EN4/XPNAND3",
+        "XDECODER/XDEC_0_0/XAND_EN4/XPINV",
+        "XDECODER/XDEC_0_0/XAND5/XPNAND3",
+        "XDECODER/XDEC_0_0/XAND5/XPINV",
+        "XDECODER/XDEC_0_0/XAND_EN5/XPNAND3",
+        "XDECODER/XDEC_0_0/XAND_EN5/XPINV",
+        "XDECODER/XDEC_0_0/XAND6/XPNAND3",
+        "XDECODER/XDEC_0_0/XAND6/XPINV",
+        "XDECODER/XDEC_0_0/XAND_EN6/XPNAND3",
+        "XDECODER/XDEC_0_0/XAND_EN6/XPINV",
+        "XDECODER/XDEC_0_0/XAND7/XPNAND3",
+        "XDECODER/XDEC_0_0/XAND7/XPINV",
+        "XDECODER/XDEC_0_0/XAND_EN7/XPNAND3",
+        "XDECODER/XDEC_0_0/XAND_EN7/XPINV"
+      ]
+    }
+  ],
+  "regressions_passed": 59,
+  "waveform_validation": "not run",
+  "defaults_promoted": false,
+  "source_sizing": "exact same schematic hash as the preceding integrated-bank stage",
+  "openram_reference": "docs/data/OPENRAM_REFERENCE_V2_2_8.json",
+  "prior_evidence_preserved": "docs/data/BANK_INTEGRATION_V2_2_8.json"
+}

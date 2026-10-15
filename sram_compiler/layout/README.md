@@ -1,7 +1,8 @@
-# FreePDK45 layout and RC calibration
+# FreePDK45 component, bank and TIME_CONTROL layouts
 
-V2.2.8 adds compact macro generation. The V2.2.7 calibration references below
-keep their original geometry and evidence. Circuit sizing and timing stay fixed.
+The component-based flow generates source-matched cells, banks and controllers.
+Circuit sizing and timing stay fixed. Each physical boundary requires its own
+DRC/LVS/extraction and waveform evidence.
 
 ## Small cells and component placement
 
@@ -45,365 +46,178 @@ The root bundle contains the placed cell instances and their connections.
 entries stay `generated_unverified`; physical verification writes separate,
 scope-specific receipts. Source, model/configuration provenance and generator
 hashes are retained. Intentional passives and unsupported physical views fail
-explicitly. A one-column composite currently has five upper-metal trunks.
+explicitly. A one-column composite reuses at most four upper-metal tracks;
+disjoint vertical spans share a track while retaining mirrored edge clearance.
 
-This is a **component development flow**. It has not replaced the existing
-macro floorplans, integrated a complete new bank or qualified a new RC/default
-profile. Larger row spans describe standalone components, not a claim that
-they abut a one-row array slice. Whole-bank packing, routing, DRC/LVS/xRC and
-waveform validation remain separate work. See the
-[component design record](../../docs/design/COMPONENT_LAYOUT_V2_2_8.md) for the
+Standalone components have their own verification scope. Larger row spans
+do not claim that cells abut a one-row array slice; bank and controller
+integration are described below. Physical checks do not qualify a new RC/default
+profile or establish waveform correctness. See the
+[component design record](../../docs/design/layout/COMPONENT_LAYOUT_V2_2_8.md) for the
 OpenRAM/SRAM22 source comparison, actual checks and physical limitations.
 
-## Compact macro floorplan
+## OpenRAM-pitch bank
 
-The physically verified compact reference uses an 8×8 nominal mode-0 6T
-`read&write` deck. Generate its native schematic with the explicit
-`interconnect_illustrative.yaml` configuration shown below:
+`layout bank` now defaults to the source-preserving OpenRAM-pitch implementation:
+**705 nm columns and 1365 nm rows**, a decoder on the left, and a replica column
+inside the core. Physical generation accepts up to a single 512×512 bank;
+verified artifacts and their limits are recorded separately. Every source
+MOS except TIME_CONTROL is retained. Physical fingers may change while total
+W/L, topology, sizing policy and timing remain unchanged.
 
 ```bash
-python main_sram.py layout full --floorplan compact --deck "$DECK" \
-  --output-dir outputs/layout/V2.2.8/compact --allow-same-net-vias
+python main_sram.py layout bank --deck "$DECK" --output-dir outputs/layout/openram_pitch/generated
+python main_sram.py layout verify-full --layout-dir outputs/layout/openram_pitch/generated \
+  --pdk-dir "$PDK_DIR" --output-dir outputs/layout/openram_pitch/verification
+```
+
+The generator checks actual GDS bounding-box areas against recorded OpenRAM
+cell and 32×32 block ceilings. It also checks the complete physical finger and
+terminal inventory. The [current record](../../docs/design/layout/OPENRAM_PITCH_V2_2_8.md)
+contains the measured areas, strict DRC/LVS/xRC evidence, asset attribution and
+comparison limits. TIME_CONTROL and its input registers remain external in
+this default flow; no waveform or RC-default qualification is implied.
+
+### Optional TIME_CONTROL integration
+
+For the 32×32 physical plan, `layout bank --with-controller` adds TIME_CONTROL
+and its input registers. It follows OpenRAM's floorplan:
+
+- Control logic sits left of the decoder, with all bank-facing pins on its
+  right edge.
+- The 32 data registers form a pitch-planned array below the column periphery.
+- Every interface net is an explicit one- to three-segment track; there is no
+  maze search. Drives are straight M6 lines into the bank's control trunks,
+  far-end returns are straight M7 lines, and the data bus is a left-edge
+  M3/M4 channel.
+
+The historical design used reusable OpenYield standard-cell templates with frozen source
+W/L and topology, plus four custom RC guards. The recorded export
+(`planned_02`) is 4050.6731 µm², 29.7% smaller than the maze-routed `full_40`.
+It passes zero Calibre DRC violations, strict LVS `CORRECT` and distributed
+R+C+CC extraction; all four guard resistances are independently checked. See
+the [controller layout record](../../docs/design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md)
+for the floorplan, routing comparison, verification and limitations.
+
+```bash
+python main_sram.py layout bank --with-controller --deck "$DECK" \
+  --output-dir outputs/layout/time_control/generated
+python main_sram.py layout verify-full --layout-dir outputs/layout/time_control/generated \
+  --pdk-dir "$PDK_DIR" --output-dir outputs/layout/time_control/generated_verify
+```
+
+`layout time-control` generates the standalone controller; the historical
+RC-based export was 838.7843625 µm². `layout controlled-bank` is the direct complete-bank command.
+Output directories must be new.
+
+### Single 512×512 bank and compact digital control
+
+Current TIME_CONTROL source contains no intentional RC guards or decoder
+settling capacitors. Far-end feedback and the existing short digital delays
+remain. `simulate --compact-control` also factors isolation logic and removes
+the unused sense-enable complement inverter and obsolete sizing loads.
+
+Use `--sizing-lookup sram_compiler/sizing/layout_sizing_lookup.json` for the
+explicit driver candidate derived from the verified 32×32 bank's coupled RC
+extraction. Automatic timing retains the 512×256 envelope; an explicit
+`--period` permits diagnostic source generation through 512×512. No operating
+point or release qualification is implied. See the
+[scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md) for commands, sizes,
+waveform evidence and actual layout verification.
+
+`layout preview --layout-dir PATH` produces `layout.png`, `placement.png` and
+`time_control.png` directly from the GDS. `layout driver-audit` measures metal
+loads and gate widths only after hash-bound, passing DRC/LVS/coupled extraction.
+
+## Integrated bank with external control (historical pitch)
+
+`layout bank --legacy-pitch` includes the decoder, data and replica wordline drivers,
+output latch, and all replica circuitry. The replica column and dummy load row
+are inside the dense core hierarchy, with matching row pitch, taps and physical
+supply connections. The decoder and data wordline drivers sit entirely to the
+left of the core, span its data-row height, and join every WL directly on M2
+at 400 nm pitch. Unchanged leaf cells occupy horizontal eight-row bands; this
+integrated floorplan requires at least eight rows and a multiple of eight.
+RWL/output-latch auxiliary logic remains below the decoder.
+TIME_CONTROL and its input registers remain external by user choice; every
+other native circuit instance is included.
+
+```bash
+python main_sram.py layout bank --legacy-pitch --deck "$DECK" \
+  --output-dir outputs/layout/bank_integrated/generated
 python main_sram.py layout verify-full \
-  --layout-dir outputs/layout/V2.2.8/compact --pdk-dir "$PDK_DIR" \
-  --output-dir outputs/layout/V2.2.8/compact_extraction
+  --layout-dir outputs/layout/bank_integrated/generated --pdk-dir "$PDK_DIR" \
+  --output-dir outputs/layout/bank_integrated/verification
 ```
 
-The generic `layout compact` diagnostic supports even dimensions of at least
-2×2 and needs its own routing and physical verification. Routing can require
-changed placement columns or pitch; the fixed-macro receipt does not certify
-these generic layouts.
+The 8×8 and 32×32 integrated banks pass DRC/LVS/R+C+CC. These are physical
+checks, with no new waveform qualification or default promotion. See the
+[row-pitch record](../../docs/design/layout/BANK_ROW_PITCH_V2_2_8.md) for geometry,
+source coverage, dimensions, receipts and native previews. The generic leaves
+currently produce a wide decoder strip; the measured area increase is recorded.
+The [executed OpenRAM reference](../../docs/design/layout/OPENRAM_REFERENCE_V2_2_8.md)
+provides a separate 32×32 bank GDS and physical-check scope for comparison.
 
-The compact generator keeps the dense mirrored bitcell tile. It groups direct
-MOS by complete common subcircuit (including DFF and driver child gates),
-reuses geometry only for matching models, widths,
-lengths and finger layouts, and packs those blocks onto shelves by height.
-The body and source M3 pins share an access row; gate and drain pins retain
-their stagger for routing access. Reserved M4 escapes protect pin access;
-width-aware clearance separately protects the 190 nm supply trunks near M3
-stubs. Short nets route before global trunks, with bounded route-order retries.
-A repeating eight-track
-bitline escape bounds the array/periphery channel depth; adjacent columns use
-different tracks. All fingers and explicit body taps remain present. Routing
-continues to enforce supply-stack protection and optional same-net via clearance.
+## Component-based bank data path
 
-`--placement-columns` controls shelf width (default 32, minimum 8).
-`--placement-pitch-nm` retains the 1680 nm minimum and 280 nm grid.
-`--power-tap-count` controls upper-metal supply feeds. There is no automatic
-sizing, fingering, clock or controller-topology change. This is the first
-compaction step; it does not yet implement shared-diffusion standard cells or
-bitcell-pitch column periphery for arbitrary dimensions.
-
-`layout.json` records source and generator hashes, every finger and terminal,
-reused subcircuit placements, the actual macro bounding box, area in µm² and
-density in bits/µm². Area includes routing, passives and supply buses. Density
-uses stored array bits divided by that area. Generated geometry is marked
-unverified; official results belong in the separate verification receipt.
-
-`layout scaled` defaults to the historical reference placement;
-`layout scaled --floorplan compact` selects the same compact generator.
-`layout full` defaults to its fixed 8×8 geometry. For that macro, use
-`layout full --floorplan compact --allow-same-net-vias` to retain the existing
-pitch-aligned row/column periphery and compact the controller/register/latch
-region. `layout reference` retains its fixed geometry.
-Changed geometry must be extracted and checked independently before supplying
-a compact RC profile to a simulation. Existing calibrated profiles describe
-their historical layouts and are not evidence for these new layouts.
-
-The [V2.2.8 design record](../../docs/design/LAYOUT_COMPACTION_V2_2_8.md)
-documents the OpenRAM implementation scan, area comparisons and exact checks.
-
-The V2.2.7 complete **8×8 6T macro** includes
-TIME_CONTROL, input registers, physical RC filters and the output latch, as well
-as the array, decoder, replica and periphery. See the
-[complete reference](#complete-macro-and-controller-reference) below. The initial
-array/macro measurements in the first sections excluded TIME_CONTROL and used
-ideal controls; their evidence retains that historical scope. Testbench sources
-and startup clamps remain stimulus infrastructure outside both physical layouts.
-
-KLayout's Python library builds actual transistor, contact, via and metal
-geometry; Calibre checks the installed FreePDK45 DRC/LVS rules and extracts
-distributed **R+C+CC** DSPF with source instance names. FreePDK45 is a predictive
-technology, compiled from published information; these are layout-derived
-references for that kit, not measured silicon or a manufacturing foundry PDK.
-See [NC State's kit description](https://eda.ncsu.edu/freepdk/freepdk45/) and
-[Siemens' xRC documentation](https://www.siemens.com/en-gb/products/ic/calibre-design/circuit-verification/xrc/).
-
-The fixed generator preserves the V2.2.6 8×8 reference MOS sizes. It is not a
-parameterized physical SRAM compiler. Official LVS must pass against the supplied
-compiler deck before extraction evidence is accepted. No equivalent-mode or
-per-device-mismatch layout is claimed.
-
-The `scaled_macro` diagnostic generator additionally assembles even-sized dense
-6T tiles with peripheral and controller devices taken from the actual compiler
-deck. It rejects changed bitcell geometry and preserves every transistor and
-folded finger. Each size needs its own DRC/LVS/xRC and waveform evidence; the
-8×8 profile is never scaled or applied to another size.
-
-## Reproduce
-
-Run from the repository root, with Python 3.9, PySpice, NumPy, SciPy and PyYAML
-from `environment.yml`. Layout generation additionally needs the KLayout Python
-package (this run used **0.30.7**); the standalone KLayout application alone does
-not provide that Python import. Licensed Calibre xRC and the external FreePDK45
-rules are required for extraction. PDK files are not bundled in OpenYield.
+`layout bank --data-path-only` retains the earlier stage: it tiles the complete
+dense 6T data array with reusable precharge,
+sense, write-driver and write-data-buffer components. Odd columns mirror both
+geometry and terminal maps. M5 bitlines connect to core M3 through explicit
+M4 landings; M4 control/supply buses and M6 buffer supply buses join the cells.
+The sizing and timing from the supplied compiler source remain fixed.
 
 ```bash
-command -v calibre
-command -v Xyce
-python -c 'import klayout.db, scipy'
-
-python main_sram.py simulate --no-run-xyce --rows 8 --cols 8 \
-  --operation write --variation-mode nominal --mc-runs 1 \
-  --real-cell-mode 0 --no-waveform \
-  --output-dir outputs/rc_calibration/source
+python main_sram.py layout bank --data-path-only --deck "$DECK" \
+  --output-dir outputs/layout/bank/generated
+python main_sram.py layout verify-full \
+  --layout-dir outputs/layout/bank/generated --pdk-dir "$PDK_DIR" \
+  --output-dir outputs/layout/bank/verification
 ```
 
-Use the generated `deck.sp` as `DECK` and set `PDK_DIR` to the directory containing
-`ncsu_basekit/techfile/calibre/`. The following variables deliberately refer to
-external inputs rather than machine-specific repository defaults:
+Use a native nominal, mode-0 6T deck with explicit illustrative wiring using
+`main_sram.py simulate --variation-mode nominal --real-cell-mode 0 --operation
+read&write --no-run-xyce --interconnect-config
+sram_compiler/config_yaml/interconnect_illustrative.yaml`. The dense tile requires even dimensions of
+at least 2×2 and its exact device geometry/connectivity. The generator rejects
+changed bitcells, muxed columns, mismatched peripheral variants, and unsupported
+connections. Each size and source requires its own physical verification.
+
+This entrance implements the **bank data path**, with decoded `WL*`, `PRE`,
+`s_en`, `sa_iso`, `w_en`, and registered `DIN_dff*` as inputs, and `SA_Q*` /
+`SA_QB*` as outputs. Decoder, replica, TIME_CONTROL and output latch are recorded
+as excluded instances. The hierarchy and verification receipt preserve this
+boundary; they do not describe a complete autonomous SRAM bank.
+
+`layout.json` records every source MOS and finger terminal, physical gate
+count/area, transformed instance pins, full bounding-box area, density, and
+source/generator provenance. `cells/` exports independently verifiable masters.
+Generated geometry stays unverified until a separate receipt completes DRC,
+LVS and R+C+CC extraction. Failed attempts remain in their own directories.
+See the [bank record](../../docs/design/layout/BANK_LAYOUT_V2_2_8.md) and
+[density review](../../docs/design/layout/COMPONENT_LAYOUT_V2_2_8.md#density-and-bank-integration-review)
+for measurements and exact validation scope. No bank waveform comparison or
+RC-default promotion is implied by these physical checks.
+
+## Generate a source deck
+
+Run from the repository root in the project Conda environment. Layout generation
+requires the KLayout Python library; verification requires installed Calibre
+and an external FreePDK45 kit selected by `PDK_DIR`.
 
 ```bash
-export PDK_DIR=/path/to/FreePDK45
-DECK=/path/to/generated/deck.sp
-
-python main_sram.py layout reference --deck "$DECK" \
-  --pdk-dir "$PDK_DIR" --output-dir outputs/rc_calibration/macro --extract
-python main_sram.py layout reference --deck "$DECK" \
-  --pdk-dir "$PDK_DIR" --output-dir outputs/rc_calibration/array --array-only --extract
-python main_sram.py layout analyze \
-  --macro-dir outputs/rc_calibration/macro \
-  --array-dir outputs/rc_calibration/array \
-  --output-dir outputs/rc_calibration/analysis
-python main_sram.py layout compare \
-  --macro-dir outputs/rc_calibration/macro --pre-layout-deck "$DECK" \
-  --models tran_models/models_TT.spice --xyce Xyce \
-  --output-dir outputs/rc_calibration/comparison
-```
-
-Each output directory must be empty. Receipts record GDS, schematic, source deck,
-generator, Calibre executable and DRC/LVS/xRC rule hashes. Failed stages preserve
-their logs and record failure. Analysis rejects failed DRC/LVS, grounded-only
-extraction, mismatched array/macro sources or rules, and changed GDS/DSPF/schematic
-hashes. `--extract` without `--array-only` produces hierarchical and flat macro GDS;
-without `--extract` the output is explicitly unverified.
-
-The xRC sequence includes hierarchical LVS to generate the source/layout cross
-reference, followed by `-phdb`, `-pdb -rcc`, and `-fmt -all`. The ground node is
-Calibre's default `0`; the comparison ties VSS to `0` explicitly. Default kit
-reduction settings remain in effect, so retain rule hashes and logs. Coupling
-capacitors, contact/poly/via resistances and extracted MOS diffusion areas and
-perimeters remain in the exact DSPF reference.
-
-## Reduction and back-annotation
-
-The standalone array needs an explicit M4 VDD strap because its supply stripes
-are normally joined by the macro's column periphery. The earlier local tile
-omitted that strap. The corrected tile passes Calibre DRC and LVS independently.
-
-The analysis solves each extracted resistor network as a conductance matrix and
-fits resistance against actual mirrored contact positions. A shortest path is
-not an electrical resistance when there are parallel paths. WL gate contacts
-span eight column pitches. Shared BL contacts span six row pitches; BLB contacts
-span eight. Applying six to both polarities overestimates BLB wire resistance.
-
-The initial reduced profile is:
-
-| Route | Layer | Cell pitch | R per pitch | C per pitch |
-|---|---|---:|---:|---:|
-| WL | M2, effective track plus landing environment | 1.365 µm | 4.654 Ω | 0.783 fF |
-| BL/BLB mean | M3, effective track plus landing environment | 0.400 µm | 1.429 Ω | 0.128 fF |
-
-For the existing `WireRC` API, `R_pitch = R_sheet * pitch / width` and
-`C_pitch = C_per_m * pitch`, with a 70 nm track width. Effective sheet resistance
-absorbs the actual landing geometry; it is not a replacement for the kit's metal
-sheet-resistance table. The fit intercept retains port/contact/poly pin access
-resistance separately and is **not** folded into per-pitch metal resistance.
-
-The C reduction uses Calibre NET incident totals divided by eight. These include
-coupling with neighbours held quiet. The exact DSPF preserves dynamic coupling;
-NET totals count a coupling capacitor on both participating nets. Summing these
-totals is not the sum of unique physical capacitor elements. The reduction is
-also a single-size fit and includes endpoint loading; it does not establish a
-scaling law for larger arrays.
-
-[`interconnect_freepdk45_8x8.yaml`](../config_yaml/interconnect_freepdk45_8x8.yaml)
-is an optional diagnostic override. Generate a second nominal write deck with
-`--interconnect-config sram_compiler/config_yaml/interconnect_freepdk45_8x8.yaml`,
-then pass it as `--candidate-deck` to the comparison. That runner refuses a
-candidate with changed macro MOS models, widths, lengths or counts. It retains
-the pre-layout macro's actual R/C elements and replaces the macro with the exact
-source-named DSPF in the post-layout case, respecting DSPF port order and probing
-physical cell terminals.
-
-The comparison uses identical ideal 4 ns control slots for seven operations:
-write two rows, read both, overwrite one, read both again. It checks wordline
-selection, stored values and retention, sense outputs, and wordline/bitline
-recovery. KLU uses common DC NODESET hints on the 64 cells; these are suggestions,
-not forced initial data. Storage/retention checks cover the two rows after they
-have been written. The hints are released for transient analysis. It is a slow macro diagnostic, **not** the
-TIME_CONTROL waveform screen, full-array PVT/yield qualification, or a default
-promotion gate. Results and full CSV waveforms remain under the chosen output.
-The initial coupled reference reached a 600-second timeout; the identical deck
-completed with a 2,400-second limit and passed all 360 checks. Pre-layout and
-reduced-RC cases also passed 360 checks each. The CLI therefore defaults to a
-2,400-second limit per variant; solver timing depends on the host.
-
-## Complete macro and controller reference
-
-The subsequent [full macro calibration record](../../docs/design/FULL_RC_CALIBRATION_V2_2_7.md)
-records the user-authorized controller legalization and the complete physical
-implementation. The original array-only measurements above remain historical
-reference evidence. The complete macro now includes TIME_CONTROL, all input
-registers, four intentional physical RC filters and the output latch. Official
-Calibre DRC reports zero violations and LVS reports `CORRECT`; LVS treats the
-physical passives by DC reduction and xRC independently verifies their values.
-
-The new estimated model composes 709 separate per-net R/C files, explicit
-cross-net coupling, and independent VDD/VSS power meshes, then back-annotates
-junction geometry. The default YAML exposes each network and its own scales. It is calibrated against the
-full xRC result, rather than reusing one WL/BL pair for every route. It protects
-all MOS/port terminals, preserves DC series resistance, and retains all coupling.
-The complete nominal physical waveform comparison is a scoped diagnostic; it
-does not certify the full release screen or other array sizes and topologies.
-
-Generate a nominal 8×8 read/write baseline with explicit illustrative wiring:
-
-```bash
-python main_sram.py simulate --no-run-xyce --rows 8 --cols 8 \
-  --operation 'read&write' --variation-mode nominal \
-  --real-cell-mode 0 --corner TT --vdd 1 --temperature 25 --period 9e-9 \
+python main_sram.py simulate --rows 8 --cols 8 --operation 'read&write' \
+  --variation-mode nominal --real-cell-mode 0 --no-run-xyce \
   --interconnect-config sram_compiler/config_yaml/interconnect_illustrative.yaml \
-  --output-dir outputs/rc_calibration/native
+  --output-dir outputs/layout/source_8x8
 ```
 
-Use the generated `deck.sp` as `DECK` and a FreePDK45 installation as `PDK_DIR`:
+Set `DECK` to the emitted `deck.sp`. Use fresh output directories for generation
+and verification. The retained `verify-full`, `reduce-rc`, `split-rc`,
+`compare-full`, `compare-snm` and `waveform-metrics` tools support physical
+verification and RC analysis. `layout --help` lists the current commands.
 
-```bash
-python main_sram.py layout full --deck "$DECK" \
-  --output-dir outputs/rc_calibration/full_layout
-python main_sram.py layout verify-full \
-  --layout-dir outputs/rc_calibration/full_layout --pdk-dir "$PDK_DIR" \
-  --output-dir outputs/rc_calibration/full_extraction
-python main_sram.py layout reduce-rc \
-  --layout-dir outputs/rc_calibration/full_layout \
-  --extraction-dir outputs/rc_calibration/full_extraction \
-  --maximum-series-ohm 500 --output-dir outputs/rc_calibration/reduced
-python main_sram.py layout compare-full --deck "$DECK" \
-  --profile outputs/rc_calibration/reduced/profile.json \
-  --extraction-dir outputs/rc_calibration/full_extraction \
-  --output-dir outputs/rc_calibration/full_comparison --execute --xyce Xyce
-```
-
-Use new output directories. The comparison preserves compiler stimuli and runs
-four accesses with final recovery, ending 5 ps before the fifth capture. It uses
-common complete logical initial conditions, UIC, 5 ps output, a 20 ps integration
-ceiling, and explicit KLU. Completion of Xyce alone does not mark a profile
-validated. The independent Python waveform checker remains local and ignored;
-[`v227_full_rc_cases.json`](../../tests/spice/v227_full_rc_cases.json) preserves
-the protocol in a fresh clone. Raw layouts, DSPF, decks, attempts and waveforms
-remain under ignored `outputs/`.
-
-After waveform validation, `split_rc` exports separate net files without changing
-any reduced resistor/capacitor value or ordering:
-
-```bash
-python main_sram.py layout split-rc \
-  --profile outputs/rc_calibration/reduced/profile.json \
-  --output-dir outputs/rc_calibration/per_net
-```
-
-Draft exports remain unvalidated. The checked-in schema-2 profile includes
-physical/waveform receipts and exact scope; compiler loading checks these,
-network hashes, device geometry, controller configuration and model hash.
-The default calibrated compiler passes 1,241 complete waveform checks and has
-3.40 ps mean / 7.62 ps maximum edge error against full coupled xRC. The known
-100 µA power-mesh diagnostic gives 7.36 mV VDD drop and 8.23 mV ground rise.
-See the complete record for initialization, passive LVS policy and scope.
-
-## Additional macro sizes and DC curves
-
-The [completed size comparison](../../docs/design/MULTI_SIZE_RC_CALIBRATION_V2_2_7.md)
-records all 22,881 passing waveform checks, extracted SNM curves, 4.05–6.00 ps
-mean edge errors and normal compiler-loading proofs. These are explicit
-size-specific references; they do not replace the automatic 8×8 defaults.
-
-The size campaign uses 8×16, 16×8 and 16×16 nominal 6T macros, a common fixed
-30 ns clock, four W1/R1/W0/R0 accesses, all-cell probes, 5 ps output and a 20 ps
-integration ceiling. These are calibration diagnostics. Device sizing stays
-fixed within each compiler/extracted comparison. The case protocol is recorded
-in [`v227_multi_size_rc_cases.json`](../../tests/spice/v227_multi_size_rc_cases.json).
-
-For a new nominal `read&write` compiler deck, use new output directories:
-
-```bash
-python main_sram.py layout scaled --deck "$DECK" \
-  --output-dir outputs/rc_calibration/scaled_layout
-python main_sram.py layout verify-full \
-  --layout-dir outputs/rc_calibration/scaled_layout --pdk-dir "$PDK_DIR" \
-  --output-dir outputs/rc_calibration/scaled_extraction
-python main_sram.py layout reduce-rc \
-  --layout-dir outputs/rc_calibration/scaled_layout \
-  --extraction-dir outputs/rc_calibration/scaled_extraction \
-  --maximum-series-ohm 500 --output-dir outputs/rc_calibration/scaled_reduced
-python main_sram.py layout compare-full --deck "$DECK" \
-  --profile outputs/rc_calibration/scaled_reduced/profile.json \
-  --extraction-dir outputs/rc_calibration/scaled_extraction \
-  --output-dir outputs/rc_calibration/scaled_comparison --execute --xyce Xyce
-```
-
-`--power-tap-count` changes the number of upper-metal controller feeds per
-supply. It changes real layout geometry and requires fresh extraction and
-waveform checks. The fixed 8×8 generator rejects other dimensions explicitly.
-`--placement-pitch-nm` optionally widens horizontal device spacing without
-changing MOS widths or lengths; it must fit the device and be a multiple of
-the 280 nm routing grid. `--allow-same-net-vias` permits adjacent same-net
-via4 landings. Both change geometry and require independent verification.
-The scaled generator protects fixed pad/array supply-stack landings before
-signal routing; spacing DRC alone cannot detect a signal-to-supply short.
-`compare_full` derives its four-access stop time from the supplied compiler
-clock. Solver completion leaves the profile unvalidated until waveform checks
-have passed.
-
-The [extended RC investigation](../../docs/design/EXTENDED_RC_VALIDATION_V2_2_7.md)
-records 32×32 physical verification, native layout PNGs, nine nominal MOS PVT
-points, six paired mismatch samples and two finer-reduction hot-corner tests.
-MOS PVT changes retain the kit's fixed metal RC; they do not verify metal
-corners. The comparison preparer infers native VDD and checks the profile's
-voltage scope. For non-1 V overlays, supply `--vdd`, `--corner` and
-`--temperature` to `waveform_metrics`; its edge and rail thresholds follow VDD.
-
-`waveform_metrics` compares absolute-time edges, voltage error, clock-to-data
-rail delays and far-wordline dwell, and produces PNG/PDF overlays:
-
-```bash
-python main_sram.py layout waveform-metrics \
-  --illustrative outputs/rc_calibration/illustrative_comparison \
-  --comparison-dir outputs/rc_calibration/scaled_comparison \
-  --rows 16 --cols 8 --period 30e-9
-```
-
-For DC characterization, generate the compiler's nominal `hold_snm`, `read_snm`
-and `write_snm` single-cell decks under `COMPILER_SNM/OPERATION/deck.sp`.
-The comparison profile must record the nominal TT model hash and 1 V, 25 °C
-scope. Then run:
-
-```bash
-python main_sram.py layout compare-snm \
-  --profile "$PROFILE" --extraction-dir "$EXTRACTION" \
-  --compiler-dir "$COMPILER_SNM" --models tran_models/models_TT.spice \
-  --output-dir outputs/rc_calibration/scaled_snm --execute --xyce Xyce
-```
-
-DC coupons retain the selected cell's extracted geometry, its entire incident
-resistor components, remote WL/BL bias access, and VDD/VSS resistance. Other MOS
-are removed; these curves do not measure the full macro's operating current.
-The four inverter feedback gates are opened for the same rotated butterfly
-stimulus used by the compiler. Capacitors are omitted because they carry no DC
-current. Hold/read SNM use bounded classical lobes without endpoint fallback;
-write margin uses the existing compiler's constriction definition. Each trace
-must complete the same 1,421-point, 1 mV sweep.
-
-A size-specific reduced network can reproduce its extracted reference without
-establishing a geometry-based prediction for an unseen size. Compiler-wide RC
-defaults and release qualification need separate evidence.
+The older fixed reference, full, scaled and compact macro generators, their
+calibration campaigns and their outputs have been removed. The compiler's
+scoped reference RC data remains under `config_yaml/rc_profiles/`; it describes
+its original geometry and must not be applied to a newly generated bank.

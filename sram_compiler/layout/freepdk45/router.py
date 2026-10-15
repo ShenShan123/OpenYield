@@ -4,6 +4,7 @@ from __future__ import annotations
 import heapq
 from itertools import count
 from math import isfinite
+from typing import Optional
 
 from .lib import Builder
 
@@ -23,7 +24,9 @@ class RoutingError(RuntimeError):
 
 class Router:
     def __init__(self, builder, bounds, use_tree_heuristic=False, allow_same_net_vias=False,
-                 join_diagonal_vias=False, grid_nm=GRID, metal_layers=LAYERS, widths=WIDTHS):
+                 join_diagonal_vias=False, grid_nm=GRID, metal_layers=LAYERS, widths=WIDTHS,
+                 exact_tree_heuristic: bool = False, search_limit: Optional[int] = None,
+                 prefer_deeper_paths: bool = False):
         if (len(metal_layers)!=len(widths) or not metal_layers or
                 not isfinite(grid_nm) or grid_nm<=0 or any(not isfinite(w) or w<=0 for w in widths)):
             raise ValueError('Invalid routing stack')
@@ -37,6 +40,11 @@ class Router:
         self.vias = []
         self.blocked = set()
         self.use_tree_heuristic = use_tree_heuristic
+        self.exact_tree_heuristic = exact_tree_heuristic
+        if search_limit is not None and (type(search_limit) is not int or search_limit<=0):
+            raise ValueError('Routing search limit must be a positive integer')
+        self.search_limit = search_limit
+        self.prefer_deeper_paths = prefer_deeper_paths
         self.allow_same_net_vias = allow_same_net_vias
         self.via_halos = {}
         self.join_diagonal_vias = join_diagonal_vias
@@ -90,28 +98,45 @@ class Router:
 
     def connect(self, net, source, targets):
         tree = {source}
+        tree_layers = {source[2]}
         lower, upper = list(source), list(source)
+        tree_index = None
         def heuristic(point):
             if not self.use_tree_heuristic:
                 return 0.
-            # Distance to the tree's enclosing box is a lower bound on the
-            # nearest branch. Step costs are >=1 and layer changes cost 4.
-            return sum((4 if axis==2 else 1)*max(lower[axis]-point[axis],
-                       point[axis]-upper[axis],0) for axis in range(3))
+            if tree_index is not None:
+                distance = float(tree_index.query((point[0],point[1],4*point[2]),p=1)[0])
+            else:
+                # Distance to the enclosing box bounds the nearest branch.
+                # Step costs are >=1 and layer changes cost 4.
+                distance = sum((4 if axis==2 else 1)*max(lower[axis]-point[axis],
+                               point[axis]-upper[axis],0) for axis in range(3))
+            if self.prefer_deeper_paths and tree_layers=={point[2]}:
+                # Nonpreferred motion costs two extra units per step or needs
+                # two four-unit vias. Projection bounds keep this admissible.
+                axis = 1 if int(self.layers[point[2]][1:])%2==0 else 0
+                wrong = max(lower[axis]-point[axis],point[axis]-upper[axis],0)
+                distance += min(2*wrong,8)
+            return distance
         self.reserve(source, net)
         remaining = set(targets) - tree
         serial = count()
         while remaining:
+            if self.exact_tree_heuristic:
+                from scipy.spatial import cKDTree
+                tree_index=cKDTree([(x,y,4*layer) for x,y,layer in tree])
             target = min(remaining, key=lambda p: (abs(p[0]-source[0])+abs(p[1]-source[1]), p))
-            frontier = [(heuristic(target), next(serial), target)]
+            frontier = [(heuristic(target), 0., next(serial), target)]
             costs, parent = {target: 0.}, {}
             closed = set()
             reached = None
             while frontier:
-                _, _, p = heapq.heappop(frontier)
+                _, _, _, p = heapq.heappop(frontier)
                 if p in closed:
                     continue
                 closed.add(p)
+                if self.search_limit is not None and len(closed)>self.search_limit:
+                    break
                 if p in tree:
                     reached = p
                     break
@@ -120,7 +145,11 @@ class Router:
                     if cost < costs.get(q, float('inf')):
                         costs[q] = cost
                         parent[q] = p
-                        heapq.heappush(frontier, (cost+heuristic(q), next(serial), q))
+                        # Tall shared frames have large equal-cost plateaus.
+                        # Advancing toward the tree avoids exhausting the
+                        # search budget on every equally short partial path.
+                        depth = -cost if self.prefer_deeper_paths else 0.
+                        heapq.heappush(frontier, (cost+heuristic(q), depth, next(serial), q))
             if reached is None:
                 blockers = set()
                 for x,y,layer in closed:
@@ -149,6 +178,7 @@ class Router:
                             elif halo not in self.owner:
                                 self.blocked.add(halo)
             tree.update(path)
+            tree_layers.update(p[2] for p in path)
             for point in path:
                 for axis in range(3):
                     lower[axis]=min(lower[axis],point[axis])

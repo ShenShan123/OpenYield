@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "lookup_version": "v2.2.8-layout-candidate-1",
+  "row_classes": [
+    {
+      "max_rows": 32,
+      "pre": 0.5,
+      "wd_out": 1.5,
+      "wd_in": 0.5
+    },
+    {
+      "max_rows": 64,
+      "pre": 0.5,
+      "wd_out": 1.5,
+      "wd_in": 0.5
+    },
+    {
+      "max_rows": 128,
+      "pre": 1,
+      "wd_out": 1.5,
+      "wd_in": 0.5
+    },
+    {
+      "max_rows": 256,
+      "pre": 2,
+      "wd_out": 4,
+      "wd_in": 1.0
+    },
+    {
+      "max_rows": 512,
+      "pre": 8,
+      "wd_out": 8,
+      "wd_in": 2.0
+    }
+  ],
+  "column_classes": [
+    {
+      "max_cols": 32,
+      "wl_inv": 1,
+      "wl_nand": 1,
+      "dec_inv": 1
+    },
+    {
+      "max_cols": 64,
+      "wl_inv": 1,
+      "wl_nand": 1,
+      "dec_inv": 1
+    },
+    {
+      "max_cols": 128,
+      "wl_inv": 2,
+      "wl_nand": 1,
+      "dec_inv": 1
+    },
+    {
+      "max_cols": 256,
+      "wl_inv": 4,
+      "wl_nand": 1,
+      "dec_inv": 1
+    },
+    {
+      "max_cols": 512,
+      "wl_inv": 16,
+      "wl_nand": 4.0,
+      "dec_inv": 1
+    }
+  ],
+  "replica": {
+    "K": 1,
+    "N": 9
+  },
+  "qualification": "unqualified diagnostic candidate",
+  "evidence_sha256": "20c4e53889a9926158535e112f4b089d116769925f93be130710514731c2856e"
+}

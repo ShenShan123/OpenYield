@@ -19,5 +19,8 @@ resistance scales allow separate supply-drop and ground-rise experiments.
 Scope: complete 8×8 6T, no mux, target row/column 7, mode 0, nominal TT,
 1 V, 25 °C, read/write at 9 ns, with the recorded controller and device models.
 The four-access comparison includes final restore/hold. This reference does
-not certify other configurations or a full release screen. See
-[the calibration record](../../../../docs/design/FULL_RC_CALIBRATION_V2_2_7.md).
+not certify other configurations or a full release screen. The legacy generator,
+calibration report and raw campaign outputs have been purged; these runtime
+networks and their embedded receipts are retained for the original scope.
+The [current layout flow](../../../layout/README.md) requires independent
+verification for any new geometry.

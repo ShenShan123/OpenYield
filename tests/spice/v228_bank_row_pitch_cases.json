@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "bank with decoder left of core and 400 nm wordline pitch; TIME_CONTROL external",
+  "sizes": [
+    [
+      8,
+      8
+    ],
+    [
+      32,
+      32
+    ]
+  ],
+  "source": {
+    "operation": "read&write",
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 25,
+    "period_s": 9e-09,
+    "interconnect_config": "sram_compiler/config_yaml/interconnect_illustrative.yaml"
+  },
+  "checks": [
+    "decoder bounding box entirely left of core",
+    "decoder bottom/top match data-row span exactly",
+    "every WL links directly on M2 at array_y+200+row*400 with no vertical jog",
+    "all source MOS including unused predecode branches retained",
+    "schematic SHA256 unchanged from previous integrated bank",
+    "DRC zero, LVS CORRECT, distributed R+C+CC at each size",
+    "record GDS/source/model/generator/tool/rule hashes and retain failed attempts"
+  ],
+  "integrated_rows": "multiples of eight, at least eight",
+  "waveform_validation": "not run",
+  "defaults_promotable": false,
+  "local_python_runners_tracked": false
+}

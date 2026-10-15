@@ -101,8 +101,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             self.timing_config = resolve_timing(sram_config, self.driver_sizes,
                 physical_context(w_rc, float(pi_res), float(pi_cap), real_cell_mode, self.interconnect))
         else:
-            # V2.2.4: an injected clock does not buy a way past the envelope.
-            require_envelope(self.num_rows, self.num_cols, load_timing_lookup(_timing_options(sram_config).get('lookup')))
+            options = _timing_options(sram_config)
+            require_envelope(self.num_rows, self.num_cols, load_timing_lookup(options.get('lookup')),
+                             fixed_diagnostic=options.get('mode') == 'fixed')
         if hasattr(self.timing_config, 'validate_for'):
             self.timing_config.validate_for(sram_config, self.driver_sizes)
         self.timing_config.apply(self)
@@ -139,6 +140,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             enable_off_tau=self.driver_sizes.enable_off_tau,
             isolation_tau=self.driver_sizes.isolation_tau,
             control_config=control_config,
+            compact_control=self.driver_sizes.compact_control,
         ).create()
         circuit.subcircuit(time_control)   # Add to main circuit
         

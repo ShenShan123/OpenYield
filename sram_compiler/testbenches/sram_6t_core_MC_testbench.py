@@ -294,9 +294,17 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 return
             raise ValueError('Calibrated RC profile requires its recorded nominal geometry, operation, corner and timing')
         expected = profile.get('control_config')
-        if expected is not None and self.sram_config.time_control.to_dict()!=expected:
-            raise ValueError('Controller geometry changed relative to the calibrated RC profile')
-        validate_source(str(simulator.circuit), profile)
+        try:
+            if expected is not None and self.sram_config.time_control.to_dict()!=expected:
+                raise ValueError('Controller geometry changed relative to the calibrated RC profile')
+            validate_source(str(simulator.circuit), profile)
+        except ValueError as error:
+            if not automatic:
+                raise
+            self.variation_summary['calibrated_rc'] = {
+                'applied': False, 'reason': str(error),
+                'profile_sha256': profile['_sha256'], 'release_qualified': False}
+            return
         model_path = Path(getattr(self.sram_config.global_config, 'pdk_path_' + self.corner))
         if hashlib.sha256(model_path.read_bytes()).hexdigest() != profile['model_sha256']:
             raise ValueError('Device model differs from the calibrated RC reference')
@@ -746,11 +754,13 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         probes += ['XTIME_CONTROL:access_request', 'XTIME_CONTROL:pre_off_ready',
                    'XTIME_CONTROL:wordline_request', 'XTIME_CONTROL:access_settled',
                    'XTIME_CONTROL:write_window',
-                   'XTIME_CONTROL:s_en_bar', 'XTIME_CONTROL:enables_off',
+                   'XTIME_CONTROL:enables_off',
                    'XTIME_CONTROL:wordline_busy', 'XTIME_CONTROL:wordline_idle',
                    'XTIME_CONTROL:read_done', 'XTIME_CONTROL:iso_ready',
                    'XTIME_CONTROL:local_enables_off', 'XTIME_CONTROL:far_enables_off',
                    'XTIME_CONTROL:far_enables_ready']
+        if not self.driver_sizes.compact_control:
+            probes.append('XTIME_CONTROL:s_en_bar')
         probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
         for name, taps in self._control_taps.items():
             probes += [name, taps[0], taps[-1], self.control_tap(name)]

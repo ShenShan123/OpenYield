@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 
-from .export import Nets, parse, instance_parts, WIRE_R, WIRE_C
+from .export import Nets, parse_file, instance_parts, WIRE_R, WIRE_C
 from sram_compiler.parasitics import spice_value
 
 
@@ -20,8 +20,22 @@ class FullSource:
     cols: int = 8
 
 
+_FLAT = {}
+
+
 def flatten(deck):
-    root = parse(Path(deck).read_text().splitlines())
+    """Flatten once per deck file state; callers treat the result as read-only."""
+    path = Path(deck).resolve()
+    stat = path.stat()
+    key = (str(path), stat.st_size, stat.st_mtime_ns)
+    if key not in _FLAT:
+        _FLAT.clear()
+        _FLAT[key] = _flatten(path)
+    return _FLAT[key]
+
+
+def _flatten(deck):
+    root = parse_file(deck)
     nets, devices, passives, aliases, instances = Nets(), [], [], {}, {}
 
     def visit(scope, connections, path):

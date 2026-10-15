@@ -1,29 +1,14 @@
 # Phased SRAM access integration checks
 
-`v227_extended_rc_cases.json` records a new larger-array physical reference,
-fixed-geometry MOS PVT and per-device mismatch comparisons, direct critical
-terminal probes and hot-corner reduction sensitivity. The
-[extended report](../../docs/design/EXTENDED_RC_VALIDATION_V2_2_7.md) records
-completed results and failed operating points. Its local Python runners are
-ignored; this manifest is a protocol, not qualification evidence.
-
-`v227_full_rc_cases.json` records the subsequent complete 8x8 reference,
-including TIME_CONTROL, its registers, physical RC filters and the output latch.
-The fixed 9 ns four-access diagnostic includes final recovery and ends 5 ps
-before the fifth capture. The tracked `layout.freepdk45.compare_full` module
-prepares and executes matched estimated/post-layout decks; independent waveform
-scoring remains local. See the [complete macro record](../../docs/design/FULL_RC_CALIBRATION_V2_2_7.md).
-This diagnostic does not certify the full release screen.
-
-`v227_rc_cases.json` documents the separate FreePDK45 **macro** calibration
-diagnostic: ideal controls, nominal 8x8 6T, no TIME_CONTROL. Its tracked runner
-is `python -m sram_compiler.layout.freepdk45.compare`; it does not use the local
-phased-access runner or certify a full compiler screen. See the
-[layout guide](../../sram_compiler/layout/README.md) and
-[development record](../../docs/design/RC_CALIBRATION_V2_2_7.md).
+Current physical-layout protocols are `v228_component_cases.json`,
+`v228_bank_cases.json`, `v228_bank_integration_cases.json`,
+`v228_bank_row_pitch_cases.json`, `v228_openram_pitch_cases.json`,
+`v228_time_control_layout_cases.json` and `v228_scaling_cases.json`.
+See the [layout guide](../../sram_compiler/layout/README.md) for their scope.
+The older fixed/scaled/compact layout calibration protocols were removed.
 
 `v226_review_cases.json` selects four existing cases for the V2.2.6
-configuration-fix diagnostic. See the [review record](../../docs/design/CONFIGURATION_REVIEW_V2_2_6.md)
+configuration-fix diagnostic. See the [review record](../../docs/design/compiler/CONFIGURATION_REVIEW_V2_2_6.md)
 for results and limits; this subset is not the full release screen.
 
 The case manifests are tracked; the Python runner and waveform checker are
@@ -32,7 +17,7 @@ those scripts. A fresh clone does not include the runner.
 
 `v225_negative_cases.json` preserves the six V2.2.4 negative controls and adds
 eight V2.2.5 short-clock cases with passing reference names and exact expected
-waveform failures. The [negative-control evaluation](../../docs/V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)
+waveform failures. The [negative-control evaluation](../../docs/validation/V2_2_5_NEGATIVE_CONTROL_EVALUATION.md)
 records their Xyce outcomes. The active full-screen queue still uses its frozen
 six-case V2.2.4 manifest; the eight additions run separately.
 To repeat all fourteen from the repository root, select a fresh output root:
@@ -185,7 +170,7 @@ The screen uses illustrative distributed wires and equivalent mode 0. Passing
 these cases is functional screening, not a yield estimate, extracted-metal
 qualification, or proof for arbitrary sizes/PVT. It never promotes a record to
 `sizing_table.json`. The V2.2.2 coverage this manifest answers is
-[what the screen does not cover](../../docs/design/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover),
+[what the screen does not cover](../../docs/design/timing/PHASED_CONTROL_V2_2_2.md#what-the-screen-does-not-cover),
 and the mapping from each gap to each new case is in
-[the V2.2.3 record](../../docs/design/PHASED_CONTROL_V2_2_3.md) and
-[the V2.2.4 record](../../docs/design/PHASED_CONTROL_V2_2_4.md).
+[the V2.2.3 record](../../docs/design/timing/PHASED_CONTROL_V2_2_3.md) and
+[the V2.2.4 record](../../docs/design/timing/PHASED_CONTROL_V2_2_4.md).

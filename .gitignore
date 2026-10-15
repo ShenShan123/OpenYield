@@ -46,3 +46,5 @@ size_optimization/smac3_output/
 size_optimization/smac3_output
 size_optimization/sim/
 size_optimization/tongji_results_*.csv
+# NJUST layout contest materials, VM package and build outputs (kept local).
+/IC_Design_Contest_in_NJUST/

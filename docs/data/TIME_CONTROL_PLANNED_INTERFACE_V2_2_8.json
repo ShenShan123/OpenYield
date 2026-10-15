@@ -1,0 +1,1153 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "date": "2026-10-12",
+  "status": "physically_verified",
+  "scope": "Planned controller-to-core interface for the 32x32 bank with TIME_CONTROL and input registers",
+  "references": {
+    "openram": {
+      "revision": "b2b069ce119d1488cbe6883b2240bceb5c7ce29a",
+      "adopted": [
+        "control logic beside the bank with every output on the bank-facing edge (sram_1bank.place_control)",
+        "one straight wire per control signal into a bank-side control bus (hierarchy_layout.connect_vbus)",
+        "separate data DFF array below the port data, joined by a left-edge channel with vertical constraints (channel_route.py)",
+        "register clock by shared rail abutment plus one spine (dff_array, sram_1bank.route_clk)"
+      ]
+    },
+    "sram22": {
+      "revision": "37eca15",
+      "substrate_revision": "60a8a4b",
+      "adopted": [
+        "pins assigned to the block edge that faces their sink",
+        "channel and gap sizes computed from track counts before placement",
+        "explicit track indices; every route is at most a few segments with no search"
+      ]
+    }
+  },
+  "planned": {
+    "directory": "outputs/layout/time_control/planned_02",
+    "gds_sha256": "014de892485295fd263d2ff89f0083af3b87f4161be06ccb9952df8ba15db079",
+    "source_sha256": "383edc635303c25ccf0a0a5e561be49a3fa759a5cc024f8e0cd52676ba138d05",
+    "manifest_sha256": "2782b84dab5fd9d0fd549922cc47a084ea17d5760731d5ca81c69b8104a54cc9",
+    "receipt_path": "outputs/layout/time_control/planned_02_verify/receipt.json",
+    "receipt_sha256": "4d338c641438b2a26f4de28a92e5558dc88cb577cf5f418239cc1ba65e0b7288",
+    "drc_violations": 0,
+    "lvs": "CORRECT",
+    "extracted_nets": 3600,
+    "dspf_sha256": "a1457dac57ee64ccd1fe143f8f06016cfcc8daec8a3bcf01a987d99d811a13a7",
+    "area_um2": 4050.6730875000007,
+    "bbox_nm": [
+      -16300.0,
+      -13972.5,
+      39145.0,
+      59085.0
+    ],
+    "source_mos": 9572,
+    "physical_fingers": 10702,
+    "source_deck_sha256": "5c1fc5b972d7aa01971439310fe2ff5df8ee7f4c25771745ce70be7b8c3d7098",
+    "generator_sources_sha256": {
+      "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+      "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+      "colperi.py": "1e39903cd761279f7404731ee51f142995b53b98dd1270e10b184a1c6d6a962b",
+      "rowperi.py": "c880c2a23fc4c1810d929bc233cdfdf62574e1a5875b297ace30bc7135480eb0",
+      "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+      "top.py": "e29c8308cf01813cd356537480f5fc1335531f9438b939de5cb9313881e6686e",
+      "export.py": "4bd10cc660a748d7789c9b3ad03e8575815b6c338eca5fac3a6a3c8fba44fd07",
+      "__init__.py": "dae833b75f167aa19c153bd1a342efca44c7090e7928e2eb75a74a0560ae7808",
+      "run.py": "f32bff277d33388bb48736e96c6f611d7da1efbed724e9e058f327606a95b100",
+      "array.py": "efddf5efa881f70a6066e137aaad9c11f9608d7ae4d384b9aa7ccc8be85c42e9",
+      "analyze.py": "21a003f7629bba54fd343c2ab3d0fc2557cbbf2f9d96fa744ed7c0aceb429bf8",
+      "compare.py": "29d7fe4294e323c090589d05ad1143716fb73b26cd5417269b9d3e116538b052",
+      "controller.py": "54ddc219ba14e109dcaf8ecb94cd685ccfb0148dc87bf03b173c53df3de21502",
+      "full_source.py": "f7deacfcbbbcd17d13a8f518fa487a0f74a5e317e18f3c7419224f2daf30cc3a",
+      "router.py": "31d53fa50517e4df7444ed8d1cafe12f1ce5c2f2e4726a4f7466918e723abe66",
+      "full_macro.py": "d249001225abd9dce2645f3fdab457a6e260d262415b7a2b28c458bfa726b712",
+      "verify_full.py": "01cf003cd46543ad2fa34044847388543eeb1f43f74bb57ed9b80cb01f8f9e69",
+      "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+      "compare_full.py": "fd17a570ce172f044c5763a70ac44f2aa2585a57e7973fa48961c50a906e72b1",
+      "power.py": "5fe421c664464675b819de2fc3e6c278dad127356958811136aa6180f2f552d7",
+      "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+      "scaled_macro.py": "9078b3817afadd4960d24d192e68feed5c714b5b9d15533a2a8eefbb231d8126",
+      "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+      "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+      "placement.py": "a8e48dd352fdc8b878e5147b2274bc665b2da4d28ca202974acca3126853a908",
+      "compact_macro.py": "0946380768dee3f9b28cc0e00c2902b5522360a476fea02405e32214937de19a",
+      "components.py": "eaf10128033946a6a1c94ad2d4e41b67310c5db16e9ca4de3aa2ad41a39a523e",
+      "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+      "bank.py": "8542e2d3be9375aa72f39db508143b59b3a9fbb2b6017b292b8cdc55008bbf30",
+      "bank_core.py": "7e7b53cb8b0c3c0fcf07c71cc1c0b2cf7a070a515c8117f86b6d40e5e76e98f6",
+      "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+      "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+      "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+      "dense_logic.py": "6d195a98b158567497584236b04d366e9370bf4ff5e7136f800c528515375a63",
+      "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+      "dense_views.py": "36542cd23e6842c0f99828e6b6a522b29b097631a74c6af736282f5829df154c",
+      "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+      "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+      "dense_decoder.py": "6a848827a2d296003296b38a93460273a2757ebb81b21d8456397f5c20a8889a",
+      "dense_core.py": "74dde4f7bf3254e42d816effed3405672234e5a21255d830532261f502580389",
+      "dense_aux.py": "1f605f428f9ff887784573271be31013a5d2a4c4408c2f83d559726d6d28ad60",
+      "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+      "dense_bank.py": "71e71a2ce2b7ec289018a112b211fd9333e9c659cfeec9ed25006770627b97d5",
+      "dense_budget.py": "34e30949c3f0de27c51d1228f81edeee2b988b4b059871ce3b36d4ddbe888752",
+      "control_cells.py": "5ff65bb8b4bdfcd60bacc22b3ace8947b2607af9c5d1e6f38db42cc717b1c04e",
+      "control_place.py": "ab1d76bfa08f5850c383fe7792fde64a0611d82ad4e3a8163c43ac676fed20a6",
+      "control_passives.py": "9493ab95107768ef1a53e07bfbac018375a1ffbbaeb336909e9ea03f9f0f656b",
+      "time_control.py": "f68b4cd11b697c8c9311bd5529e470646e31174df44c18604e327937b182b8ef",
+      "macro_control.py": "b463d35dfdcec1237ddce2d0e1e74591f8bb43a477c0442fcd87d748af6a5c34",
+      "control_register.py": "2ebbf407fcbe4118183ff308f850a68ba7de1821a8485072c5332b4b5abc6324",
+      "conductor_ownership.py": "182bb573c211e758686a653c1e0c682304950f81b3a5cfbe471fbfa36c806d01",
+      "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99"
+    }
+  },
+  "maze_routed": {
+    "directory": "outputs/layout/time_control/full_40",
+    "gds_sha256": "eae015ade90b4016af3d2d096d6d7ac16d671636eb2bf193e453d1f244ea2791",
+    "source_sha256": "383edc635303c25ccf0a0a5e561be49a3fa759a5cc024f8e0cd52676ba138d05",
+    "manifest_sha256": "95dd9a39714f486b4fded8a88048ad4ee7e3a42dd988cf3a84f4710ba98aaaee",
+    "receipt_path": "outputs/layout/time_control/full_40_verify/receipt.json",
+    "receipt_sha256": "06b342482b4e642e171a5e04f1efa9a291cf57901b73a1375486072c226148ea",
+    "drc_violations": 0,
+    "lvs": "CORRECT",
+    "extracted_nets": 3600,
+    "dspf_sha256": "71651ea87ff991202f08fdbcd49ed47185146838f579931efcd250382b93bb90",
+    "area_um2": 5760.7131125000005,
+    "bbox_nm": [
+      -27302.500000000004,
+      -21902.5,
+      43102.5,
+      59920.0
+    ],
+    "source_mos": 9572,
+    "physical_fingers": 10702,
+    "source_deck_sha256": "5c1fc5b972d7aa01971439310fe2ff5df8ee7f4c25771745ce70be7b8c3d7098",
+    "generator_sources_sha256": {
+      "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+      "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+      "colperi.py": "1e39903cd761279f7404731ee51f142995b53b98dd1270e10b184a1c6d6a962b",
+      "rowperi.py": "c880c2a23fc4c1810d929bc233cdfdf62574e1a5875b297ace30bc7135480eb0",
+      "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+      "top.py": "e29c8308cf01813cd356537480f5fc1335531f9438b939de5cb9313881e6686e",
+      "export.py": "4bd10cc660a748d7789c9b3ad03e8575815b6c338eca5fac3a6a3c8fba44fd07",
+      "__init__.py": "dae833b75f167aa19c153bd1a342efca44c7090e7928e2eb75a74a0560ae7808",
+      "run.py": "f32bff277d33388bb48736e96c6f611d7da1efbed724e9e058f327606a95b100",
+      "array.py": "efddf5efa881f70a6066e137aaad9c11f9608d7ae4d384b9aa7ccc8be85c42e9",
+      "analyze.py": "21a003f7629bba54fd343c2ab3d0fc2557cbbf2f9d96fa744ed7c0aceb429bf8",
+      "compare.py": "29d7fe4294e323c090589d05ad1143716fb73b26cd5417269b9d3e116538b052",
+      "controller.py": "54ddc219ba14e109dcaf8ecb94cd685ccfb0148dc87bf03b173c53df3de21502",
+      "full_source.py": "f7deacfcbbbcd17d13a8f518fa487a0f74a5e317e18f3c7419224f2daf30cc3a",
+      "router.py": "31d53fa50517e4df7444ed8d1cafe12f1ce5c2f2e4726a4f7466918e723abe66",
+      "full_macro.py": "d249001225abd9dce2645f3fdab457a6e260d262415b7a2b28c458bfa726b712",
+      "verify_full.py": "01cf003cd46543ad2fa34044847388543eeb1f43f74bb57ed9b80cb01f8f9e69",
+      "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+      "compare_full.py": "fd17a570ce172f044c5763a70ac44f2aa2585a57e7973fa48961c50a906e72b1",
+      "power.py": "5fe421c664464675b819de2fc3e6c278dad127356958811136aa6180f2f552d7",
+      "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+      "scaled_macro.py": "9078b3817afadd4960d24d192e68feed5c714b5b9d15533a2a8eefbb231d8126",
+      "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+      "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+      "placement.py": "a8e48dd352fdc8b878e5147b2274bc665b2da4d28ca202974acca3126853a908",
+      "compact_macro.py": "0946380768dee3f9b28cc0e00c2902b5522360a476fea02405e32214937de19a",
+      "components.py": "eaf10128033946a6a1c94ad2d4e41b67310c5db16e9ca4de3aa2ad41a39a523e",
+      "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+      "bank.py": "8542e2d3be9375aa72f39db508143b59b3a9fbb2b6017b292b8cdc55008bbf30",
+      "bank_core.py": "7e7b53cb8b0c3c0fcf07c71cc1c0b2cf7a070a515c8117f86b6d40e5e76e98f6",
+      "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+      "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+      "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+      "dense_logic.py": "6d195a98b158567497584236b04d366e9370bf4ff5e7136f800c528515375a63",
+      "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+      "dense_views.py": "36542cd23e6842c0f99828e6b6a522b29b097631a74c6af736282f5829df154c",
+      "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+      "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+      "dense_decoder.py": "6a848827a2d296003296b38a93460273a2757ebb81b21d8456397f5c20a8889a",
+      "dense_core.py": "74dde4f7bf3254e42d816effed3405672234e5a21255d830532261f502580389",
+      "dense_aux.py": "1f605f428f9ff887784573271be31013a5d2a4c4408c2f83d559726d6d28ad60",
+      "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+      "dense_bank.py": "71e71a2ce2b7ec289018a112b211fd9333e9c659cfeec9ed25006770627b97d5",
+      "dense_budget.py": "34e30949c3f0de27c51d1228f81edeee2b988b4b059871ce3b36d4ddbe888752",
+      "control_cells.py": "5ff65bb8b4bdfcd60bacc22b3ace8947b2607af9c5d1e6f38db42cc717b1c04e",
+      "control_place.py": "ab1d76bfa08f5850c383fe7792fde64a0611d82ad4e3a8163c43ac676fed20a6",
+      "control_passives.py": "9493ab95107768ef1a53e07bfbac018375a1ffbbaeb336909e9ea03f9f0f656b",
+      "time_control.py": "4750711c8f559d5b3d162c56bb00d04673c142cffed87dc7c9a83fb84cfe162f",
+      "macro_control.py": "4cb0a6cf1945caeac9f15e97530eb74f754e3538610d971e4d8e9fcc43fab773",
+      "control_register.py": "2ebbf407fcbe4118183ff308f850a68ba7de1821a8485072c5332b4b5abc6324",
+      "conductor_ownership.py": "182bb573c211e758686a653c1e0c682304950f81b3a5cfbe471fbfa36c806d01",
+      "macro_negotiation.py": "5959301a3b700c789e21e815f4d351f28a3bd0756bcc89cb155a52cfc9d06ce8",
+      "route_search.py": "fd1e1dec2e28d63b3e60be3ef08f057f8f06191b8af0e98dd7bcf551906dc96e"
+    }
+  },
+  "reduction_percent": {
+    "area": 29.684519808657626
+  },
+  "routing_comparison": {
+    "maze_routed": {
+      "method": "maze grid steps on M7-M10; fixed M3-M5 data fan-out excluded",
+      "routed_nets": 53,
+      "wire_um": {
+        "m8": 1192.8,
+        "m7": 1566.5,
+        "m9": 512.1,
+        "m10": 790.8
+      },
+      "upper_metal_wire_um": 4062.2,
+      "via_cuts": 853,
+      "direction_or_layer_changes": 2401,
+      "negotiation_repairs": 2
+    },
+    "planned": {
+      "method": "explicit segments drawn at macro level on M1-M10",
+      "routed_nets": 53,
+      "wire_um": {
+        "m1": 19.0,
+        "m2": 8.5,
+        "m3": 208.0,
+        "m4": 299.4,
+        "m5": 46.4,
+        "m6": 135.5,
+        "m7": 221.9,
+        "m8": 46.2,
+        "m9": 101.5,
+        "m10": 30.1
+      },
+      "upper_metal_wire_um": 399.8,
+      "via_cuts": 329,
+      "segments_per_route": {
+        "PRE": 2,
+        "s_en": 2,
+        "sa_iso": 2,
+        "w_en": 2,
+        "wl_en": 5,
+        "A_dff0": 2,
+        "RETURN_pre_far": 2,
+        "RETURN_sen_far": 1,
+        "RETURN_iso_far": 1,
+        "RETURN_wen_far": 1,
+        "RETURN_rbl": 1,
+        "RETURN_rwl": 3
+      }
+    }
+  },
+  "floorplan": {
+    "controller_frame_nm": [
+      -16300.0,
+      0.0,
+      -1000.0,
+      43600.0
+    ],
+    "controller_bbox_nm": [
+      -16272.5,
+      20.0,
+      -1027.5,
+      43472.50000000001
+    ],
+    "controller_area_um2": 662.4333625,
+    "controller_pin_plan": {
+      "PRE": [
+        15200.0,
+        12200.0,
+        "m6"
+      ],
+      "s_en": [
+        15200.0,
+        11900.0,
+        "m6"
+      ],
+      "sa_iso": [
+        15200.0,
+        9400.0,
+        "m6"
+      ],
+      "w_en": [
+        15200.0,
+        3700.0,
+        "m6"
+      ],
+      "wl_en": [
+        15200.0,
+        6000.0,
+        "m6"
+      ],
+      "A_dff0": [
+        15200.0,
+        6500.0,
+        "m6"
+      ],
+      "A_dff1": [
+        15200.0,
+        7000.0,
+        "m6"
+      ],
+      "A_dff2": [
+        15200.0,
+        7500.0,
+        "m6"
+      ],
+      "A_dff3": [
+        15200.0,
+        8000.0,
+        "m6"
+      ],
+      "A_dff4": [
+        15200.0,
+        8500.0,
+        "m6"
+      ],
+      "pre_far": [
+        15000.0,
+        12900.0,
+        "m7"
+      ],
+      "sen_far": [
+        15000.0,
+        11900.0,
+        "m7"
+      ],
+      "iso_far": [
+        15000.0,
+        9400.0,
+        "m7"
+      ],
+      "wen_far": [
+        15000.0,
+        5100.0,
+        "m7"
+      ],
+      "rbl": [
+        15000.0,
+        7300.0,
+        "m7"
+      ],
+      "rwl": [
+        15000.0,
+        15500.0,
+        "m7"
+      ],
+      "VSS": [
+        900.0,
+        1000.0,
+        "m8"
+      ],
+      "VDD": [
+        2600.0,
+        1000.0,
+        "m8"
+      ],
+      "clk_buf": [
+        4300.0,
+        1000.0,
+        "m8"
+      ]
+    },
+    "data_register_bbox_nm": [
+      -8600.0,
+      -13900.0,
+      34410.0,
+      -6400.0
+    ],
+    "data_channel": {
+      "layers": [
+        "m3",
+        "m4"
+      ],
+      "tracks": 16,
+      "track_pitch_nm": 280.0,
+      "track_y_nm": [
+        -4900.0,
+        -4620.0,
+        -4340.0,
+        -4060.0,
+        -3780.0,
+        -3500.0,
+        -3220.0,
+        -2940.0,
+        -2660.0,
+        -2380.0,
+        -2100.0,
+        -1820.0,
+        -1540.0,
+        -1260.0,
+        -980.0,
+        -700.0
+      ],
+      "nets": {
+        "DIN_dff1": {
+          "register_x_nm": -7010.0,
+          "escape_x_nm": 11330.0,
+          "track": 0
+        },
+        "DIN_dff0": {
+          "register_x_nm": -6205.0,
+          "escape_x_nm": 11730.0,
+          "track": 14
+        },
+        "DIN_dff3": {
+          "register_x_nm": -5400.0,
+          "escape_x_nm": 12740.0,
+          "track": 1
+        },
+        "DIN_dff2": {
+          "register_x_nm": -4405.0,
+          "escape_x_nm": 13140.0,
+          "track": 2
+        },
+        "DIN_dff5": {
+          "register_x_nm": -1610.0,
+          "escape_x_nm": 14150.0,
+          "track": 3
+        },
+        "DIN_dff4": {
+          "register_x_nm": -805.0,
+          "escape_x_nm": 14550.0,
+          "track": 15
+        },
+        "DIN_dff7": {
+          "register_x_nm": 0.0,
+          "escape_x_nm": 15560.0,
+          "track": 4
+        },
+        "DIN_dff6": {
+          "register_x_nm": 995.0,
+          "escape_x_nm": 15960.0,
+          "track": 5
+        },
+        "DIN_dff9": {
+          "register_x_nm": 3790.0,
+          "escape_x_nm": 16970.0,
+          "track": 6
+        },
+        "DIN_dff8": {
+          "register_x_nm": 4595.0,
+          "escape_x_nm": 17370.0,
+          "track": 7
+        },
+        "DIN_dff11": {
+          "register_x_nm": 5400.0,
+          "escape_x_nm": 18380.0,
+          "track": 8
+        },
+        "DIN_dff10": {
+          "register_x_nm": 6395.0,
+          "escape_x_nm": 18780.0,
+          "track": 9
+        },
+        "DIN_dff13": {
+          "register_x_nm": 9190.0,
+          "escape_x_nm": 19790.0,
+          "track": 10
+        },
+        "DIN_dff12": {
+          "register_x_nm": 9995.0,
+          "escape_x_nm": 20190.0,
+          "track": 11
+        },
+        "DIN_dff15": {
+          "register_x_nm": 10800.0,
+          "escape_x_nm": 21200.0,
+          "track": 12
+        },
+        "DIN_dff14": {
+          "register_x_nm": 11795.0,
+          "escape_x_nm": 21600.0,
+          "track": 13
+        },
+        "DIN_dff17": {
+          "register_x_nm": 14590.0,
+          "escape_x_nm": 22610.0,
+          "track": 14
+        },
+        "DIN_dff16": {
+          "register_x_nm": 15395.0,
+          "escape_x_nm": 23010.0,
+          "track": 0
+        },
+        "DIN_dff19": {
+          "register_x_nm": 16200.0,
+          "escape_x_nm": 24020.0,
+          "track": 1
+        },
+        "DIN_dff18": {
+          "register_x_nm": 17195.0,
+          "escape_x_nm": 24420.0,
+          "track": 2
+        },
+        "DIN_dff21": {
+          "register_x_nm": 19990.0,
+          "escape_x_nm": 25430.0,
+          "track": 3
+        },
+        "DIN_dff20": {
+          "register_x_nm": 20795.0,
+          "escape_x_nm": 25830.0,
+          "track": 4
+        },
+        "DIN_dff23": {
+          "register_x_nm": 21600.0,
+          "escape_x_nm": 26840.0,
+          "track": 5
+        },
+        "DIN_dff22": {
+          "register_x_nm": 22595.0,
+          "escape_x_nm": 27240.0,
+          "track": 6
+        },
+        "DIN_dff25": {
+          "register_x_nm": 25390.0,
+          "escape_x_nm": 28250.0,
+          "track": 0
+        },
+        "DIN_dff24": {
+          "register_x_nm": 26195.0,
+          "escape_x_nm": 28650.0,
+          "track": 1
+        },
+        "DIN_dff27": {
+          "register_x_nm": 27000.0,
+          "escape_x_nm": 29660.0,
+          "track": 2
+        },
+        "DIN_dff26": {
+          "register_x_nm": 27995.0,
+          "escape_x_nm": 30060.0,
+          "track": 3
+        },
+        "DIN_dff29": {
+          "register_x_nm": 30790.0,
+          "escape_x_nm": 31070.0,
+          "track": 0
+        },
+        "DIN_dff28": {
+          "register_x_nm": 31595.0,
+          "escape_x_nm": 31470.0,
+          "track": 0
+        },
+        "DIN_dff31": {
+          "register_x_nm": 32400.0,
+          "escape_x_nm": 32480.0,
+          "track": 0
+        },
+        "DIN_dff30": {
+          "register_x_nm": 33395.0,
+          "escape_x_nm": 32880.0,
+          "track": 0
+        }
+      }
+    },
+    "supply_straps_nm": {
+      "VSS": {
+        "layer": "m9",
+        "y": -11500.0,
+        "width": 1000.0
+      },
+      "VDD": {
+        "layer": "m9",
+        "y": -9500.0,
+        "width": 1000.0
+      }
+    },
+    "auxiliary_positions_nm": {
+      "XRWL": [
+        8100.0,
+        57720.0
+      ],
+      "XD_LATCH": [
+        36200.0,
+        10470.0
+      ]
+    },
+    "controller_links": [
+      {
+        "controller_port": "PRE",
+        "bank_net": "PRE",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          12200.0,
+          "m6"
+        ],
+        "bank_access": [
+          10730.0,
+          12200.0,
+          "m6"
+        ],
+        "route": "M6 straight"
+      },
+      {
+        "controller_port": "s_en",
+        "bank_net": "s_en",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          11900.0,
+          "m6"
+        ],
+        "bank_access": [
+          10730.0,
+          11900.0,
+          "m6"
+        ],
+        "route": "M6 straight"
+      },
+      {
+        "controller_port": "sa_iso",
+        "bank_net": "sa_iso",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          9400.0,
+          "m6"
+        ],
+        "bank_access": [
+          10730.0,
+          9400.0,
+          "m6"
+        ],
+        "route": "M6 straight"
+      },
+      {
+        "controller_port": "w_en",
+        "bank_net": "w_en",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          3700.0,
+          "m6"
+        ],
+        "bank_access": [
+          10730.0,
+          3700.0,
+          "m6"
+        ],
+        "route": "M6 straight"
+      },
+      {
+        "controller_port": "wl_en",
+        "bank_net": "wl_en",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          6000.0,
+          "m6"
+        ],
+        "bank_access": [
+          9200.0,
+          14000.0,
+          "m5"
+        ],
+        "route": "M6 + M5 riser"
+      },
+      {
+        "controller_port": "A_dff0",
+        "bank_net": "A_dff0",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          6500.0,
+          "m6"
+        ],
+        "bank_access": [
+          5335.0,
+          14020.0,
+          "m5"
+        ],
+        "route": "M6 + M5 riser"
+      },
+      {
+        "controller_port": "A_dff1",
+        "bank_net": "A_dff1",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          7000.0,
+          "m6"
+        ],
+        "bank_access": [
+          5035.0,
+          14020.0,
+          "m5"
+        ],
+        "route": "M6 + M5 riser"
+      },
+      {
+        "controller_port": "A_dff2",
+        "bank_net": "A_dff2",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          7500.0,
+          "m6"
+        ],
+        "bank_access": [
+          4735.0,
+          14020.0,
+          "m5"
+        ],
+        "route": "M6 + M5 riser"
+      },
+      {
+        "controller_port": "A_dff3",
+        "bank_net": "A_dff3",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          8000.0,
+          "m6"
+        ],
+        "bank_access": [
+          1435.0,
+          14020.0,
+          "m5"
+        ],
+        "route": "M6 + M5 riser"
+      },
+      {
+        "controller_port": "A_dff4",
+        "bank_net": "A_dff4",
+        "far_end_return": false,
+        "start": [
+          -1100.0,
+          8500.0,
+          "m6"
+        ],
+        "bank_access": [
+          1135.0,
+          14020.0,
+          "m5"
+        ],
+        "route": "M6 + M5 riser"
+      },
+      {
+        "controller_port": "pre_far",
+        "bank_net": "PRE",
+        "far_end_return": true,
+        "start": [
+          -1300.0,
+          12900.0,
+          "m7"
+        ],
+        "bank_access": [
+          36800.0,
+          12242.5,
+          "m4"
+        ],
+        "route": "M4 bar end + M7"
+      },
+      {
+        "controller_port": "iso_far",
+        "bank_net": "sa_iso",
+        "far_end_return": true,
+        "start": [
+          -1300.0,
+          9400.0,
+          "m7"
+        ],
+        "bank_access": [
+          35900.0,
+          9420.0,
+          "m4"
+        ],
+        "route": "M4 bar end + M7"
+      },
+      {
+        "controller_port": "sen_far",
+        "bank_net": "s_en",
+        "far_end_return": true,
+        "start": [
+          -1300.0,
+          11900.0,
+          "m7"
+        ],
+        "bank_access": [
+          35900.0,
+          11900.0,
+          "m4"
+        ],
+        "route": "M4 bar end + M7"
+      },
+      {
+        "controller_port": "wen_far",
+        "bank_net": "w_en",
+        "far_end_return": true,
+        "start": [
+          -1300.0,
+          5100.0,
+          "m7"
+        ],
+        "bank_access": [
+          35900.0,
+          5077.5,
+          "m4"
+        ],
+        "route": "M4 bar end + M7"
+      },
+      {
+        "controller_port": "rbl",
+        "bank_net": "RBL",
+        "far_end_return": true,
+        "start": [
+          -1300.0,
+          7300.0,
+          "m7"
+        ],
+        "bank_access": [
+          34330.0,
+          7300.0,
+          "m5"
+        ],
+        "route": "M5 replica column + M7"
+      },
+      {
+        "controller_port": "rwl",
+        "bank_net": "RWL",
+        "far_end_return": true,
+        "start": [
+          -1300.0,
+          15500.0,
+          "m7"
+        ],
+        "bank_access": [
+          34645.0,
+          56917.5,
+          "m4"
+        ],
+        "route": "M7 + M8 + M7"
+      }
+    ]
+  },
+  "guard_resistance": {
+    "method": "Full-layout two-terminal sparse conductance solve at actual RC M6 ports, including parallel paths",
+    "dspf_sha256": "a1457dac57ee64ccd1fe143f8f06016cfcc8daec8a3bcf01a987d99d811a13a7",
+    "guards": [
+      {
+        "instance": "Rwordline_setup",
+        "target_ohm": 4102.4,
+        "extracted_ohm": 4083.629737602508,
+        "error_percent": -0.457543447676767,
+        "net": "XTIME_CONTROL/WORDLINE_START_FILTERED",
+        "nodes": [
+          "XTIME_CONTROL/WORDLINE_START_FILTERED:182",
+          "XTIME_CONTROL/WORDLINE_START_FILTERED:176"
+        ],
+        "ports_um": [
+          [
+            -11.7,
+            5.7
+          ],
+          [
+            -12.1,
+            5.7
+          ]
+        ]
+      },
+      {
+        "instance": "Xaccess_guard/Rsettle",
+        "target_ohm": 2462.4,
+        "extracted_ohm": 2473.7000473897256,
+        "error_percent": 0.4589038088745001,
+        "net": "XTIME_CONTROL/XACCESS_GUARD/PRE_ON",
+        "nodes": [
+          "XTIME_CONTROL/XACCESS_GUARD/PRE_ON:175",
+          "XTIME_CONTROL/XACCESS_GUARD/PRE_ON:169"
+        ],
+        "ports_um": [
+          [
+            -11.7,
+            11.9
+          ],
+          [
+            -12.1,
+            11.9
+          ]
+        ]
+      },
+      {
+        "instance": "Xisolation_guard/Rsettle",
+        "target_ohm": 4742.400000000001,
+        "extracted_ohm": 4724.099037665517,
+        "error_percent": -0.38590085894237847,
+        "net": "XTIME_CONTROL/XISOLATION_GUARD/PRE_ON",
+        "nodes": [
+          "XTIME_CONTROL/XISOLATION_GUARD/PRE_ON:191",
+          "XTIME_CONTROL/XISOLATION_GUARD/PRE_ON:185"
+        ],
+        "ports_um": [
+          [
+            -11.7,
+            18.1
+          ],
+          [
+            -12.1,
+            18.1
+          ]
+        ]
+      },
+      {
+        "instance": "Xenable_off_guard/Rsettle",
+        "target_ohm": 4102.4,
+        "extracted_ohm": 4083.629737631579,
+        "error_percent": -0.45754344696813387,
+        "net": "XTIME_CONTROL/XENABLE_OFF_GUARD/PRE_ON",
+        "nodes": [
+          "XTIME_CONTROL/XENABLE_OFF_GUARD/PRE_ON:191",
+          "XTIME_CONTROL/XENABLE_OFF_GUARD/PRE_ON:185"
+        ],
+        "ports_um": [
+          [
+            -11.7,
+            24.3
+          ],
+          [
+            -12.1,
+            24.3
+          ]
+        ]
+      }
+    ]
+  },
+  "standalone_controller_regression": {
+    "regenerated": "outputs/layout/time_control/control_default_regression",
+    "reference": "outputs/layout/time_control/control_20",
+    "identical": [
+      "placements",
+      "pins",
+      "source.sp",
+      "GDS geometry (layer XOR area 0)"
+    ]
+  },
+  "feedback_max_metal": 8,
+  "compiler_provenance": {
+    "compiler_version": "V2.2.8",
+    "corner": "TT",
+    "vdd": 1.0,
+    "temperature": 25.0,
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "seed": 20260711,
+    "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+    "interconnect": {
+      "bl": {
+        "capacitance_f_per_m": 1.6666666666666666e-10,
+        "layer": "M3-reference",
+        "pitch_m": 6e-07,
+        "sections_per_half_pitch": 1,
+        "sheet_resistance_ohm": 0.16666666666666666,
+        "width_m": 1e-07
+      },
+      "calibrated_profile": null,
+      "calibrated_profile_sha256": null,
+      "cell_pin_rc": false,
+      "mode": "per_net",
+      "net_models": {},
+      "power_models": {
+        "VDD": {
+          "capacitance_scale": 1.0,
+          "resistance_scale": 1.0
+        },
+        "VSS": {
+          "capacitance_scale": 1.0,
+          "resistance_scale": 1.0
+        }
+      },
+      "reference_profile": null,
+      "reference_profile_sha256": null,
+      "routes": {
+        "data_register_clock": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "data_register_clock-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "decoder_address": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "decoder_address-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "isolation_control": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "isolation_control-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "mux_select": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "mux_select-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "peripheral_bitline": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "peripheral_bitline-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "peripheral_bitline_bar": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "peripheral_bitline_bar-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "precharge_control": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "precharge_control-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "replica_bitline": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "replica_bitline-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "replica_wordline": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "replica_wordline-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "sense_enable_control": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "sense_enable_control-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "wordline_enable_control": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "wordline_enable_control-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "write_data": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "write_data-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        },
+        "write_enable_control": {
+          "capacitance_f_per_m": 1.6666666666666666e-10,
+          "layer": "write_enable_control-reference",
+          "pitch_m": 6e-07,
+          "sections_per_half_pitch": 1,
+          "sheet_resistance_ohm": 0.16666666666666666,
+          "width_m": 1e-07
+        }
+      },
+      "wl": {
+        "capacitance_f_per_m": 1.6666666666666666e-10,
+        "layer": "M2-reference",
+        "pitch_m": 6e-07,
+        "sections_per_half_pitch": 1,
+        "sheet_resistance_ohm": 0.16666666666666666,
+        "width_m": 1e-07
+      }
+    },
+    "timing": {
+      "budget": "shared",
+      "driver_key": "da8ebee4870ab2683962ab21f13422cabed1f0b4279c45f240ce5d48494e332b",
+      "extrapolated": false,
+      "high": 0,
+      "low_read": 0,
+      "low_write": 0,
+      "margin": 0,
+      "options_key": "6c3c2baefa3d302e214d2a377329287ec055ef233c375a966e6cd14464fd4e9c",
+      "qualified": false,
+      "size_class": "",
+      "source": "fixed",
+      "t_period": 9e-09,
+      "table_sha256": "",
+      "table_version": ""
+    },
+    "driver_sizes": {
+      "area_precharge_width": 2.7e-07,
+      "area_senseamp_width": 5.4e-07,
+      "area_wordline_width": 2.16e-06,
+      "canonical_read": true,
+      "cell_type": "SRAM_6T_CELL",
+      "cols": 32,
+      "control_architecture": "v2.2.0-high-access",
+      "dc_stages": 9,
+      "dec_inv": 1.0,
+      "effort_buffers": true,
+      "enable_off_tau": 4.1024e-12,
+      "extrapolated": false,
+      "isolation_tau": 4.7424000000000005e-12,
+      "key": "da8ebee4870ab2683962ab21f13422cabed1f0b4279c45f240ce5d48494e332b",
+      "loads": {
+        "access_load": 13.75,
+        "far_enable_observer_load_units": 1.75,
+        "iso_load": 264.0,
+        "num_sa": 33,
+        "observer_load_units": 1.0,
+        "pre_load": 141.25,
+        "sen_effort": 3.0,
+        "sen_load": 166.0,
+        "wen_load": 223.25,
+        "wenb_scale": 10,
+        "wl_load": 204.60000000000002
+      },
+      "mux": false,
+      "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+      "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+      "physical_key": "5a94fbb1c60c16a4bc159c7fb14fca0ed84f049347a7d425221a3c2fb09d49a5",
+      "pre": 1.0,
+      "precharge_guard_stages": 4,
+      "precharge_off_guard": true,
+      "precharge_off_guard_stages": 4,
+      "precharge_off_tau": 2.4624e-12,
+      "qualified_context_key": "",
+      "replica_k": 1,
+      "replica_length": 5e-08,
+      "replica_matched": true,
+      "replica_nmos_models": [
+        "NMOS_VTG",
+        "NMOS_VTG"
+      ],
+      "replica_nmos_widths": [
+        2.05e-07,
+        1.35e-07
+      ],
+      "replica_pmos_model": "PMOS_VTG",
+      "replica_pmos_width": 9e-08,
+      "replica_precharge_guard": true,
+      "rows": 32,
+      "rule_version": "v2.0.5-local-1",
+      "size_class": "rows<=32/cols<=32",
+      "source": "lookup",
+      "wd_in": 1.0,
+      "wd_out": 2.0,
+      "wl_inv": 8.0,
+      "wl_nand": 3.0
+    }
+  },
+  "local_tests": {
+    "time_control": "outputs/layout/time_control/planned_02_tests.log (15 passed)",
+    "layout_regressions": "outputs/layout/time_control/planned_02_regressions.log (47 passed in 7 suites)"
+  },
+  "waveform_validation": "not run",
+  "full_release_screen": false,
+  "defaults_promotable": false
+}

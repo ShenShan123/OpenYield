@@ -36,7 +36,7 @@ def leaves(component, mapping=None, path=''):
 def assemble(library, component, axis):
     """Place physical cells, then route only their named boundary ports.
 
-    Column parents use five M5 trunks inside one core column. Row parents
+    Column parents reuse up to four M5 tracks inside one core column. Row parents
     use M5 pin legs and M3 channels at the core row pitch. Routing capacity
     is checked explicitly; dimensions and fingers are never changed to fit.
     """
@@ -65,8 +65,23 @@ def assemble(library, component, axis):
         for port,(px,py,layer) in view.pins.items():
             routed[connections[port]].append((x+px,y+py,layer))
         cursor += view.width_nm if axis == 'row' else view.height_nm
-    if axis=='column' and len(routed)>5:
-        raise ValueError('One-column assembly has five upper-metal trunks; use a dedicated physical view for this component')
+    column_tracks = {}
+    if axis == 'column':
+        # Four tracks leave legal edge clearance under mirrored abutment.
+        # Disjoint pin spans (e.g. buffer input, internal node and output)
+        # reuse a track instead of putting a fifth trunk against the boundary.
+        spans = []
+        for net in sorted(routed, key=lambda n: (n not in ('VDD','VSS'),
+                          min(p[1] for p in routed[n]), n)):
+            low, high = min(p[1] for p in routed[net]), max(p[1] for p in routed[net])
+            slot = next((i for i, ranges in enumerate(spans)
+                         if all(high+300<=a or low>=b+300 for a,b in ranges)),len(spans))
+            if slot == len(spans):
+                spans.append([])
+            spans[slot].append((low,high))
+            column_tracks[net] = 155.+slot*300
+        if len(spans)>4:
+            raise ValueError('One-column assembly exceeds four abutment-safe upper-metal tracks')
     access_width=ceil((len(array_outputs)*300+280)/bitcell.W)*bitcell.W if array_outputs else 0
     width = cursor+access_width if axis=='row' else bitcell.W
     row_tracks, occupied = {}, []
@@ -89,7 +104,7 @@ def assemble(library, component, axis):
             row_tracks[net]=(4+slot)*bitcell.H
     height = (4+len(occupied))*bitcell.H if axis=='row' else cursor
     pins, paths, vias, array_pins = {}, [], [], {}
-    for index,net in enumerate(sorted(routed,key=lambda n:(n not in ('VDD','VSS'),n))):
+    for net in sorted(routed,key=lambda n:(n not in ('VDD','VSS'),n)):
         points=routed[net]
         for x,y,layer in points:
             if layer!='m2':
@@ -119,7 +134,7 @@ def assemble(library, component, axis):
             paths.append((net,start,(max(p[0] for p in points),track,'m3')))
         else:
             # 300 nm accommodates 145 nm via4 landings and 140 nm spacing.
-            track=90.+index*300
+            track=column_tracks[net]
             low,high=min(p[1] for p in points),max(p[1] for p in points)
             cell.rect('m5',track-70,low-70,track+70,high+70)
             for x,y,_ in points:
