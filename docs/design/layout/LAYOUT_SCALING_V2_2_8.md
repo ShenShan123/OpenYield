@@ -221,8 +221,8 @@ timing are the same. [`CENTRE_FLOORPLAN_V2_2_8.json`](../../data/CENTRE_FLOORPLA
 binds each GDS, source deck and Calibre receipt by hash. All three come from
 one generator tree. On that tree, a corner 32×32 rebuild is XOR-identical to
 its recorded layout. After the corner plan was retired, default-floorplan
-rebuilds of the 32×32 and 128×128 centre layouts are XOR-identical to the
-recorded ones, with equal manifests apart from the changed generator hashes.
+rebuilds of all three centre layouts are XOR-identical to the recorded ones,
+with equal manifests apart from the changed generator hashes.
 
 | Square bank | Centre macro (µm) | Centre area (µm²) | Corner area (µm²) | Change | Spare column | Lane rows | Rip-ups | Calibre |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |

@@ -1093,7 +1093,7 @@
     "rebuilds": {
       "32": "XOR-identical",
       "128": "XOR-identical",
-      "512": "pending"
+      "512": "XOR-identical"
     }
   },
   "defaults_promotable": false,
