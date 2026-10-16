@@ -51,6 +51,23 @@ python size_optimization/demo_sa.py
 python size_optimization/experiment.py
 ```
 
+The root optimization entry point lists all methods and includes the integrated
+SramOpt joint yield-constrained search plus the separately contributed
+Online-CTR method:
+
+```bash
+python main_opt.py --list
+python main_opt.py --algorithm SramOpt --check
+python main_opt.py --algorithm Online-CTR --check
+```
+
+The checks need neither datasets nor SPICE runs. A full SramOpt run needs a
+trusted external TabPFN training bundle and checkpoint because data and model
+artifacts are not distributed in this tree. See the [SramOpt guide](size_optimization/sram_opt/README.md)
+and [Online-CTR guide](size_optimization/online_ctr/README.md). SramOpt screens
+circuits with nominal equivalent-array mode 1; validate final candidates with
+mode 0 per-device Monte Carlo before making array-yield claims.
+
 `experiment.py` offers joint architecture and transistor sizing or sizing at fixed configurations. The separate [OpenYield V2 offline package](size_optimization/openyield_v2/README.md) trains on bundled static data and does not call Xyce during optimization:
 
 ```bash

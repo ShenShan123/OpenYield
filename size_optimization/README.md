@@ -1,6 +1,10 @@
 # SRAM sizing optimization
 
-This directory contains two independent workflows: circuit-backed searches that call the current SRAM compiler and Xyce, and the offline `openyield_v2/` surrogate package. Run commands from the repository root. The current release is V2.2.5; array and clock limits are in the [compiler tutorial](../sram_compiler/README.md).
+This directory contains circuit-backed searches that call the current SRAM
+compiler and Xyce, yield-aware integrations, and the independent offline
+`openyield_v2/` surrogate package. Run commands from the repository root. The
+current release is V2.2.6; array and clock limits are in the
+[compiler tutorial](../sram_compiler/README.md).
 
 ## Circuit-backed search
 
@@ -12,6 +16,8 @@ Install the OpenYield environment from `environment.yml`, confirm `Xyce` is on `
 | Bayesian and surrogate methods | `demo_cbo.py`, `demo_tssbo.py`, `demo_cpn.py`, `demo_roseopt.py` |
 | CMA-ES and SMAC | `demo_cmaes.py`, `demo_smac.py` |
 | Multi-objective search | `demo_nsgaii.py`, `demo_moead.py`, `demo_mobo.py` |
+| SramOpt joint architecture/sizing | `sram_opt/runner.py` through `main_opt.py` |
+| Online TabPFN coarse-to-refine | `demo_online_ctr.py` through `main_opt.py` |
 
 A small entry-point example:
 
@@ -19,7 +25,27 @@ A small entry-point example:
 python size_optimization/demo_sa.py
 ```
 
-`main_opt.py` at the repository root offers an interactive selector for the demo algorithms. `experiment.py` offers joint architecture and transistor sizing or sizing on one or all five fixed array configurations:
+`main_opt.py` at the repository root offers both an interactive selector and a
+non-interactive CLI. The two merged methods have distinct names and data
+contracts:
+
+- **SramOpt** uses an external yield-model bundle with
+  the original 26-feature contract and V2.2.6 nominal mode-1 circuit screens.
+- **Online-CTR** comes from `OpenYield_wangc.zip`. It builds its TabPFN context
+  online from SPICE calls and does not read the archive's old CSV datasets.
+
+```bash
+python main_opt.py --list
+python main_opt.py --algorithm SramOpt --check
+python main_opt.py --algorithm Online-CTR --check
+```
+
+See the [SramOpt](sram_opt/README.md) and [Online-CTR](online_ctr/README.md)
+guides for full commands and dependencies. Equivalent-array mode 1 is only a
+reduced-order screen; final candidates require mode-0 per-device Monte Carlo
+and waveform validation before they can support an array-yield claim.
+
+`experiment.py` offers joint architecture and transistor sizing or sizing on one or all five fixed array configurations:
 
 ```bash
 python size_optimization/experiment.py

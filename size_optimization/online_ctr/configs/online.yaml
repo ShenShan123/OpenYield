@@ -1,0 +1,36 @@
+# Online TabPFN Coarse-to-Refine defaults.
+# Real-SPICE attempts and surrogate-only queries are budgeted separately.
+
+budget:
+  target_context_size: 300
+  min_context_for_ctr: 30
+  min_final_audits: 30
+  training_evals: null
+
+online_context:
+  initial_lhs_size: 100
+  active_batch_size: 10
+  active_candidates: 2000
+  pareto_bonus: 2.0
+  novelty_weight: 0.25
+
+coarse_search:
+  coarse_pop_size: 50
+  coarse_evals: 1500
+
+gradient_refinement:
+  representative_points: 20
+  refine_steps: 80
+  refine_lr: 0.05
+  refine_smoothing: 0.05
+  physical_penalty: 10.0
+  gradient_clip: 5.0
+
+final_audit:
+  fom_top_k: 10
+  hv_reference_margin: 0.10
+
+runtime:
+  device: auto
+  # nvidia-smi GPU index used when device is auto/cuda. GPU numbering starts at 0.
+  gpu_index: 1
