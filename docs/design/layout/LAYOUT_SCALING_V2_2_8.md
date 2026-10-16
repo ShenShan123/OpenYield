@@ -221,18 +221,18 @@ its recorded layout.
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | 32 | 40.92 × 71.79 | 2937.37 | 3127.29 | −6.07% | 2.7 µm | 24 | 5 | DRC 0, LVS correct, R+C+CC extracted |
 | 128 | 110.62 × 202.83 | 22436.27 | 23574.31 | −4.83% | 0.7 µm | 88 | 2 | DRC 0, LVS correct, R+C+CC extracted |
-| 512 | pending | pending | 296216.78 | pending | 1.1 µm | pending | pending | pending |
+| 512 | 384.82 × 731.39 | 281450.71 | 296216.78 | −4.98% | 1.1 µm | 363 | 6 | DRC 0, LVS correct, R+C+CC extracted |
 
-At 512 rows the decoder trunks leave about 3 µm of each spare row usable. The
-controller therefore spreads over hundreds of lane rows in a 17.0 × 530.6 µm
-frame (the corner frame was 36.9 × 90.4 µm). Some buffer stages are split
-across the band: the precharge buffer's fifth stage has slices on both sides,
-about 400 µm apart. A wider
-spare column would shorten the frame but give back most of the area saving.
-The centre metal is not a calibrated RC baseline, and no waveform,
-operating-point or yield qualification has been run on these layouts. Failed
-and superseded attempts were purged on 2026-10-15; see the
-[development notes](../../DEVELOPMENT.md).
+At 512 rows the decoder trunks leave only a narrow strip of each spare row
+(the median lane row is 4.0 µm wide). The controller therefore spreads over
+363 lane rows in a 17.0 × 530.6 µm frame (the corner frame was 36.9 × 90.4
+µm). Some buffer stages are split across the band: the precharge buffer's
+fifth stage has slices on both sides, about 400 µm apart. A wider spare column
+would shorten the frame but give back most of the area saving. The centre
+metal is not a calibrated RC baseline, and no waveform, operating-point or
+yield qualification has been run on these layouts. Failed and superseded
+attempts were purged on 2026-10-15; see the [development
+notes](../../DEVELOPMENT.md).
 
 ## Driver search
 
