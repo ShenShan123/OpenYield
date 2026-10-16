@@ -4,6 +4,8 @@ This package contains the online TabPFN coarse-to-refine contribution imported
 from `OpenYield_wangc.zip`. It is intentionally registered as **Online-CTR**,
 separately from SramOpt. The method builds its surrogate context from real SPICE calls made
 during the current run and does not read the archive's old CSV datasets.
+It reuses the shared TabPFN utilities in `openyield_v2/surrogate_utils.py`;
+this code reuse does not connect Online-CTR to the offline datasets or optimizers.
 
 From the repository root:
 

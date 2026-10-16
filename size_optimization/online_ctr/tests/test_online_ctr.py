@@ -8,6 +8,7 @@ from size_optimization.demo_online_ctr import (
     MAX_TRAIN_SAMPLES,
     MIN_TRAIN_SAMPLES,
     OnlineTabPFNCTR,
+    _build_tabpfn_manager,
     _farthest_indices,
     _kmeans_representative_indices,
     _load_ctr_config,
@@ -24,6 +25,32 @@ class _TwoDimensionalSpace:
     @staticmethod
     def convert_params(point):
         return {"x0": float(point[0]), "x1": float(point[1])}
+
+
+def test_online_ctr_reuses_shared_tabpfn_manager(monkeypatch):
+    class FakeManager:
+        def __init__(self, target_names, device):
+            self.target_names = target_names
+            self.device = device
+
+    fake_surrogate_module = types.SimpleNamespace(
+        MultiTargetSurrogateManager=FakeManager
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "size_optimization.openyield_v2.surrogate_utils",
+        fake_surrogate_module,
+    )
+
+    manager = _build_tabpfn_manager("cpu")
+
+    assert manager.target_names == [
+        "neg_min_snm",
+        "max_power",
+        "area",
+        "max_delay",
+    ]
+    assert manager.device == "cpu"
 
 
 def test_ctr_gpu_index_selects_requested_visible_device(monkeypatch):

@@ -70,7 +70,7 @@ def _project_utils() -> Dict[str, Any]:
 
 
 def _build_tabpfn_manager(device: str):
-    from size_optimization.online_ctr.surrogate_utils import (  # pylint: disable=import-outside-toplevel
+    from size_optimization.openyield_v2.surrogate_utils import (  # pylint: disable=import-outside-toplevel
         MultiTargetSurrogateManager,
     )
 
