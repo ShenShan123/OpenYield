@@ -2,8 +2,9 @@
 
 Single-bank scaling is recorded in
 [the scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md). Local tools under
-`dev/layout_scaling/` audit coupled DSPF loads, sweep driver coupons, score
-native 8×8 waveforms and preserve every layout attempt. The tracked protocol
+`dev/layout_scaling/` audit coupled DSPF loads, sweep driver coupons and score
+native 8×8 waveforms; each layout attempt is written to its own directory.
+The tracked protocol
 is `tests/spice/v228_scaling_cases.json`; the explicit sizing candidate is
 `sram_compiler/sizing/layout_sizing_lookup.json`. Local regressions cover
 bounded fixed timing, controller ports and Boolean factoring, RC deletion,
@@ -27,6 +28,24 @@ physical verification receipts. The tracked reproduction scope is
 `tests/spice/v228_time_control_layout_cases.json`; the Python runner remains
 local. These are physical-layout checks, not a transient/waveform screen.
 
+The split-array centre floorplan (`--controller-floorplan center`) is recorded
+in the [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#split-arrays-with-a-centre-periphery).
+Its local tools are in `dev/centre_floorplan/`:
+- `verify.sh` previews and Calibre-verifies one layout.
+- `record.py` writes `docs/data/CENTRE_FLOORPLAN_V2_2_8.json`.
+- `frozen_tree_15.sha256` lists the generator files of the recorded layouts.
+- Debug helpers:
+  - `antenna_probe.py` maps Calibre antenna results to gates and drivers.
+  - `cycle_debug.py` replays a build and dumps the router at a rip-up cycle.
+  - `repair_debug.py` keeps the controller cell when a width repair fails.
+  - `compare_placement.py` diffs centre placements between two trees.
+  - `lane_taps.py` lists lane gates and their antenna taps.
+  - `route_debug.py`, `check_debug.py`, `owner_check.py` and
+    `placement_stats.py` cover routing failures, planner checks, conductor
+    ownership and DFF-row crossings.
+
+The local regression is `tests/test_centre_floorplan.py`.
+
 On 2026-10-11, workspace cleanup removed 25,603 obsolete simulation artifacts
 and logs (about 1.905 TB) from `outputs/validation/`, older smoke and CLI runs,
 and the top-level output logs. Historical raw decks, generated model cards and
@@ -36,6 +55,23 @@ and OpenRAM artifacts. That cleanup preserved supplied documentation evidence.
 The subsequent legacy-layout purge removes its dedicated reports and artifacts;
 other simulation and qualification evidence remains unchanged. The local deletion
 inventory is `dev/cleanup/2026-10-11-stale-outputs.json`.
+
+On 2026-10-15, a layout-scaling purge removed 160 unreferenced result
+directories and files from `outputs/layout_scaling/` (5,501 files, about
+37.6 GB). These were the superseded centre-floorplan attempts and diagnostics
+`centre_*_01` to `_14`, and the earlier corner and scaling attempts. The purge
+also removed 92 local logs and tree-hash lists of superseded centre builds.
+`outputs/layout_scaling/` keeps the following:
+- every layout, verification receipt, extraction and driver audit referenced
+  by the tracked records;
+- the bank parts and the `baseline_32x32` layout that those receipts and
+  audits are bound to;
+- the `final_source_*` decks, `sizing_coupons_02` and the native waveforms.
+
+Some local recorders and coupon scripts under `dev/layout_scaling/` and
+`dev/decoder_control/` read removed inputs and need them regenerated before
+rerunning. The deletion inventory, including the kept list, is
+`dev/cleanup/2026-10-15-stale-layout-scaling.json`.
 
 V2.2.2's opt-in transistor-level transition checks are kept locally under
 [`tests/spice/`](../tests/spice/README.md); their case manifests remain tracked. They use full cells, record solver,

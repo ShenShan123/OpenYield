@@ -17,6 +17,9 @@ proposals and that circuit review were purged after V2.2.6; retrieve them with
 The older fixed, full, scaled and compact macro generators, their local
 campaigns, output data, logs and reports were purged on 2026-10-14. Current
 component/bank/TIME_CONTROL flows and scoped runtime RC profiles remain.
+Unreferenced layout-scaling and centre-floorplan attempts were purged on
+2026-10-15; the recorded layouts, receipts, audits and source decks remain
+([development notes](DEVELOPMENT.md)).
 
 - 2026-10-14 diagnostics add single-bank 512×512 generation, an explicit
   driver candidate based on smaller-bank coupled extraction, compact control
@@ -24,6 +27,19 @@ component/bank/TIME_CONTROL flows and scoped runtime RC profiles remain.
   previous envelope. See [the scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md)
   for layout, coupon and waveform scopes; full-array operating-point
   qualification remains pending.
+- 2026-10-15 adds the opt-in `layout bank --with-controller
+  --controller-floorplan center` split-array floorplan. Lower and upper
+  sub-arrays sit around the column periphery with continuous M5 bitlines, and
+  shared decoder nets are bridged on M10. TIME_CONTROL is aligned with the
+  decoder's left edge, between the decoder halves and in spare decoder rows.
+  The data registers fold into a 7.73 µm band instead of 9.75 µm. Centre
+  routing adds local rip-up and reroute, same-net gap healing on M4–M9,
+  square obstacle clearance, lane antenna taps and a router antenna check
+  that reroutes exposed nets on M8/M9. The corner flow is unchanged and
+  remains the default.
+  Areas and Calibre results are in the
+  [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md); no waveform or
+  operating-point qualification is implied.
 
 - The default `layout bank` now uses OpenRAM's 705 nm column / 1365 nm row
   pitch, source-preserving physical refingering, compact left-side row logic,

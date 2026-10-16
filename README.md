@@ -104,7 +104,8 @@ Single-bank 512×512 layout diagnostics, extracted-load driver candidates and
 TIME_CONTROL without intentional RC guards are described in the
 [layout scaling record](docs/design/layout/LAYOUT_SCALING_V2_2_8.md). Automatic timing
 retains the 512×256 envelope; 512×512 requires an explicit diagnostic period
-and has no qualified operating point.
+and has no qualified operating point. The same record covers the opt-in
+`--controller-floorplan center` split-array layout.
 
 Run commands from the repository root after completing the environment setup:
 

@@ -419,16 +419,18 @@ def main(argv=None):
     parser.add_argument('--legacy-pitch',action='store_true',
                         help='use the historical 1365 nm column / 400 nm row bank')
     parser.add_argument('--with-controller',action='store_true',help='integrate TIME_CONTROL and its data registers')
-    parser.add_argument('--controller-floorplan',choices=('corner','beside'),default='corner',
+    parser.add_argument('--controller-floorplan',choices=('corner','center','beside'),default='corner',
                         help='corner: shared decoder/control block aligned with column registers (any size); '
+                             'center: column periphery between split arrays, controller in spare decoder rows (>=16 rows); '
                              'beside: the earlier 32x32 plan left of the decoder')
     parser.add_argument('--controller-layout-dir',type=Path,help='reuse control logic from a previous --with-controller run (OUTPUT_parts/control_logic)')
     args=parser.parse_args(argv)
     if args.with_controller:
         if args.data_path_only or args.legacy_pitch:parser.error('--with-controller requires the OpenRAM-pitch complete bank')
-        if args.controller_floorplan=='corner':
+        if args.controller_floorplan in ('corner','center'):
             if args.controller_layout_dir:parser.error('--controller-layout-dir applies to the beside floorplan')
-            from .corner_control import generate
+            if args.controller_floorplan=='corner':from .corner_control import generate
+            else:from .center_control import generate
             generate(args.deck,args.output_dir)
         else:
             from .macro_control import generate

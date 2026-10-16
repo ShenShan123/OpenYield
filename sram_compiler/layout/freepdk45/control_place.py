@@ -4,7 +4,7 @@ from math import ceil,floor,hypot
 from typing import Optional
 from .components import CellView
 from .lib import Builder,pya,u
-from .router import Router
+from .router import Router,VIA4_HALO
 from .control_cells import HEIGHT,make_logic,make_transmission_gate
 
 GRID=100.
@@ -12,25 +12,131 @@ GRID=100.
 
 class ControlRouter(Router):
     def __init__(self,builder: Builder,width: float,height: float,upper_metal: int=6,
-                 overflow: Optional[tuple[float,float]]=None) -> None:
+                 overflow: Optional[tuple[float,float]]=None,
+                 profile: Optional[list[tuple[float,float,float]]]=None) -> None:
         super().__init__(builder,(1,1,int(width/GRID)-1,int(height/GRID)-1),
             grid_nm=GRID,metal_layers=tuple(f'm{i}' for i in range(4,upper_metal+1)),
             widths=tuple(145. if i<7 else 405. if i<9 else 805. for i in range(4,upper_metal+1)),
             use_tree_heuristic=True,allow_same_net_vias=True,exact_tree_heuristic=height>80000.,
             search_limit=50000 if height>80000. else None,
-            prefer_deeper_paths=overflow is not None and height>80000.)
+            prefer_deeper_paths=(overflow is not None or profile is not None) and height>80000.)
         self.clearance={};self.cut_centres=set();self.cut_exclusion=set();self.cut_count=0
         self.overflow=overflow
-    def reserve(self,p,net):
-        super().reserve(p,net)
+        # profile: left-aligned (y0, y1, width) rectangles that bound routing.
+        self.reach={}
+        for y0,y1,w in profile or ():
+            for yi in range(ceil(y0/GRID),floor(y1/GRID)+1):
+                self.reach[yi]=max(self.reach.get(yi,-1),floor(w/GRID)-1)
+        self.profile=profile is not None
+        # Congestion history: point -> {net: cost} charged to every other net.
+        self.history={}
+        # Cut keys (via number, x, y) too close to a fixed cut drawn outside
+        # the router (register pin lifts, tapped edge pins): no via there.
+        self.fixed_cuts=set()
+        # Fixed accesses whose metal is drawn outside the router.
+        self.fixed_points=set()
+        # Net -> cost factor on M4-M7 steps: long runs of these nets go to
+        # M8/M9, which count toward no gate's antenna before the net joins.
+        self.lift={}
+    def halo(self,p):
+        """Grid points within p's same-layer clearance."""
         radius=3 if p[2]<3 else 8 if p[2]<5 else 16
         for dx in range(-radius,radius+1):
             for dy in range(-radius,radius+1):
                 if p[2]<3 and hypot(max(0,abs(dx)*GRID-145),max(0,abs(dy)*GRID-145))>=140:
                     continue
-                self.clearance.setdefault((p[0]+dx,p[1]+dy,p[2]),set()).add(net)
+                yield (p[0]+dx,p[1]+dy,p[2])
+    def reserve(self,p,net):
+        super().reserve(p,net)
+        for q in self.halo(p):self.clearance.setdefault(q,set()).add(net)
+    # Local rip-up and reroute (centre frames). base_owner/base_clearance are
+    # the state before any rippable net was routed: fixed accesses and clock.
+    def culprits(self,net,source,target,base_owner,base_clearance,penalty=30.,limit=3000000,ripped=None,margin=60,
+                 avoid=frozenset()):
+        """Routed nets on the cheapest source-target path that may cross
+        routed metal, clearance and via cuts, but never fixed ones, the
+        clock tree routed before them or nets in avoid. Each crossed point
+        costs penalty per net, scaled by how often that net was ripped
+        already. The search stays within margin grid steps of the
+        source-target box. Returns (nets, path); both are empty without such
+        a path."""
+        import heapq
+        cut_nets=defaultdict(set)
+        for other,x,y,upper in self.vias:
+            vn=3+upper;radius=3 if vn<7 else 8
+            for dx in range(-radius,radius+1):
+                for dy in range(-radius,radius+1):
+                    if vn<7 and hypot(max(0,abs(dx)*GRID-140),max(0,abs(dy)*GRID-140))>=160:continue
+                    cut_nets[vn,x+dx,y+dy].add(other)
+        xmin,ymin,xmax,ymax=self.bounds
+        wx0,wx1=min(source[0],target[0])-margin,max(source[0],target[0])+margin
+        wy0,wy1=min(source[1],target[1])-margin,max(source[1],target[1])+margin
+        def soft(q):
+            x,y,l=q
+            if not (0<=l<len(self.layers) and xmin<=x<=xmax and ymin<=y<=ymax) or q in self.blocked:return None
+            if not (wx0<=x<=wx1 and wy0<=y<=wy1):return None
+            if self.overflow is not None and y*GRID>=self.overflow[0] and x*GRID>=self.overflow[1]:return None
+            if self.profile and x>self.reach.get(y,-1):return None
+            border=5 if l>=5 else 3
+            if l>=3 and not (border<=x<=xmax-border+1 and border<=y<=ymax-border+1):return None
+            o=self.owner.get(q);found=set()
+            if o is not None and o!=net:
+                if q in base_owner:return None
+                found.add(o)
+            c=self.clearance.get(q,set())-{net}
+            if c&base_clearance.get(q,set()):return None
+            found|=c;found|=self.via_halos.get(q,set())-{net}
+            return None if found&avoid else found
+        def h(p):return abs(p[0]-target[0])+abs(p[1]-target[1])+4*abs(p[2]-target[2])
+        def crossing(p,q):
+            found=soft(q)
+            if found is None:return None
+            if q[2]!=p[2]:
+                if (4+min(p[2],q[2]),p[0],p[1]) in self.fixed_cuts:return None
+                others=cut_nets.get((4+min(p[2],q[2]),p[0],p[1]),set())-{net}
+                if 'clk_buf' in others or others&avoid:return None  # base vias: the clock tree
+                found=found|others
+            return found
+        dist={source:0.};parent={};heap=[(h(source),0.,source)];seen=0
+        while heap and seen<limit:
+            _,d,p=heapq.heappop(heap)
+            if p==target:break
+            if d>dist[p]:continue
+            seen+=1;x,y,l=p
+            steps=[((x+dx,y+dy,l),1. if (l%2==0 and dy==0) or (l%2 and dx==0) else 3.) for dx,dy in ((1,0),(-1,0),(0,1),(0,-1))]
+            steps+=[((x,y,o),4.) for o in (l-1,l+1)]
+            for q,step in steps:
+                found=crossing(p,q)
+                if found is None:continue
+                nd=d+step+penalty*sum(1+(ripped or {}).get(n,0) for n in found)
+                if nd<dist.get(q,float('inf')):
+                    dist[q]=nd;parent[q]=p;heapq.heappush(heap,(nd+h(q),nd,q))
+        if target not in parent:return set(),[]
+        path=[target]
+        while path[-1]!=source:path.append(parent[path[-1]])
+        nets=set()
+        for q,p in zip(path,path[1:]):nets|=crossing(p,q)
+        return nets,path
+    def rip(self,net,base_owner,base_clearance):
+        """Remove net's routing, keeping its fixed accesses."""
+        removed=[p for p,n in self.owner.items() if n==net and p not in base_owner]
+        for p in removed:del self.owner[p]
+        for p in removed:
+            for q in self.halo(p):
+                c=self.clearance.get(q)
+                if c and net in c and net not in base_clearance.get(q,()):c.discard(net)
+        for _,x,y,upper in [v for v in self.vias if v[0]==net]:
+            if self.via_number(upper)>=4:
+                for dx,dy in VIA4_HALO:
+                    h=self.via_halos.get((x+dx,y+dy,upper))
+                    if h:h.discard(net)
+        self.paths=[s for s in self.paths if s[0]!=net]
+        self.vias=[v for v in self.vias if v[0]!=net]
+        # Cut exclusions rebuild lazily from the remaining vias.
+        self.cut_centres=set();self.cut_exclusion=set();self.cut_count=0
     def available(self,p,net):
         if self.overflow is not None and p[1]*GRID>=self.overflow[0] and p[0]*GRID>=self.overflow[1]:return False
+        if self.profile and p[0]>self.reach.get(p[1],-1):return False
         border=5 if p[2]>=5 else 3
         if p[2]>=3 and not (border<=p[0]<=self.bounds[2]-border+1 and border<=p[1]<=self.bounds[3]-border+1):return False
         return super().available(p,net) and not (self.clearance.get(p,set())-{net})
@@ -41,6 +147,8 @@ class ControlRouter(Router):
             if self.available(q,net):
                 cost=1 if (l%2==0 and dy==0) or (l%2 and dx==0) else 3
                 if net=='clk_buf' and l<len(self.layers)-1:cost*=30
+                if self.lift and l<len(self.layers)-2:cost*=self.lift.get(net,1)
+                if self.history:cost+=sum(c for n,c in self.history.get(q,{}).items() if n!=net)
                 yield q,cost
         for other in (l-1,l+1):
             q=x,y,other
@@ -52,8 +160,122 @@ class ControlRouter(Router):
                 self.cut_exclusion.update((vn,vx+dx,vy+dy) for dx in range(-radius,radius+1) for dy in range(-radius,radius+1)
                     if vn>=7 or hypot(max(0,abs(dx)*GRID-140),max(0,abs(dy)*GRID-140))<160)
             key=(4+min(l,other),x,y)
-            if key in self.cut_exclusion and key not in self.cut_centres:continue
-            yield q,4
+            if (key in self.cut_exclusion and key not in self.cut_centres) or key in self.fixed_cuts:continue
+            yield q,4+(sum(c for n,c in self.history.get(q,{}).items() if n!=net) if self.history else 0)
+    def exclude_cuts(self,cuts) -> None:
+        """Keep router cuts at via spacing from fixed cuts (number, x_nm, y_nm)."""
+        for vn,x,y in cuts:
+            gx,gy=round(x/GRID),round(y/GRID);radius=3 if vn<7 else 8
+            for dx in range(-radius,radius+1):
+                for dy in range(-radius,radius+1):
+                    if (dx or dy) and (vn>=7 or hypot(max(0,abs(dx)*GRID-140),max(0,abs(dy)*GRID-140))<160):
+                        self.fixed_cuts.add((vn,gx+dx,gy+dy))
+    def heal(self) -> list:
+        """Join same-net points that the router left too close.
+
+        Clearance keeps other nets apart, but one net may pass within two grid
+        steps of its own metal without touching it, leaving a gap below the
+        140 nm spacing. Such a pair gets an L of free points between them, or
+        their whole bounding box. Two cuts of one net that draw() will merge
+        fill their bounding box on both layers; those points are claimed here
+        or reported. On M7-M9, two ends of one net that would meet within
+        spacing or through a sub-width bridge are brought level. Returns the
+        gaps left open as (net, p, q).
+        """
+        def joined(p,q,own):
+            # A monotone owned path from p to q inside their bounding box.
+            sx=1 if q[0]>p[0] else -1;sy=1 if q[1]>p[1] else -1;seen={p};stack=[p]
+            while stack:
+                c=stack.pop()
+                if c==q:return True
+                for n in ((c[0]+sx,c[1],c[2]),(c[0],c[1]+sy,c[2])):
+                    if n in own and n not in seen and min(p[0],q[0])<=n[0]<=max(p[0],q[0]) \
+                            and min(p[1],q[1])<=n[1]<=max(p[1],q[1]):
+                        seen.add(n);stack.append(n)
+            return False
+        # Only drawn metal counts: an owned point may be a reservation (the M5
+        # above a pin access) that no route used.
+        drawn=defaultdict(set)
+        for net,a,b in self.paths:
+            for x in range(min(a[0],b[0]),max(a[0],b[0])+1):
+                for y in range(min(a[1],b[1]),max(a[1],b[1])+1):drawn[net].add((x,y,a[2]))
+        for net,x,y,upper in self.vias:drawn[net].update(((x,y,upper),(x,y,upper-1)))
+        for p in self.fixed_points:drawn[self.owner[p]].add(p)
+        left=[]
+        cuts=defaultdict(list)
+        for net,x,y,upper in self.vias:cuts[net,upper].append((x,y))
+        for (net,upper),points in cuts.items():
+            n=3+upper;minimum=300 if n<7 else 840;cut=140 if n<7 else 400
+            for i,(x,y) in enumerate(points):
+                for xx,yy in points[i+1:]:
+                    if hypot(max(0,abs(x-xx)*GRID-cut),max(0,abs(y-yy)*GRID-cut))>=minimum-cut:continue
+                    box=[(cx,cy,l) for cx in range(min(x,xx),max(x,xx)+1) for cy in range(min(y,yy),max(y,yy)+1)
+                         for l in (upper-1,upper)]
+                    if all(self.owner.get(c)==net or self.available(c,net) for c in box):
+                        for c in box:
+                            if self.owner.get(c)!=net:self.reserve(c,net)
+                            drawn[net].add(c)
+                    else:left.append((net,(x,y,upper),(xx,yy,upper)))
+        for l in range(min(3,len(self.layers))):
+            nets={n:{p for p in ps if p[2]==l} for n,ps in drawn.items()}
+            for net,own in nets.items():
+                for p in sorted(own):
+                    for dx in range(-2,3):
+                        for dy in range(-2,3):
+                            q=(p[0]+dx,p[1]+dy,l)
+                            if (dx,dy)<=(0,0) or abs(dx)+abs(dy)<2 or q not in own or joined(p,q,own):continue
+                            xs=range(p[0],q[0]+(1 if dx>=0 else -1),1 if dx>=0 else -1)
+                            ys=range(p[1],q[1]+(1 if dy>=0 else -1),1 if dy>=0 else -1)
+                            options=[[(x,p[1],l) for x in xs]+[(q[0],y,l) for y in ys],
+                                     [(p[0],y,l) for y in ys]+[(x,q[1],l) for x in xs],
+                                     [(x,y,l) for x in xs for y in ys]]
+                            for cells in options:
+                                if all(c in own or self.owner.get(c)==net or self.available(c,net) for c in cells):
+                                    for c in cells:
+                                        if c not in own:self.reserve(c,net);own.add(c)
+                                        self.paths.append((net,c,c))
+                                    for a,b in zip(cells,cells[1:]):
+                                        if abs(a[0]-b[0])+abs(a[1]-b[1])==1:self.paths.append((net,a,b))
+                                    break
+                            else:left.append((net,p,q))
+        # M7-M9: wires are as wide as their spacing, so two ends of one net
+        # (an M6 jog between two M7 runs) meet within spacing diagonally, or
+        # across a gap that draw()'s same-net closing bridges over less than
+        # the minimum width. Extending one end level with the other leaves a
+        # straight gap that the closing fills at full width; otherwise an L
+        # of free points.
+        def unsafe(dx,dy,w,space):
+            gx,gy=abs(dx)*GRID-w,abs(dy)*GRID-w
+            if gx>=0 and gy>=0:return hypot(gx,gy)<space
+            if not (dx and dy):return False
+            if gx<0 and gy<0:return hypot(gx,gy)<space
+            return (gy if gx<0 else gx)<space and -min(gx,gy)<space
+        for l in range(3,len(self.layers)):
+            w=self.widths[l];space=400. if l<5 else 800.
+            for net,ps in drawn.items():
+                own={p for p in ps if p[2]==l}
+                def corner(p):
+                    nb={(dx,dy) for dx,dy in ((1,0),(-1,0),(0,1),(0,-1)) if (p[0]+dx,p[1]+dy,l) in own}
+                    return len(nb)<2 or (len(nb)==2 and nb not in ({(1,0),(-1,0)},{(0,1),(0,-1)}))
+                ends=sorted(p for p in own if corner(p))
+                for i,p in enumerate(ends):
+                    for q in ends[i+1:]:
+                        dx,dy=q[0]-p[0],q[1]-p[1]
+                        if not unsafe(dx,dy,w,space) or joined(p,q,own):continue
+                        sx=1 if dx>0 else -1;sy=1 if dy>0 else -1
+                        options=[[(p[0],y,l) for y in range(p[1],q[1]+sy,sy)],[(x,p[1],l) for x in range(p[0],q[0]+sx,sx)],
+                                 [(q[0],y,l) for y in range(q[1],p[1]-sy,-sy)],[(x,q[1],l) for x in range(q[0],p[0]-sx,-sx)],
+                                 [(x,p[1],l) for x in range(p[0],q[0]+sx,sx)]+[(q[0],y,l) for y in range(p[1],q[1]+sy,sy)],
+                                 [(p[0],y,l) for y in range(p[1],q[1]+sy,sy)]+[(x,q[1],l) for x in range(p[0],q[0]+sx,sx)]]
+                        for cells in options:
+                            if all(c in own or self.owner.get(c)==net or self.available(c,net) for c in cells):
+                                for c in cells:
+                                    if c not in own:self.reserve(c,net);own.add(c)
+                                for a,b in zip(cells,cells[1:]):
+                                    if a!=b:self.paths.append((net,a,b))
+                                break
+                        else:left.append((net,p,q))
+        return left
     def draw(self):
         regions=defaultdict(pya.Region)
         def segment(net,layer,x,y,xx,yy):
@@ -90,8 +312,12 @@ class ControlRouter(Router):
 
 
 class StandardLibrary:
-    def __init__(self,layout):self.layout=layout;self.views={}
+    """Reusable views; row_height=1365 builds gates on the decoder's row rails."""
+    def __init__(self,layout,row_height=None):self.layout=layout;self.views={};self.row_height=row_height
     def build(self,c):
+        if self.row_height is not None:
+            if c.identity not in self.views:self.views[c.identity]=make_logic(self.layout,c,self.row_height)
+            return self.views[c.identity]
         if c.identity not in self.views:
             if c.name=='DFF':
                 from .control_register import make_register

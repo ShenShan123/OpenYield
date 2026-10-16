@@ -43,7 +43,10 @@ def make_logic(layout,component,row_height=1500.):
     widths=[{round(d.width_m*1e9,6) for d in ds} for ds in (ps,ns)]
     if any(len(w)!=1 for w in widths):raise ValueError('Uniform width per channel polarity required')
     wp,wn=[w.pop() for w in widths];nf=max(1,ceil(wp/550),ceil(wn/(330 if height==1500 else 380)))
-    while max(partition(wp,nf))+max(partition(wn,nf))>height-695:nf+=1
+    # Decoder-height rows (1365 nm) keep gate pads clear of the first S/D straps.
+    finger=475. if height<1500 else float('inf')
+    while (max(partition(wp,nf))+max(partition(wn,nf))>height-695
+           or max(partition(wp,nf))>finger or max(partition(wn,nf))>finger):nf+=1
     pw,nw=partition(wp,nf),partition(wn,nf)
     if nor and nf!=1:raise ValueError('Folded NOR series routing not planned')
     node=supply;pending=list(serial);chain=[]
@@ -66,6 +69,9 @@ def make_logic(layout,component,row_height=1500.):
     b=Builder(layout,'CTRL_STD_'+component.identity[:16]+'_H'+str(int(height)));count=len(specs)
     xs=[100.+190*i for i in range(count+1)];out=xs[-1]+105;width=out+35
     gy=(n_bottom+max(nw)+p_top-max(pw))/2
+    # Decoder-height rows split the wells mid-gap so each diffusion keeps
+    # its own well (the fixed 680 nm split would cut a 470 nm P strip).
+    if height<1500:well_split=round(gy/5)*5
     # Two opposite contact enclosures on a 65 nm via fit narrow channels.
     def wire(layer,x,y,xx,yy,w=70):b.rect(layer,min(x,xx)-w/2,min(y,yy)-w/2,max(x,xx)+w/2,max(y,yy)+w/2)
     def stack(x,y,upper=2,gate=False):
@@ -128,7 +134,8 @@ def make_logic(layout,component,row_height=1500.):
             x=run[0];wire('poly',x,gy,run[-1],gy,50);b.sq('poly',x,gy,75);b.cont(x,gy)
             stack(x,gy,3,gate=True);access.append(x)
         if len(access)>1:
-            yy=420.+600*k
+            # 1365 nm decoder rows step the bars by 400 nm to leave the output access free.
+            yy=420.+(600 if height>=1500 else 400)*k
             for x in access:
                 wire('m3',x,gy,x,yy);b.via(3,x,yy);b.rect('m3',x-35,yy-70,x+35,yy+70);b.sq('m4',x,yy,140)
             wire('m4',min(access),yy,max(access),yy,140);pins[net]=(access[0],yy,'m4')
@@ -139,6 +146,7 @@ def make_logic(layout,component,row_height=1500.):
     if set(pins)!=set(component.ports):raise ValueError('Standard-cell pin mismatch')
     v=CellView(component,b,width,height,pins,terminals,[],[],[]);v.physical_fingers=physical
     v.standard_family='NOR'+str(len(ps)) if nor else 'INV' if len(ps)==1 else 'NAND'+str(len(ps))
+    v.well_split=well_split
     return v
 
 

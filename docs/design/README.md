@@ -16,7 +16,7 @@ Component, bank and TIME_CONTROL physical design and verification.
 - [V2.2.8 component-based bank data path](layout/BANK_LAYOUT_V2_2_8.md)
 - [V2.2.8 left-side decoder and core row-pitch correction](layout/BANK_ROW_PITCH_V2_2_8.md)
 - [V2.2.8 component layout development](layout/COMPONENT_LAYOUT_V2_2_8.md)
-- [Single-bank layout scaling and driver candidates — V2.2.8](layout/LAYOUT_SCALING_V2_2_8.md)
+- [Single-bank layout scaling, driver candidates and centre floorplan — V2.2.8](layout/LAYOUT_SCALING_V2_2_8.md)
 - [OpenRAM-pitch bank layout, V2.2.8](layout/OPENRAM_PITCH_V2_2_8.md)
 - [OpenRAM 32×32 FreePDK45 reference run](layout/OPENRAM_REFERENCE_V2_2_8.md)
 - [TIME_CONTROL compaction and larger array readiness report](layout/TIME_CONTROL_COMPACTION_REPORT_V2_2_8.md)

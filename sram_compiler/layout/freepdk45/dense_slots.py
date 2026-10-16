@@ -15,9 +15,10 @@ stacks on the slot boundary (x = 0); the bank draws M4 bars along them.
 """
 from dataclasses import dataclass, field, replace
 from collections import defaultdict
+from itertools import product
 
 from .lib import Builder
-from .dense_rows import make_row, Gate, SLOT, PITCH
+from .dense_rows import make_row, Gate, SLOT, PITCH, X0 as X0_ROW
 
 # Slot-relative x of the bitline stacks and the gate-net M3 tracks.
 TRACKS = {
@@ -422,8 +423,75 @@ REGISTER_TRACKS = {
 }
 
 
-def _register_rows(layout, name, role, dff):
-    """Two rows of one transmission-gate DFF; nets are role-prefixed."""
+# Compact registers: the same rows with searched track positions and the
+# fewest gate and strip bar levels make_row accepts (_gate_levels,
+# _strip_levels). Q keeps the write slot's buffer-input tracks. The track set
+# came from an annealed search over 35 nm positions that checked every
+# candidate with make_row and the slot's M3 audit: 7730 nm per two registers
+# against 9750 nm for REGISTER_TRACKS.
+COMPACT_REGISTER_TRACKS = {
+    'CLK': 140.,
+    'L': dict(CLKB=280., z2=700., D=140., Q=BUFFER['A_L'], D_b=420., z1=1050., z3=1225.,
+              z4=1190., z5=840., QB=420.),
+    'U': dict(CLKB=280., z2=1120., D=560., Q=BUFFER['A_U'], D_b=700., z1=1260., z3=840.,
+              z4=560., z5=1260., QB=840.),
+}
+
+
+def _gate_levels(columns, reach):
+    """Per-column (P, N) gate levels with the lowest top level.
+
+    columns: (P gate net, N gate net) per gate; split gates need P above N.
+    Adjacent pads on one level share a net; a net's bar on a level spans its
+    pads and its reach, and different nets' bars keep 70 nm apart.
+    """
+    xs = [X0_ROW + PITCH * i + PITCH / 2 for i in range(len(columns))]
+    def legal(assign):
+        spans = defaultdict(lambda: defaultdict(list))
+        for x, (lp, ln), (pn, nn) in zip(xs, assign, columns):
+            spans[lp][pn].append(x); spans[ln][nn].append(x)
+        for level, nets in spans.items():
+            bars = sorted((min(v + reach.get(n, [])) - 70, max(v + reach.get(n, [])) + 70, n) for n, v in nets.items())
+            if any(b0 - a1 < 70 for (_, a1, _), (b0, _, _) in zip(bars, bars[1:])):
+                return False
+        for k in range(len(assign) - 1):
+            for la, na in zip(assign[k], columns[k]):
+                for lb, nb in zip(assign[k + 1], columns[k + 1]):
+                    if la == lb and na != nb:
+                        return False
+        return True
+    for top in range(1, 8):
+        options = [[(l, l) for l in range(top + 1)] if pn == nn else
+                   [(lp, ln) for lp in range(top + 1) for ln in range(lp)] for pn, nn in columns]
+        for assign in product(*options):
+            if max(max(a) for a in assign) == top and legal(assign):
+                return assign
+    raise ValueError('No legal gate-level assignment')
+
+
+def _strip_levels(nets, reach):
+    """Interval colouring of one strip's bars (contacts plus reach, 70 nm apart)."""
+    sites = defaultdict(list)
+    for i, net in enumerate(nets):
+        if net not in ('VDD', 'VSS'):
+            sites[net].append(X0_ROW + PITCH * i)
+    levels, ends = {}, []
+    for lo, hi, net in sorted((min(v + reach[n]) - 70, max(v + reach[n]) + 70, n) for n, v in sites.items()):
+        level = next((k for k, e in enumerate(ends) if lo - e >= 70), len(ends))
+        if level == len(ends):
+            ends.append(hi)
+        else:
+            ends[level] = hi
+        levels[net] = level
+    return levels
+
+
+def _register_rows(layout, name, role, dff, tracks=None):
+    """Two rows of one transmission-gate DFF; nets are role-prefixed.
+
+    tracks (a COMPACT_REGISTER_TRACKS entry) replaces the fixed level plan by
+    the fewest legal levels for those track positions.
+    """
     pre = role + '.'
     kids = {i.name: i for i in dff.children}
     if set(kids) != {'Xinv1_clk', 'Xinv2_D', 'Xtg1', 'Xinv3', 'Xinv4', 'Xtg2',
@@ -463,18 +531,35 @@ def _register_rows(layout, name, role, dff):
         b_levels.update({(r, net('CLKB')): 0, (r, net('z4')): 1, (r, net('z5')): 2, (r, net('QB')): 3, (r, net('Q')): 4})
     b_reach = {'CLK': [REGISTER_TRACKS['CLK']], net('CLKB'): [t['CLKB']], net('z2'): [t['z2']], net('Q'): [t['Q']],
                net('z4'): [lb[0]], net('z5'): [lb[1]], net('QB'): [lb[2]]}
+    if tracks is not None:
+        t, clk = tracks[role], tracks['CLK']
+        rows = []
+        for tag, insts, p_sd, n_sd, keys in (
+                ('A', ['Xinv2_D', 'Xtg1', 'Xtg2', 'Xinv4', 'Xinv3'], a_p, a_n, ('CLKB', 'z2', 'D', 'D_b', 'z1', 'z3')),
+                ('B', ['Xinv1_clk', 'Xinv5', 'Xtg3', 'Xtg4', 'Xinv7', 'Xinv6'], b_p, b_n, ('CLKB', 'z2', 'Q', 'z4', 'z5', 'QB'))):
+            reach = {'CLK': [clk], **{net(k): [t[k]] for k in keys}}
+            pairs = [gates(i) for i in insts]
+            assign = _gate_levels([(p.gate, n.gate) for p, n in pairs], reach)
+            pairs = [(replace(p, level=lp), replace(n, level=ln)) for (p, n), (lp, ln) in zip(pairs, assign)]
+            levels = {('g', g.gate): g.level for pair in pairs for g in pair}
+            for kind, sd in (('p', p_sd), ('n', n_sd)):
+                levels.update({(kind, k): v for k, v in _strip_levels(sd, reach).items()})
+            rows.append(make_row(layout, f'{name}_{role}_REG{tag}', pairs, p_sd, n_sd, levels, reach))
+        return tuple(rows)
     row_b = make_row(layout, f'{name}_{role}_REGB', b_gates, b_p, b_n, b_levels, b_reach)
     return row_a, row_b
 
 
-def make_register_slot(layout, name, dff, roles=('L', 'U')):
+def make_register_slot(layout, name, dff, roles=('L', 'U'), compact=False):
     """Data registers of columns c (L, bottom rows) and c+1 (U, top rows).
 
     D inputs enter from below on M3, Q outputs leave the top on the write
     slot's buffer-input tracks, and one shared CLK track meets an M4 bar.
+    compact uses COMPACT_REGISTER_TRACKS and the fewest legal levels.
     """
     s = _Slot(layout, name)
-    rows = {r: _register_rows(layout, name, r, dff) for r in ('L', 'U')}
+    table = COMPACT_REGISTER_TRACKS if compact else None
+    rows = {r: _register_rows(layout, name, r, dff, table) for r in ('L', 'U')}
     plan = [(r, row) for r in ('L', 'U') for row in rows[r]]
     for i, (role, row) in enumerate(plan):
         if role in roles:
@@ -484,18 +569,20 @@ def make_register_slot(layout, name, dff, roles=('L', 'U')):
     top = s.y
     pins = defaultdict(list)
     ys = [y for net in s.bars if net == 'CLK' for y, x0, x1 in s.bars[net]]
-    s.track('CLK', REGISTER_TRACKS['CLK'])
+    clk = (table or REGISTER_TRACKS)['CLK']
+    s.track('CLK', clk)
     clock_y = min(ys)
-    s.b.via(3, REGISTER_TRACKS['CLK'], clock_y); s.b.sq('m4', REGISTER_TRACKS['CLK'], clock_y, 140)
-    pins['CLK'].append((REGISTER_TRACKS['CLK'], clock_y, 'm4'))
+    s.b.via(3, clk, clock_y); s.b.sq('m4', clk, clock_y, 140)
+    pins['CLK'].append((clk, clock_y, 'm4'))
     for role in roles:
-        t, pre = REGISTER_TRACKS[role], role + '.'
-        for key in ('CLKB', 'z2'):
+        pre = role + '.'
+        if table is None:
+            t = REGISTER_TRACKS[role]
+            t = dict(t, **dict(zip(('D_b', 'z1', 'z3'), t['A'])), **dict(zip(('z4', 'z5', 'QB'), t['B'])))
+        else:
+            t = table[role]
+        for key in ('CLKB', 'z2', 'D_b', 'z1', 'z3', 'z4', 'z5', 'QB'):
             s.track(pre + key, t[key])
-        for key, x in zip(('D_b', 'z1', 'z3'), t['A']):
-            s.track(pre + key, x)
-        for key, x in zip(('z4', 'z5', 'QB'), t['B']):
-            s.track(pre + key, x)
         s.track(pre + 'D', t['D'], extra=(-300.,))
         pins[pre + 'D'].append((t['D'], -300., 'm3'))
         # Q climbs past the band top to overlap the write slot's input track.

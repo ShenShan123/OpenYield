@@ -103,9 +103,373 @@ def _slices(library,component,limit):
     return result
 
 
+def _corner_inventory(library,component,width,exclude,overflow=None):
+    inventory=[]
+    for p,c,m in units(component):
+        if p.startswith(tuple(exclude)):continue
+        v=library.build(c)
+        limit=(overflow[1] if overflow is not None and v.standard_family!='DFF' else width)-600
+        inventory.extend([(p,v,m)] if v.width_nm<=limit else [(p,s,m) for s in _slices(library,c,limit)])
+    return inventory
+
+
+def centre_lanes_used(component: Component,width: float,exclude: tuple[str,...],
+                      band_span: tuple[float,float],lanes: list[tuple]) -> tuple[int,int]:
+    """Lane rows a centre frame fills and the unsliced decoder drivers it
+    leaves outside the band, from a placement in a scratch layout."""
+    layout=new_layout();library=StandardLibrary(layout)
+    inventory=_corner_inventory(library,component,width,exclude)
+    inventory.sort(key=lambda item:item[1].standard_family!='DFF')
+    prepared,_,_=_place_centre(layout,inventory,{p:c for p,c,_ in units(component)},width,band_span,lanes,300.)
+    ys=[lane[0] for lane in lanes]
+    used=max((ys.index(y)+1 for _,_,_,_,y,row,_ in prepared if row<0),default=0)
+    lane=[p for p,_,_,_,_,row,_ in prepared if row<0]
+    decoder={p.split('/')[0] for p,_,m,_,_,_,_ in prepared if m.get('Z','').startswith('A_dff') or m.get('Z')=='wl_en'}
+    return used,sum(1 for p in set(lane) if p.split('/')[0] in decoder and lane.count(p)==1)
+
+
+LANE_TAP_SPAN=8      # lane gates further apart in source order than this get input taps
+LANE_TAP_REACH=15000.  # ... as do lane gates placed further than this (nm) from their lane driver
+WELL_MIN=200.        # Well.4: lane well overlap with a neighbouring row's decoder well
+WELL_SPACE=225.      # Well.2: lane well gap to a neighbouring row's decoder well
+ACCESS_GAP=300.      # lane pin access (M4 landing, M5 above) or tap wire to a decoder conductor edge
+BAND_FILL=1.0        # cell area / band area above which optional gates move to the lanes
+CENTRE_TALL=False    # route centre frames below 80 um with the tall-frame order (long nets first)
+HISTORY_COST=10      # centre routing: per-step cost for other nets on a blocked net's path
+RIPUP_LIMIT=400      # centre rip-ups per attempt before a restart with new priority
+HEAL_ROUNDS=3        # centre reroutes of nets whose same-net gaps cannot be filled
+HISTORY_RADIUS=(6,6,6,10,10,16)  # M4..M9 grid cells, about each layer's clearance
+ANTENNA_LIMIT=250.   # centre routing: lower metal per gate area (Calibre 300, less cell-internal metal)
+ANTENNA_ROUNDS=3     # centre reroutes of nets whose gate inputs exceed it
+ANTENNA_LIFT=10.     # M4-M7 step cost factor for those reroutes
+
+
+def _port_loads(component: Component) -> dict[str,tuple[float,bool]]:
+    """Port -> (gate area in um2, joined to a diffusion) over the flattened devices."""
+    loads=defaultdict(lambda:[0.,False])
+    def walk(c,nets):
+        for d in c.devices:
+            g,sd=nets.get(d.nodes[1],d.nodes[1]),{nets.get(n,n) for n in (d.nodes[0],d.nodes[2])}
+            loads[g][0]+=d.width_m*d.length_m*1e12
+            for n in sd:loads[n][1]=True
+        for child in c.children:
+            walk(child.component,{port:nets.get(n,n) for port,n in zip(child.component.ports,child.nodes)})
+    walk(component,{p:p for p in component.ports})
+    return {p:tuple(loads[p]) for p in component.ports if p in loads}
+
+
+def _antenna_exposed(router: ControlRouter,loads: dict) -> list[tuple[str,int]]:
+    """(net, layer index) pairs whose gate inputs would see more lower metal
+    than ANTENNA_LIMIT times their gate area, with no diffusion joined, when
+    that routing layer (M5..M9) is etched: Calibre's cumulative check on the
+    router's own metal (GRID x width per grid point). loads maps (net, access
+    in nm) to (gate area, diffusion) of the pins and taps there."""
+    pins=defaultdict(dict)
+    for (net,pt),(gate,diode) in loads.items():
+        if net in ('VDD','VSS'):continue
+        q=router.point(*pt);g,d=pins[net].get(q,(0.,False));pins[net][q]=(g+gate,d or diode)
+    edges=defaultdict(list)
+    for net,a,b in router.paths:edges[net].append((a,b))
+    for net,x,y,up in router.vias:edges[net].append(((x,y,up-1),(x,y,up)))
+    exposed=[]
+    for net,at in pins.items():
+        if not any(g for g,d in at.values() if not d):continue
+        for level in range(1,len(router.layers)):
+            parent={}
+            def find(p):
+                parent.setdefault(p,p)
+                while parent[p]!=p:parent[p]=parent[parent[p]];p=parent[p]
+                return p
+            for a,b in edges[net]:
+                for q in (a,b):
+                    if q[2]<=level:find(q)
+                if a[2]<=level and b[2]<=level:parent[find(a)]=find(b)
+            for q in at:
+                if q[2]<=level:find(q)
+            area=defaultdict(float);gate=defaultdict(float);joined=set()
+            for q in list(parent):
+                if q[2]<level:area[find(q)]+=router.grid*router.widths[q[2]]/1e6
+            for q,(g,d) in at.items():
+                if q[2]>level:continue
+                root=find(q);gate[root]+=g
+                if d:joined.add(root)
+            if any(g and r not in joined and area[r]>ANTENNA_LIMIT*g for r,g in gate.items()):
+                exposed.append((net,level));break
+    return exposed
+
+
+def _on_grid(box: pya.Box) -> pya.Box:
+    """box grown outward to the 2.5 nm (5 dbu) manufacturing grid; width-check
+    edge pairs end at projected, off-grid points."""
+    return pya.Box(box.left//5*5,box.bottom//5*5,-(-box.right//5)*5,-(-box.top//5)*5)
+
+
+def _neck_fill(have: pya.Region,pair: Any,minw: int,space: int) -> Optional[pya.Box]:
+    """The neck of a width-check edge pair widened symmetrically to minw
+    (dbu, on the 5 dbu grid), or None if it is not axis-aligned or would come
+    within space of metal not joined to it."""
+    box=pair.bbox();e=pair.first
+    if e.dy()==0:grow=(0,-(-(minw-box.height())//10)*5)
+    elif e.dx()==0:grow=(-(-(minw-box.width())//10)*5,0)
+    else:return None
+    neck=_on_grid(box.enlarged(*grow))
+    own=pya.Region([pg for pg in have.each() if pg.bbox().overlaps(box) and not (pya.Region(pg)&pya.Region(box.enlarged(1,1))).is_empty()])
+    return neck if (pya.Region(neck).sized(space)&(have-own)).is_empty() else None
+
+
+def _antenna(path: str,m: dict) -> bool:
+    return any(m[p] in ANTENNA_INPUTS for p in m if p not in ('VDD','VSS','Z')) or path=='Xpre_unbuf'
+
+
+def _place_centre(layout,inventory,sources,width,band_span,lanes,x0):
+    """Fill the full-width band, then decoder lanes, keeping source order.
+
+    Band rows use the controller's 1500/1800 nm rows; DFFs, transmission
+    gates, NOR gates and antenna-tapped receivers must fit there, followed by
+    the groups that drive decoder nets while space remains. Remaining gates are
+    rebuilt on 1365 nm decoder rows and sliced to the widest lane stretch
+    clear of decoder conductors; a lane width is the limit of its gates' right
+    edges, and gates slide right until their pin accesses clear the
+    conductors crossing the row. Returns placements (row -1
+    marks a lane gate), the band rows and the lane inputs that get antenna
+    taps, keyed by (path, x, y).
+    """
+    y0,y1=band_span
+    order=list(dict.fromkeys(p for p,_,_ in inventory))
+    entries={p:[(v,m) for q,v,m in inventory if q==p] for p in order}
+    lane_library=StandardLibrary(layout,1365.)
+    def lane_ready(path):
+        try:lane_library.build(sources[path])
+        except ValueError:return False
+        return True
+    fixed=[p for p in order if entries[p][0][0].standard_family in ('DFF','TG') or _antenna(p,entries[p][0][1])
+           or not lane_ready(p)]
+    # Groups driving decoder nets (address buffers, wl_en) take the bottom
+    # rows, beside the block-edge pins of their outputs; the DFF rows above
+    # them then carry no decoder net across. Members too wide for a lane
+    # (an address buffer's first stage) stay with their group.
+    decoder=({p.split('/')[0] for p in order if entries[p][0][1].get('Z','').startswith('A_dff')
+              or entries[p][0][1].get('Z')=='wl_en'})
+    first=[p for p in order if p.split('/')[0] in decoder and entries[p][0][0].standard_family not in ('DFF','TG')]
+    rest=[p for p in order if p not in fixed and p not in first]
+    def fill(order):
+        prepared=[];rows=[];state=dict(cursor=x0,y=y0,height=0.,vdd=0.,row=0)
+        done=0;budget=BAND_FILL*width*(y1-y0);used=0.
+        for index,path in enumerate(order):
+            saved=dict(state);mark=len(prepared);saved_rows=len(rows)
+            area=sum(v.width_nm*v.height_nm for v,_ in entries[path])
+            if path not in fixed and used+area>budget:break
+            used+=area
+            fits=True
+            for v,m in entries[path]:
+                tap=500. if _antenna(path,m) else 0.
+                dff=v.standard_family=='DFF'
+                family_break=prepared and (prepared[-1][1].standard_family=='DFF')!=dff
+                if (state['cursor']+v.width_nm+tap>width-300 and state['cursor']>x0) or family_break:
+                    rows.append((state['y'],state['height'],state['vdd']))
+                    gap=(100 if dff else 125) if state['height']==1800 else 125 if dff else 0
+                    state.update(y=state['y']+state['height']+gap,cursor=x0,height=0.,vdd=0.,row=state['row']+1)
+                if state['y']+v.height_nm>y1-1000 or state['cursor']+v.width_nm+tap>width-300:
+                    fits=False;break
+                x=state['cursor'];prepared.append((path,v,m,x,state['y'],state['row'],False))
+                following=entries[order[index+1]][0][0] if index+1<len(order) else None
+                nxt=following is not None and following.standard_family=='DFF'
+                state['cursor']=x+v.width_nm+((190 if nxt else 290) if dff else 30)+tap
+                state['height']=max(state['height'],v.height_nm);state['vdd']=max(state['vdd'],v.pins['VDD'][1])
+            if not fits:
+                if path in fixed:raise ValueError(f'{path} must sit in the band, which is full')
+                del prepared[mark:];del rows[saved_rows:];state=saved;break
+            done=index+1
+        if state['height']:rows.append((state['y'],state['height'],state['vdd']))
+        if any(p in fixed for p in order[done:]):raise ValueError('Band cells left out of the full band')
+        return prepared,rows,done
+    try:
+        order=first+[p for p in fixed if p not in first]+rest;prepared,rows,done=fill(order)
+    except ValueError:
+        # Large decoder drivers (512 rows) leave the fixed cells no room:
+        # those go first and the drivers follow while space remains.
+        order=fixed+[p for p in first if p not in fixed]+rest;prepared,rows,done=fill(order)
+    # Lane inputs not driven by a lane gate close in source order (block
+    # outputs such as DFF Q, bank nets, far lane gates) usually arrive over
+    # M7/M8: each gets a diffusion antenna tap.
+    lane=order[done:];block=list(prepared)
+    driver={entries[p][0][1]['Z']:p for p in lane if 'Z' in entries[p][0][1]}
+    planned={}
+    for k,path in enumerate(lane):
+        m=entries[path][0][1]
+        planned[path]=[p for p in m if p not in ('VDD','VSS','Z') and m[p] not in ('VDD','VSS')
+                       and (m[p] not in driver or abs(lane.index(driver[m[p]])-k)>LANE_TAP_SPAN)]
+    def clear(v,x,keep,tapped):
+        # The gate's wells (with taps and fill) end WELL_MIN past or WELL_SPACE
+        # before a neighbouring row's decoder well: anything between is a well
+        # neck or a well spacing error.
+        end=x+v.width_nm+500*len(tapped)+30
+        if any(kl=='well' and k0-WELL_SPACE<end<k0+WELL_MIN for kl,k0,_ in keep):return False
+        # Pin accesses (M4 landing and the M5 reserved above) and M4 tap wires
+        # keep ACCESS_GAP from the decoder conductors crossing the lane row.
+        spans=[]
+        for p,(px,_,l) in v.pins.items():
+            if p in ('VDD','VSS'):continue
+            tx=round((x+px)/GRID)*GRID;spans+=[('m4',tx,tx),('m5',tx,tx)]
+            if l=='m4':spans.append(('m4',x,x+v.width_nm))
+        for i,p in enumerate(tapped):
+            tx=round((x+v.pins[p][0])/GRID)*GRID;tapx=x+v.width_nm+500*i+250
+            spans.append(('m4',min(tx,tapx),max(tx,tapx)))
+        return not any(kl==l and a-ACCESS_GAP<k1 and b+ACCESS_GAP>k0 for l,a,b in spans for kl,k0,k1 in keep)
+    def spans(lane):
+        # Lengths of the lane stretches clear of decoder M4/M5 conductors.
+        edges=sorted((k0-ACCESS_GAP,k1+ACCESS_GAP) for kl,k0,k1 in lane[2] if kl in ('m4','m5'))
+        out,start=[],x0
+        for a,b in edges:
+            out.append(min(a,lane[1])-start);start=max(start,b)
+        return out+[lane[1]-start]
+    # Slices fit the median lane's widest clear stretch, so most rows hold them.
+    clear_widths=sorted(max(spans(lane)) for lane in lanes)
+    widest=(clear_widths[len(clear_widths)//2] if clear_widths else 0.)+x0
+    def place(forced):
+        prepared=list(block);lane_taps={};queue=iter(lanes);current=None;cursor=x0
+        for path in lane:
+            c=sources[path];v=lane_library.build(c)
+            # Lower accesses take nearer taps, so the M4 tap wires nest without crossing.
+            names=[k for k in v.pins if k not in ('VDD','VSS','Z')]
+            taps=sorted((p for p in names if (p in planned[path] or (path,p) in forced) and v.pins[p][2]=='m3'),
+                        key=names.index);tap=500.*len(taps)
+            views=[v] if v.width_nm+tap<=widest-x0 else _slices(lane_library,c,widest-x0)
+            # Slices of one gate stack alone at one x on consecutive rows, so their
+            # straps meet no other gate's access. Their inputs need no tap: the
+            # stacked gate area keeps the antenna ratio low, and a tap wire would
+            # cross the output strap.
+            stacked=len(views)>1
+            if stacked or views[0].width_nm+tap>widest-x0:taps=[];tap=0.
+            if stacked and cursor>x0:cursor=float('inf')
+            stack_x=None
+            for v in views:
+                while True:
+                    # Slide right past decoder trunks; a stack keeps its first
+                    # slice's x where that row allows it.
+                    if current is not None and cursor+v.width_nm+tap<=current[1]:
+                        if clear(v,cursor,current[2],taps):break
+                        cursor+=GRID;continue
+                    current=next(queue,None);cursor=x0 if stack_x is None else stack_x
+                    if current is None:raise ValueError('Controller gates exceed the spare decoder lanes')
+                m=entries[path][0][1]
+                prepared.append((path,v,m,cursor,current[0],-1,False))
+                if taps:lane_taps[path,cursor,current[0]]=tuple(taps)
+                if stacked and stack_x is None:stack_x=cursor
+                cursor=float('inf') if stacked else cursor+v.width_nm+30+tap
+        return prepared,lane_taps
+    # A lane driver placed far away (across the band, past a stack) needs the
+    # tap too: place again with those taps until no new one is needed.
+    forced=set()
+    while True:
+        prepared,lane_taps=place(forced)
+        at=defaultdict(list)
+        for path,_,_,_,y,_,_ in prepared[len(block):]:at[path].append(y)
+        far={(path,p) for path,ys in at.items() if len(ys)==1 for p,n in entries[path][0][1].items()
+             if p not in ('VDD','VSS','Z') and p not in planned[path] and n in driver
+             and abs(at[driver[n]][0]-ys[0])>LANE_TAP_REACH}
+        if far<=forced:break
+        forced|=far
+    return prepared,rows,lane_taps
+
+
+def _route_centre(router: ControlRouter,order: list[str],routed: dict,priority: list[str],local: list[str],
+                  tall: bool,clock_state: Any,history: dict,attempt: int,total: int,loads: dict) -> None:
+    """Route a centre frame in order with local rip-up and reroute.
+
+    A net that cannot connect is cut off by nets routed before it: the
+    cheapest path through their (but no fixed) metal names them. They are
+    removed, that path costs every other net HISTORY_COST more per step, and
+    the blocked net routes before them again. A net that would rip a net
+    which ripped it before looks for a path past other nets first, so two
+    nets contending for one passage do not take turns indefinitely.
+    Afterwards same-net near-misses are healed; a net whose gap cannot be
+    filled reroutes with that spot costing it more, up to HEAL_ROUNDS times.
+    A net whose gate inputs then exceed the antenna limit reroutes with
+    M4-M7 steps costing ANTENNA_LIFT times more, up to ANTENNA_ROUNDS times.
+    Raises the RoutingError when no routed net encloses the failure, after
+    RIPUP_LIMIT rip-ups or with gaps or antenna exposure left, so the caller
+    restarts with a new priority.
+    """
+    from collections import deque
+    import time
+    from .router import RoutingError
+    queue=deque(order);done=set();ripped=Counter();ripped_by=defaultdict(set)
+    state=dict(base=None,ripups=0)
+    def snapshot():
+        return dict(router.owner),{p:set(n) for p,n in router.clearance.items()}
+    if clock_state is not None:state['base']=snapshot();done.add('clk_buf')
+    def drain():
+        base=state['base']
+        while queue:
+            net=queue.popleft()
+            if net in done:continue
+            ps=list(dict.fromkeys(router.point(*p) for p in routed[net]))
+            limit=router.search_limit
+            if net=='clk_buf' or net in priority or (tall and net not in local):router.search_limit=None
+            try:
+                router.connect(net,ps[0],ps[1:])
+            except RoutingError as error:
+                router.search_limit=limit
+                if base is None or state['ripups']>=RIPUP_LIMIT:raise
+                started=time.time()
+                culprits,path=router.culprits(net,ps[0],error.target,*base,ripped=ripped)
+                culprits&=done
+                if culprits&ripped_by[net]:
+                    others,detour=router.culprits(net,ps[0],error.target,*base,ripped=ripped,
+                                                  avoid=frozenset(culprits&ripped_by[net]))
+                    if others&done:culprits,path=others&done,detour
+                if not culprits:raise
+                for n in culprits:ripped_by[n].add(net)
+                for n in [net,*culprits]:
+                    router.rip(n,*base);done.discard(n)
+                ripped.update(culprits)
+                for x,y,l in path:
+                    for cell in ((x,y,l),(x+1,y,l),(x-1,y,l),(x,y+1,l),(x,y-1,l)):
+                        costs=history.setdefault(cell,{});costs[net]=costs.get(net,0)+HISTORY_COST
+                queue.extendleft(reversed([net,*sorted(culprits,key=order.index)]))
+                state['ripups']+=1
+                print('TIME_CONTROL rip-up',state['ripups'],net,'past',sorted(culprits),
+                      f'({time.time()-started:.0f} s search)',flush=True)
+                continue
+            router.search_limit=limit;done.add(net)
+            if net=='clk_buf':base=state['base']=snapshot()
+            if len(done)%100==0:
+                print('TIME_CONTROL routing attempt',attempt,'net',len(done),'/',total,'rip-ups',state['ripups'],flush=True)
+    heals=antennas=0
+    while True:
+        drain()
+        gaps=router.heal()
+        if not gaps:
+            exposed=_antenna_exposed(router,loads)
+            if not exposed:return
+            nets=sorted({n for n,_ in exposed},key=order.index)
+            print('TIME_CONTROL antenna reroute:',[(n,router.layers[l]) for n,l in exposed],flush=True)
+            if antennas==ANTENNA_ROUNDS:raise RoutingError(nets[0],None,set())
+            antennas+=1
+            for net in nets:
+                router.lift[net]=router.lift.get(net,1.)*ANTENNA_LIFT
+                router.rip(net,*state['base']);done.discard(net);queue.append(net)
+            continue
+        print('TIME_CONTROL same-net gaps to reroute:',sorted({n for n,_,_ in gaps}),flush=True)
+        if heals==HEAL_ROUNDS:raise RoutingError(gaps[0][0],gaps[0][1],set())
+        heals+=1
+        # The gap's neighbourhood costs every net more ('' is no net).
+        for net,p,q in gaps:
+            for x,y,l in (p,q):
+                for dx in range(-2,3):
+                    for dy in range(-2,3):
+                        costs=history.setdefault((x+dx,y+dy,l),{});costs['']=costs.get('',0)+HISTORY_COST
+        for net in sorted({n for n,_,_ in gaps},key=order.index):
+            router.rip(net,*state['base']);done.discard(net);queue.append(net)
+
+
 def make_control(layout: pya.Layout,component: Component,width: float=32500.,exclude: tuple[str,...]=(),
                  pin_plan: Any=None,corner: bool=False,min_height: float=0.,
-                 overflow: Optional[tuple[float,float]]=None) -> CellView:
+                 overflow: Optional[tuple[float,float]]=None,
+                 band_span: Optional[tuple[float,float]]=None,lanes: Optional[list[tuple]]=None,
+                 profile: Optional[list[tuple[float,float,float]]]=None,
+                 obstacles: Optional[list[tuple[str,float,float,float,float,Optional[str]]]]=None) -> CellView:
     """Place and route TIME_CONTROL from its frozen source units.
 
     exclude lists unit-path prefixes that another physical block places, such
@@ -118,18 +482,24 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     function of the final frame height. Archived RC decks retain a bottom band.
     overflow=(height, width) reserves a narrower lane above the corner for
     cells sharing the row-decoder floorplan. Routing obeys the same boundary.
+
+    A centre frame gives band_span=(y0, y1), the full-width block between the
+    split arrays, and lanes=[(y, width, keepouts), ...], spare decoder rows in
+    fill order with the (layer, x0, x1) decoder conductors crossing each.
+    Lane gates use the decoder's 1365 nm rows and its M1 supply rails; DFFs,
+    transmission gates and antenna-tapped receivers stay in the band. profile
+    lists the left-aligned (y0, y1, width) routing region, and obstacles the
+    fixed bank conductors inside it as (layer, x0, y0, x1, y1, None); they
+    block every net. pin_plan values may then be lists of accesses to one net.
     """
     if overflow is not None and (not corner or not 600<overflow[1]<=width or overflow[0]<=0):
         raise ValueError('Decoder overflow requires a positive corner height and a usable lane width')
+    if lanes is not None and (not corner or overflow is not None or band_span is None or profile is None):
+        raise ValueError('Decoder lanes require a corner-style band frame and a routing profile')
     library=StandardLibrary(layout)
     b=Builder(layout,('TIME_CONTROL_CORNER_' if corner else 'TIME_CONTROL_LOGIC_' if exclude else 'TIME_CONTROL_STD_')+component.identity[:12])
     if corner:
-        inventory=[]
-        for p,c,m in units(component):
-            if p.startswith(tuple(exclude)):continue
-            v=library.build(c)
-            limit=(overflow[1] if overflow is not None and v.standard_family!='DFF' else width)-600
-            inventory.extend([(p,v,m)] if v.width_nm<=limit else [(p,s,m) for s in _slices(library,c,limit)])
+        inventory=_corner_inventory(library,component,width,exclude,overflow)
     else:
         inventory=[(p,library.build(c),m) for p,c,m in units(component) if not p.startswith(tuple(exclude))]
     inventory.sort(key=lambda item:item[1].standard_family!='DFF')
@@ -160,10 +530,15 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     band=0.
     for shelf in shelves:
         shelf['y']=band;band+=shelf['height']
-    prepared=[];cursor=x0;y=band;row_height=0.;row_vdd=0.;row=0;rows=[]
+    prepared=[];cursor=x0;y=band;row_height=0.;row_vdd=0.;row=0;rows=[];lane_taps={}
     def row_width(y: float) -> float:
         return overflow[1] if overflow is not None and y>=overflow[0] else width
     cell_top=overflow[0]-1000. if overflow is not None else None
+    if lanes is not None:
+        sources={p:c for p,c,_ in units(component)}
+        prepared,rows,lane_taps=_place_centre(layout,inventory,sources,width,band_span,lanes,x0)
+        inventory=[]
+        y=rows[-1][0];row_height=rows[-1][1]
     for index,(path,v,m) in enumerate(inventory):
         tap_space=500. if corner and (any(m[p] in ANTENNA_INPUTS for p in m if p not in ('VDD','VSS','Z'))
                                      or path=='Xpre_unbuf') else 0.
@@ -187,7 +562,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         cursor=x+v.width_nm+((190 if next_dff else 290) if v.standard_family=='DFF' else 30)
         cursor+=tap_space
         row_height=max(row_height,v.height_nm);row_vdd=max(row_vdd,v.pins['VDD'][1])
-    rows.append((y,row_height,row_vdd))
+    if lanes is None:rows.append((y,row_height,row_vdd))
     passive_locations=[]
     if corner:
         for i,(path,r,c,m) in enumerate(guards):
@@ -211,11 +586,16 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         height=ceil(max(y+row_height+200,24800.,interface_height)/GRID)*GRID
     print('TIME_CONTROL frame',width,height,'units',len(prepared),flush=True)
     terminals={};physical=[];placed=[];routed=defaultdict(list);access=[];ownership=[];blocked_boxes=[]
+    # (net, access) -> [gate area um2, diffusion joined]: the centre antenna check.
+    loads=defaultdict(lambda:[0.,False])
+    lane_points=defaultdict(list)
     def wire(layer,x,y,xx,yy,w=70):b.rect(layer,min(x,xx)-w/2,min(y,yy)-w/2,max(x,xx)+w/2,max(y,yy)+w/2)
+    fixed_cuts=[]
     def lift(x,y,layer,target):
         for n in range(min(layer,target),max(layer,target)):
             if n>=7:b.sq(f'v{n}',x,y,400)
             else:b.via(n,x,y)
+            if n>=4:fixed_cuts.append((n,x,y))
             for k in (n,n+1):
                 if k==1:b.rect('m1',x-70,y-35,x+70,y+35)
                 elif k==2:
@@ -223,6 +603,12 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                     else:b.rect('m2',x-70,y-35,x+70,y+35)
                 elif k==3:b.rect('m3',x-35,y-70,x+35,y+70)
                 else:b.sq(f'm{k}',x,y,400 if k==7 else 405 if k==8 else 145)
+    # A lane gate's wells and rails continue to the next gate in its row,
+    # which may have slid right past a decoder trunk. Wells also start at the
+    # lane's left end, so neighbouring rows' wells never meet in a neck there.
+    lane_cells=sorted((y,x) for _,_,_,x,y,row,_ in prepared if row<0)
+    lane_next={(ya,xa):xb for (ya,xa),(yb,xb) in zip(lane_cells,lane_cells[1:]) if ya==yb}
+    lane_first={y:x for y,x in reversed(lane_cells)}
     for path,v,m,x,y,row,passive in prepared:
         b.place(v.builder,x,y)
         if v.standard_family=='DFF' and any(
@@ -233,7 +619,15 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             b.rect('pwell',x+v.width_nm,y+100,x+v.width_nm+190,y+780)
             b.rect('nwell',x+v.width_nm,y+780,x+v.width_nm+190,y+1700)
             for phase in (200,1600):wire('m1',x+v.width_nm-35,y+phase,x+v.width_nm+225,y+phase)
-        if not passive and v.standard_family!='DFF':
+        if row<0:
+            # Decoder-row gates: the gate's own well split and the decoder's rail phases.
+            end=max(lane_next.get((y,x),0.),x+v.width_nm+30)
+            if lane_first[y]==x and x>x0:
+                b.rect('pwell',x0,y,x,y+v.well_split);b.rect('nwell',x0,y+v.well_split,x,y+v.height_nm)
+            b.rect('pwell',x+v.width_nm,y,end,y+v.well_split)
+            b.rect('nwell',x+v.width_nm,y+v.well_split,end,y+v.height_nm)
+            for phase in (100,v.height_nm-100):b.rect('m1',x+v.width_nm,y+phase-35,end,y+phase+35)
+        elif not passive and v.standard_family!='DFF':
             b.rect('pwell',x+v.width_nm,y,x+v.width_nm+30,y+640)
             b.rect('nwell',x+v.width_nm,y+640,x+v.width_nm+30,y+1500)
             for phase in (100,1400):b.rect('m1',x+v.width_nm,y+phase-35,x+v.width_nm+30,y+phase+35)
@@ -249,9 +643,11 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             physical.append(f)
         composite=v.standard_family in ('DFF','RC_GUARD')
         if passive:blocked_boxes.append((x-100,y-100,x+v.width_nm+100,y+v.height_nm+100,2))
+        port_loads=_port_loads(v.component)
         for p,(px,yy,l) in v.pins.items():
-            net=m[p];px+=x;yy+=y
+            net=m[p];px+=x;yy+=y;tap=False
             if p in ('VDD','VSS'):
+                if row<0:continue  # the decoder's M1 rails supply lane gates
                 if passive:
                     lift(px,yy,int(l[1:]),4)
                     wire('m4',px,yy,px,yy+400,145);wire('m4',px,yy+400,vss_x,yy+400,145)
@@ -271,12 +667,25 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                 wire('m6',px,yy,tx,yy,145);wire('m6',tx,yy,tx,ty,145);point=(tx,ty,'m6')
             elif l=='m3':
                 names=[k for k in v.pins if k not in ('VDD','VSS','Z')]
-                phase=({'IN':100,'OUT':1400,'CTR_N':400,'CTR_P':1050}[p] if v.standard_family=='TG'
-                       else 1400 if p=='Z' else 1000 if any(q[2]=='m4' for q in v.pins.values()) else 300+350*names.index(p))
+                multi=any(q[2]=='m4' for q in v.pins.values())
+                if v.standard_family=='TG':phase={'IN':100,'OUT':1400,'CTR_N':400,'CTR_P':1050}[p]
+                elif row>=0:phase=v.height_nm-100 if p=='Z' else 1000 if multi else 300+350*names.index(p)
+                # 1365 nm lane rows: >=300 nm between neighbouring accesses and
+                # clear of the 420/820 nm input bars and folded-NAND straps.
+                else:phase=v.height_nm-100 if p=='Z' else 1020 if multi else 350+300*names.index(p)
                 ty=round((y+phase)/GRID)*GRID;tx=round(px/GRID)*GRID
                 wire('m3',px,yy,px,ty);wire('m3',px,ty,tx,ty)
                 lift(tx,ty,3,4);point=(tx,ty,'m4')
-                if corner and (net in ANTENNA_INPUTS or (path=='Xpre_unbuf' and p=='A')):
+                tapped=lane_taps.get((path,x,y),())
+                if row<0 and p in tapped:
+                    # Lane input tap in the space reserved right of the gate.
+                    from .control_passives import antenna_diode
+                    x1=x+v.width_nm+500*tapped.index(p);tapx=x1+250;tapy=y+300
+                    b.rect('pwell',x1,y,x1+530,y+v.well_split);b.rect('nwell',x1,y+v.well_split,x1+530,y+v.height_nm)
+                    antenna_diode(b,tapx,tapy);lift(tapx,tapy,3,4)
+                    wire('m4',tx,ty,tapx,ty,145);wire('m4',tapx,ty,tapx,tapy,145)
+                    ownership.append((net,(tapx,tapy,'m4')));tap=True
+                elif corner and (net in ANTENNA_INPUTS or (path=='Xpre_unbuf' and p=='A')):
                     # A reserved filler protects the observer before upper
                     # routing layers reach its far-end driver. Source MOS
                     # sizes and the far-end feedback path stay fixed.
@@ -286,11 +695,39 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                     b.rect('nwell',x+v.width_nm,y+640,x+v.width_nm+530,y+1500)
                     antenna_diode(b,tapx,tapy);lift(tapx,tapy,3,4)
                     wire('m4',tx,ty,tapx,ty,145);wire('m4',tapx,ty,tapx,tapy,145)
-                    ownership.append((net,(tapx,tapy,'m4')))
+                    ownership.append((net,(tapx,tapy,'m4')));tap=True
             else:
                 tx=round(px/GRID)*GRID;ty=round(yy/GRID)*GRID
                 wire(l,px,yy,tx,yy,145);wire(l,tx,yy,tx,ty,145);point=(tx,ty,l)
             routed[net].append(point);access.append((net,point));ownership.append((net,point))
+            gate,diode=port_loads.get(p,(0.,False));loads[net,point][0]+=gate;loads[net,point][1]|=diode or tap
+            if row<0:lane_points[path,x,v.width_nm].append((y,p,net,point,l))
+    if lanes is not None:
+        # Parallel slices of one gate stack in consecutive decoder rows at one
+        # x. Straight M4 straps join their accesses; the router reaches each
+        # stack through its access nearest the band.
+        middle=sum(band_span)/2;stacks=defaultdict(list)
+        for (path,x,w),items in lane_points.items():
+            if any(l!='m3' for *_,l in items):continue
+            stacks[path,x,w].extend(items)
+        for (path,x,w),items in stacks.items():
+            ys=sorted({y for y,*_ in items})
+            runs=[[ys[0]]]
+            for y in ys[1:]:
+                if abs(y-runs[-1][-1]-1365)<1e-6:runs[-1].append(y)
+                else:runs.append([y])
+            for run in runs:
+                if len(run)<2:continue
+                for pin in {p for _,p,*_ in items}:
+                    points=[(y,net,point) for y,p,net,point,_ in items if p==pin and y in run]
+                    net=points[0][1];xs={pt[0] for _,_,pt in points}
+                    if len(xs)!=1 or len(points)!=len(run):raise ValueError(f'{path}: stacked slices disagree on {pin}')
+                    tys=[pt[1] for _,_,pt in points];wire('m4',xs.pop(),min(tys),points[0][2][0],max(tys),145)
+                    keep=min(points,key=lambda t:abs(t[0]-middle))[2]
+                    for _,_,pt in points:
+                        if pt!=keep:
+                            routed[net].remove(pt);access.remove((net,pt))
+                            gate,diode=loads.pop((net,pt));loads[net,keep][0]+=gate;loads[net,keep][1]|=diode
     # Row supplies are below/above the devices on M2, with M3 edge trunks.
     pins={}
     supply_top={}
@@ -314,17 +751,18 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             else:wire('m3',x2,y1,x2,y2)
         if net=='VSS':wire('m3',vss_x,min(ys),vss_x,max(ys))
         pins[net]=(*sites[0],'m3');supply_top[net]=sites[-1]
-    wire('m3',vss_x,pins['VSS'][1],vss_x,200);lift(vss_x,200,3,4);wire('m4',100,200,vss_x,200,145)
-    pins['VSS']=(100,200,'m4')
+    base=band_span[0] if lanes is not None else 0.
+    wire('m3',vss_x,pins['VSS'][1],vss_x,base+200);lift(vss_x,base+200,3,4);wire('m4',100,base+200,vss_x,base+200,145)
+    pins['VSS']=(100,base+200,'m4')
     vdd_x,vdd_y=row_width(height)-100.,height-(900. if corner else 200.)
     vdd_source_y=supply_top['VDD'][1]
-    lower_supply=(overflow is not None and pin_plan is not None
-                  and 'VDD' in pin_plan and pin_plan['VDD'][1]<overflow[0])
+    lower_supply=(lanes is not None or (overflow is not None and pin_plan is not None
+                  and 'VDD' in pin_plan and pin_plan['VDD'][1]<overflow[0]))
     if lower_supply:
         # The native M3/M2 rails already join every row. Access their lower
         # trunk beside the bank supply, avoiding a redundant tall metal route.
         vdd_x,vdd_y=width-100.,pin_plan['VDD'][1];vdd_source_y=pins['VDD'][1]
-    for net,tx,ty in [('VSS',100.,200.),('VDD',vdd_x,vdd_y)]:
+    for net,tx,ty in [('VSS',100.,base+200.),('VDD',vdd_x,vdd_y)]:
         if net=='VDD':
             if not lower_supply and tx!=supply_top[net][0]:lift(tx,supply_top[net][1],2,3)
             wire('m3',tx,vdd_source_y,tx,ty);lift(tx,ty,3,4)
@@ -333,18 +771,34 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     # the data/address connections; no redundant perimeter bus is inserted.
     external={p:routed[p][0] for p in signal_ports if p in routed}
     if pin_plan is not None:
-        for net,point in pin_plan.items():
-            if net!='VDD' and net!='VSS' and net not in routed:raise ValueError(f'Planned controller pin has no source connection: {net}')
-            external[net]=point;b.sq(point[2],point[0],point[1],145 if point[2] in ('m5','m6') else 405)
-            routed[net].append(point);access.append((net,point));ownership.append((net,point))
-            if corner and point[2]=='m5' and (net.startswith('A_dff') or net=='wl_en'):
-                # Top-edge pins drive long decoder spines that reach gates only;
-                # an N+ tap at the pin keeps them antenna-safe whatever the route.
-                px,dy=point[0],point[1]-350.
-                b.rect('pwell',px-130,dy-130,px+130,dy+130);b.rect('nplus',px-105,dy-105,px+105,dy+105)
-                b.rect('active',px-75,dy-75,px+75,dy+75);b.cont(px,dy);b.rect('m1',px-35,dy-70,px+35,dy+70)
-                lift(px,dy,1,5);wire('m5',px,dy,px,point[1],145)
-                ownership.extend((net,(px,dy,layer)) for layer in ('m4','m5'))
+        for net,planned in pin_plan.items():
+            points=planned if isinstance(planned,list) else [planned]
+            # A multi-point net outside the controller source is a feed-through
+            # (a decoder net joining the two array halves).
+            if net!='VDD' and net!='VSS' and net not in routed and len(points)<2:raise ValueError(f'Planned controller pin has no source connection: {net}')
+            external[net]=points[0]
+            for point in points:
+                b.sq(point[2],point[0],point[1],145 if point[2] in ('m5','m6') else 405)
+                routed[net].append(point);access.append((net,point));ownership.append((net,point))
+                # Planned pins lead to bank drivers or tapped decoder spines.
+                loads[net,point][1]=True
+                # Block-edge pins (including the 1 um bottom margin) carry the taps.
+                edge=lanes is None or band_span[0]-1000<=point[1]<=band_span[1]
+                if corner and edge and point[2]=='m5':
+                    # Edge pins drive long decoder spines that reach gates only;
+                    # an N+ tap at the pin keeps them antenna-safe whatever the route.
+                    below=lanes is None or point[1]>sum(band_span)/2
+                    px,dy=point[0],point[1]+(-350. if below else 350.)
+                    b.rect('pwell',px-130,dy-130,px+130,dy+130);b.rect('nplus',px-105,dy-105,px+105,dy+105)
+                    b.rect('active',px-75,dy-75,px+75,dy+75);b.cont(px,dy);b.rect('m1',px-35,dy-70,px+35,dy+70)
+                    lift(px,dy,1,5);wire('m5',px,dy,px,point[1],145)
+                    # The tap landing is off the routing grid: centre routes
+                    # (its own net included) keep full spacing from it.
+                    # Grid points within 285 nm (wire half-width, space, landing
+                    # half-width) on M4/M5; the pin itself is 350 nm away.
+                    if lanes is not None:blocked_boxes.append((ceil((px-284)/GRID)*GRID,ceil((dy-284)/GRID)*GRID,
+                                                               floor((px+284)/GRID)*GRID,floor((dy+284)/GRID)*GRID,2))
+                    ownership.extend((net,(px,dy,layer)) for layer in ('m4','m5'))
     interface=[] if pin_plan is not None else [p for p in component.ports if p.startswith('A_dff') or p in
                ('wl_en','s_en','w_en','PRE','sa_iso','rbl','rwl','pre_far','iso_far','sen_far','wen_far')]
     for i,net in enumerate(interface):
@@ -353,14 +807,26 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     for net,x in ([] if pin_plan is not None else [('VSS',1200.),('VDD',3000.)]):
         point=(x,23000.,'m8');external[net]=point
         b.sq('m8',*point[:2],405);routed[net].append(point);access.append((net,point));ownership.append((net,point))
-    router=ControlRouter(b,width,height,upper_metal=9,overflow=overflow)
+    router=ControlRouter(b,width,height,upper_metal=9,overflow=overflow,profile=profile)
     for layer_index,layer in enumerate(router.layers):
         reg=pya.Region(b.cell.begin_shapes_rec(b.li(layer))).merged()
         sites=[(n,pya.Point(u(pt[0]),u(pt[1]))) for n,pt in ownership if pt[2]==layer]
+        # Bank conductors inside the routing region block every net; planned
+        # accesses on them are reopened below. The clearance is square: a wire
+        # ending beside an obstacle corner extends half its width past the
+        # last grid point.
+        clearance=1202.5 if layer_index>=5 else 602.5 if layer_index>=3 else 212.5
+        for o_layer,ox0,oy0,ox1,oy1,owner in obstacles or ():
+            if o_layer!=layer:continue
+            if owner is not None:raise ValueError('Bank obstacles carry no owner')
+            for xi in range(ceil((ox0-clearance)/GRID),floor((ox1+clearance)/GRID)+1):
+                for yi in range(ceil((oy0-clearance)/GRID),floor((oy1+clearance)/GRID)+1):
+                    dx=max(0.,ox0-xi*GRID,xi*GRID-ox1);dy=max(0.,oy0-yi*GRID,yi*GRID-oy1)
+                    if dx<clearance and dy<clearance:router.blocked.add((xi,yi,layer_index))
         for pg in reg.each():
             bb=pg.bbox();scale=layout.dbu*1000
             owners={net for net,point in sites if pg.inside(point)}
-            if len(owners)>1:raise ValueError(f'Shorted fixed conductor on {layer}: {owners}')
+            if len(owners)>1:raise ValueError(f'Shorted fixed conductor on {layer} at {[v*scale for v in (bb.left,bb.bottom,bb.right,bb.top)]}: {owners}')
             clearance=1202.5 if layer_index>=5 else 602.5 if layer_index>=3 else 212.5
             expanded=pya.Region(pg).sized(u(clearance))
             for contour in expanded.each():
@@ -379,7 +845,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         q=router.point(*pt)
         router.blocked.discard(q);router.reserve(q,net)
     integration_ports=[p for p in component.ports if p.startswith(('DIN_dff','A_dff')) or p in ('VDD','VSS','wl_en','s_en','w_en','PRE','sa_iso','rbl','rwl','pre_far','iso_far','sen_far','wen_far')]
-    if pin_plan is not None:integration_ports=[n for n,p in pin_plan.items() if p[2]=='m8']
+    if pin_plan is not None:integration_ports=[n for n,p in pin_plan.items() if not isinstance(p,list) and p[2]=='m8']
     for net in integration_ports:
         point=external[net]
         if point[2]!='m8':raise ValueError('Macro interface requires an M8 landing')
@@ -391,10 +857,15 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     from .router import RoutingError
     fixed_blocked=set(router.blocked);fixed_clearance={p:set(n) for p,n in router.clearance.items()}
     # Route scarce top-edge address accesses before the interior fills up.
-    priority=[n for n in nets if n.startswith('A_dff')] if height>80000. else []
-    clock_state=None
+    tall=height>80000. or (profile is not None and CENTRE_TALL)
+    priority=[n for n in nets if n.startswith('A_dff')] if tall else []
+    if profile is not None and not tall:
+        # Centre frames: nets with planned edge pins take straight paths
+        # first; local nets then claim their pin access before longer ones.
+        priority=[n for n in nets if n in pin_plan and n not in ('VDD','VSS')]
+    clock_state=None;history={}
     for attempt in range(32):
-        router=ControlRouter(b,width,height,upper_metal=9,overflow=overflow);router.blocked=set(fixed_blocked)
+        router=ControlRouter(b,width,height,upper_metal=9,overflow=overflow,profile=profile);router.blocked=set(fixed_blocked)
         router.clearance={p:set(n) for p,n in fixed_clearance.items()}
         for net,pt in access:
             q=router.point(*pt);router.reserve(q,net)
@@ -406,29 +877,45 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             # Every retry starts from the same completed clock tree. Copy all
             # routing state while retaining the native, undrawn GDS builder.
             router=deepcopy(clock_state,{id(b):b})
+        if profile is not None:
+            router.history=history;router.exclude_cuts(fixed_cuts)
+            router.fixed_points={router.point(*pt) for _,pt in access}
         local=[n for n in nets if n not in component.ports and max(p[0] for p in routed[n])-min(p[0] for p in routed[n])+max(p[1] for p in routed[n])-min(p[1] for p in routed[n])<6000]
         order=['clk_buf']+priority+[n for n in nets if n!='clk_buf' and n not in priority]
-        if overflow is not None and height>80000.:
+        if (overflow is not None or profile is not None) and tall:
             # Preserve channels for long feedback and interface nets before
             # connecting the small local groups between neighboring gates.
             order=['clk_buf']+priority+[n for n in nets if n!='clk_buf' and n not in priority and n not in local]
             order.extend(n for n in nets if n!='clk_buf' and n not in priority and n in local)
         try:
+            if profile is not None:
+                _route_centre(router,order,routed,priority,local,tall,clock_state,history,attempt,len(nets),loads)
+                break
             for i,net in enumerate(order):
                 if net=='clk_buf' and clock_state is not None:continue
                 ps=list(dict.fromkeys(router.point(*p) for p in routed[net]))
                 limit=router.search_limit
-                if net=='clk_buf' or net in priority or (overflow is not None and height>80000. and net not in local):
+                if net=='clk_buf' or net in priority or ((overflow is not None or profile is not None) and tall and net not in local):
                     router.search_limit=None
                 router.connect(net,ps[0],ps[1:])
                 router.search_limit=limit
-                if net=='clk_buf' and height>80000.:clock_state=deepcopy(router,{id(b):b})
+                if net=='clk_buf' and tall:clock_state=deepcopy(router,{id(b):b})
                 if i%100==0:print('TIME_CONTROL routing attempt',attempt,'net',i,'/',len(nets),flush=True)
             break
         except RoutingError as error:
             if error.net=='clk_buf' or (priority and priority[0]==error.net):raise
             if error.net in priority:priority.remove(error.net)
             priority.insert(0,error.net)
+            if profile is not None:
+                # Centre frames: other nets pay to pass the failed net's terminals.
+                for point in routed[error.net]:
+                    cx,cy,cl=router.point(*point)
+                    for l in range(len(router.layers)):
+                        r=HISTORY_RADIUS[l]
+                        for dx in range(-r,r+1):
+                            for dy in range(-r,r+1):
+                                cell=history.setdefault((cx+dx,cy+dy,l),{})
+                                cell[error.net]=cell.get(error.net,0)+HISTORY_COST
             print('Retrying with priority for',error.net,flush=True)
     else:raise ValueError('Controller routing did not converge after 32 deterministic retries')
     router.draw();pins.update(external)
@@ -466,13 +953,20 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                     window=pya.Region(pair.bbox().enlarged(u(2*minw),u(2*minw)))
                     for pg in have.each():
                         if pg.bbox().overlaps(pair.bbox()) and not (pya.Region(pg)&pya.Region(pair.bbox().enlarged(1,1))).is_empty():
-                            local=(pya.Region(pg)&window).bbox()
+                            local=_on_grid((pya.Region(pg)&window).bbox())
                             # A merged region hides a new short from spacing
                             # checks. Keep the fill clear of every other wire.
                             foreign=have-pya.Region(pg)
                             if (pya.Region(local).sized(u(space))&foreign).is_empty():
                                 b.cell.shapes(b.li(layer)).insert(local)
                 have=pya.Region(b.cell.begin_shapes_rec(b.li(layer))).merged()
+            if not have.width_check(u(minw)).is_empty():
+                # The piece's box crowds another wire (a same-net bridge between
+                # two offset via landings, narrowed by the offset): widen only
+                # the neck itself.
+                for pair in have.width_check(u(minw)).each():
+                    neck=_neck_fill(have,pair,u(minw),u(space))
+                    if neck is not None:b.cell.shapes(b.li(layer)).insert(neck)
             after=counts(pya.Region(b.cell.begin_shapes_rec(b.li(layer))).merged())
             if after[0] or after[1]>before[1] or after[2]>before[2]:
                 raise ValueError(f'Controller {layer} width repair failed: width/isolation/notch {before} -> {after}')

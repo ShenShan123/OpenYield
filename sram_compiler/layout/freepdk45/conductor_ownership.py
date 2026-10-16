@@ -10,8 +10,11 @@ from .lib import pya,u
 
 def port_conductors(builder,ports,aliases,require_connected=False,minimum_metal: int = 7,
                     exclude_bbox_nm: Optional[tuple] = None):
+    """exclude_bbox_nm is one (x0, y0, x1, y1) box or a list of them."""
     ly=builder.ly;cell=builder.cell;scale=ly.dbu*1000;step=u(1000)
-    excluded=pya.Region(pya.Box(*[u(v) for v in exclude_bbox_nm])) if exclude_bbox_nm else pya.Region()
+    boxes=[] if not exclude_bbox_nm else exclude_bbox_nm if isinstance(exclude_bbox_nm[0],(tuple,list)) else [exclude_bbox_nm]
+    excluded=pya.Region()
+    for box in boxes:excluded.insert(pya.Box(*[u(v) for v in box]))
     nodes=[];parents=[];layers=defaultdict(list);bins=defaultdict(lambda:defaultdict(list))
     def root(i):
         while parents[i]!=i:parents[i]=parents[parents[i]];i=parents[i]

@@ -14,11 +14,35 @@ from .dense_slots import fold_class,make_write_slot,make_precharge_slot
 from .lib import Builder,new_layout,pya,u
 
 
-def build(deck,output,include_auxiliary=True,folded=None):
+def split_row(rows):
+    """Lower-half row count of a split bank, or None when it cannot split.
+
+    Each half holds whole final slices, and for three decoder levels whole
+    64-row predecode groups, so only level-0 enables cross the periphery.
+    """
+    group=64 if rows>64 else 8
+    split=group*max(1,(rows//group+1)//2)
+    return split if split<rows else None
+
+
+def build(deck,output,include_auxiliary=True,folded=None,split=None,reserve=1000.,bridge=True,spare=0.):
+    """split=row places rows [0, split) below the column periphery.
+
+    The lower array's top edge lies ``reserve`` nm below the write band, which
+    leaves room for the controller's data registers. Bitlines continue on M5
+    through the periphery. With ``bridge`` the decoder nets shared by both
+    halves cross the band as straight M5 tracks; otherwise both halves keep
+    band-edge pins for the controller to join. spare widens the free decoder
+    space of both halves (centre controller lanes).
+    """
     source,core_name,specs,data_component,_=source_contract(deck,True)
     rows,cols=source.rows,source.cols
     if rows<8 or rows%8 or rows>512 or cols<8 or cols%2 or cols>512:
         raise ValueError('OpenRAM-pitch bank supports 8-512 rows (multiples of 8) and 8-512 even columns')
+    if spare and split is None:raise ValueError('Spare decoder width applies to split banks')
+    if split is not None and (include_auxiliary or folded is False or split!=split_row(rows) or reserve<1000):
+        raise ValueError('A split bank uses the folded periphery, external auxiliaries and split_row(rows)')
+    if split is not None:folded=True
     # Rows <= 32 keep the verified reference periphery; larger row classes
     # fold their enlarged precharge/write/buffer devices into slot rows.
     if folded is None:
@@ -40,7 +64,11 @@ def build(deck,output,include_auxiliary=True,folded=None):
     if set(omitted)!=expected:
         raise ValueError('Unexpected omitted source instances')
     ly=new_layout();b=Builder(ly,f'DENSE_BANK_{rows}X{cols}')
-    decoder=make_decoder(ly,source,row_specs);core=make_core(ly,source,specs,core_name)
+    if split is None:
+        decoder=make_decoder(ly,source,row_specs);core=make_core(ly,source,specs,core_name)
+    else:
+        decoder=make_decoder(ly,source,row_specs,(split,rows),spare);core=make_core(ly,source,specs,core_name,(split,rows))
+        decoder_lo=make_decoder(ly,source,row_specs,(0,split),spare);core_lo=make_core(ly,source,specs,core_name,(0,split))
     sa=make_sense(ly,specs['XSENSEAMP_0'])
     if folded:
         wslot=make_write_slot(ly,'DENSE_WRITE_SLOT',{'L':specs['XWRITEDRIVER_0'],'U':specs['XWRITEDRIVER_1']},
@@ -97,7 +125,13 @@ def build(deck,output,include_auxiliary=True,folded=None):
                            width_nm=v.height_nm if rotate else v.width_nm,height_nm=v.width_nm if rotate else v.height_nm))
         return pp
     cp=add(core,cx,cy);dp=add(decoder,0,cy)
-    for r in range(rows):wire('m3',*dp[f'WL{r}'][:2],*cp[f'WL{r}'][:2])
+    if split is not None:
+        # The lower array's top edge (yb) faces the data-register reserve.
+        yb=-reserve;ylo=yb-split*1365
+        cp_lo=add(core_lo,cx,ylo);dp_lo=add(decoder_lo,0,ylo)
+        cp={**cp_lo,**cp};wl_pins={**dp_lo,**dp}
+    else:wl_pins=dp
+    for r in range(rows):wire('m3',*wl_pins[f'WL{r}'][:2],*cp[f'WL{r}'][:2])
     def vertical_m1(point):
         x,y,l=point;b.sq('v1',x,y,65)
         b.rect('m1',x-32.5,y-67.5,x+32.5,y+67.5);b.rect('m2',x-35,y-70,x+35,y+70)
@@ -123,16 +157,23 @@ def build(deck,output,include_auxiliary=True,folded=None):
     else:
         px,py,pl=dp['VDD'];wire('m2',px,py,px,cy-600);global_bar('VDD',(px,cy-600,'m2'))
         wire('m2',200,cy+100,200,cy-300);global_bar('VSS',(200,cy-300,'m2'))
+        if split is not None:
+            # Mirror the decoder supply bars into the gap above the lower array.
+            px,py,pl=dp_lo['VDD'];wire('m2',px,py,px,yb+600);global_bar('VDD',(px,yb+600,'m2'))
+            px,py,pl=dp_lo['VSS'];wire('m2',px,py,px,yb+300);global_bar('VSS',(px,yb+300,'m2'))
     if include_auxiliary:
         wy=cy-650 if folded else cy-1000
         ex,ey,el=dp['wl_en'];wire('m5',ex,ey,ex,wy);global_bar('wl_en',(ex,wy,'m5'))
     else:pins['wl_en']=dp['wl_en']
-    vx=cx+352.5;vy=cy+1700
-    via(4,vx,vy);via(5,vx,vy);wire('m6',root_x('VDD'),vy,vx,vy)
-    global_sites.setdefault('VDD',[]).append((root_x('VDD'),vy))
+    vx=cx+352.5
     ground_x=cx-(200 if include_auxiliary else 150)
-    wire('m1',ground_x,cy,cx+352.5,cy);wire('m1',ground_x,cy,ground_x,cy-300)
-    global_bar('VSS',(ground_x,cy-300,'m1'))
+    # Core VDD trunks join on M6 one row inside each array; VSS rails at the
+    # periphery-facing edge drop to an M4 bar in the adjacent gap.
+    for vy,edge,bar in [(cy+1700,cy,cy-300)]+([(yb-1700,yb,yb+300)] if split is not None else []):
+        via(4,vx,vy);via(5,vx,vy);wire('m6',root_x('VDD'),vy,vx,vy)
+        global_sites.setdefault('VDD',[]).append((root_x('VDD'),vy))
+        wire('m1',ground_x,edge,cx+352.5,edge);wire('m1',ground_x,edge,ground_x,bar)
+        global_bar('VSS',(ground_x,bar,'m1'))
     rx,ry=lift(cp['RWL'],6);wire('m6',-300,ry,rx,ry)
     global_sites.setdefault('RWL',[]).append((-300,ry))
     if folded:
@@ -173,8 +214,9 @@ def build(deck,output,include_auxiliary=True,folded=None):
             for p in ('BL','BLB'):
                 tx,ty,_=wpins[role+'.'+p][0]
                 if abs(tx-(cx+col*705+(185 if p=='BL' else 520)))>1e-6:raise ValueError('Slot bitline stack off its column')
-                wire('m5',tx,ty,tx,cy)
-                for point in (sp['IN' if p=='BL' else 'INB'],(tx,cy,'m2')):
+                wire('m5',tx,ty if split is None else yb,tx,cy)
+                ends=[(tx,cy,'m2')]+([(tx,yb,'m2')] if split is not None else [])
+                for point in (sp['IN' if p=='BL' else 'INB'],*ends):
                     xx,yy2=lift(point);wire('m4',xx,yy2,tx,yy2);via(4,tx,yy2)
         # Bars run from the left trunks to the rightmost slot on each level.
         last=max(slot_pins)
@@ -272,6 +314,18 @@ def build(deck,output,include_auxiliary=True,folded=None):
         # Only the selected sense output feeds the source output latch.
         sx,sy,sl=sas[cols-1]['Q'];yy=sy+100;wire('m3',sx,sy,sx,yy)
         global_bar(control_order[6],(sx,yy,'m3'))
+    shared={}
+    if split is not None:
+        # Address buses, wl_en and level-0 enables end at each half's band
+        # edge. Bank-only builds join them with straight M5 bridges.
+        for net in [n for n in dict.fromkeys([*dp_lo,*dp]) if n not in ('VDD','VSS') and not n.startswith('WL')]:
+            ends={k:v[net] for k,v in (('lower',dp_lo),('upper',dp)) if net in v}
+            if any(l!='m5' for _,_,l in ends.values()):raise ValueError(f'{net}: decoder band pin is not on M5')
+            shared[net]=ends
+            if bridge and len(ends)==2:
+                (x0,y0,_),(x1,y1,_)=ends['lower'],ends['upper']
+                if x0!=x1:raise ValueError(f'{net}: decoder halves disagree on the trunk phase')
+                wire('m5',x0,y0,x1,y1)
     for net,sites in global_sites.items():
         xs={x for x,y in sites}
         if len(xs)!=1:raise ValueError('Global trunk phase mismatch')
@@ -292,20 +346,32 @@ def build(deck,output,include_auxiliary=True,folded=None):
     pins={p:pins[p] for p in ports}
     for p,(x,y,l) in pins.items():b.label(l,p,x,y)
     comp=Component(b.name,ports,(),tuple(Instance(n,tuple(source.instances[n]['pins'][p] for p in c.ports),c) for n,c in specs.items()))
-    v=CellView(comp,b,cx+core.width_nm,cy+core.height_nm,pins,terminals,[],[],[])
-    v.physical_fingers=fingers;v.placements=placed;v.wordlines=[dict(row=r,start_nm=dp[f'WL{r}'],end_nm=cp[f'WL{r}']) for r in range(rows)]
+    bottom=0. if split is None else ylo
+    v=CellView(comp,b,cx+core.width_nm,cy+core.height_nm-bottom,pins,terminals,[],[],[])
+    v.physical_fingers=fingers;v.placements=placed;v.wordlines=[dict(row=r,start_nm=wl_pins[f'WL{r}'],end_nm=cp[f'WL{r}']) for r in range(rows)]
     from .dense_budget import compare
-    views=dict(sense=sa,decoder=decoder,core=core)
+    # A split bank's halves and register reserve have no OpenRAM reference.
+    views=dict(sense=sa,decoder=decoder,core=core) if split is None else dict(sense=sa)
     if not folded:views.update(precharge=pc,write=wd,buffer=buf)
     if include_auxiliary:views.update(latch=latch,**({'replica_driver':rwl} if cols<=32 else {}))
-    budgets=compare(views,rows,cols,v)
+    budgets=compare(views,rows,cols,v if split is None else None)
     metadata=dict(schema=3,artifact_kind='bank',rows=rows,cols=cols,controller_layout=False,
         replica_integrated_in_core=True,included_instances=list(specs),excluded_instances=omitted,
-        array_origin_nm=[cx,cy],decoder_bbox_nm=[0,cy,decoder.width_nm,cy+rows*1365],
+        array_origin_nm=[cx,cy],decoder_bbox_nm=[0,cy if split is None else ylo,decoder.width_nm,cy+decoder.height_nm],
         periphery_bands_nm=(dict(write=[0,wslot.height],sense=[sa_y,sa_y+sa.height_nm],precharge=[pc_y,pc_y+pslot.height],
             slot_pitch=1410,slots=cols//2+1,write_supplies=[list(t) for t in wslot.supplies]) if folded else None),
         core_geometry=dict(width_nm=core.width_nm,height_nm=core.height_nm,replica_x_nm=(cols+1)*705),
         external_pins=pins,area_comparison=budgets,waveform_validation='not run',defaults_promotable=False)
+    if split is not None:
+        metadata['split']=dict(row=split,lower_rows=[0,split],upper_rows=[split,rows],
+            lower_array_origin_nm=[cx,ylo],lower_array_top_nm=yb,register_reserve_nm=reserve,
+            upper_decoder_bbox_nm=[0,cy,decoder.width_nm,cy+decoder.height_nm],
+            lower_decoder_bbox_nm=[0,ylo,decoder_lo.width_nm,yb],
+            decoder_band_pins=shared,decoder_bridges=bridge,decoder_spare_nm=spare,
+            decoder_row_left_nm={**decoder_lo.row_left_nm,**decoder.row_left_nm},
+            decoder_row_metal_nm={**decoder_lo.row_metal_nm,**decoder.row_metal_nm},
+            decoder_row_well_nm={**decoder_lo.row_well_nm,**decoder.row_well_nm},
+            bitlines='continuous M5 from the lower array top edge through the periphery to the upper array')
     summary=Path(deck).with_name('summary.json')
     if summary.is_file():
         import json,hashlib

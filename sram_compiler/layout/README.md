@@ -125,6 +125,16 @@ point or release qualification is implied. See the
 [scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md) for commands, sizes,
 waveform evidence and actual layout verification.
 
+`layout bank --with-controller --controller-floorplan center` (16 rows or
+more) splits the core into lower and upper sub-arrays around the column
+periphery. Bitlines stay continuous on M5 through the periphery, and decoder
+nets used by both halves are bridged on M10. TIME_CONTROL starts at the decoder's
+left edge, fills the block between the decoder halves and continues in spare
+decoder rows. The data registers fold into a 7.73 µm band directly above the
+lower array. The default remains `corner`; see the
+[scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md) for areas,
+verification and limits.
+
 `layout preview --layout-dir PATH` produces `layout.png`, `placement.png` and
 `time_control.png` directly from the GDS. `layout driver-audit` measures metal
 loads and gate widths only after hash-bound, passing DRC/LVS/coupled extraction.

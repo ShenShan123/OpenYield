@@ -14,7 +14,7 @@ def compare(views,rows,cols,bank):
           'buffer':(2*area('pinv'),'sum of two pinv physical bounding boxes'),
           'replica_driver':(area('wordline_driver'),'wordline_driver'),
           'latch':(ref['dff']['area_um2'],'dff (area ceiling; different storage topology)')}
-    if (rows,cols)==(32,32):
+    if (rows,cols)==(32,32) and bank is not None:
         caps.update(core=(area('capped_replica_bitcell_array'),'capped_replica_bitcell_array'),
             decoder=(area('hierarchical_decoder')+area('wordline_driver_array'),
                      'sum of hierarchical_decoder and wordline_driver_array'),
@@ -28,7 +28,7 @@ def compare(views,rows,cols,bank):
         result.append(dict(component=name,area_um2=measured,reference=reference,limit_um2=limit,
                            within_limit=measured<=limit+1e-9))
         if measured>limit+1e-9:raise ValueError(f'{name}: physical area {measured} exceeds OpenRAM ceiling {limit}')
-    if (rows,cols)==(32,32):
+    if (rows,cols)==(32,32) and 'decoder' in views:
         v=views['decoder'];box=v.builder.cell.dbbox();split=v.driver_start_nm/1000
         for name,measured,reference in [
                 ('decoder_only',(split-box.left)*box.height(),'hierarchical_decoder'),
@@ -37,4 +37,4 @@ def compare(views,rows,cols,bank):
             result.append(dict(component=name,area_um2=measured,reference=reference,limit_um2=limit,within_limit=measured<=limit))
             if measured>limit:raise ValueError(f'{name}: exceeds OpenRAM area ceiling')
     return dict(reference_gds_sha256=ref['reference_gds_sha256'],metric=ref['metric'],comparisons=result,
-                matched_bank_reference=(rows,cols)==(32,32))
+                matched_bank_reference=(rows,cols)==(32,32) and bank is not None)

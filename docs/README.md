@@ -26,7 +26,9 @@ is V2.2.8; no full V2.2.8 screen is complete.
 The [single-bank scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md) covers
 512×512 generation, smaller-bank extracted-load driver candidates and removal
 of intentional TIME_CONTROL RC guards. Its evidence retains separate layout,
-coupon and native small-array waveform scopes.
+coupon and native small-array waveform scopes. It also records the opt-in
+split-array centre floorplan: physical verification and areas only, with no
+waveform or operating-point qualification.
 
 The carried Phase 6 scope. The working plans that defined it
 (`V2_1_1_TIMING_FOLLOWUP.md`, `V2_1_2_QUALIFICATION_SCOPE.md`,

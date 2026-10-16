@@ -53,8 +53,8 @@ to compensate for their short decoder. Oversized controller
 gates split into parallel slices that conserve each source device's total
 W/L. Data registers, source logic, sizing, timing and array pitch are preserved.
 This is physical integration; no electrical gate factoring is introduced.
-The narrower 512-row lanes remain failed or superseded routing experiments;
-the wider lane reserves enough tracks for its large buffer groups.
+Narrower 512-row lanes failed to route or were superseded; the wider lane
+reserves enough tracks for its large buffer groups.
 
 The controller router respects the two placement regions instead of routing
 through the decoder. Address and wordline-enable pins stay under their decoder
@@ -104,6 +104,136 @@ Distributed R+C+CC extraction is complete for 8×8, 32×32 and 128×128. The
 512×512 extraction status is recorded separately in the same evidence file.
 No new extracted waveform or operating-point qualification is implied.
 
+## Split arrays with a centre periphery
+
+`layout bank --with-controller --controller-floorplan center` (16 rows or more)
+splits the core into a lower and an upper sub-array with the column periphery
+between them. The split row keeps whole predecode groups in one half: 64-row
+groups for three decoder levels, 8-row final slices otherwise. Only level-0
+enables, address buses and `wl_en` reach both halves. Every bitline stays one
+net: M5 runs from the lower array's top edge through the register, write,
+sense and precharge bands to the upper array. Source SPICE, sizing, timing and
+the array pitch are unchanged; `corner` remains the default floorplan.
+
+Each decoder half places its own rows. Predecode slices sit at the end of their
+group farthest from the band, so rows next to the band have no slices in their
+predecode columns. Trunks end at the half's band edge. A net used by both
+halves is bridged over the array: staggered M5–M8 stacks on both trunk ends, M8
+jogs to a column over the array and one M10 track across the band. The upper
+trunk gets a diffusion tap in the strip below it. Bank-only builds bridge the
+halves with straight M5 tracks instead.
+
+TIME_CONTROL starts at the decoder's left edge:
+
+- A full-width block between the decoder halves holds the DFFs, transmission
+  gates, NOR gates, antenna-tapped receivers and as many other gates as fit.
+  Its bottom edge is 1 µm above the data-register band's, leaving room for the
+  decoder pins' taps. The address buffers and `wl_en` driver take its bottom
+  rows, under the DFF rows, together with any of their stages too wide for a
+  lane. Otherwise each address buffer's first stage (a 505 nm P finger at 128
+  rows) landed above the DFF rows, and every buffer's internal net crossed
+  them. At 512 rows the drivers are too large, and the DFFs go first.
+- Remaining gates sit in spare predecode rows above and below the block, on
+  the decoder's 1365 nm rows and M1 rails. A lane ends 500 nm before the row's
+  first predecode slice. Trunks of other slices still cross it on M5, so lane
+  gates slide right until every pin access and tap wire is 300 nm clear of
+  them; a pin under a trunk would otherwise meet the trunk with the via above
+  its access. Each gate's wells and rails continue to the next gate in its
+  row, and a row's wells start at the lane's left end. A gate's well ends at
+  least 200 nm past, or 225 nm before, any decoder well along the edge it
+  shares with the neighbouring row, so the merged wells keep their minimum
+  width and spacing. Lane gates keep fingers at or below 475 nm and split their
+  wells mid-gap, so neither diffusion crosses a well edge. Oversized gates
+  split into slices that fit the median row's widest clear stretch; slices of
+  one gate stack on consecutive rows at one x where possible, joined by M4
+  straps.
+- A lane input gets a diffusion antenna tap unless a lane gate close in source
+  order drives it. Block outputs (DFF `Q` included), bank nets such as
+  `iso_far`, and lane drivers placed more than 15 µm away (across the band or
+  past a stack) reach it over long routes; at 512 rows such inputs carried up
+  to 2700 times their gate area in lower metal. Stacked slices need no tap:
+  their combined gate area keeps the ratio low. Inputs on M4 bars (folded
+  multi-input gates) have no tap position; the routing antenna check below
+  covers them, as it does block gates.
+- The controller drives each decoder net once, from a tapped M5 pin on the
+  block's lower edge (upper edge for an upper-only net) up a planned M5 riser.
+  The tap's M4/M5 landing sits 350 nm from the pin, off the routing grid; no
+  route, its own net's included, comes within 285 nm of it, because a wire
+  grazing it leaves a neck narrower than the 140 nm minimum width.
+  The replica-wordline return drops on M9 beside the lanes into the block's top
+  edge, so the bridges' M8 jogs pass under it.
+- Routing spans the frame width on M4–M9, over the decoder as well as the
+  lanes. Every bank conductor and planned interface wire there is an obstacle
+  with a square clearance, because a wire ending beside an obstacle corner
+  extends half its width past its last grid point. Nets with planned edge pins
+  route first, then the rest shortest first. A net that cannot connect rips up
+  the routed nets on its cheapest path through their metal (never fixed metal
+  or the clock tree). That path then costs other nets more, and a net costs
+  more to cross each time it is ripped. A net that would rip a net which
+  ripped it before first looks for a path past other nets, so two nets
+  contending for one passage do not take turns (one 128-row build did for
+  over a hundred rip-ups). A full restart with a new priority remains the
+  fallback. After routing, two points
+  of one net that come within two grid steps without touching are joined by
+  free metal, and two cuts the drawing merges claim the metal between them;
+  router clearance separates only different nets. On M7–M9, wires are as wide
+  as their spacing, so two ends of one net can meet within spacing, for
+  example where an M6 jog joins two M7 runs. They can also face each other
+  across a gap that the closing would bridge over less than the minimum width
+  (a 5 nm sliver at 128 rows). One end then extends level with the other, and
+  the closing fills the straight gap at full width. A net whose gap cannot be
+  closed this way is rerouted with that spot costing it more. Router cuts
+  also keep via spacing from cuts drawn outside the router, such as the
+  register pins' via7 lifts. Same-net closing on M7–M10 bridges two via
+  landings across their overlap, which is narrower than the minimum width
+  when the landings are offset. If the usual repair box would come within
+  spacing of another wire, only the neck itself is widened.
+- The router then repeats Calibre's cumulative antenna check on its own
+  metal. As each layer from M5 to M9 is etched, a group of gate inputs not
+  yet joined to a driver, tap or planned pin may carry at most 250 times
+  its gate area in lower metal; Calibre allows 300, and the margin covers
+  cell-internal metal. A net that exceeds this reroutes with M4–M7 steps
+  costing ten times more, so its long runs move to M8/M9. Those count only
+  once the whole net, driver included, is joined. On the first 32×32 build
+  with the new taps, the check found the one error Calibre reported
+  (`wl_en` at M8). Planned pins are assumed to reach a diffusion in the
+  bank; Calibre remains the final check.
+- The first decoder column widens in 100 nm steps until the lanes hold every
+  gate within 75% of the available rows and no unsliced decoder driver leaves
+  the block. The left edges stay aligned.
+
+The data registers keep one frozen transmission-gate DFF per column, two per
+1410 nm slot, directly above the lower array. A searched track set with the
+fewest legal gate and strip levels reduces the slot from 9750 nm to 7730 nm.
+D inputs are internal band pins; Q keeps the write slot's buffer-input track.
+NanGate45 `DFF_X1` (3.23 × 1.4 µm) was studied as a layout reference only: it
+is a different 28-transistor low-Vt circuit. A single-row layout of the frozen
+DFF in that style is blocked here by M3 columns: seven contact columns cannot
+hold the P–N joins, three cross-row tracks and the lower register's Q exit.
+
+The centre layouts use the corner layouts' source decks, so SPICE, sizing and
+timing are the same. [`CENTRE_FLOORPLAN_V2_2_8.json`](../../data/CENTRE_FLOORPLAN_V2_2_8.json)
+binds each GDS, source deck and Calibre receipt by hash. All three come from
+one generator tree. On that tree, a corner 32×32 rebuild is XOR-identical to
+its recorded layout.
+
+| Square bank | Centre macro (µm) | Centre area (µm²) | Corner area (µm²) | Change | Spare column | Lane rows | Rip-ups | Calibre |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 32 | 40.92 × 71.79 | 2937.37 | 3127.29 | −6.07% | 2.7 µm | 24 | 5 | DRC 0, LVS correct, R+C+CC extracted |
+| 128 | 110.62 × 202.83 | 22436.27 | 23574.31 | −4.83% | 0.7 µm | 88 | 2 | DRC 0, LVS correct, R+C+CC extracted |
+| 512 | pending | pending | 296216.78 | pending | 1.1 µm | pending | pending | pending |
+
+At 512 rows the decoder trunks leave about 3 µm of each spare row usable. The
+controller therefore spreads over hundreds of lane rows in a 17.0 × 530.6 µm
+frame (the corner frame was 36.9 × 90.4 µm). Some buffer stages are split
+across the band: the precharge buffer's fifth stage has slices on both sides,
+about 400 µm apart. A wider
+spare column would shorten the frame but give back most of the area saving.
+The centre metal is not a calibrated RC baseline, and no waveform,
+operating-point or yield qualification has been run on these layouts. Failed
+and superseded attempts were purged on 2026-10-15; see the
+[development notes](../../DEVELOPMENT.md).
+
 ## Driver search
 
 The explicit candidate profile is
@@ -151,7 +281,9 @@ evidence. The retained solver logs and waveform files are under
 
 Layout verification, dimensions, source hashes and image paths are recorded
 in [`LAYOUT_SCALING_V2_2_8.json`](../../data/LAYOUT_SCALING_V2_2_8.json).
-Failed and superseded generation/verification attempts remain under `outputs/`.
+Only the recorded layouts, their verification and audit directories, and the
+source decks remain under `outputs/layout_scaling`. Failed and superseded
+generation and verification attempts were purged on 2026-10-15.
 The 512×512 operating point and full extracted read/write/recovery validation
 remain unqualified. The previous V2.2.2 release screen certifies its own tree.
 
@@ -159,8 +291,7 @@ The earlier selected 512×512 GDS includes a 45.7 µm M6 connection from an isol
 clock-bar input branch to its existing driver diffusion. This resolves the
 recorded M6 antenna violation while preserving the source MOS, all other
 layers and the original controller placement. The patch script hash and path
-coordinates are recorded in the layout manifest. Wider controller floorplans
-are retained as separate generation experiments.
+coordinates are recorded in the layout manifest.
 
 ## Reproduction
 

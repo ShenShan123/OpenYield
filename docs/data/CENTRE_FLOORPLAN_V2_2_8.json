@@ -1,0 +1,738 @@
+{
+  "schema": 1,
+  "date": "2026-10-15",
+  "version": "V2.2.8",
+  "request": "split the core into lower and upper sub-arrays around a centre read/write periphery; align TIME_CONTROL with the row decoder and place its remaining gates in spare decoder rows; repack the data registers",
+  "layouts": [
+    {
+      "rows": 32,
+      "cols": 32,
+      "generation": "complete",
+      "directory": "outputs/layout_scaling/centre_32_15",
+      "gds": "outputs/layout_scaling/centre_32_15/full_macro.gds",
+      "images": {
+        "layout": "outputs/layout_scaling/centre_32_15/layout.png",
+        "placement": "outputs/layout_scaling/centre_32_15/placement.png",
+        "time_control": "outputs/layout_scaling/centre_32_15/time_control.png",
+        "decoder_control": "outputs/layout_scaling/centre_32_15/decoder_control.png"
+      },
+      "width_um": 40.917500000000004,
+      "height_um": 71.7875,
+      "macro_area_um2": 2937.36503125,
+      "predecessor": "outputs/layout_scaling/decoder_control_32_08",
+      "predecessor_macro_area_um2": 3127.2937937499996,
+      "predecessor_width_um": 42.7825,
+      "predecessor_height_um": 73.0975,
+      "macro_area_reduction_percent": 6.073262540269764,
+      "source_deck_sha256": "17611c9f3b0fb46f0dd6d7b39b6214d3a58c166197e55af414a32b1d58b893e3",
+      "source_devices": 9568,
+      "physical_gate_count": 10782,
+      "split_row": 16,
+      "register_reserve_nm": 9032.5,
+      "decoder_spare_nm": 2700.0,
+      "controller_left_edge_nm": 35.0,
+      "decoder_left_edge_nm": 0.0,
+      "controller_block_nm": [
+        35.0,
+        -8032.5,
+        11535.0,
+        16500.0
+      ],
+      "controller_block_area_um2": 282.12375,
+      "controller_lane_rows": 24,
+      "controller_lane_area_um2": 117.0897,
+      "register_band_nm": [
+        12250.0,
+        -8032.5,
+        34810.0,
+        -302.5
+      ],
+      "predecessor_register_band_nm": [
+        9550.0,
+        -10072.5,
+        32110.0,
+        -322.5
+      ],
+      "decoder_control_cell": "ROW_DECODER_TIME_CONTROL_32X32",
+      "decoder_control_bbox_nm": [
+        -20.0,
+        -30872.500000000004,
+        11885.0,
+        39350.0
+      ],
+      "compiler_provenance": {
+        "compiler_version": "V2.2.8",
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature": 25.0,
+        "variation_mode": "nominal",
+        "real_cell_mode": 0,
+        "seed": 20260711,
+        "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+        "interconnect": {
+          "bl": {
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "layer": "M3-reference",
+            "pitch_m": 6e-07,
+            "sections_per_half_pitch": 1,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "width_m": 1e-07
+          },
+          "calibrated_profile": null,
+          "calibrated_profile_sha256": null,
+          "cell_pin_rc": false,
+          "mode": "per_net",
+          "net_models": {},
+          "power_models": {
+            "VDD": {
+              "capacitance_scale": 1.0,
+              "resistance_scale": 1.0
+            },
+            "VSS": {
+              "capacitance_scale": 1.0,
+              "resistance_scale": 1.0
+            }
+          },
+          "reference_profile": null,
+          "reference_profile_sha256": null,
+          "routes": {
+            "data_register_clock": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "data_register_clock-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "decoder_address": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "decoder_address-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "isolation_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "isolation_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "mux_select": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "mux_select-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "peripheral_bitline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "peripheral_bitline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "peripheral_bitline_bar": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "peripheral_bitline_bar-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "precharge_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "precharge_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "replica_bitline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "replica_bitline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "replica_wordline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "replica_wordline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "sense_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "sense_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "wordline_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "wordline_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "write_data": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "write_data-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "write_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "write_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            }
+          },
+          "wl": {
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "layer": "M2-reference",
+            "pitch_m": 6e-07,
+            "sections_per_half_pitch": 1,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "width_m": 1e-07
+          }
+        },
+        "timing": {
+          "budget": "shared",
+          "driver_key": "5f9b7d3233c8c7792d2faf633ff5484eec69771b05c5f8ccc969cceb91477a8e",
+          "extrapolated": false,
+          "high": 0,
+          "low_read": 0,
+          "low_write": 0,
+          "margin": 0,
+          "options_key": "6c3c2baefa3d302e214d2a377329287ec055ef233c375a966e6cd14464fd4e9c",
+          "qualified": false,
+          "size_class": "",
+          "source": "fixed",
+          "t_period": 9e-09,
+          "table_sha256": "",
+          "table_version": ""
+        },
+        "driver_sizes": {
+          "area_precharge_width": 1.35e-07,
+          "area_senseamp_width": 5.4e-07,
+          "area_wordline_width": 2.7e-07,
+          "canonical_read": true,
+          "cell_type": "SRAM_6T_CELL",
+          "cols": 32,
+          "compact_control": true,
+          "control_architecture": "v2.2.8-compact-digital-guards-high-access",
+          "dc_stages": 9,
+          "dec_inv": 1.0,
+          "effort_buffers": true,
+          "enable_off_tau": 3.1224e-12,
+          "extrapolated": false,
+          "isolation_tau": 4.7424000000000005e-12,
+          "key": "5f9b7d3233c8c7792d2faf633ff5484eec69771b05c5f8ccc969cceb91477a8e",
+          "loads": {
+            "access_load": 10.0,
+            "far_enable_observer_load_units": 1.75,
+            "iso_load": 264.0,
+            "num_sa": 33,
+            "observer_load_units": 1.0,
+            "pre_load": 104.125,
+            "sen_effort": 3.0,
+            "sen_load": 162.0,
+            "wen_load": 142.0,
+            "wenb_scale": 10,
+            "wl_load": 138.60000000000002
+          },
+          "mux": false,
+          "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+          "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+          "physical_key": "5a94fbb1c60c16a4bc159c7fb14fca0ed84f049347a7d425221a3c2fb09d49a5",
+          "pre": 0.5,
+          "precharge_guard_stages": 4,
+          "precharge_off_guard": true,
+          "precharge_off_guard_stages": 4,
+          "precharge_off_tau": 1.8684000000000004e-12,
+          "qualified_context_key": "",
+          "replica_k": 1,
+          "replica_length": 5e-08,
+          "replica_matched": true,
+          "replica_nmos_models": [
+            "NMOS_VTG",
+            "NMOS_VTG"
+          ],
+          "replica_nmos_widths": [
+            2.05e-07,
+            1.35e-07
+          ],
+          "replica_pmos_model": "PMOS_VTG",
+          "replica_pmos_width": 9e-08,
+          "replica_precharge_guard": true,
+          "rows": 32,
+          "rule_version": "v2.0.5-local-1",
+          "size_class": "rows<=32/cols<=32",
+          "source": "lookup",
+          "wd_in": 0.5,
+          "wd_out": 1.5,
+          "wl_inv": 1.0,
+          "wl_nand": 1.0
+        }
+      },
+      "layout_sha256": "0e814e7aea4aaa7b32c0fc0cdcc0d600f1e39d8019a6187e0d6236ce38777331",
+      "source_sha256": "10c0b87876e828f7511cea06cd0a7f76b67006a6415cb641984d480fcdf48fe9",
+      "generator_sources_sha256": {
+        "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "448a70afb759fced55be8bea5596fe3e04fbb106247b03f52532c874789377f9",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "export.py": "9da8ccfc6d1c681d645e907979e40cca5dc9855250a218991dcde6f3f1719ceb",
+        "__init__.py": "e1af0086e9bd7e585baf963ce0642d7f5b7a0f11b485a031b94c7e85ab131ea7",
+        "full_source.py": "885df5b53e89540783ef22b42c19e978b9aa74afa74ca5a88643d25651f75c26",
+        "router.py": "cb49b94cd4f90d90e64437a6dba7cb97ed6ecac1f37464dee619f6ea49dffc33",
+        "verify_full.py": "02d0eb07795c54c188fe1bf8c5b9dfd0a9de8165c6f811e6225d6b2839710c4c",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "66df3399129d56f6795f1610a0b0a63b1a5d001a068986928187ff28d5194ea6",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "0456d43f491531dcfc77e3b286da1140cb2fa505f14c893a7f00008ed71d17ed",
+        "components.py": "acc7843355b8f34ce56da8594fa16b711ed7a16e2a35faf02b9bdd229403ad6e",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "1021a1efb044f66439fc478ced05b137609d1228b4bd71d4260be2bba1d4703c",
+        "bank_core.py": "0c922939e9131a2880d8b116d208ba6a80d80e90cedb3b5352601551f8951a6a",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+        "dense_logic.py": "9420142945107b58fff15cd5f228f4bb52684816c24ee9912987af9294b26c5f",
+        "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+        "dense_views.py": "443f05ec62084c92e5a8f98a880dfeae18a86a0eda3abead5bd52bfbf3a4ea3a",
+        "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+        "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+        "dense_decoder.py": "b8df246d4e12ad0ba2abaae2313c34decb9b8acec1aebfebe2d2548f49bbfdb8",
+        "dense_core.py": "8c59c797c90558ae3b02a0bf8b92d77c49ce69d5b5db60ef6e0bc1b1b3cee677",
+        "dense_aux.py": "12331fb880d08fcd090fba1eeca5e4d4d4ee6966fb9946e0374bbb7118def594",
+        "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+        "dense_bank.py": "1acd9477c0737cb0d6cb5d3af5456c1e5403ed8cfa75165334aa71238a576ae2",
+        "dense_budget.py": "267d70d6818ed6860ca112e9a2e7a24232673d7442a892d543ea5087083b782a",
+        "control_cells.py": "366c81afb54b57a4888b38078c1583d00e2783d627d8a6be2fdb5a440faadd1a",
+        "control_place.py": "54c74ee8f83e2ccfaeea9be3285128ad2b81c209b2a8e38c719f14645a1c2887",
+        "control_passives.py": "415f9c9f6e13d54486baa6bad552e2f6ab20870bc66b2274667e4b6a01dc2f6e",
+        "time_control.py": "77fe536a5e6b1a30dd26a910e18084fcbcd8131c055e46a39ca91999cd676cc1",
+        "macro_control.py": "035ce9bfb710d9932c1596eb2fd9cad9121abf5dfda142cbe778640943e49fdd",
+        "control_register.py": "2ebbf407fcbe4118183ff308f850a68ba7de1821a8485072c5332b4b5abc6324",
+        "conductor_ownership.py": "8f23ac0d43220f396967b1d6f68cbe7184c67ad5f29b0e5ba040325bf54b71f7",
+        "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99",
+        "dense_rows.py": "e56e071b9ba7bf6e93164c97b0f4332da7b56064e2067ce0c7295f4d48e9cbe5",
+        "dense_slots.py": "0f17ba9c992e591403e4753dc296fa109c2b5b5905e537522b917edce6c99646",
+        "corner_control.py": "6b32fe1615effd96dd08efbcff012bab1dd378d4282dc8dd0801ff228c8a94e7",
+        "driver_audit.py": "9b9eb28d121f77300160cd828430bc9278228a7fc69ce6e9191025151b19c5ef",
+        "preview.py": "2e04a289d79f19fb2cf5b11bf712bc8743dfdc3e432a8c838f52c2574f81d009",
+        "center_control.py": "00b1d55e58877e4bc3a4d4acdde0e0e2395b2f18148911d8cf005af9dbfcf311"
+      },
+      "receipt": "outputs/layout_scaling/centre_32_15_verify/receipt.json",
+      "receipt_sha256": "e5b0fc9a1d69b7fc00287b632cbbb74347c1eaa483652d9d61bb6463a35f66dc",
+      "verification": {
+        "status": "extracted",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": "distributed R+C+CC",
+        "error": null
+      },
+      "routing": {
+        "log": "dev/centre_floorplan/build_32_15.log",
+        "rip_ups": 5,
+        "restarts": 0,
+        "same_net_reroutes": 0,
+        "antenna_reroutes": 0,
+        "wall_time": "3m32.161s"
+      },
+      "defaults_promotable": false,
+      "full_release_screen": false
+    },
+    {
+      "rows": 128,
+      "cols": 128,
+      "generation": "complete",
+      "directory": "outputs/layout_scaling/centre_128_15",
+      "gds": "outputs/layout_scaling/centre_128_15/full_macro.gds",
+      "images": {
+        "layout": "outputs/layout_scaling/centre_128_15/layout.png",
+        "placement": "outputs/layout_scaling/centre_128_15/placement.png",
+        "time_control": "outputs/layout_scaling/centre_128_15/time_control.png",
+        "decoder_control": "outputs/layout_scaling/centre_128_15/decoder_control.png"
+      },
+      "width_um": 110.6175,
+      "height_um": 202.82750000000004,
+      "macro_area_um2": 22436.270981250003,
+      "predecessor": "outputs/layout_scaling/decoder_control_128_07",
+      "predecessor_macro_area_um2": 23574.308843749997,
+      "predecessor_width_um": 115.4825,
+      "predecessor_height_um": 204.1375,
+      "macro_area_reduction_percent": 4.827449534333683,
+      "source_deck_sha256": "9037c0ec6f6f604c121e4430a04733fd47e6ac75d7c009b9c979f6e4904ea058",
+      "source_devices": 109796,
+      "physical_gate_count": 114184,
+      "split_row": 64,
+      "register_reserve_nm": 9032.5,
+      "decoder_spare_nm": 700.0,
+      "controller_left_edge_nm": 35.0,
+      "decoder_left_edge_nm": 0.0,
+      "controller_block_nm": [
+        35.0,
+        -8032.5,
+        13635.0,
+        16500.0
+      ],
+      "controller_block_area_um2": 333.642,
+      "controller_lane_rows": 88,
+      "controller_lane_area_um2": 326.5353,
+      "register_band_nm": [
+        14340.0,
+        -8032.5,
+        104580.0,
+        -302.5
+      ],
+      "predecessor_register_band_nm": [
+        13640.0,
+        -10072.5,
+        103880.0,
+        -322.5
+      ],
+      "decoder_control_cell": "ROW_DECODER_TIME_CONTROL_128X128",
+      "decoder_control_bbox_nm": [
+        -20.0,
+        -96392.5,
+        13975.0,
+        104870.0
+      ],
+      "compiler_provenance": {
+        "compiler_version": "V2.2.8",
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature": 25.0,
+        "variation_mode": "nominal",
+        "real_cell_mode": 0,
+        "seed": 20260711,
+        "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+        "interconnect": {
+          "bl": {
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "layer": "M3-reference",
+            "pitch_m": 6e-07,
+            "sections_per_half_pitch": 1,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "width_m": 1e-07
+          },
+          "calibrated_profile": null,
+          "calibrated_profile_sha256": null,
+          "cell_pin_rc": false,
+          "mode": "per_net",
+          "net_models": {},
+          "power_models": {
+            "VDD": {
+              "capacitance_scale": 1.0,
+              "resistance_scale": 1.0
+            },
+            "VSS": {
+              "capacitance_scale": 1.0,
+              "resistance_scale": 1.0
+            }
+          },
+          "reference_profile": null,
+          "reference_profile_sha256": null,
+          "routes": {
+            "data_register_clock": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "data_register_clock-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "decoder_address": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "decoder_address-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "isolation_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "isolation_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "mux_select": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "mux_select-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "peripheral_bitline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "peripheral_bitline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "peripheral_bitline_bar": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "peripheral_bitline_bar-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "precharge_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "precharge_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "replica_bitline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "replica_bitline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "replica_wordline": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "replica_wordline-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "sense_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "sense_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "wordline_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "wordline_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "write_data": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "write_data-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            },
+            "write_enable_control": {
+              "capacitance_f_per_m": 1.6666666666666666e-10,
+              "layer": "write_enable_control-reference",
+              "pitch_m": 6e-07,
+              "sections_per_half_pitch": 1,
+              "sheet_resistance_ohm": 0.16666666666666666,
+              "width_m": 1e-07
+            }
+          },
+          "wl": {
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "layer": "M2-reference",
+            "pitch_m": 6e-07,
+            "sections_per_half_pitch": 1,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "width_m": 1e-07
+          }
+        },
+        "timing": {
+          "budget": "shared",
+          "driver_key": "39fa9a23c927a725e63ec97273da83863009911cb6817ebbe9f30596a531dd1f",
+          "extrapolated": false,
+          "high": 0,
+          "low_read": 0,
+          "low_write": 0,
+          "margin": 0,
+          "options_key": "6e348f670be7d705260846d758710a98d052963407b65c810f9d670146aade63",
+          "qualified": false,
+          "size_class": "",
+          "source": "fixed",
+          "t_period": 3e-08,
+          "table_sha256": "",
+          "table_version": ""
+        },
+        "driver_sizes": {
+          "area_precharge_width": 2.7e-07,
+          "area_senseamp_width": 5.4e-07,
+          "area_wordline_width": 5.4e-07,
+          "canonical_read": true,
+          "cell_type": "SRAM_6T_CELL",
+          "cols": 128,
+          "compact_control": true,
+          "control_architecture": "v2.2.8-compact-digital-guards-high-access",
+          "dc_stages": 9,
+          "dec_inv": 1.0,
+          "effort_buffers": true,
+          "enable_off_tau": 4.1702400000000005e-11,
+          "extrapolated": false,
+          "isolation_tau": 6.815040000000002e-11,
+          "key": "39fa9a23c927a725e63ec97273da83863009911cb6817ebbe9f30596a531dd1f",
+          "loads": {
+            "access_load": 31.25,
+            "far_enable_observer_load_units": 1.75,
+            "iso_load": 1032.0,
+            "num_sa": 129,
+            "observer_load_units": 1.0,
+            "pre_load": 549.25,
+            "sen_effort": 3.0,
+            "sen_load": 618.0,
+            "wen_load": 550.0,
+            "wenb_scale": 40,
+            "wl_load": 541.8
+          },
+          "mux": false,
+          "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+          "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+          "physical_key": "5a94fbb1c60c16a4bc159c7fb14fca0ed84f049347a7d425221a3c2fb09d49a5",
+          "pre": 1.0,
+          "precharge_guard_stages": 4,
+          "precharge_off_guard": true,
+          "precharge_off_guard_stages": 4,
+          "precharge_off_tau": 3.68904e-11,
+          "qualified_context_key": "",
+          "replica_k": 1,
+          "replica_length": 5e-08,
+          "replica_matched": true,
+          "replica_nmos_models": [
+            "NMOS_VTG",
+            "NMOS_VTG"
+          ],
+          "replica_nmos_widths": [
+            2.05e-07,
+            1.35e-07
+          ],
+          "replica_pmos_model": "PMOS_VTG",
+          "replica_pmos_width": 9e-08,
+          "replica_precharge_guard": true,
+          "rows": 128,
+          "rule_version": "v2.0.5-local-1",
+          "size_class": "rows<=128/cols<=128",
+          "source": "lookup",
+          "wd_in": 0.5,
+          "wd_out": 1.5,
+          "wl_inv": 2.0,
+          "wl_nand": 1.0
+        }
+      },
+      "layout_sha256": "c02de9edfbf213bd51fd74c67653755d4ffcb1648e5924ec61719039dfac4c65",
+      "source_sha256": "e7d8cb385e79a8963259adbdbbf7ab7d1514da89e2c292169704a4aa6ee899e8",
+      "generator_sources_sha256": {
+        "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "448a70afb759fced55be8bea5596fe3e04fbb106247b03f52532c874789377f9",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "export.py": "9da8ccfc6d1c681d645e907979e40cca5dc9855250a218991dcde6f3f1719ceb",
+        "__init__.py": "e1af0086e9bd7e585baf963ce0642d7f5b7a0f11b485a031b94c7e85ab131ea7",
+        "full_source.py": "885df5b53e89540783ef22b42c19e978b9aa74afa74ca5a88643d25651f75c26",
+        "router.py": "cb49b94cd4f90d90e64437a6dba7cb97ed6ecac1f37464dee619f6ea49dffc33",
+        "verify_full.py": "02d0eb07795c54c188fe1bf8c5b9dfd0a9de8165c6f811e6225d6b2839710c4c",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "66df3399129d56f6795f1610a0b0a63b1a5d001a068986928187ff28d5194ea6",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "0456d43f491531dcfc77e3b286da1140cb2fa505f14c893a7f00008ed71d17ed",
+        "components.py": "acc7843355b8f34ce56da8594fa16b711ed7a16e2a35faf02b9bdd229403ad6e",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "1021a1efb044f66439fc478ced05b137609d1228b4bd71d4260be2bba1d4703c",
+        "bank_core.py": "0c922939e9131a2880d8b116d208ba6a80d80e90cedb3b5352601551f8951a6a",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+        "dense_logic.py": "9420142945107b58fff15cd5f228f4bb52684816c24ee9912987af9294b26c5f",
+        "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+        "dense_views.py": "443f05ec62084c92e5a8f98a880dfeae18a86a0eda3abead5bd52bfbf3a4ea3a",
+        "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+        "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+        "dense_decoder.py": "b8df246d4e12ad0ba2abaae2313c34decb9b8acec1aebfebe2d2548f49bbfdb8",
+        "dense_core.py": "8c59c797c90558ae3b02a0bf8b92d77c49ce69d5b5db60ef6e0bc1b1b3cee677",
+        "dense_aux.py": "12331fb880d08fcd090fba1eeca5e4d4d4ee6966fb9946e0374bbb7118def594",
+        "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+        "dense_bank.py": "1acd9477c0737cb0d6cb5d3af5456c1e5403ed8cfa75165334aa71238a576ae2",
+        "dense_budget.py": "267d70d6818ed6860ca112e9a2e7a24232673d7442a892d543ea5087083b782a",
+        "control_cells.py": "366c81afb54b57a4888b38078c1583d00e2783d627d8a6be2fdb5a440faadd1a",
+        "control_place.py": "54c74ee8f83e2ccfaeea9be3285128ad2b81c209b2a8e38c719f14645a1c2887",
+        "control_passives.py": "415f9c9f6e13d54486baa6bad552e2f6ab20870bc66b2274667e4b6a01dc2f6e",
+        "time_control.py": "77fe536a5e6b1a30dd26a910e18084fcbcd8131c055e46a39ca91999cd676cc1",
+        "macro_control.py": "035ce9bfb710d9932c1596eb2fd9cad9121abf5dfda142cbe778640943e49fdd",
+        "control_register.py": "2ebbf407fcbe4118183ff308f850a68ba7de1821a8485072c5332b4b5abc6324",
+        "conductor_ownership.py": "8f23ac0d43220f396967b1d6f68cbe7184c67ad5f29b0e5ba040325bf54b71f7",
+        "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99",
+        "dense_rows.py": "e56e071b9ba7bf6e93164c97b0f4332da7b56064e2067ce0c7295f4d48e9cbe5",
+        "dense_slots.py": "0f17ba9c992e591403e4753dc296fa109c2b5b5905e537522b917edce6c99646",
+        "corner_control.py": "6b32fe1615effd96dd08efbcff012bab1dd378d4282dc8dd0801ff228c8a94e7",
+        "driver_audit.py": "9b9eb28d121f77300160cd828430bc9278228a7fc69ce6e9191025151b19c5ef",
+        "preview.py": "2e04a289d79f19fb2cf5b11bf712bc8743dfdc3e432a8c838f52c2574f81d009",
+        "center_control.py": "00b1d55e58877e4bc3a4d4acdde0e0e2395b2f18148911d8cf005af9dbfcf311"
+      },
+      "receipt": "outputs/layout_scaling/centre_128_15_verify/receipt.json",
+      "receipt_sha256": "f4ac98de759f12b5d07dc066bdbcbcc3cd800908d282660a97e2463377f5c4a5",
+      "verification": {
+        "status": "extracted",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": "distributed R+C+CC",
+        "error": null
+      },
+      "routing": {
+        "log": "dev/centre_floorplan/build_128_15.log",
+        "rip_ups": 2,
+        "restarts": 0,
+        "same_net_reroutes": 2,
+        "antenna_reroutes": 0,
+        "wall_time": "12m28.935s"
+      },
+      "defaults_promotable": false,
+      "full_release_screen": false
+    },
+    {
+      "rows": 512,
+      "cols": 512,
+      "generation": "pending",
+      "directory": "outputs/layout_scaling/centre_512_15"
+    }
+  ],
+  "generator_tree_shared": true,
+  "corner_regression": "decoder_control_32_08 rebuilt with the default corner floorplan on the final tree is XOR-identical (all layers) to the recorded GDS",
+  "defaults_promotable": false,
+  "full_release_screen": false,
+  "waveform_validation": "not run; source SPICE unchanged; the split changes physical bitline and control routes, so earlier native waveforms are not post-layout evidence",
+  "limitations": [
+    "No new operating point or yield qualification",
+    "Centre metal is not a frozen calibrated RC baseline",
+    "Data-register D pins are internal band pins",
+    "Decoder trunks cross the spare rows; lane gates slide clear of them, so large banks spread the controller over many rows (long internal nets, long routing runtime)",
+    "Superseded attempts centre_*_01.._14 and other unreferenced layout-scaling results were purged on 2026-10-15 (local inventory dev/cleanup/2026-10-15-stale-layout-scaling.json)"
+  ]
+}
