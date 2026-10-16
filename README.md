@@ -19,6 +19,85 @@ Physical checks do not qualify autonomous bank operation.
 
 **Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The V2.2.5 campaign stopped incomplete; the [V2.2.5 simulation summary](docs/validation/V2_2_5_SIMULATION_SUMMARY.md) records it with the corrected-model diagnostics, which retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/timing/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
 
+## Environment setup
+
+The supplied [`environment.yml`](environment.yml) targets **Linux x86_64** and
+pins Python 3.9.19, PySpice 1.5, and Xyce 7.4. Run the following commands in
+Bash, from the repository root. Other platforms need a compatible Linux
+environment, such as WSL2 on Windows.
+
+If Miniconda is already installed, skip the installer and use its existing
+`etc/profile.d/conda.sh`. Otherwise, download the Linux x86_64 installer from
+the [Tsinghua mirror](https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/):
+
+```bash
+CONDA_ROOT="$HOME/miniconda3"  # Choose a disk with several GB of free space.
+NO_PROXY=mirrors.tuna.tsinghua.edu.cn no_proxy=mirrors.tuna.tsinghua.edu.cn \
+  curl -fL https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+  -o /tmp/Miniconda3-Linux-x86_64.sh
+sha256sum /tmp/Miniconda3-Linux-x86_64.sh
+```
+
+Compare the checksum with the matching installer in the
+[official Miniconda index](https://repo.anaconda.com/miniconda/) before running it:
+
+```bash
+bash /tmp/Miniconda3-Linux-x86_64.sh -b -p "$CONDA_ROOT"
+source "$CONDA_ROOT/etc/profile.d/conda.sh"
+conda init bash
+conda config --set auto_activate_base false
+```
+
+`source` enables conda in the current shell; `conda init bash` enables it in
+future Bash sessions.
+
+For downloads in China, merge the following keys into `~/.condarc`, preserving
+any other settings. This follows the
+[Tsinghua conda mirror configuration](https://mirrors.tuna.tsinghua.edu.cn/help/anaconda/).
+The `vlsida-eda` channel supplies Xyce and still uses its upstream URL.
+
+```yaml
+show_channel_urls: true
+default_channels:
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/r
+custom_channels:
+  conda-forge: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+```
+
+Create the project environment (skip creation if `openyield` already exists).
+The command below uses the local proxy for
+upstream downloads, bypasses it for Tsinghua, and directs the YAML's pip
+dependencies to Tsinghua as well. The proxy must be running at
+`127.0.0.1:2080`; adjust these values for your network.
+
+```bash
+HTTP_PROXY=http://127.0.0.1:2080 HTTPS_PROXY=http://127.0.0.1:2080 \
+http_proxy=http://127.0.0.1:2080 https_proxy=http://127.0.0.1:2080 \
+NO_PROXY=localhost,127.0.0.1,mirrors.tuna.tsinghua.edu.cn,pypi.tuna.tsinghua.edu.cn \
+no_proxy=localhost,127.0.0.1,mirrors.tuna.tsinghua.edu.cn,pypi.tuna.tsinghua.edu.cn \
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+  conda env create -f environment.yml
+conda activate openyield
+python --version
+python -m pip check
+command -v Xyce
+Xyce -v
+python main_sram.py --version
+```
+
+Activate `openyield` in each new terminal before running the compiler. If your
+home partition is small, set `envs_dirs` and `pkgs_dirs` in `~/.condarc` to
+directories on a larger disk before creating the environment. Optional layout
+and optimization dependencies are described in their linked guides below.
+
+[`environment.yml`](environment.yml) is an export of the configured
+environment, including optional layout and document packages. It pins
+`_x86_64-microarch-level=4`, so it solves only on x86-64-v4 (AVX-512) CPUs;
+delete that line on older CPUs. [`requirements.txt`](requirements.txt) lists
+its Python packages with version pins and the Tsinghua pip index. It does not
+install Xyce or native libraries; use `environment.yml` for the conda setup.
+
 ## Quick start
 
 Single-bank 512×512 layout diagnostics, extracted-load driver candidates and
@@ -27,13 +106,16 @@ TIME_CONTROL without intentional RC guards are described in the
 retains the 512×256 envelope; 512×512 requires an explicit diagnostic period
 and has no qualified operating point.
 
-Run commands from the repository root. The supplied Conda environment includes Python, PySpice, and Xyce:
+Run commands from the repository root after completing the environment setup:
 
 ```bash
-conda env create -f environment.yml
 conda activate openyield
-command -v Xyce
+python main_sram.py simulate --rows 2 --cols 2 --operation read --variation-mode nominal --real-cell-mode 0 --no-run-xyce
 ```
+
+This smoke check generates a deterministic full-transistor deck under
+`outputs/main_sram/`. It checks environment and netlist construction only;
+it does not simulate or validate waveforms.
 
 Edit the settings at the top of [`main_sram.py`](main_sram.py). Set `ARRAY = [8, 4, False]`, `OPERATION = "read"`, and `RUN_XYCE = False` to generate a full-transistor deck without a simulator:
 
@@ -87,7 +169,8 @@ python main_sram.py circuit-experiment
 `experiment.py` offers joint architecture and transistor sizing or sizing at fixed configurations. The separate [OpenYield V2 offline package](size_optimization/openyield_v2/README.md) trains on bundled static data and does not call Xyce during optimization:
 
 ```bash
-python -m pip install -r size_optimization/openyield_v2/requirements.txt
+NO_PROXY=pypi.tuna.tsinghua.edu.cn no_proxy=pypi.tuna.tsinghua.edu.cn \
+  python -m pip install -r size_optimization/openyield_v2/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 python main_sram.py experiment --dry-run
 ```
 

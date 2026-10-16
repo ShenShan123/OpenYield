@@ -1,6 +1,6 @@
 # OpenYield working conventions
 
-OpenYield is an open-source SRAM compiler for transistor-level 6T and 10T arrays, DC/transient analysis, sizing optimization, and yield research. The compiler version is **V2.2.8**. The [root tutorial](README.md) and subdirectory READMEs explain usage; [docs/CHANGELOG.md](docs/CHANGELOG.md) and [the V2.2.6 review record](docs/design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) carry release details. No V2.2.5 or V2.2.6 waveform screen has completed, and 256x256 has no working operating point. The last assembled screen, `docs/data/PHASED_CONTROL_V2_2_2.json`, certifies only that earlier tree. Never promote a partial or failed screen.
+OpenYield is an open-source SRAM compiler for transistor-level 6T and 10T arrays, DC/transient analysis, sizing optimization, and yield research. The compiler version is **V2.2.8**. The [root tutorial](README.md) and subdirectory READMEs explain usage, and [docs/CHANGELOG.md](docs/CHANGELOG.md) carries release details.
 
 The working tree is **V2.2.8**. The [FreePDK45 workflow](sram_compiler/layout/README.md)
 covers component-based banks and TIME_CONTROL layouts. The older fixed,
@@ -18,10 +18,10 @@ The supported timing envelope is 512 rows by 256 columns; `timing_lookup.json` a
 
 - Establish read, write, hold, sense, and recovery correctness before changing driver sizes, transistor optimization, or yield logic. A deck or passing measures alone does not prove waveform correctness.
 - Run commands from the repository root. Resolve data paths from source locations; avoid machine-local paths. Put generated decks and results under ignored `outputs/` or a temporary directory.
-- Preserve positional factory and testbench arguments; append optional ones. Keep topology separate from sizing and timing policy, and resolve loads from actual scaled widths.
+- Preserve positional factory and testbench arguments; append optional ones. Keep topology separate from sizing and timing policy, and resolve loads from actual layout implementation.
 - YAML widths and lengths are SI metres; circuits use PySpice units, and sweeps substitute SPICE expression strings. Check numeric and sweep paths when either changes.
 - Freeze baseline sizing and timing across cell candidates and PVT samples. Changed architecture, periphery, model, or physical RC must not silently reuse a stale baseline.
-- Default Monte Carlo to per-device `vth0/u0/voff` mismatch. `mc=True` means per-device, so `mc_runs=1` without a seed is random. Equivalent arrays do not cover every MOS and are not full-array yield evidence.
+- Default Monte Carlo to per-device `vth0/u0/voff` mismatch. `mc=True` means per-device, so `mc_runs=1` without a seed is random.
 - Inspect TIME_CONTROL pulse inputs and outputs first when debugging: `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, and `sa_iso`. Check physical far-end crossings and data retention, then state exactly which waveform validation ran.
 - Preserve supplied evidence, including `docs/data/*.csv` and `docs/qualification/*.json`. Record solver, model, seed, RC, and equivalent-mode provenance with results.
 - Keep ad hoc scripts under ignored `dev/`; regression and waveform Python scripts under ignored `tests/` stay local. The `tests/spice/*.json` case manifests remain tracked. A fresh clone does not include the local Python test runner.
