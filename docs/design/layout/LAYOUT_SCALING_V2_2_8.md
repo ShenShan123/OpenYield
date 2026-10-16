@@ -2,7 +2,7 @@
 
 The layout generator now accepts a single 512×512 bank at the existing
 705 nm column and 1365 nm row pitch. TIME_CONTROL and the data registers are
-included in the generated corner floorplan. An explicit diagnostic clock is
+included in the generated floorplan. An explicit diagnostic clock is
 required beyond the automatic 512×256 timing envelope; no new operating point
 or release qualification is implied.
 
@@ -37,7 +37,11 @@ the complete GDS and source.
 
 ## Shared decoder and controller floorplan
 
-The default corner plan now fuses the row decoder and TIME_CONTROL logic into
+The corner floorplan described here was retired on 2026-10-16; the
+[split-array centre floorplan](#split-arrays-with-a-centre-periphery) replaces
+it. This section and its evidence remain the area baseline for that change.
+
+The corner plan fused the row decoder and TIME_CONTROL logic into
 one physical `ROW_DECODER_TIME_CONTROL` module. The controller's lower frame
 edge equals the data-register band's lower edge. It fills the broad corner
 below the decoder first; excess standard cells continue upward in a narrow
@@ -106,14 +110,15 @@ No new extracted waveform or operating-point qualification is implied.
 
 ## Split arrays with a centre periphery
 
-`layout bank --with-controller --controller-floorplan center` (16 rows or more)
-splits the core into a lower and an upper sub-array with the column periphery
-between them. The split row keeps whole predecode groups in one half: 64-row
+`layout bank --with-controller` (16 rows or more) uses this floorplan by
+default (`--controller-floorplan center`). It splits the core into a lower and
+an upper sub-array with the column periphery between them. The split row keeps whole predecode groups in one half: 64-row
 groups for three decoder levels, 8-row final slices otherwise. Only level-0
 enables, address buses and `wl_en` reach both halves. Every bitline stays one
 net: M5 runs from the lower array's top edge through the register, write,
 sense and precharge bands to the upper array. Source SPICE, sizing, timing and
-the array pitch are unchanged; `corner` remains the default floorplan.
+the array pitch are unchanged. Banks below 16 rows cannot split and have no
+integrated controller floorplan since the corner plan was retired.
 
 Each decoder half places its own rows. Predecode slices sit at the end of their
 group farthest from the band, so rows next to the band have no slices in their
@@ -215,7 +220,9 @@ The centre layouts use the corner layouts' source decks, so SPICE, sizing and
 timing are the same. [`CENTRE_FLOORPLAN_V2_2_8.json`](../../data/CENTRE_FLOORPLAN_V2_2_8.json)
 binds each GDS, source deck and Calibre receipt by hash. All three come from
 one generator tree. On that tree, a corner 32×32 rebuild is XOR-identical to
-its recorded layout.
+its recorded layout. After the corner plan was retired, default-floorplan
+rebuilds of the 32×32 and 128×128 centre layouts are XOR-identical to the
+recorded ones, with equal manifests apart from the changed generator hashes.
 
 | Square bank | Centre macro (µm) | Centre area (µm²) | Corner area (µm²) | Change | Spare column | Lane rows | Rip-ups | Calibre |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -313,6 +320,10 @@ python main_sram.py layout driver-audit --layout-dir outputs/layout/scaling_512 
   --extraction-dir outputs/layout/scaling_512_verify \
   --output-dir outputs/layout/scaling_512_loads
 ```
+
+`layout bank --with-controller` now builds the centre floorplan. The archived
+corner layouts came from `corner_control.py`, retrievable with
+`git show 545c6c3:sram_compiler/layout/freepdk45/corner_control.py`.
 
 `DECK` is the generated run directory's `deck.sp`. Output directories must be
 new. Use 9 ns for the 32×32 layout source and 30 ns for 128×128; these are

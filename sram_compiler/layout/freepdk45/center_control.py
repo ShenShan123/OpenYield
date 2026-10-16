@@ -14,7 +14,7 @@ shares the row-decoder columns, with its left edge on the decoder's:
   end the lane. Routing there treats every bank conductor as an obstacle.
 * Every data register folds into its column's slot below the write band,
   directly above the lower array; its D input is an internal band pin.
-* Interface routes are the corner plan's straight tracks. Every decoder net
+* Interface routes are explicit straight tracks. Every decoder net
   that reaches the band (address buses, wl_en and level-0 enables of the
   other half) rises on M5 from a tapped pin on the facing block edge.
 
@@ -33,9 +33,13 @@ from .lib import Builder, new_layout, pya, u
 from .time_control import make_control, units, centre_lanes_used
 from . import macro_control
 from .macro_control import Planner, bank_conductor, snap, GRID
-from .corner_control import (CORNER_GAP, TOP_GAP, REG_GAP, FRAME_X, RETURN_SPACE,
-                             DRIVE_SPACE, _imported)
 
+TRUNK_GAP = 600.     # frame right edge to the bank's control trunks (cx - 150)
+TOP_GAP = 1000.      # band top below the core; decoder supply bars run above
+REG_GAP = 300.       # register band top below the write band
+FRAME_X = 35.        # decoder address spines sit at x = 35 (mod 100): frame grid phase
+RETURN_SPACE = 800.  # M7 returns: 400 nm wires, 400 nm spacing
+DRIVE_SPACE = 300.   # M6 edge pins
 BOTTOM_GAP = 1000.   # lower array top edge to the register band; decoder bars run here
 LANE_GAP = 500.      # lane gates to the next decoder slice: same rows, rails and well order
 MIN_LANE = 2000.     # narrowest spare decoder row that receives controller gates
@@ -43,6 +47,12 @@ LANE_FILL = 0.75     # placed lane rows / available rows that still routes relia
 LANE_MARGIN = 2      # extra routing rows beyond the last placed lane row
 ROUTER_LAYERS = ('m4', 'm5', 'm6', 'm7', 'm8', 'm9')
 BRIDGE_PITCH = 1700.  # M10 bridges over the array (0.8 um width and spacing, 805 nm M9 landings)
+
+
+def _imported(ly, directory, m):
+    src = new_layout(); src.read(str(directory / 'full_macro.gds'))
+    cell = Builder(ly, m['primary']); cell.cell.copy_tree(src.cell(m['primary']))
+    return cell
 
 
 def _register_slot(layout, deck):
@@ -199,7 +209,7 @@ def build(deck, output, bank_dir):
 
     # 3. Shared decoder/control plan: a full-width block between the decoder
     #    halves and lanes in the spare predecode rows above and below it.
-    width = snap(trunk_x - CORNER_GAP - FRAME_X)
+    width = snap(trunk_x - TRUNK_GAP - FRAME_X)
     frame_x = FRAME_X
     band_top = int((cy - TOP_GAP) // GRID) * GRID
     upper, lower, lane_width, row_y, keepouts = _lanes(split, rows, cy)
@@ -530,7 +540,7 @@ def _required_spare(deck, bm) -> float:
     band_top = int((cy - TOP_GAP) // GRID) * GRID
     def fits(extra):
         upper, lower, lane_width, row_y, keepouts = _lanes(split, rows, cy, extra)
-        width = snap(cx + extra - 150 - CORNER_GAP - FRAME_X)
+        width = snap(cx + extra - 150 - TRUNK_GAP - FRAME_X)
         lanes = [(row_y(r), lane_width(r), keepouts(r)) for r in upper + lower]
         try:
             # The bottom margin for block-edge taps is assumed present.

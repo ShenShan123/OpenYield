@@ -103,12 +103,12 @@ def _slices(library,component,limit):
     return result
 
 
-def _corner_inventory(library,component,width,exclude,overflow=None):
+def _corner_inventory(library,component,width,exclude):
     inventory=[]
     for p,c,m in units(component):
         if p.startswith(tuple(exclude)):continue
         v=library.build(c)
-        limit=(overflow[1] if overflow is not None and v.standard_family!='DFF' else width)-600
+        limit=width-600
         inventory.extend([(p,v,m)] if v.width_nm<=limit else [(p,s,m) for s in _slices(library,c,limit)])
     return inventory
 
@@ -466,7 +466,6 @@ def _route_centre(router: ControlRouter,order: list[str],routed: dict,priority: 
 
 def make_control(layout: pya.Layout,component: Component,width: float=32500.,exclude: tuple[str,...]=(),
                  pin_plan: Any=None,corner: bool=False,min_height: float=0.,
-                 overflow: Optional[tuple[float,float]]=None,
                  band_span: Optional[tuple[float,float]]=None,lanes: Optional[list[tuple]]=None,
                  profile: Optional[list[tuple[float,float,float]]]=None,
                  obstacles: Optional[list[tuple[str,float,float,float,float,Optional[str]]]]=None) -> CellView:
@@ -480,8 +479,6 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     corner=True fits a fixed-width bank corner: cells start at the left edge,
     oversized gates split into parallel finger slices, and pin_plan may be a
     function of the final frame height. Archived RC decks retain a bottom band.
-    overflow=(height, width) reserves a narrower lane above the corner for
-    cells sharing the row-decoder floorplan. Routing obeys the same boundary.
 
     A centre frame gives band_span=(y0, y1), the full-width block between the
     split arrays, and lanes=[(y, width, keepouts), ...], spare decoder rows in
@@ -492,14 +489,12 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     fixed bank conductors inside it as (layer, x0, y0, x1, y1, None); they
     block every net. pin_plan values may then be lists of accesses to one net.
     """
-    if overflow is not None and (not corner or not 600<overflow[1]<=width or overflow[0]<=0):
-        raise ValueError('Decoder overflow requires a positive corner height and a usable lane width')
-    if lanes is not None and (not corner or overflow is not None or band_span is None or profile is None):
+    if lanes is not None and (not corner or band_span is None or profile is None):
         raise ValueError('Decoder lanes require a corner-style band frame and a routing profile')
     library=StandardLibrary(layout)
     b=Builder(layout,('TIME_CONTROL_CORNER_' if corner else 'TIME_CONTROL_LOGIC_' if exclude else 'TIME_CONTROL_STD_')+component.identity[:12])
     if corner:
-        inventory=_corner_inventory(library,component,width,exclude,overflow)
+        inventory=_corner_inventory(library,component,width,exclude)
     else:
         inventory=[(p,library.build(c),m) for p,c,m in units(component) if not p.startswith(tuple(exclude))]
     inventory.sort(key=lambda item:item[1].standard_family!='DFF')
@@ -531,9 +526,6 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     for shelf in shelves:
         shelf['y']=band;band+=shelf['height']
     prepared=[];cursor=x0;y=band;row_height=0.;row_vdd=0.;row=0;rows=[];lane_taps={}
-    def row_width(y: float) -> float:
-        return overflow[1] if overflow is not None and y>=overflow[0] else width
-    cell_top=overflow[0]-1000. if overflow is not None else None
     if lanes is not None:
         sources={p:c for p,c,_ in units(component)}
         prepared,rows,lane_taps=_place_centre(layout,inventory,sources,width,band_span,lanes,x0)
@@ -545,18 +537,15 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         # An edge-pinned frame starts logic on a new row instead of sharing
         # the last register row.
         family_break=pin_plan is not None and prepared and (prepared[-1][1].standard_family=='DFF')!=(v.standard_family=='DFF')
-        boundary=overflow is not None and y<overflow[0] and y+max(row_height,v.height_nm)>cell_top
-        if (cursor+v.width_nm+tap_space>row_width(y)-300 and cursor>x0) or family_break or boundary:
+        if (cursor+v.width_nm+tap_space>width-300 and cursor>x0) or family_break:
             if not row_height:raise ValueError('Source passive band exceeds the available corner height')
             rows.append((y,row_height,row_vdd))
             # Preserve clearance between the register's M5/M6 clock rails
             # as well as the wells at the next row's mixed logic boundary.
             gap=(100 if v.standard_family=='DFF' else 125) if row_height==1800 else 0
             y+=row_height+gap;cursor=x0;row_height=0;row_vdd=0;row+=1
-        if overflow is not None and y<overflow[0] and y+v.height_nm>cell_top:
-            y=overflow[0]
         x=cursor
-        if x+v.width_nm+tap_space>row_width(y)-300:raise ValueError(f'{path} ({v.width_nm} nm) does not fit the {row_width(y)} nm controller row')
+        if x+v.width_nm+tap_space>width-300:raise ValueError(f'{path} ({v.width_nm} nm) does not fit the {width} nm controller row')
         prepared.append((path,v,m,x,y,row,False))
         next_dff=index+1<len(inventory) and inventory[index+1][1].standard_family=='DFF'
         cursor=x+v.width_nm+((190 if next_dff else 290) if v.standard_family=='DFF' else 30)
@@ -736,35 +725,24 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         if net=='VSS':ys.extend(p['y_nm']+6100 for p in passive_locations)
         sites=[]
         for yy,h,vdd in rows:
-            edge=row_width(yy)-100;tx=vss_x if net=='VSS' else edge
+            edge=width-100;tx=vss_x if net=='VSS' else edge
             py=yy+(90 if net=='VSS' else vdd)
             wire('m2',vss_x,py,edge,py);lift(tx,py,2,3);sites.append((tx,py))
         for (x1,y1),(x2,y2) in zip(sites,sites[1:]):
-            if x1!=x2:
-                # Change trunk width in the reserved gap. A via2 on the last
-                # wide row can land on an unrelated gate's M3 output escape.
-                transition=overflow[0]-800.
-                wire('m3',x1,y1,x1,transition);lift(x1,transition,3,4)
-                wire('m4',x1,transition,x2,transition,145);lift(x2,transition,3,4)
-                ownership.extend((net,(x,transition,'m4')) for x in (x1,x2))
-                wire('m3',x2,transition,x2,y2)
-            else:wire('m3',x2,y1,x2,y2)
+            wire('m3',x2,y1,x2,y2)
         if net=='VSS':wire('m3',vss_x,min(ys),vss_x,max(ys))
         pins[net]=(*sites[0],'m3');supply_top[net]=sites[-1]
     base=band_span[0] if lanes is not None else 0.
     wire('m3',vss_x,pins['VSS'][1],vss_x,base+200);lift(vss_x,base+200,3,4);wire('m4',100,base+200,vss_x,base+200,145)
     pins['VSS']=(100,base+200,'m4')
-    vdd_x,vdd_y=row_width(height)-100.,height-(900. if corner else 200.)
+    vdd_x,vdd_y=width-100.,height-(900. if corner else 200.)
     vdd_source_y=supply_top['VDD'][1]
-    lower_supply=(lanes is not None or (overflow is not None and pin_plan is not None
-                  and 'VDD' in pin_plan and pin_plan['VDD'][1]<overflow[0]))
-    if lower_supply:
+    if lanes is not None:
         # The native M3/M2 rails already join every row. Access their lower
         # trunk beside the bank supply, avoiding a redundant tall metal route.
         vdd_x,vdd_y=width-100.,pin_plan['VDD'][1];vdd_source_y=pins['VDD'][1]
     for net,tx,ty in [('VSS',100.,base+200.),('VDD',vdd_x,vdd_y)]:
         if net=='VDD':
-            if not lower_supply and tx!=supply_top[net][0]:lift(tx,supply_top[net][1],2,3)
             wire('m3',tx,vdd_source_y,tx,ty);lift(tx,ty,3,4)
         point=(tx,ty,'m4');routed[net].append(point);access.append((net,point));ownership.append((net,point))
     # Registers expose their native high-metal D/Q access. Bank routing owns
@@ -807,7 +785,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     for net,x in ([] if pin_plan is not None else [('VSS',1200.),('VDD',3000.)]):
         point=(x,23000.,'m8');external[net]=point
         b.sq('m8',*point[:2],405);routed[net].append(point);access.append((net,point));ownership.append((net,point))
-    router=ControlRouter(b,width,height,upper_metal=9,overflow=overflow,profile=profile)
+    router=ControlRouter(b,width,height,upper_metal=9,profile=profile)
     for layer_index,layer in enumerate(router.layers):
         reg=pya.Region(b.cell.begin_shapes_rec(b.li(layer))).merged()
         sites=[(n,pya.Point(u(pt[0]),u(pt[1]))) for n,pt in ownership if pt[2]==layer]
@@ -865,7 +843,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         priority=[n for n in nets if n in pin_plan and n not in ('VDD','VSS')]
     clock_state=None;history={}
     for attempt in range(32):
-        router=ControlRouter(b,width,height,upper_metal=9,overflow=overflow,profile=profile);router.blocked=set(fixed_blocked)
+        router=ControlRouter(b,width,height,upper_metal=9,profile=profile);router.blocked=set(fixed_blocked)
         router.clearance={p:set(n) for p,n in fixed_clearance.items()}
         for net,pt in access:
             q=router.point(*pt);router.reserve(q,net)
@@ -882,7 +860,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             router.fixed_points={router.point(*pt) for _,pt in access}
         local=[n for n in nets if n not in component.ports and max(p[0] for p in routed[n])-min(p[0] for p in routed[n])+max(p[1] for p in routed[n])-min(p[1] for p in routed[n])<6000]
         order=['clk_buf']+priority+[n for n in nets if n!='clk_buf' and n not in priority]
-        if (overflow is not None or profile is not None) and tall:
+        if profile is not None and tall:
             # Preserve channels for long feedback and interface nets before
             # connecting the small local groups between neighboring gates.
             order=['clk_buf']+priority+[n for n in nets if n!='clk_buf' and n not in priority and n not in local]
@@ -895,7 +873,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                 if net=='clk_buf' and clock_state is not None:continue
                 ps=list(dict.fromkeys(router.point(*p) for p in routed[net]))
                 limit=router.search_limit
-                if net=='clk_buf' or net in priority or ((overflow is not None or profile is not None) and tall and net not in local):
+                if net=='clk_buf' or net in priority:
                     router.search_limit=None
                 router.connect(net,ps[0],ps[1:])
                 router.search_limit=limit

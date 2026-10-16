@@ -40,6 +40,11 @@ Unreferenced layout-scaling and centre-floorplan attempts were purged on
   Areas and Calibre results are in the
   [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md); no waveform or
   operating-point qualification is implied.
+- 2026-10-16 retires the corner floorplan. `layout bank --with-controller`
+  now defaults to `--controller-floorplan center`; `corner`, its module and the
+  controller's corner-only overflow lane are removed. Banks below 16 rows have
+  no integrated controller floorplan; `beside` remains 32×32 only. The corner
+  layouts stay as the archived area baseline.
 
 - The default `layout bank` now uses OpenRAM's 705 nm column / 1365 nm row
   pitch, source-preserving physical refingering, compact left-side row logic,

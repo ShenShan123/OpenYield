@@ -80,8 +80,10 @@ this default flow; no waveform or RC-default qualification is implied.
 
 ### Optional TIME_CONTROL integration
 
-For the 32×32 physical plan, `layout bank --with-controller` adds TIME_CONTROL
-and its input registers. It follows OpenRAM's floorplan:
+`layout bank --with-controller` adds TIME_CONTROL and its input registers.
+The default `--controller-floorplan center` is described under the single-bank
+section below. For the 32×32 physical plan, `--controller-floorplan beside`
+follows OpenRAM's floorplan:
 
 - Control logic sits left of the decoder, with all bank-facing pins on its
   right edge.
@@ -100,8 +102,8 @@ the [controller layout record](../../docs/design/layout/TIME_CONTROL_LAYOUT_V2_2
 for the floorplan, routing comparison, verification and limitations.
 
 ```bash
-python main_sram.py layout bank --with-controller --deck "$DECK" \
-  --output-dir outputs/layout/time_control/generated
+python main_sram.py layout bank --with-controller --controller-floorplan beside \
+  --deck "$DECK" --output-dir outputs/layout/time_control/generated
 python main_sram.py layout verify-full --layout-dir outputs/layout/time_control/generated \
   --pdk-dir "$PDK_DIR" --output-dir outputs/layout/time_control/generated_verify
 ```
@@ -125,13 +127,15 @@ point or release qualification is implied. See the
 [scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md) for commands, sizes,
 waveform evidence and actual layout verification.
 
-`layout bank --with-controller --controller-floorplan center` (16 rows or
-more) splits the core into lower and upper sub-arrays around the column
-periphery. Bitlines stay continuous on M5 through the periphery, and decoder
+`layout bank --with-controller` (16 rows or more; `--controller-floorplan
+center` is the default) splits the core into lower and upper sub-arrays around
+the column periphery. Bitlines stay continuous on M5 through the periphery, and decoder
 nets used by both halves are bridged on M10. TIME_CONTROL starts at the decoder's
 left edge, fills the block between the decoder halves and continues in spare
 decoder rows. The data registers fold into a 7.73 µm band directly above the
-lower array. The default remains `corner`; see the
+lower array. The earlier `corner` floorplan was retired on 2026-10-16, so banks
+below 16 rows have no integrated controller layout; `beside` remains a
+32×32-only plan. See the
 [scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md) for areas,
 verification and limits.
 

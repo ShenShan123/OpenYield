@@ -12,16 +12,14 @@ GRID=100.
 
 class ControlRouter(Router):
     def __init__(self,builder: Builder,width: float,height: float,upper_metal: int=6,
-                 overflow: Optional[tuple[float,float]]=None,
                  profile: Optional[list[tuple[float,float,float]]]=None) -> None:
         super().__init__(builder,(1,1,int(width/GRID)-1,int(height/GRID)-1),
             grid_nm=GRID,metal_layers=tuple(f'm{i}' for i in range(4,upper_metal+1)),
             widths=tuple(145. if i<7 else 405. if i<9 else 805. for i in range(4,upper_metal+1)),
             use_tree_heuristic=True,allow_same_net_vias=True,exact_tree_heuristic=height>80000.,
             search_limit=50000 if height>80000. else None,
-            prefer_deeper_paths=(overflow is not None or profile is not None) and height>80000.)
+            prefer_deeper_paths=profile is not None and height>80000.)
         self.clearance={};self.cut_centres=set();self.cut_exclusion=set();self.cut_count=0
-        self.overflow=overflow
         # profile: left-aligned (y0, y1, width) rectangles that bound routing.
         self.reach={}
         for y0,y1,w in profile or ():
@@ -75,7 +73,6 @@ class ControlRouter(Router):
             x,y,l=q
             if not (0<=l<len(self.layers) and xmin<=x<=xmax and ymin<=y<=ymax) or q in self.blocked:return None
             if not (wx0<=x<=wx1 and wy0<=y<=wy1):return None
-            if self.overflow is not None and y*GRID>=self.overflow[0] and x*GRID>=self.overflow[1]:return None
             if self.profile and x>self.reach.get(y,-1):return None
             border=5 if l>=5 else 3
             if l>=3 and not (border<=x<=xmax-border+1 and border<=y<=ymax-border+1):return None
@@ -135,7 +132,6 @@ class ControlRouter(Router):
         # Cut exclusions rebuild lazily from the remaining vias.
         self.cut_centres=set();self.cut_exclusion=set();self.cut_count=0
     def available(self,p,net):
-        if self.overflow is not None and p[1]*GRID>=self.overflow[0] and p[0]*GRID>=self.overflow[1]:return False
         if self.profile and p[0]>self.reach.get(p[1],-1):return False
         border=5 if p[2]>=5 else 3
         if p[2]>=3 and not (border<=p[0]<=self.bounds[2]-border+1 and border<=p[1]<=self.bounds[3]-border+1):return False

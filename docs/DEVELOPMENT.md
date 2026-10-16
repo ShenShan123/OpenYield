@@ -28,7 +28,8 @@ physical verification receipts. The tracked reproduction scope is
 `tests/spice/v228_time_control_layout_cases.json`; the Python runner remains
 local. These are physical-layout checks, not a transient/waveform screen.
 
-The split-array centre floorplan (`--controller-floorplan center`) is recorded
+The split-array centre floorplan (`--controller-floorplan center`, the default
+since the corner plan was retired on 2026-10-16) is recorded
 in the [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#split-arrays-with-a-centre-periphery).
 Its local tools are in `dev/centre_floorplan/`:
 - `verify.sh` previews and Calibre-verifies one layout.
@@ -70,8 +71,9 @@ also removed 92 local logs and tree-hash lists of superseded centre builds.
 
 Some local recorders and coupon scripts under `dev/layout_scaling/` and
 `dev/decoder_control/` read removed inputs and need them regenerated before
-rerunning. The deletion inventory, including the kept list, is
-`dev/cleanup/2026-10-15-stale-layout-scaling.json`.
+rerunning. `dev/decoder_control/build_512.py` imports the retired
+`corner_control` module and no longer runs. The deletion inventory, including
+the kept list, is `dev/cleanup/2026-10-15-stale-layout-scaling.json`.
 
 V2.2.2's opt-in transistor-level transition checks are kept locally under
 [`tests/spice/`](../tests/spice/README.md); their case manifests remain tracked. They use full cells, record solver,

@@ -1075,6 +1075,27 @@
   ],
   "generator_tree_shared": true,
   "corner_regression": "decoder_control_32_08 rebuilt with the default corner floorplan on the final tree is XOR-identical (all layers) to the recorded GDS",
+  "corner_retirement": {
+    "date": "2026-10-16",
+    "default_floorplan": "center",
+    "removed": [
+      "--controller-floorplan corner",
+      "corner_control.py",
+      "make_control/ControlRouter overflow lane"
+    ],
+    "changed_generator_files": [
+      "bank.py",
+      "center_control.py",
+      "control_place.py",
+      "corner_control.py (deleted)",
+      "time_control.py"
+    ],
+    "rebuilds": {
+      "32": "XOR-identical",
+      "128": "XOR-identical",
+      "512": "pending"
+    }
+  },
   "defaults_promotable": false,
   "full_release_screen": false,
   "waveform_validation": "not run; source SPICE unchanged; the split changes physical bitline and control routes, so earlier native waveforms are not post-layout evidence",

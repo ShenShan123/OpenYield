@@ -161,8 +161,8 @@ readout. The default `layout bank` remains the verified bank with external
 control.
 
 ```bash
-python main_sram.py layout bank --with-controller --deck "$DECK" \
-  --output-dir outputs/layout/time_control/generated
+python main_sram.py layout bank --with-controller --controller-floorplan beside \
+  --deck "$DECK" --output-dir outputs/layout/time_control/generated
 python main_sram.py layout verify-full --layout-dir outputs/layout/time_control/generated \
   --pdk-dir "$PDK_DIR" --output-dir outputs/layout/time_control/generated_verify
 python dev/time_control/guard_resistance.py outputs/layout/time_control/generated
