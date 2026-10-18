@@ -276,6 +276,210 @@ classes were 16/32/8/128/35/9. Controller output buffers are recomputed from
 the actual resized device loads. Clock, register, sense-amplifier and storage
 transistors have not been independently optimized by this coupon search.
 
+## Performance pass (candidate 2)
+
+The 2026-10-16 pass re-derived the driver classes, the controller's fixed
+delays and the macro's pin positions for the five square banks, performance
+first and density second. Its evidence is bound in
+[`LAYOUT_PERFORMANCE_V2_2_8.json`](../../data/LAYOUT_PERFORMANCE_V2_2_8.json);
+every number below is an SS (0.9 V, 125 °C) coupon result on extracted metal
+unless stated otherwise. Coupons are design estimates, not post-layout
+simulation.
+
+### Driver classes
+
+Candidate 1 picked the smallest class that met loose absolute targets
+(2–3 ns), so its drivers were slow relative to the clock they serve.
+Candidate 2 picks the smallest class whose worst-corner edge stays within 10 %
+of the frozen half-period of its size class (row class for bitline drivers,
+column class for wordline and decoder drivers; 512 columns extrapolate the
+column ladder by its last step because they lie outside the timing envelope).
+The bitline coupons now model the centre plan: the precharge and write drivers
+sit in the band and drive two half-array branches, each behind its band wire,
+instead of one full-height bitline, and sizes above 64 extrapolate the
+measured 128×128 metal instead of the 32×32 bank. The decoder inverter faces
+the selected wordline NAND class. Where no class meets the fraction (the
+512-column wordline), the ladder's knee is taken: the last doubling that still
+gains 15 %.
+
+| Square bank | WL inverter c1 → c2 | WL edge (ps) | PRE c1 → c2 | restore edge (ps) | write output c1 → c2 | write edge (ps) | half-period (ps) |
+| --- | --- | ---: | --- | ---: | --- | ---: | ---: |
+| 32 | 1 → 4 | 936 → 265 | 0.5 → 4 | 1526 → 215 | 1.5 → 4 | 701 → 290 | 3600 |
+| 64 | 1 → 8 | 1839 → 271 | 0.5 → 4 | 2573 → 358 | 1.5 → 8 | 1156 → 266 | 3800 / 4000 |
+| 128 | 2 → 16 | 1769 → 296 | 1 → 4 | 1923 → 543 | 1.5 → 8 | 1726 → 388 | 6600 / 4800 |
+| 256 | 4 → 32 | 1809 → 395 | 2 → 4 | 1913 → 1057 | 4 → 8 | 1294 → 726 | 8100 / 5600 |
+| 512 | 16 → 64 | 1279 → 799 | 8 → 4 | 1398 → 2186 | 8 → 8 | 1461 → 1461 | 11100 / 6400 |
+
+The wordline NAND is a quarter of the inverter class and the decoder inverter
+is 1/1/1/2/2. The row ladder alone would give PRE 4/4/4/8/16 and write output
+4/8/8/8/16 (the 512 write output still misses its 1110 ps allocation at the
+knee). The precharge and write-driver classes in the table are the capped
+values explained next.
+
+### Control bars cap the bitline drivers
+
+Every column hangs its precharge and write-driver gates on one M4 control
+bar, so the gate load of a wide array is set by the bitline class. The
+driving-point resistance of each control net was solved in the verified
+32×32 and 128×128 extractions from all driver fingers together: to the bar's
+near end it is about 90–120 Ω (PRE, s_en), 140 Ω (sa_iso) and 300–360 Ω
+(w_en), with bar gradients of 1.2–2.3 Ω/µm. The audit's earlier "far gate
+resistance" of about 600 Ω includes a 250–450 Ω stub inside each slot, which
+sits in series with one gate only. With these measured series terms the
+buffered PRE line reaches 90 % at the far end 170 ps after the controller
+edge at 32 columns, 423 ps at 128 and 1.9 ns at 256 (precharge class 8),
+while w_en needs 0.3, 1.2 and 2.8 ns. Above 128 columns the bars, not the
+bitline drivers, limit restore and write completion.
+
+The joint metric (far-end line at 90 % plus the bitline edge) was swept over
+the class ladder for each square size. It is minimal at precharge 8 for 32
+and 64 columns and at precharge 4 from 128 columns up, and at write output 8
+for 32–64 columns with 4–8 equivalent above; a stronger class only lengthens
+the line. The class table therefore carries column caps, `pre_cap`
+8/8/4/4/4 and `wd_cap` 8, applied as the minimum of the row class and the
+cap, and the write input stage follows the capped output stage. At 512
+columns the PRE bar never reaches 90 % within the coupon window at precharge
+16 and w_en needs 7.8 ns at write output 8: the bars need repeaters or a wide
+upper-metal bar before 512 columns can be fast, which this pass does not
+implement.
+
+### TIME_CONTROL audit
+
+Measured on the compiler's own cells: one delay stage (0.72/2.16 µm driver
+with four unit loads) takes 8.1 ps at TT, 17.6 ps at SS and 5.5 ps at FF.
+The fixed four-stage guards therefore add 67 ps at SS, while the far-end
+tails they were meant to cover (50 % to 90 % or 10 %) are 42–184 ps at 32
+columns, 146–830 ps at 128 and 0.4–2 ns at 256: the guards contribute almost
+nothing, and robustness comes from the far-end observers themselves. The
+decoder settle (address buffer, half trunk with predecode loads, real 3-to-8
+blocks of every level) is 286/275/408/423/463 ps for 32–512 rows, against a
+138 ps eight-stage setup chain.
+
+At 32×32 the controller holds 1382 MOS with 615 µm of gate width: registers
+51 %, enable buffers 14 %, other logic 10 %, guard delays 10 %, setup chain 6 %,
+replica delay 4 %. At 512×512 the enable buffers are 46 % of 9393 µm.
+
+The class table now sets these delays per class instead of the fixed
+8/4/4/2/4 (setup, precharge-off, isolation, enables-off, replica-wordline-off):
+
+| Class | Setup chain (row class) | Guards (column class) |
+| --- | ---: | ---: |
+| 32 | 2 | 4 |
+| 64 | 2 | 8 |
+| 128 | 2 | 16 |
+| 256 | 2 | 44 |
+| 512 | 2 | 64 (capped) |
+
+Guards: the smallest even count whose chain covers 1.25 × the worst
+read-critical far-end tail (PRE off or ISO on) at the capped precharge class;
+the enables-off guard follows the same count. From 256 columns the digital
+guard can no longer cover the PRE tail (1.5 ns at 256, 2 ns at 512 columns)
+without more than a hundred stages; 512 is capped at 64 and flagged. Setup
+chain: two stages for every row class. In the mini-bank path coupons (the
+real TIME_CONTROL driving extracted-metal line models and the real decoder)
+the registered access request already follows the clock by 540–730 ps, so
+with the minimum chain `wl_en` rises 1.6–2.7 × later than the decoder
+settles at every corner: margins of 112–162 ps at FF, 164–299 ps at TT and
+359–537 ps at SS for 32–512 rows with 32 columns, and 3.2–6.5 × (563 ps FF to
+2.4 ns SS) at 256×256 and 512×512, whose later precharge release delays the
+access request further. The fixed eight stages
+only delayed every read by 108 ps at SS. Smaller arrays therefore lose most
+of their fixed delay; larger arrays gain settling margin where a digital
+chain can provide it. Tables without the fields keep the fixed counts, so the default compiler
+path is unchanged.
+
+### Macro pin positions
+
+The centre layout labels every port at an interior point: the controller's
+gate access for `clk`, `csb`, `web` and `A*` on M4, the register D tracks for
+`DIN*`, the sense tracks for `SA_Q*`/`SA_QB*`, the latch for `OUT`/`OUT_B` and
+the trunks for the supplies. Candidate 2 examined moving them to the
+boundary; the allocation itself is deferred:
+
+- `clk`, `csb`, `web`, `A*` (left side): every variant that gave the router
+  a planned access for these nets (M6 pads on the block's left edge, M8 pads
+  at the router border, M8 or M9 landings beside the capture gates) set off
+  rip-up cascades, 6500 rip-ups over 17 attempts in 17 hours at 32×32
+  against 0 rip-ups in 3 attempts for the baseline block. The inputs are
+  captured on the block's dense register side, and a reserved access there
+  blocks the enable and supply nets. The work is kept as
+  `dev/layout_scaling/macro_pins_wip.patch`; a workable scheme attaches the
+  pins after routing, on M10 which the router never uses, from a free via
+  column found in the routed geometry.
+- `OUT`, `OUT_B`: the latch's M4 tracks can be extended to the right side;
+  `VDD`, `VSS`: the M6 trunks to the top and bottom sides. Both are
+  post-route additions and stay out of this pass so the candidate-2 builds
+  keep the verified baseline router behaviour.
+- `DIN*`, `SA_Q*`, `SA_QB*`: internal in any scheme. Every periphery band
+  carries full-width M4 bars (supplies, enables, the precharge bar), M5 is
+  the bitline layer through the band and the arrays, and M3 is the cell
+  bitline layer, so no 705 nm column offers a via column from the band to
+  an edge; the M4 landing row at each array edge leaves 195–230 nm gaps
+  where a 140 nm wire needs 420 nm. Per-column edge pins would need a
+  different band layer plan.
+
+### Layouts
+
+The first candidate-2 build of 128×128 failed Calibre with one `Antenna.metal8`
+violation (0 DRC violations in every other check). The gate at the end of a
+65 µm M7 spine was an input of the isolation guard tied to `VDD` in the
+netlist: the router carried it as part of the supply net over M7, M8 and an
+M9 hop, and the router's own antenna model skipped the supplies as
+diffusion-rich. At the M8 etch step that branch has a gate and no diffusion.
+The fix is in the controller builder: a constant input now ties to its own
+gate's rail on M3 (via stack onto the lane's M1 rail or the row's M2 rail)
+and never joins the routed supply, and the antenna model checks supply nets
+whenever a gate hangs on them.
+
+Two more generator rules came out of the rebuilds. The 512×512 layout failed
+`Via7.2` twice: router via7 cuts 425 nm from the fixed via7 of a decoder
+bridge stack, where the metal clearance the router keeps (400 nm) is 40 nm
+short of the cut rule (440 nm). The bridge and replica-wordline stacks now
+block 40 nm more than their M7/M8 metal and 80 nm more on M9 (Via9.2, 880 nm).
+The 32×32 and 64×64 frames did not route at all with candidate-2 drivers:
+1769 rip-ups over five attempts in seven hours at 32×32, against none for
+candidate 1, although their lane fill (0.67 and 0.71 of the available rows)
+matched the 128–512 frames (0.65–0.72) that converge in minutes. What
+differs is width: 11.3 and 11.7 µm against 16.7 µm and more, so the narrow
+frames run out of vertical tracks. The spare decoder column now also makes
+the frame at least `MIN_FRAME_WIDTH` = 13 µm wide (spare 3.9 µm at 32, 2.9 µm
+at 64; 128–512 unchanged). Both then route in 7 minutes (28 and 13 rip-ups,
+frames 13.0 × 45.7 µm and 13.0 × 72.2 µm); a 15 µm trial routed with 9 and 8
+rip-ups and was not kept, since the narrower frame suffices and costs less
+macro width.
+
+All five candidate-2 banks, built from the tracked generator with the three
+rules above, verified with the FreePDK45 Calibre decks (DRC, LVS, xRC
+extraction; receipts and hashes in `docs/data/LAYOUT_PERFORMANCE_V2_2_8.json`):
+
+| Bank | Macro (µm × µm) | Area (µm²) | vs centre tree 15 | Controller block (µm²) | Spare column | Build | DRC | LVS | Extraction |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
+| 32×32 | 42.4 × 73.1 | 3,102 | +5.6 % | 336 | 3.9 µm | 7 min, 28 rip-ups | 0 | CORRECT | distributed R+C+CC |
+| 64×64 | 64.9 × 118.7 | 7,706 | | 361 | 2.9 µm | 7 min, 13 rip-ups | 0 | CORRECT | distributed R+C+CC |
+| 128×128 | 113.8 × 206.1 | 23,454 | +4.5 % | 463 | 0.8 µm | 17 min, 8 rip-ups | 0 | CORRECT | distributed R+C+CC |
+| 256×256 | 209.3 × 380.8 | 79,704 | | 610 | 2.1 µm | 37 min, 15 rip-ups | 0 | CORRECT | distributed R+C+CC |
+| 512×512 | 396.8 × 730.2 | 289,765 | +3.0 % | 804 | 1.5 µm | 70 min, 14 rip-ups | 0 | CORRECT | distributed R+C+CC |
+
+The macro grows 3–6 % against the candidate-1 centre layouts (tree 15) for
+the larger drivers and, at 32 columns, the wider spare column; the controller
+block itself is 336–804 µm². Density was the second objective and this is
+its cost. 512×512 remains outside the timing envelope and is built with the
+80 ns diagnostic clock.
+
+Native full-mode waveform checks (`dev/layout_scaling/waveforms.py`, read, write,
+hold, sense and recovery on the compiler's illustrative distributed wiring, no
+post-layout extraction or yield) with the candidate-2 table:
+
+| Case | Corner | Period | Result |
+| --- | --- | ---: | --- |
+| 8×8 | TT 1.0 V 25 °C | 9.0 ns | pass |
+| 8×8 | SS 0.9 V 125 °C | 9.0 ns | pass |
+| 8×8 | FF 1.0 V −40 °C | 9.0 ns | pass |
+| 32×32 | TT 1.0 V 25 °C | 9.0 ns | pass |
+| 32×32 | SS 0.9 V 125 °C | 9.0 ns | pass |
+
+Each run is bound by its result hash in `docs/data/LAYOUT_PERFORMANCE_V2_2_8.json`.
+
 ## Evidence and limits
 
 The final no-RC compact controller with candidate sizing passes 2546 waveform

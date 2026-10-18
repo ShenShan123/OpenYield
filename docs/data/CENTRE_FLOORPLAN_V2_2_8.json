@@ -1093,7 +1093,7 @@
     "rebuilds": {
       "32": "XOR-identical",
       "128": "XOR-identical",
-      "512": "XOR-identical"
+      "512": "XOR-identical (flattened all-layer XOR 0 um2; manifests equal apart from the generator hashes, the GDS file hash and the bank artifact hash); 173.9 min on the retirement commit 074ce7d"
     }
   },
   "defaults_promotable": false,

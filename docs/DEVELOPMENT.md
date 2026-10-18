@@ -47,6 +47,31 @@ Its local tools are in `dev/centre_floorplan/`:
 
 The local regression is `tests/test_centre_floorplan.py`.
 
+The 2026-10-16 performance pass (driver candidate 2, class-dependent
+TIME_CONTROL delays, macro pin study) is recorded in the
+[scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#performance-pass-candidate-2)
+and bound by `docs/data/LAYOUT_PERFORMANCE_V2_2_8.json`
+(`dev/layout_scaling/record_performance.py`). Its local tools under
+`dev/layout_scaling/` all need Xyce except the last two:
+- `size_coupons_centre.py`: driver coupons on centre-plan loads (two
+  half-array branches for the bitline drivers, 128x128 geometry above 64)
+  with the 10 %-of-half-period selection.
+- `control_delay_coupons.py`: delay-stage speed, far-end control-line tails
+  and decoder settle per class; `line_sweep.py`: PRE / w_en far-end edges
+  against the bitline-driver class, joined with the restore edges.
+- `control_path_coupons.py`: the real TIME_CONTROL driving extracted-metal
+  line models of a mini bank, sweeping setup and guard stages per shape.
+- `trunk_resistance.py` / `trunk_geometry.py`: driving-point resistance of
+  the control nets in a verified DSPF, from all driver fingers to the bar's
+  near end, its gradient and the per-slot stubs.
+- `control_inventory.py`: TIME_CONTROL MOS count and gate width by function.
+- `lane_fill.py`: lane fill ratio and frame width per spare-column width
+  (why 32/64 columns need `MIN_FRAME_WIDTH`); `antenna_variants.py` +
+  `antenna_drc.sh`: DRC-only Calibre runs on GDS variants with single shapes
+  removed, used to isolate the 128×128 M8 antenna; `perf_tables.py`:
+  markdown tables from the performance record.
+`dev/centre_floorplan/xor_gds.py` compares two GDS files layer by layer.
+
 On 2026-10-11, workspace cleanup removed 25,603 obsolete simulation artifacts
 and logs (about 1.905 TB) from `outputs/validation/`, older smoke and CLI runs,
 and the top-level output logs. Historical raw decks, generated model cards and

@@ -45,6 +45,34 @@ Unreferenced layout-scaling and centre-floorplan attempts were purged on
   controller's corner-only overflow lane are removed. Banks below 16 rows have
   no integrated controller floorplan; `beside` remains 32×32 only. The corner
   layouts stay as the archived area baseline.
+- 2026-10-16 performance pass for the 32–512 square banks, recorded in the
+  [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#performance-pass-candidate-2):
+  - Driver candidate 2 (`layout_sizing_lookup.json`): each class is the
+    smallest whose SS coupon edge stays within 10 % of the frozen class
+    half-period, on centre-plan loads (two half-array bitline branches,
+    measured 128×128 metal above 64). Wordline 4/8/16/32/64, precharge 4,
+    write output 4/8/8/8/8 after the new column caps; the control bars, not
+    the bitline drivers, limit restore and write completion above 128 columns.
+  - TIME_CONTROL delays become class table fields: `setup_stages` per row
+    class and `guard_stages` per column class, derived from measured delay
+    stages (17.6 ps SS), far-end tails and decoder settle. Tables without the
+    fields keep the fixed 8/4/4/2/4 stages; frozen records carry the counts.
+  - Controller tie-offs: a gate input tied to `VDD`/`VSS` now connects to its
+    own gate's rail on M3 instead of joining the routed supply, and the
+    router's antenna model checks supply nets that carry gates. Found as an
+    `Antenna.metal8` violation on the first candidate-2 128×128 build.
+  - Centre frame rules: fixed via stacks block 40/80 nm beyond their metal so
+    router cuts meet Via7.2/Via8.2/Via9.2 (two 512×512 violations), and the
+    spare decoder column keeps the frame at least 13 µm wide because the
+    11–12 µm frames of 32 and 64 columns no longer routed with candidate-2
+    drivers.
+  - Macro pin positions: studied, allocation deferred. Planned router
+    accesses for the control inputs set off rip-up cascades in every variant;
+    per-column data pins cannot reach an edge because every band carries M4
+    bars and M5 is the bitline layer. The record names the post-route M10
+    scheme to implement next.
+  No waveform screen beyond the native 8×8 and 32×32 checks listed in the
+  record; no operating-point or yield qualification is implied.
 
 - The default `layout bank` now uses OpenRAM's 705 nm column / 1365 nm row
   pitch, source-preserving physical refingering, compact left-side row logic,
