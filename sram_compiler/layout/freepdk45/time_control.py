@@ -166,7 +166,6 @@ def _antenna_exposed(router: ControlRouter,loads: dict) -> list[tuple[str,int]]:
     in nm) to (gate area, diffusion) of the pins and taps there."""
     pins=defaultdict(dict)
     for (net,pt),(gate,diode) in loads.items():
-        if net in ('VDD','VSS'):continue
         q=router.point(*pt);g,d=pins[net].get(q,(0.,False));pins[net][q]=(g+gate,d or diode)
     edges=defaultdict(list)
     for net,a,b in router.paths:edges[net].append((a,b))
@@ -646,6 +645,22 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                     ty=rows[row][0]+(90 if p=='VSS' else rows[row][2])
                     wire('m2',px,yy,px,ty)
                     if v.standard_family=='DFF' and p=='VSS':b.rect('m2',px-70,ty-35,px+70,yy+35)
+                continue
+            if net in ('VDD','VSS') and not passive and v.standard_family!='DFF':
+                # A constant input ties to its own gate's rail on M3. Routed as
+                # part of the supply net it hangs on an upper-metal branch with
+                # no diffusion until the supply joins: an antenna the supply
+                # rails never protect (128x128 M8 violation, 2026-10-17).
+                if l!='m3':lift(px,yy,int(l[1:]),3)
+                if row<0:
+                    _,sy,sl=v.pins[net];sy+=y
+                    wire('m3',px,yy,px,sy);lift(px,sy,int(sl[1:]),3)
+                    # Lane rails join the supply only through the decoder,
+                    # after placement: no controller-level ownership check.
+                else:
+                    sy=rows[row][0]+(90 if net=='VSS' else rows[row][2])
+                    wire('m3',px,yy,px,sy);lift(px,sy,2,3)
+                    ownership.append((net,(px,yy,'m3')))
                 continue
             if v.standard_family=='DFF':
                 tx=(ceil(px/GRID) if p=='CLK' else round(px/GRID))*GRID;ty=round(yy/GRID)*GRID

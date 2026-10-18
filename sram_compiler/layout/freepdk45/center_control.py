@@ -44,6 +44,7 @@ BOTTOM_GAP = 1000.   # lower array top edge to the register band; decoder bars r
 LANE_GAP = 500.      # lane gates to the next decoder slice: same rows, rails and well order
 MIN_LANE = 2000.     # narrowest spare decoder row that receives controller gates
 LANE_FILL = 0.75     # placed lane rows / available rows that still routes reliably
+MIN_FRAME_WIDTH = 13000.  # narrower frames (32/64 columns) starve the router of vertical tracks
 LANE_MARGIN = 2      # extra routing rows beyond the last placed lane row
 ROUTER_LAYERS = ('m4', 'm5', 'm6', 'm7', 'm8', 'm9')
 BRIDGE_PITCH = 1700.  # M10 bridges over the array (0.8 um width and spacing, 805 nm M9 landings)
@@ -303,7 +304,10 @@ def build(deck, output, bank_dir):
                           max(x0, x1) + half - frame_x, max(y0_, y1_) + half - y0, None))
     for n, x, xb, yl, yu in bridges:
         for y in (yl, yu):
-            for layer, half in (('m5', 72.5), ('m6', 72.5), ('m7', 200.), ('m8', 202.5)): blocked(layer, x, y, x, y, half)
+            # Fixed via7/via8 cuts: the router's metal clearance leaves 402 nm
+            # between cuts where Via7.2/Via8.2 want 440, so the stacks block
+            # 40 nm more than their metal (via9 below: 80 nm for 880).
+            for layer, half in (('m5', 72.5), ('m6', 72.5), ('m7', 240.), ('m8', 242.5)): blocked(layer, x, y, x, y, half)
             blocked('m8', x, y, xb, y, 202.5)
         blocked('m5', x, cy + 100., x, tap_y, 72.5); blocked('m4', x, tap_y, x, tap_y, 70.)
     rwl_x = snap(max([lane_width(r) for r in up_rows[:1]] + [0.]) + 1500.)
@@ -314,7 +318,9 @@ def build(deck, output, bank_dir):
     # Planned wires over the decoder rows: the replica-wordline return's M7 run
     # and M9 drop, and the wl_en spine up to the replica driver.
     blocked('m9', rwl_x + frame_x, rwl_pin_y, rwl_x + frame_x, rwl_tap[1], 402.5)
-    blocked('m8', rwl_x + frame_x, rwl_tap[1], rwl_x + frame_x, rwl_tap[1], 202.5)
+    blocked('m9', rwl_x + frame_x, rwl_tap[1], rwl_x + frame_x, rwl_tap[1], 482.5)
+    blocked('m8', rwl_x + frame_x, rwl_tap[1], rwl_x + frame_x, rwl_tap[1], 242.5)
+    blocked('m7', rwl_x + frame_x, rwl_tap[1], rwl_x + frame_x, rwl_tap[1], 242.5)
     blocked('m7', rwl_x + frame_x, rwl_tap[1], rwl_tap[0], rwl_tap[1], 202.5)
     spine = (split['decoder_band_pins']['wl_en']['upper'][0], cy + (top_rows - 1) * 1365 + 80)
     blocked('m5', spine[0], spine[1], spine[0], cy + top_rows * 1365 + 100., 72.5)
@@ -531,9 +537,10 @@ def build(deck, output, bank_dir):
 
 
 def _required_spare(deck, bm) -> float:
-    """Smallest spare decoder width (100 nm steps) whose lanes hold every gate
-    within LANE_FILL of the available rows and whose block keeps the unsliced
-    decoder drivers (address buffers) beside their DFFs."""
+    """Smallest spare decoder width (100 nm steps) whose frame is at least
+    MIN_FRAME_WIDTH wide, whose lanes hold every gate within LANE_FILL of the
+    available rows and whose block keeps the unsliced decoder drivers (address
+    buffers) beside their DFFs."""
     split = bm['split']; rows = bm['rows']; cx, cy = bm['array_origin_nm']
     tc, _, rs = _register_slot(new_layout(), deck)
     reg_y, _ = _register_origin(rs)
@@ -548,7 +555,7 @@ def _required_spare(deck, bm) -> float:
         except ValueError as error:
             if 'exceed the spare decoder lanes' not in str(error): raise
             return False
-        return used <= LANE_FILL * len(lanes) and not spilled
+        return width >= MIN_FRAME_WIDTH and used <= LANE_FILL * len(lanes) and not spilled
     if fits(0.): return 0.
     lo, hi = 0, 1
     while not fits(hi * 100.):

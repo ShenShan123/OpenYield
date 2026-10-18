@@ -139,6 +139,23 @@ below 16 rows have no integrated controller layout; `beside` remains a
 [scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md) for areas,
 verification and limits.
 
+The macro's ports are labelled at interior points (controller gate accesses,
+register and sense tracks, the latch, the trunks). Moving them to the
+boundary is studied but not implemented: planned router accesses for the
+control inputs set off rip-up cascades, and the per-column `DIN*`, `SA_Q*`
+and `SA_QB*` ports cannot reach an edge because every band carries
+full-width M4 bars and M5 is the bitline layer. See the
+[scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md#macro-pin-positions).
+
+The driver candidate was re-derived on 2026-10-16 (candidate 2, performance
+first): each class is the smallest whose worst-corner coupon edge stays within
+10 % of its frozen class half-period, the bitline drivers see the centre
+plan's two half-array branches, and column classes cap the precharge and
+write-driver classes because the control bars limit restore and write
+completion above 128 columns. The same table sets TIME_CONTROL's setup-chain
+and guard stage counts per class. See the
+[scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md#performance-pass-candidate-2).
+
 `layout preview --layout-dir PATH` produces `layout.png`, `placement.png` and
 `time_control.png` directly from the GDS. `layout driver-audit` measures metal
 loads and gate widths only after hash-bound, passing DRC/LVS/coupled extraction.
