@@ -183,5 +183,293 @@
     "8x8 waveform wiring is illustrative, not extracted",
     "512x512 has no qualified operating point",
     "driver coupons do not include storage contention"
-  ]
+  ],
+  "candidate_2": {
+    "date": "2026-10-16",
+    "sizing_lookup": "sram_compiler/sizing/layout_sizing_lookup.json",
+    "lookup_version": "v2.2.8-layout-candidate-2",
+    "controller_floorplan": "center (split arrays; controller between the decoder halves and in spare rows)",
+    "selection": "smallest class whose SS 0.9 V 125 C coupon edge is within 10 % of the frozen class half-period; column caps pre_cap/wd_cap from the control-bar completion sweep; class-dependent setup_stages and guard_stages",
+    "layout_sources": [
+      {
+        "rows": 32,
+        "cols": 32,
+        "bank_count": 1,
+        "period_s": "automatic",
+        "variation_mode": "nominal",
+        "seed": 20260711,
+        "real_cell_mode": 0,
+        "w_rc": false,
+        "compact_control": true,
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature_c": 25.0
+      },
+      {
+        "rows": 64,
+        "cols": 64,
+        "bank_count": 1,
+        "period_s": "automatic",
+        "variation_mode": "nominal",
+        "seed": 20260711,
+        "real_cell_mode": 0,
+        "w_rc": false,
+        "compact_control": true,
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature_c": 25.0
+      },
+      {
+        "rows": 128,
+        "cols": 128,
+        "bank_count": 1,
+        "period_s": "automatic",
+        "variation_mode": "nominal",
+        "seed": 20260711,
+        "real_cell_mode": 0,
+        "w_rc": false,
+        "compact_control": true,
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature_c": 25.0
+      },
+      {
+        "rows": 256,
+        "cols": 256,
+        "bank_count": 1,
+        "period_s": "automatic",
+        "variation_mode": "nominal",
+        "seed": 20260711,
+        "real_cell_mode": 0,
+        "w_rc": false,
+        "compact_control": true,
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature_c": 25.0
+      },
+      {
+        "rows": 512,
+        "cols": 512,
+        "bank_count": 1,
+        "period_s": 8e-08,
+        "variation_mode": "nominal",
+        "seed": 20260711,
+        "real_cell_mode": 0,
+        "w_rc": false,
+        "compact_control": true,
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature_c": 25.0
+      }
+    ],
+    "waveform_cases": [
+      {
+        "name": "perf_8x8_tt",
+        "rows": 8,
+        "cols": 8,
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature": 25,
+        "period": 9e-09,
+        "operation": "read&write",
+        "variation": "nominal",
+        "seed": 20260711,
+        "w_rc": true,
+        "interconnect": {
+          "mode": "distributed",
+          "cell_pin_rc": false,
+          "wl": {
+            "layer": "M2-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          },
+          "bl": {
+            "layer": "M3-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          }
+        },
+        "sizing": {
+          "mode": "lookup",
+          "compact_control": true,
+          "lookup": "sram_compiler/sizing/layout_sizing_lookup.json"
+        },
+        "xyce_options": [
+          ".options linsol type=KLU"
+        ]
+      },
+      {
+        "name": "perf_8x8_ss",
+        "rows": 8,
+        "cols": 8,
+        "corner": "SS",
+        "vdd": 0.9,
+        "temperature": 125,
+        "period": 9e-09,
+        "operation": "read&write",
+        "variation": "nominal",
+        "seed": 20260711,
+        "w_rc": true,
+        "interconnect": {
+          "mode": "distributed",
+          "cell_pin_rc": false,
+          "wl": {
+            "layer": "M2-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          },
+          "bl": {
+            "layer": "M3-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          }
+        },
+        "sizing": {
+          "mode": "lookup",
+          "compact_control": true,
+          "lookup": "sram_compiler/sizing/layout_sizing_lookup.json"
+        },
+        "xyce_options": [
+          ".options linsol type=KLU"
+        ]
+      },
+      {
+        "name": "perf_8x8_ff",
+        "rows": 8,
+        "cols": 8,
+        "corner": "FF",
+        "vdd": 1.0,
+        "temperature": -40,
+        "period": 9e-09,
+        "operation": "read&write",
+        "variation": "nominal",
+        "seed": 20260711,
+        "w_rc": true,
+        "interconnect": {
+          "mode": "distributed",
+          "cell_pin_rc": false,
+          "wl": {
+            "layer": "M2-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          },
+          "bl": {
+            "layer": "M3-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          }
+        },
+        "sizing": {
+          "mode": "lookup",
+          "compact_control": true,
+          "lookup": "sram_compiler/sizing/layout_sizing_lookup.json"
+        },
+        "xyce_options": [
+          ".options linsol type=KLU"
+        ]
+      },
+      {
+        "name": "perf_32x32_tt",
+        "rows": 32,
+        "cols": 32,
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature": 25,
+        "period": 9e-09,
+        "operation": "read&write",
+        "variation": "nominal",
+        "seed": 20260711,
+        "w_rc": true,
+        "interconnect": {
+          "mode": "distributed",
+          "cell_pin_rc": false,
+          "wl": {
+            "layer": "M2-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          },
+          "bl": {
+            "layer": "M3-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          }
+        },
+        "sizing": {
+          "mode": "lookup",
+          "compact_control": true,
+          "lookup": "sram_compiler/sizing/layout_sizing_lookup.json"
+        },
+        "xyce_options": [
+          ".options linsol type=KLU"
+        ]
+      },
+      {
+        "name": "perf_32x32_ss",
+        "rows": 32,
+        "cols": 32,
+        "corner": "SS",
+        "vdd": 0.9,
+        "temperature": 125,
+        "period": 9e-09,
+        "operation": "read&write",
+        "variation": "nominal",
+        "seed": 20260711,
+        "w_rc": true,
+        "interconnect": {
+          "mode": "distributed",
+          "cell_pin_rc": false,
+          "wl": {
+            "layer": "M2-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          },
+          "bl": {
+            "layer": "M3-reference",
+            "pitch_m": 6e-07,
+            "width_m": 1e-07,
+            "sheet_resistance_ohm": 0.16666666666666666,
+            "capacitance_f_per_m": 1.6666666666666666e-10,
+            "sections_per_half_pitch": 1
+          }
+        },
+        "sizing": {
+          "mode": "lookup",
+          "compact_control": true,
+          "lookup": "sram_compiler/sizing/layout_sizing_lookup.json"
+        },
+        "xyce_options": [
+          ".options linsol type=KLU"
+        ]
+      }
+    ],
+    "macro_pins": "clk/csb/web/A* left (M6), OUT/OUT_B right (M4), VDD/VSS top and bottom (M6); DIN*/SA_Q*/SA_QB* internal",
+    "evidence": "docs/data/LAYOUT_PERFORMANCE_V2_2_8.json"
+  }
 }

@@ -141,6 +141,9 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             isolation_tau=self.driver_sizes.isolation_tau,
             control_config=control_config,
             compact_control=self.driver_sizes.compact_control,
+            wordline_setup_stages=self.driver_sizes.wordline_setup_stages,
+            isolation_guard_stages=self.driver_sizes.isolation_guard_stages,
+            enable_off_guard_stages=self.driver_sizes.enable_off_guard_stages,
         ).create()
         circuit.subcircuit(time_control)   # Add to main circuit
         

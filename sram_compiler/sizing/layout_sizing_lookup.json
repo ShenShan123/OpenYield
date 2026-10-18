@@ -1,68 +1,88 @@
 {
   "schema": 1,
-  "lookup_version": "v2.2.8-layout-candidate-1",
+  "lookup_version": "v2.2.8-layout-candidate-2",
   "row_classes": [
     {
       "max_rows": 32,
-      "pre": 0.5,
-      "wd_out": 1.5,
-      "wd_in": 0.5
+      "pre": 4,
+      "wd_out": 4,
+      "wd_in": 1.0,
+      "setup_stages": 2
     },
     {
       "max_rows": 64,
-      "pre": 0.5,
-      "wd_out": 1.5,
-      "wd_in": 0.5
+      "pre": 4,
+      "wd_out": 8,
+      "wd_in": 2.0,
+      "setup_stages": 2
     },
     {
       "max_rows": 128,
-      "pre": 1,
-      "wd_out": 1.5,
-      "wd_in": 0.5
+      "pre": 4,
+      "wd_out": 8,
+      "wd_in": 2.0,
+      "setup_stages": 2
     },
     {
       "max_rows": 256,
-      "pre": 2,
-      "wd_out": 4,
-      "wd_in": 1.0
+      "pre": 8,
+      "wd_out": 8,
+      "wd_in": 2.0,
+      "setup_stages": 2
     },
     {
       "max_rows": 512,
-      "pre": 8,
-      "wd_out": 8,
-      "wd_in": 2.0
+      "pre": 16,
+      "wd_out": 16,
+      "wd_in": 4.0,
+      "setup_stages": 2
     }
   ],
   "column_classes": [
     {
       "max_cols": 32,
-      "wl_inv": 1,
+      "wl_inv": 4,
       "wl_nand": 1,
-      "dec_inv": 1
+      "dec_inv": 1,
+      "guard_stages": 4,
+      "pre_cap": 8,
+      "wd_cap": 8
     },
     {
       "max_cols": 64,
-      "wl_inv": 1,
-      "wl_nand": 1,
-      "dec_inv": 1
+      "wl_inv": 8,
+      "wl_nand": 2.0,
+      "dec_inv": 1,
+      "guard_stages": 8,
+      "pre_cap": 8,
+      "wd_cap": 8
     },
     {
       "max_cols": 128,
-      "wl_inv": 2,
-      "wl_nand": 1,
-      "dec_inv": 1
+      "wl_inv": 16,
+      "wl_nand": 4.0,
+      "dec_inv": 1,
+      "guard_stages": 16,
+      "pre_cap": 4,
+      "wd_cap": 8
     },
     {
       "max_cols": 256,
-      "wl_inv": 4,
-      "wl_nand": 1,
-      "dec_inv": 1
+      "wl_inv": 32,
+      "wl_nand": 8.0,
+      "dec_inv": 2,
+      "guard_stages": 44,
+      "pre_cap": 4,
+      "wd_cap": 8
     },
     {
       "max_cols": 512,
-      "wl_inv": 16,
-      "wl_nand": 4.0,
-      "dec_inv": 1
+      "wl_inv": 64,
+      "wl_nand": 16.0,
+      "dec_inv": 2,
+      "guard_stages": 64,
+      "pre_cap": 4,
+      "wd_cap": 8
     }
   ],
   "replica": {
@@ -70,5 +90,13 @@
     "N": 9
   },
   "qualification": "unqualified diagnostic candidate",
-  "evidence_sha256": "20c4e53889a9926158535e112f4b089d116769925f93be130710514731c2856e"
+  "selection": "performance first: smallest class whose SS 0.9 V 125 C coupon edge is within 10 % of the frozen class half-period; 512-column wordline at the ladder knee",
+  "evidence_sha256": "30b9ed03d233b4c5348dbcfbc465c944971fc3b37733729833ce0c57ca0d0883",
+  "stage_rule": "setup_stages: smallest even count whose SS/TT/FF wl_en rise is at least 1.5 x the decoder settle in the mini-bank path coupons (min 1.59 at 512 rows FF); guard_stages: even count whose SS chain covers the far-end PRE/w_en tail at the class bitline load, capped at 64 for 512 columns",
+  "cap_rule": "pre_cap/wd_cap: the PRE and w_en control bars limit restore and write completion above 128 columns; larger precharge or write-driver classes only add bar load (joint line + bitline completion metric, line_sweep_01)",
+  "controller_evidence_sha256": {
+    "control_line_coupons": "0628dea33d95ea33b568f0afaf3c4de3c13cb7a413e150824781ebbef175223e",
+    "line_sweep": "d622913662d7bbdf9a70a2a20856dd12f12dbbbe2cba76a82afb58dee4d83a96"
+  },
+  "controller_path_coupons": "outputs/layout_scaling/control_path_02 (SS table in docs/data/LAYOUT_PERFORMANCE_V2_2_8.json when complete)"
 }

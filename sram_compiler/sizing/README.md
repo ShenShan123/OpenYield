@@ -26,6 +26,17 @@ The compiler resolves critical driver widths and the clock **before** a cell can
 
 The sizing lookup has a historical 512-column entry, but the current timing envelope rejects arrays wider than 256 columns. `rules_only` is an unqualified continuous fallback and `auto` requires a context-matched qualified record or falls back to those rules. Neither mode extends the supported envelope.
 
+A class table may carry four optional fields (V2.2.8 layout candidate 2,
+[`layout_sizing_lookup.json`](layout_sizing_lookup.json)): a row class may set
+`setup_stages`, the even length of TIME_CONTROL's wordline setup chain; a column
+class may set `guard_stages`, the even length of its precharge-off, isolation,
+enables-off and replica-wordline-off settling guards, and `pre_cap` / `wd_cap`,
+upper bounds on the precharge and write-driver classes because every column
+loads one control bar. Tables without these fields keep the fixed 8-stage
+setup chain and 4/4/2/4-stage guards. The resolved counts travel in
+`DriverSizes` and are checked by `validate_for`, so a frozen record from a
+different table is rejected.
+
 ## Clock classes
 
 [`timing_lookup.json`](timing_lookup.json) is the V2.2.4 table. It sets a 512-row by 256-column envelope and separate budgets for cell type and column mux. The current cycle captures a request on the rising edge, accesses during clock-high, and recovers and precharges during clock-low. Clock-high access and clock-low recovery each get a half-cycle budget.

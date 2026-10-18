@@ -29,6 +29,17 @@ _PERIPHERALS = (
 _ROW_SCALES = ("pre", "wd_in", "wd_out")
 _COLUMN_SCALES = ("wl_inv", "wl_nand", "dec_inv")
 PRECHARGE_OFF_GUARD_STAGES = 4
+# Fixed digital delays of TIME_CONTROL when a class table does not set them:
+# the wordline setup chain (row class, `setup_stages`) and the far-end
+# settling guards (column class, `guard_stages`: precharge-off, isolation,
+# replica-wordline-off and, when a table sets it, the enables-off guard; the
+# fixed default keeps the enables-off guard at its two stages).
+DEFAULT_STAGES = dict(setup_stages=8, guard_stages=PRECHARGE_OFF_GUARD_STAGES, enable_off_stages=2)
+_STAGE_FIELDS = {"row_classes": "setup_stages", "column_classes": "guard_stages"}
+# A column class may cap the bitline-driver classes: every column adds its
+# precharge and write-driver gates to one control bar, so a wide array's
+# restore and write completion is limited by the bar, not the bitline.
+_COLUMN_CAPS = {"pre_cap": "pre", "wd_cap": "wd_out"}
 
 
 @dataclass(frozen=True)
@@ -92,6 +103,9 @@ class DriverSizes:
     enable_off_tau: float = 0.0
     isolation_tau: float = 0.0
     compact_control: bool = False
+    wordline_setup_stages: int = DEFAULT_STAGES['setup_stages']
+    isolation_guard_stages: int = DEFAULT_STAGES['guard_stages']
+    enable_off_guard_stages: int = DEFAULT_STAGES['enable_off_stages']
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -117,10 +131,14 @@ class DriverSizes:
         # Archived snapshots can still be read, but the current topology must
         # not silently add an observer or common gate to an older load budget.
         expected_access = 1.25 * max(1, ceil(self.loads.wl_load / (24.0 if self.effort_buffers else 32.0))) + 2.5
+        stages = _stage_policy(_mapping(getattr(cfg, "sizing", {})), cfg.num_rows, cfg.num_cols)
         if (self.precharge_off_guard is not True
                 or self.replica_precharge_guard is not True
                 or type(self.precharge_off_guard_stages) is not int
-                or self.precharge_off_guard_stages != PRECHARGE_OFF_GUARD_STAGES
+                or self.precharge_off_guard_stages != stages['guard_stages']
+                or self.isolation_guard_stages != stages['guard_stages']
+                or self.enable_off_guard_stages != stages['enable_off_stages']
+                or self.wordline_setup_stages != stages['setup_stages']
                 or not isfinite(self.precharge_off_tau) or self.precharge_off_tau <= 0
                 or not isfinite(self.enable_off_tau) or self.enable_off_tau <= 0
                 or not isfinite(self.isolation_tau) or self.isolation_tau <= 0
@@ -268,6 +286,15 @@ def load_lookup(path=None):
             previous = limit
             for name in names:
                 _class_scale(entry, name, f"{group} {bound}={limit} of {path}")
+            stage_name = _STAGE_FIELDS[group]
+            if stage_name in entry:
+                stages = entry[stage_name]
+                if isinstance(stages, bool) or not isinstance(stages, int) or stages < 2 or stages % 2:
+                    raise ValueError(f"{group} {bound}={limit} of {path} needs a positive even {stage_name}")
+            if group == "column_classes":
+                for cap in _COLUMN_CAPS:
+                    if cap in entry:
+                        _class_scale(entry, cap, f"{group} {bound}={limit} of {path}")
     replica = table.get("replica", {})
     if replica.keys() - {"K", "N"}:
         raise ValueError(f"Driver size lookup {path} replica accepts only K and N")
@@ -310,6 +337,25 @@ def lookup_classes(table, rows, cols):
     """Row and column classes for an array; both may be extrapolated beyond the table."""
     return (interpolate_class(table["row_classes"], "max_rows", _ROW_SCALES, rows),
             interpolate_class(table["column_classes"], "max_cols", _COLUMN_SCALES, cols))
+
+
+def _stage_policy(options, rows, cols):
+    """TIME_CONTROL fixed-delay stage counts for an array: the class table's
+    `setup_stages` (row class) and `guard_stages` (column class) when the
+    lookup sets them, otherwise the fixed defaults. An extrapolated class
+    keeps the last anchor's counts."""
+    stages = dict(DEFAULT_STAGES)
+    if options.get("mode", "lookup") == "lookup":
+        table = load_lookup(options.get("lookup"))
+        row_class, col_class = lookup_classes(table, rows, cols)
+        for entry, name, classes in ((row_class, "setup_stages", table["row_classes"]),
+                                     (col_class, "guard_stages", table["column_classes"])):
+            source = classes[-1] if entry.get("extrapolated") else entry
+            if name in source:
+                stages[name] = int(source[name])
+                if name == "guard_stages":
+                    stages["enable_off_stages"] = int(source[name])
+    return stages
 
 
 def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, physical_context=None):
@@ -391,6 +437,14 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     if mode == "lookup":
         scales = {name: float(row_class[name]) for name in ("pre", "wd_out", "wd_in")}
         scales.update({name: float(col_class[name]) for name in ("wl_inv", "wl_nand")})
+        # Column caps on the bitline drivers (control-bar load); the write
+        # input stage follows the capped output stage.
+        source = lookup["column_classes"][-1] if col_class.get("extrapolated") else col_class
+        for cap, name in _COLUMN_CAPS.items():
+            if cap in source and scales[name] > float(source[cap]):
+                if name == "wd_out":
+                    scales["wd_in"] = max(0.5, scales["wd_in"] * float(source[cap]) / scales[name])
+                scales[name] = float(source[cap])
     else:
         wd_out = max(_RULES['wd_floor'][cell_type] * margin, k_w * p * rows)
         scales = {'pre': max(pre_min, p * rows / _RULES['pre_rows_divisor']), 'wd_out': wd_out,
@@ -411,7 +465,8 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     nand_units = round(nand_gate / 0.45e-6, 12)
     rc_input_units = (_positive('pi_cap', context.get('pi_cap', _RULES['peripheral_rc_cap_f'])) / _RULES['unit_inverter_cap_f']
                       if context.get('w_rc', False) else 0.0)
-    guard_stages = options.get('precharge_guard_stages', 4)
+    stages = _stage_policy(options, rows, cols)
+    guard_stages = options.get('precharge_guard_stages', stages['guard_stages'])
     if type(guard_stages) is not int or guard_stages < 0 or guard_stages % 2:
         raise ValueError('precharge_guard_stages must be a nonnegative even integer')
     # Wordline-driver A/B and sense-amplifier EN/ISO each have two RC sections;
@@ -478,7 +533,9 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         'effort_buffers': effort_buffers, 'canonical_read': canonical_read,
         'replica_precharge_guard': True,
         'precharge_guard_stages': guard_stages,
-        'precharge_off_guard': True, 'precharge_off_guard_stages': PRECHARGE_OFF_GUARD_STAGES,
+        'precharge_off_guard': True, 'precharge_off_guard_stages': stages['guard_stages'],
+        'wordline_setup_stages': stages['setup_stages'],
+        'isolation_guard_stages': stages['guard_stages'], 'enable_off_guard_stages': stages['enable_off_stages'],
         'precharge_off_tau': _precharge_off_tau(cols, loads.pre_load, context),
         'enable_off_tau': _enable_off_tau(cols, loads, context),
         'isolation_tau': _control_settling_tau(cols, loads.iso_load + observer_units, context, 'isolation_control'),

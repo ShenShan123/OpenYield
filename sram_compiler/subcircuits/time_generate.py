@@ -862,7 +862,10 @@ class TIME_CONTROL(BaseSubcircuit):
                  din_hold_load: Optional[float] = None,
                  enable_off_tau: Optional[float] = None,
                  isolation_tau: Optional[float] = None,
-                 control_config=None, compact_control: bool = False) -> None:
+                 control_config=None, compact_control: bool = False,
+                 wordline_setup_stages: Optional[int] = None,
+                 isolation_guard_stages: Optional[int] = None,
+                 enable_off_guard_stages: Optional[int] = None) -> None:
         """
         num_sa:   number of sense amplifiers driven by s_en (num_cols / mux_in);
                   default num_cols.
@@ -881,6 +884,11 @@ class TIME_CONTROL(BaseSubcircuit):
         precharge_off_tau: compatibility argument; it adds no RC element or delay.
                   Enabling precharge_off_guard appends the physical pre_far input.
         din_hold_load: obsolete V2.1.10 argument; no hold-enable line is built.
+        wordline_setup_stages, isolation_guard_stages, enable_off_guard_stages:
+                  even stage counts of the fixed digital delays (the setup
+                  chain and the far ISO / far enables-off settling guards);
+                  the YAML `delays` / `guards` values apply when omitted. The
+                  compiler sets them per size class (V2.2.8 layout candidate).
         """
         self.control_config = resolve_time_control_config(control_config)
         cfg = self.control_config
@@ -924,6 +932,16 @@ class TIME_CONTROL(BaseSubcircuit):
         if (type(precharge_off_guard_stages) is not int or precharge_off_guard_stages < 2
                 or precharge_off_guard_stages % 2):
             raise ValueError('Precharge-off guard stages must be a positive even integer')
+        wordline_setup_stages = cfg.delays.wordline_setup_stages if wordline_setup_stages is None else wordline_setup_stages
+        isolation_guard_stages = cfg.guards.isolation_stages if isolation_guard_stages is None else isolation_guard_stages
+        enable_off_guard_stages = cfg.guards.enable_off_stages if enable_off_guard_stages is None else enable_off_guard_stages
+        for name, count in (('Wordline setup', wordline_setup_stages), ('Isolation guard', isolation_guard_stages),
+                            ('Enable-off guard', enable_off_guard_stages)):
+            if type(count) is not int or count < 2 or count % 2:
+                raise ValueError(f'{name} stages must be a positive even integer')
+        self.wordline_setup_stages = wordline_setup_stages
+        self.isolation_guard_stages = isolation_guard_stages
+        self.enable_off_guard_stages = enable_off_guard_stages
         self.interconnect = resolve_interconnect(interconnect)
         self.nmos_model = nmos_model
         self.pmos_model = pmos_model
@@ -1120,7 +1138,7 @@ class TIME_CONTROL(BaseSubcircuit):
                         (self.control_config.devices.unit_inverter.nmos_width_m * scale, self.control_config.devices.unit_inverter.pmos_width_m * scale))
         gate = self._and_gate(WordlineSetupAnd, output_sizes)
         delay = WordlineSetupDelay(self.nmos_model,self.pmos_model,
-                    stages=self.control_config.delays.wordline_setup_stages,
+                    stages=self.wordline_setup_stages,
                     control_config=self.control_config)
         self.subcircuit(delay)
         self.subcircuit(gate)
@@ -1280,7 +1298,7 @@ class TIME_CONTROL(BaseSubcircuit):
 
     def _add_isolation_guard(self) -> None:
         guard = IsolationOffGuard(self.nmos_model, self.pmos_model,
-                                  stages=self.control_config.guards.isolation_stages,
+                                  stages=self.isolation_guard_stages,
                                   access_load=self.control_config.guards.isolation_access_load_units,
                                   settling_tau=0., control_config=self.control_config)
         self.subcircuit(guard)
@@ -1323,7 +1341,7 @@ class TIME_CONTROL(BaseSubcircuit):
         self.X('enables_off_nor', nor.NAME, 'VDD', 'VSS', 's_en', 'w_en', 'local_enables_off')
         far = FarEnablesOffNor(self.nmos_model, self.pmos_model, *self.control_config.widths("far_enables_nor"), self.control_config.devices.gate_length_m)
         guard = EnableOffGuard(self.nmos_model, self.pmos_model,
-                               stages=self.control_config.guards.enable_off_stages,
+                               stages=self.enable_off_guard_stages,
                                access_load=self.control_config.guards.enable_off_access_load_units,
                                settling_tau=0., control_config=self.control_config)
         self.subcircuit(far)

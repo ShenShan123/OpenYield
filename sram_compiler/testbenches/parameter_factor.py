@@ -909,6 +909,9 @@ class TimeControlFactory:
                  isolation_tau=None,
                  control_config=None,
                  compact_control: bool = False,
+                 wordline_setup_stages=None,
+                 isolation_guard_stages=None,
+                 enable_off_guard_stages=None,
                  ):
 
         self.interconnect = interconnect
@@ -942,6 +945,9 @@ class TimeControlFactory:
         self.isolation_tau = isolation_tau
         self.control_config = control_config
         self.compact_control = compact_control
+        self.wordline_setup_stages = wordline_setup_stages
+        self.isolation_guard_stages = isolation_guard_stages
+        self.enable_off_guard_stages = enable_off_guard_stages
     def create(self):
         return TIME_CONTROL(
             nmos_model=self.nmos_model,
@@ -974,6 +980,9 @@ class TimeControlFactory:
             isolation_tau=self.isolation_tau,
             control_config=self.control_config,
             compact_control=self.compact_control,
+            wordline_setup_stages=self.wordline_setup_stages,
+            isolation_guard_stages=self.isolation_guard_stages,
+            enable_off_guard_stages=self.enable_off_guard_stages,
         )
     
 class Sram10TCellFactory:
