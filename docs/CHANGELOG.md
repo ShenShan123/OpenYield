@@ -11,137 +11,76 @@ proposals and that circuit review were purged after V2.2.6; retrieve them with
 
 ## V2.2.8 — 2026-10-11 — component-based bank and controller layouts
 
-[Bank record](design/layout/OPENRAM_PITCH_V2_2_8.md) and
-[TIME_CONTROL record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md).
+[Bank record](design/layout/OPENRAM_PITCH_V2_2_8.md),
+[TIME_CONTROL record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md) and
+[scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md).
 
-The older fixed, full, scaled and compact macro generators, their local
-campaigns, output data, logs and reports were purged on 2026-10-14. Current
-component/bank/TIME_CONTROL flows and scoped runtime RC profiles remain.
-Unreferenced layout-scaling and centre-floorplan attempts were purged on
-2026-10-15; the recorded layouts, receipts, audits and source decks remain
-([development notes](DEVELOPMENT.md)).
+The older fixed, full, scaled and compact macro generators and their
+campaigns were purged on 2026-10-14, and unreferenced scaling and
+centre-floorplan attempts on 2026-10-15
+([development notes](DEVELOPMENT.md)). Recorded layouts, receipts, audits and
+source decks remain. No layout change in this release carries waveform,
+operating-point or yield qualification beyond the native 8×8 and 32×32 checks
+in the scaling record.
 
-- 2026-10-14 diagnostics add single-bank 512×512 generation, an explicit
-  driver candidate based on smaller-bank coupled extraction, compact control
-  logic and deletion of intentional RC guards. Automatic timing retains its
-  previous envelope. See [the scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md)
-  for layout, coupon and waveform scopes; full-array operating-point
-  qualification remains pending.
-- 2026-10-15 adds the opt-in `layout bank --with-controller
-  --controller-floorplan center` split-array floorplan. Lower and upper
-  sub-arrays sit around the column periphery with continuous M5 bitlines, and
-  shared decoder nets are bridged on M10. TIME_CONTROL is aligned with the
-  decoder's left edge, between the decoder halves and in spare decoder rows.
-  The data registers fold into a 7.73 µm band instead of 9.75 µm. Centre
-  routing adds local rip-up and reroute, same-net gap healing on M4–M9,
-  square obstacle clearance, lane antenna taps and a router antenna check
-  that reroutes exposed nets on M8/M9. The corner flow is unchanged and
-  remains the default.
-  Areas and Calibre results are in the
-  [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md); no waveform or
-  operating-point qualification is implied.
-- 2026-10-16 retires the corner floorplan. `layout bank --with-controller`
-  now defaults to `--controller-floorplan center`; `corner`, its module and the
-  controller's corner-only overflow lane are removed. Banks below 16 rows have
-  no integrated controller floorplan; `beside` remains 32×32 only. The corner
-  layouts stay as the archived area baseline.
-- 2026-10-16 performance pass for the 32–512 square banks, recorded in the
-  [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#performance-pass-candidate-2):
-  - Driver candidate 2 (`layout_sizing_lookup.json`): each class is the
-    smallest whose SS coupon edge stays within 10 % of the frozen class
-    half-period, on centre-plan loads (two half-array bitline branches,
-    measured 128×128 metal above 64). Wordline 4/8/16/32/64, precharge 4,
-    write output 4/8/8/8/8 after the new column caps; the control bars, not
-    the bitline drivers, limit restore and write completion above 128 columns.
-  - TIME_CONTROL delays become class table fields: `setup_stages` per row
-    class and `guard_stages` per column class, derived from measured delay
-    stages (17.6 ps SS), far-end tails and decoder settle. Tables without the
-    fields keep the fixed 8/4/4/2/4 stages; frozen records carry the counts.
-  - Controller tie-offs: a gate input tied to `VDD`/`VSS` now connects to its
-    own gate's rail on M3 instead of joining the routed supply, and the
-    router's antenna model checks supply nets that carry gates. Found as an
-    `Antenna.metal8` violation on the first candidate-2 128×128 build.
-  - Centre frame rules: fixed via stacks block 40/80 nm beyond their metal so
-    router cuts meet Via7.2/Via8.2/Via9.2 (two 512×512 violations), and the
-    spare decoder column keeps the frame at least 13 µm wide because the
-    11–12 µm frames of 32 and 64 columns no longer routed with candidate-2
-    drivers.
-  - Macro pin positions: studied, allocation deferred. Planned router
-    accesses for the control inputs set off rip-up cascades in every variant;
-    per-column data pins cannot reach an edge because every band carries M4
-    bars and M5 is the bitline layer. The record names the post-route M10
-    scheme to implement next.
-  No waveform screen beyond the native 8×8 and 32×32 checks listed in the
-  record; no operating-point or yield qualification is implied.
-- 2026-10-21 macro edge pins and right edge, recorded in the
-  [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#macro-edge-pins-and-right-edge):
-  - `clk`, `csb`, `web` and `A*` leave on M10 to the left, bottom or top edge.
-    Each input's capture access is lifted to M10 before routing as fixed metal
-    of its own net, so the router gains no target; the M10 runs are drawn after
-    routing. A crowded stack slides along a short stub, or as a last resort is
-    joined by the router (the clock input at 256×256).
-  - `OUT`/`OUT_B` reach the right edge on M4; `VDD`/`VSS` reach the bottom and
-    top edges on the M6 trunks. `DIN*`, `SA_Q*` and `SA_QB*` stay internal.
-  - The output latch folds into two rows inside the empty replica strip, and
-    the far-end return stacks move inside the VDD trunk. Nothing extends past
-    the bank's VSS trunk, which removes 3.46–3.54 µm of macro width
-    (macro area −8.2 % at 32×32 to −0.9 % at 512×512 against candidate 2).
-  - All five banks (32×32 to 512×512) pass Calibre DRC (0), LVS (CORRECT) and
-    xRC extraction; evidence in `docs/data/MACRO_PINS_V2_2_8.json`.
-  No waveform or operating-point qualification of the changed layouts is
-  implied.
-
-- The default `layout bank` now uses OpenRAM's 705 nm column / 1365 nm row
-  pitch, source-preserving physical refingering, compact left-side row logic,
-  and an integrated replica column. The previous bank is available with
-  `--legacy-pitch`. See [the current area and verification record](design/layout/OPENRAM_PITCH_V2_2_8.md).
-  The default bank retains external control; sizing, timing and RC defaults are unchanged.
-- The optional 32×32 `layout bank --with-controller` flow adds TIME_CONTROL
-  with source-matched standard cells, 39 input/control registers and four
-  calibrated RC guards. Its controller-to-core interface is now planned, not
-  maze-routed:
-  - Control logic sits left of the decoder, with every bank-facing pin on its
-    right edge at the height of the conductor it drives or observes.
-  - The 32 data registers form a 4×8 array below the column periphery,
-    connected by a left-edge channel.
-  - Drives are single M6 lines, and far-end returns are single M7 lines.
-  - M7–M10 interface wire falls from 4062 µm to 400 µm, and via cuts from
-    853 to 329.
-  - The complete bank falls from 5760.7131 µm² to 4050.6731 µm² (−29.7%).
-
-  It passes strict DRC/LVS/xRC, and all four guard resistances stay within
-  0.46%. The standalone controller (838.7843625 µm²) regenerates identically.
-  See the [controller layout record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md).
-  The superseded maze integration and earlier failed attempts remain
-  preserved. No waveform or release qualification is promoted.
-
-- The opt-in `layout cells` flow adds circuit-owned small cells, shared
-  diffusion, preserved W/L/NF, local wiring and physical interfaces, followed
-  by placement and routing of cell instances. Column widths and wordline/
-  bitline access follow the core pitch; row spans are explicit. See the
-  [OpenRAM/SRAM22 comparison and component record](design/layout/COMPONENT_LAYOUT_V2_2_8.md).
-  This component development stage does not replace or qualify a full bank.
-- The follow-up density review removes duplicate diffusion-strip gaps and fixes
-  parent-via and mirrored-boundary clearance. Column composites reuse routing
-  tracks by physical span. `layout bank` integrates the dense data array with
-  precharge, sense, write drivers and data buffers through their ports. The
-  [bank record](design/layout/BANK_LAYOUT_V2_2_8.md) preserves size-specific physical
-  checks; the original data-path boundary remains available with
-  `--data-path-only`. Sizing, timing and RC defaults are unchanged.
-- `layout bank` now integrates the decoder, data/RWL drivers, replica column
-  and dummy loads inside the dense core, replica periphery, and output latch.
-  Folded row placement routes source-owned leaf ports and records every MOS
-  terminal. TIME_CONTROL and its input registers remain deferred. The
-  [integration record](design/layout/BANK_INTEGRATION_V2_2_8.md) records independent
-  DRC/LVS/R+C+CC checks at 8×8 and 32×32; no waveform qualification is claimed.
-- The decoder floorplan is corrected to the left side of the core with exactly
-  400 nm M2 wordline spacing and the same total data-row height. Eight-row bands
-  preserve every source device, including unused predecode branches. Both sizes
-  retain identical schematic hashes and pass physical verification. The
-  [row-pitch record](design/layout/BANK_ROW_PITCH_V2_2_8.md) reports the wider footprint
-  and area tradeoff. A separate [OpenRAM run](design/layout/OPENRAM_REFERENCE_V2_2_8.md)
-  supplies a 32×32 reference bank GDS; its conditional supply-connectivity check
-  is distinguished from the full OpenRAM macro's failed LVS.
+- 2026-10-14: single-bank 512×512 generation, an explicit driver candidate
+  from smaller-bank coupled extraction, compact control logic and no
+  intentional RC guards. Automatic timing keeps its envelope.
+- 2026-10-15: split-array centre floorplan. Sub-arrays sit around the column
+  periphery with continuous M5 bitlines; shared decoder nets are bridged on
+  M10; TIME_CONTROL sits between the decoder halves and in spare decoder rows;
+  the register band shrinks from 9.75 to 7.73 µm. Routing adds local rip-up,
+  same-net gap healing, square clearance, lane antenna taps and its own
+  antenna check.
+- 2026-10-16: the corner floorplan is retired and `layout bank
+  --with-controller` defaults to the centre plan. Banks below 16 rows have no
+  integrated controller; `beside` remains 32×32 only.
+- 2026-10-16 [performance pass](design/layout/LAYOUT_SCALING_V2_2_8.md#performance-pass-candidate-2):
+  driver candidate 2 (smallest class within 10 % of the class half-period on
+  centre-plan loads; wordline 4–64, precharge 4, write output 4/8/8/8/8 under
+  control-bar column caps), per-class `setup_stages`/`guard_stages`, local
+  tie-offs for constant gate inputs (an `Antenna.metal8` fix), 40/80 nm
+  via-stack clearance (Via7.2–Via9.2) and a 13 µm minimum controller frame.
+- 2026-10-21 [macro edge pins](design/layout/LAYOUT_SCALING_V2_2_8.md#macro-edge-pins-and-right-edge):
+  `clk`, `csb`, `web` and `A*` leave on M10 to the left, bottom or top edge
+  (lifted to M10 before routing, run to the edge after); `OUT`/`OUT_B` exit
+  right and `VDD`/`VSS` top and bottom; data pins stay internal. The output
+  latch folds inside the bank, narrowing the macro by 3.46–3.54 µm (area
+  −8.2 % at 32×32 to −0.9 % at 512×512). All five square banks pass Calibre
+  DRC, LVS and xRC.
+- The default `layout bank` uses OpenRAM's 705 nm column / 1365 nm row pitch
+  with source-preserving refingering, compact left-side row logic and an
+  integrated replica column; `--legacy-pitch` keeps the previous bank. Control
+  stays external, and sizing, timing and RC defaults are unchanged.
+- The optional 32×32 `layout bank --with-controller` adds TIME_CONTROL
+  (source-matched standard cells, 39 registers, four calibrated RC guards)
+  with a planned interface instead of maze routing: bank-facing pins on the
+  controller's right edge at their conductors' heights, a 4×8 data-register
+  array below the periphery, single M6 drives and M7 returns. M7–M10 wire
+  falls from 4062 to 400 µm, via cuts from 853 to 329, and the bank from
+  5760.7131 to 4050.6731 µm² (−29.7 %). It passes strict DRC/LVS/xRC with all
+  guard resistances within 0.46 %; the standalone controller (838.7843625 µm²)
+  regenerates identically.
+- The opt-in `layout cells` flow builds circuit-owned small cells (shared
+  diffusion, preserved W/L/NF, local wiring, physical interfaces) and places
+  and routes their instances on the core pitch
+  ([component record](design/layout/COMPONENT_LAYOUT_V2_2_8.md)). It does not
+  replace or qualify a full bank.
+- The density review removes duplicate diffusion-strip gaps, fixes parent-via
+  and mirrored-boundary clearance and reuses routing tracks by span.
+  `layout bank` integrates the dense array with precharge, sense, write
+  drivers and data buffers ([bank record](design/layout/BANK_LAYOUT_V2_2_8.md));
+  `--data-path-only` keeps the original data-path boundary.
+- `layout bank` integrates the decoder, data/RWL drivers, replica column,
+  dummy loads, replica periphery and output latch, routing source-owned leaf
+  ports and recording every MOS terminal; DRC/LVS/R+C+CC pass at 8×8 and
+  32×32 ([integration record](design/layout/BANK_INTEGRATION_V2_2_8.md)).
+- The decoder moves left of the core with 400 nm M2 wordline spacing; eight-row
+  bands keep every source device, including unused predecode branches
+  ([row-pitch record](design/layout/BANK_ROW_PITCH_V2_2_8.md)). An
+  [OpenRAM run](design/layout/OPENRAM_REFERENCE_V2_2_8.md) supplies a 32×32
+  reference bank GDS; its conditional supply check is distinguished from the
+  full OpenRAM macro's failed LVS.
 
 ## V2.2.7 — 2026-10-10 — compiler organization and scoped RC configuration
 
