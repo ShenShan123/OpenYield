@@ -73,6 +73,23 @@ Unreferenced layout-scaling and centre-floorplan attempts were purged on
     scheme to implement next.
   No waveform screen beyond the native 8×8 and 32×32 checks listed in the
   record; no operating-point or yield qualification is implied.
+- 2026-10-21 macro edge pins and right edge, recorded in the
+  [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#macro-edge-pins-and-right-edge):
+  - `clk`, `csb`, `web` and `A*` leave on M10 to the left, bottom or top edge.
+    Each input's capture access is lifted to M10 before routing as fixed metal
+    of its own net, so the router gains no target; the M10 runs are drawn after
+    routing. A crowded stack slides along a short stub, or as a last resort is
+    joined by the router (the clock input at 256×256).
+  - `OUT`/`OUT_B` reach the right edge on M4; `VDD`/`VSS` reach the bottom and
+    top edges on the M6 trunks. `DIN*`, `SA_Q*` and `SA_QB*` stay internal.
+  - The output latch folds into two rows inside the empty replica strip, and
+    the far-end return stacks move inside the VDD trunk. Nothing extends past
+    the bank's VSS trunk, which removes 3.46–3.54 µm of macro width
+    (macro area −8.2 % at 32×32 to −0.9 % at 512×512 against candidate 2).
+  - All five banks (32×32 to 512×512) pass Calibre DRC (0), LVS (CORRECT) and
+    xRC extraction; evidence in `docs/data/MACRO_PINS_V2_2_8.json`.
+  No waveform or operating-point qualification of the changed layouts is
+  implied.
 
 - The default `layout bank` now uses OpenRAM's 705 nm column / 1365 nm row
   pitch, source-preserving physical refingering, compact left-side row logic,

@@ -136,6 +136,10 @@ ACCESS_GAP=300.      # lane pin access (M4 landing, M5 above) or tap wire to a d
 BAND_FILL=1.0        # cell area / band area above which optional gates move to the lanes
 CENTRE_TALL=False    # route centre frames below 80 um with the tall-frame order (long nets first)
 HISTORY_COST=10      # centre routing: per-step cost for other nets on a blocked net's path
+ESCAPE_REACH=3000    # macro input escape stacks slide at most this far from their access
+ESCAPE_RADIUS=8000   # ... or stand alone, routed to the access, at most this far away
+ESCAPE_LANDING={4:145.,5:145.,6:145.,7:400.,8:405.,9:805.}
+ESCAPE_SPACE={4:140.,5:140.,6:140.,7:400.,8:400.,9:800.}
 RIPUP_LIMIT=400      # centre rip-ups per attempt before a restart with new priority
 HEAL_ROUNDS=3        # centre reroutes of nets whose same-net gaps cannot be filled
 HISTORY_RADIUS=(6,6,6,10,10,16)  # M4..M9 grid cells, about each layer's clearance
@@ -467,7 +471,8 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                  pin_plan: Any=None,corner: bool=False,min_height: float=0.,
                  band_span: Optional[tuple[float,float]]=None,lanes: Optional[list[tuple]]=None,
                  profile: Optional[list[tuple[float,float,float]]]=None,
-                 obstacles: Optional[list[tuple[str,float,float,float,float,Optional[str]]]]=None) -> CellView:
+                 obstacles: Optional[list[tuple[str,float,float,float,float,Optional[str]]]]=None,
+                 escapes: tuple[str,...]=()) -> CellView:
     """Place and route TIME_CONTROL from its frozen source units.
 
     exclude lists unit-path prefixes that another physical block places, such
@@ -487,6 +492,11 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     lists the left-aligned (y0, y1, width) routing region, and obstacles the
     fixed bank conductors inside it as (layer, x0, y0, x1, y1, None); they
     block every net. pin_plan values may then be lists of accesses to one net.
+
+    escapes lists macro input nets whose first access (a register D landing or
+    a gate access) is lifted to M10 before routing. The router only sees the
+    stack as the net's own fixed metal; the parent draws M10 to the macro edge
+    from v.escapes (net -> frame-local point).
     """
     if lanes is not None and (not corner or band_span is None or profile is None):
         raise ValueError('Decoder lanes require a corner-style band frame and a routing profile')
@@ -581,7 +591,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     fixed_cuts=[]
     def lift(x,y,layer,target):
         for n in range(min(layer,target),max(layer,target)):
-            if n>=7:b.sq(f'v{n}',x,y,400)
+            if n>=7:b.sq(f'v{n}',x,y,800 if n==9 else 400)
             else:b.via(n,x,y)
             if n>=4:fixed_cuts.append((n,x,y))
             for k in (n,n+1):
@@ -590,7 +600,12 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                     if n==2:b.rect('m2',x-35,y-70,x+35,y+70)
                     else:b.rect('m2',x-70,y-35,x+70,y+35)
                 elif k==3:b.rect('m3',x-35,y-70,x+35,y+70)
-                else:b.sq(f'm{k}',x,y,400 if k==7 else 405 if k==8 else 145)
+                else:b.sq(f'm{k}',x,y,400 if k==7 else 405 if k==8 else 805 if k>=9 else 145)
+    escape_access={};escape_points={};escape_modes={}
+    def escape(net,x,y,layer):
+        # Macro input: its first access continues to M10 (see the docstring)
+        # once every fixed access is drawn.
+        if net in escapes and net not in escape_access:escape_access[net]=(x,y,layer)
     # A lane gate's wells and rails continue to the next gate in its row,
     # which may have slid right past a decoder trunk. Wells also start at the
     # lane's left end, so neighbouring rows' wells never meet in a neck there.
@@ -666,6 +681,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                 tx=(ceil(px/GRID) if p=='CLK' else round(px/GRID))*GRID;ty=round(yy/GRID)*GRID
                 wire('m7',px,yy,tx,yy,400);wire('m7',tx,yy,tx,ty,400)
                 lift(tx,ty,7,8);point=(tx,ty,'m8');ownership.append((net,(px,yy,'m7')))
+                if p=='D':escape(net,tx,ty,8)
             elif passive:
                 tx=round(px/GRID)*GRID;ty=y+(5400 if p in ('IN','TOP') else 6300)
                 wire('m6',px,yy,tx,yy,145);wire('m6',tx,yy,tx,ty,145);point=(tx,ty,'m6')
@@ -679,7 +695,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                 else:phase=v.height_nm-100 if p=='Z' else 1020 if multi else 350+300*names.index(p)
                 ty=round((y+phase)/GRID)*GRID;tx=round(px/GRID)*GRID
                 wire('m3',px,yy,px,ty);wire('m3',px,ty,tx,ty)
-                lift(tx,ty,3,4);point=(tx,ty,'m4')
+                lift(tx,ty,3,4);point=(tx,ty,'m4');escape(net,tx,ty,4)
                 tapped=lane_taps.get((path,x,y),())
                 if row<0 and p in tapped:
                     # Lane input tap in the space reserved right of the gate.
@@ -800,6 +816,47 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     for net,x in ([] if pin_plan is not None else [('VSS',1200.),('VDD',3000.)]):
         point=(x,23000.,'m8');external[net]=point
         b.sq('m8',*point[:2],405);routed[net].append(point);access.append((net,point));ownership.append((net,point))
+    # Escape stacks are fixed metal: register landings first, then gate
+    # accesses. A stack that would crowd another stack, an access or a bank
+    # conductor slides along a stub on its access layer to the nearest clear
+    # point (two neighbouring inputs at 256x256 overlapped on M9). Without a
+    # clear stub it stands alone at the nearest clear point and becomes one
+    # more access of its net for the router (the boxed-in clock input at 256).
+    missing=set(escapes)-set(escape_access)
+    if missing:raise ValueError(f'Macro inputs without an M10 escape access: {sorted(missing)}')
+    have={k:pya.Region(b.cell.begin_shapes_rec(b.li(f'm{k}'))).merged() for k in range(4,10)}
+    def area(x0,y0,x1,y1,grow):return pya.Box(u(min(x0,x1)-grow),u(min(y0,y1)-grow),u(max(x0,x1)+grow),u(max(y0,y1)+grow))
+    for net,(x,y,base) in sorted(escape_access.items(),key=lambda t:-t[1][2]):
+        near=area(x,y,x,y,ESCAPE_RADIUS+2000)
+        local={k:have[k]&pya.Region(near) for k in range(4,10)}
+        blocks=[o for o in obstacles or () if o[1]<near.right*layout.dbu*1000 and o[3]>near.left*layout.dbu*1000
+                and o[2]<near.top*layout.dbu*1000 and o[4]>near.bottom*layout.dbu*1000]
+        def crowded(k,x0,y0,x1,y1,half,own):
+            space=ESCAPE_SPACE[k]
+            if not (pya.Region(area(x0,y0,x1,y1,half+space))&(local[k]-own)).is_empty():return True
+            return any(l==f'm{k}' and ox0<x1+half+space and ox1>x0-half-space and oy0<y1+half+space and oy1>y0-half-space
+                       for l,ox0,oy0,ox1,oy1,_ in blocks)
+        def clear(ex,ey,lowest):return 0<ex<width and 0<ey<height and not any(
+            crowded(k,ex,ey,ex,ey,ESCAPE_LANDING[k]/2,pya.Region()) for k in range(lowest,10))
+        mine=local[base].interacting(pya.Region(area(x,y,x,y,2.5)))
+        steps=sorted(range(-ESCAPE_REACH,ESCAPE_REACH+1,int(GRID)),key=abs)
+        stub=next(((ex,ey) for ex,ey in dict.fromkeys(p for d in steps for p in ((x+d,y),(x,y+d)))
+                   if not crowded(base,min(x,ex),min(y,ey),max(x,ex),max(y,ey),ESCAPE_LANDING[base]/2,mine)
+                   and clear(ex,ey,base+1)),None)
+        if stub is not None:
+            ex,ey=stub;escape_modes[net]='on access' if stub==(x,y) else 'stub'
+            if (ex,ey)!=(x,y):wire(f'm{base}',x,y,ex,ey,ESCAPE_LANDING[base])
+        else:
+            reach=int(ESCAPE_RADIUS/GRID)
+            spots=sorted(((x+i*GRID,y+j*GRID) for i in range(-reach,reach+1) for j in range(-reach,reach+1)),
+                         key=lambda q:(abs(q[0]-x)+abs(q[1]-y),q))
+            ex,ey=next((q for q in spots if clear(*q,base)),(None,None))
+            if ex is None:raise ValueError(f'No clear M10 escape for {net} within {ESCAPE_RADIUS} nm of {x},{y}')
+            point=(ex,ey,f'm{base}');routed[net].append(point);access.append((net,point));escape_modes[net]='routed'
+        lift(ex,ey,base,10);escape_points[net]=(ex,ey)
+        have[base].insert(area(x,y,ex,ey,ESCAPE_LANDING[base]/2) if stub else area(ex,ey,ex,ey,ESCAPE_LANDING[base]/2))
+        for k in range(base+1,10):have[k].insert(area(ex,ey,ex,ey,ESCAPE_LANDING[k]/2))
+        ownership.extend((net,(ex,ey,f'm{k}')) for k in range(base,10))
     router=ControlRouter(b,width,height,upper_metal=9,profile=profile)
     for layer_index,layer in enumerate(router.layers):
         reg=pya.Region(b.cell.begin_shapes_rec(b.li(layer))).merged()
@@ -975,6 +1032,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     v=CellView(component,b,width,height,pins,terminals,[],router.paths,router.vias)
     v.physical_fingers=physical;v.placements=placed;v.passive_locations=passive_locations
     v.standard_cell_inventory=dict(Counter(p['family'] for p in placed));v.standard_family='TIME_CONTROL'
+    v.escapes=escape_points;v.escape_modes=escape_modes
     return v
 
 

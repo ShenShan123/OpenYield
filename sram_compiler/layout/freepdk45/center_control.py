@@ -21,6 +21,7 @@ shares the row-decoder columns, with its left edge on the decoder's:
 Source topology, device sizing and the core pitch remain unchanged.
 """
 from __future__ import annotations
+from math import ceil, floor
 from pathlib import Path
 import hashlib, json
 
@@ -48,6 +49,8 @@ MIN_FRAME_WIDTH = 13000.  # narrower frames (32/64 columns) starve the router of
 LANE_MARGIN = 2      # extra routing rows beyond the last placed lane row
 ROUTER_LAYERS = ('m4', 'm5', 'm6', 'm7', 'm8', 'm9')
 BRIDGE_PITCH = 1700.  # M10 bridges over the array (0.8 um width and spacing, 805 nm M9 landings)
+LATCH_GAP = 300.     # register band's last slot to the output latch: pwell-nwell spacing is 225 nm
+M10_HALF, M10_SPACE = 402.5, 800.
 
 
 def _imported(ly, directory, m):
@@ -107,6 +110,21 @@ def _lanes(split: dict, rows: int, cy: float, extra: float = 0.):
     def row_y(row):
         return cy + (row - cut) * 1365. if row >= cut else yb - (cut - row) * 1365.
     return run(range(cut, rows)), run(range(cut - 1, -1, -1)), lane_width, row_y, keepouts
+
+
+def _latch_y(cell: pya.Cell, ly: pya.Layout, reg_y: float, supplies, lpx: float, latch, right: float) -> float:
+    """Bottom of the folded latch: the highest register VDD bar at its row
+    boundary whose window holds no other M4, from the EN drop to the edge."""
+    m4 = pya.Region(cell.begin_shapes_rec(ly.layer(17, 0))).merged()
+    vx, vy, _ = latch.pins['VDD']
+    for net, y in sorted(supplies, key=lambda t: -t[1]):
+        if net != 'VDD': continue
+        bottom = reg_y + y - vy
+        box = pya.Region(pya.Box(u(lpx - 300 - 70 - 140), u(bottom - 150), u(right), u(bottom + latch.height_nm + 150)))
+        hits = m4 & box
+        bar = hits.interacting(pya.Region(pya.Box(u(lpx + vx) - 1, u(reg_y + y) - 1, u(lpx + vx) + 1, u(reg_y + y) + 1)))
+        if not bar.is_empty() and (hits - bar).is_empty() and bar.bbox().height() <= u(140): return bottom
+    raise ValueError('No register VDD bar with a free window for the output latch')
 
 
 def _fuse(layout: pya.Layout, top: pya.Cell, bank: pya.Cell, name: str) -> str:
@@ -334,9 +352,15 @@ def build(deck, output, bank_dir):
         for net, points in decoder_nets.items():
             p[net] = [(riser(half, x, y)[0][0] - frame_x, edge_y[half], 'm5') for half, x, y in points]
         return p
+    # Macro inputs (clk, csb, web, address) leave on M10 from their capture
+    # access; the stack is fixed before routing, the M10 edge runs after.
+    inputs = [p for p in source.ports if p not in ('VDD', 'VSS', 'OUT', 'OUT_B') and p not in reg_pins and p not in bp]
+    formal = source.instances['XTIME_CONTROL']['pins']
+    if any(p not in tc.ports or formal[p] != p for p in inputs):
+        raise ValueError('Macro inputs must be TIME_CONTROL ports of the same name')
     ctrl = make_control(ly, tc, width, exclude=('Xdff_buf_data/',), pin_plan=plan, corner=True,
                         min_height=height, band_span=(local(band_lo), local(band_top)), lanes=lanes,
-                        profile=profile, obstacles=obstacles)
+                        profile=profile, obstacles=obstacles, escapes=tuple(inputs))
     if any(not 0 <= p['y_nm'] <= ctrl.height_nm - p['height_nm'] for p in ctrl.placements):
         raise ValueError('Controller gates were placed outside the routed frame')
     b.place(ctrl.builder, frame_x, y0)
@@ -383,8 +407,10 @@ def build(deck, output, bank_dir):
         P.wire(net, 'm5', [(x, cy + 100.), (x, tap_y)]); antenna_diode(b, x, tap_y); P.stack(net, x, tap_y, 3, 5)
         endpoint('BRIDGE_' + net, (x, yl, 'm5'), net); endpoint('BRIDGE_' + net, (x, yu, 'm5'), net)
         links.append(dict(decoder_net=net, route='M5-M8 stacks, M8 jogs and an M10 bridge over the array', x_nm=x, bridge_x_nm=xb))
-    # 6. Far-end returns: bar end past the supply trunks, then M7 straight back.
-    tap = snap(max(trunks.values()) + 72.5 + 140 + 72.5 + GRID / 2)
+    # 6. Far-end returns: bar end extended to a stack left of the VDD trunk
+    #    (M5/M6 landings 140 nm from it and from the replica bitline), then M7
+    #    straight back. Nothing is drawn past the trunks: the macro's right edge.
+    tap = trunks['VDD'] - 300.
     bars = {}
     for port, (net, y) in returns.items():
         x, ry, _ = cp[port]
@@ -417,8 +443,15 @@ def build(deck, output, bank_dir):
     zx_local, zy_local, _ = rwl_v.pins['Z']
     dec_right = split['upper_decoder_bbox_nm'][2]
     rpx = dec_right - rwl_v.width_nm; rpy = cy + (top_rows + .5) * 1365 - zy_local
-    latch_c = read_component(deck, 'XD_LATCH'); latch_v = make_aux(ly, latch_c)
-    lpx = tap + 300; lpy = bp[f'SA_Q{cols-1}'][1] - 200
+    # The folded latch sits in the replica strip at register height, inside
+    # the supply trunks, its shared VDD rail on a register VDD bar.
+    latch_c = read_component(deck, 'XD_LATCH'); latch_v = make_aux(ly, latch_c, folded=True)
+    lpx = cx + cols * 705 + LATCH_GAP
+    # Its VSS rails join the VSS trunk through M1-M6 stacks right of it (M1
+    # landing 135 nm wide, 70 nm spacing).
+    if lpx + latch_v.width_nm > trunks['VSS'] - 67.5 - 70:
+        raise ValueError('Output latch does not fit between the register band and the supply trunks')
+    lpy = _latch_y(b.cell, ly, reg_y, rs.supplies, lpx, latch_v, trunks['VSS'] + 72.5)
     for name, v, x, y in (('XRWL', rwl_v, rpx, rpy), ('XD_LATCH', latch_v, lpx, lpy)):
         auxiliaries[name] = v; positions[name] = (x, y); b.place(v.builder, x, y)
         apins[name] = {p: (px + x, py + y, l) for p, (px, py, l) in v.pins.items()}
@@ -441,18 +474,82 @@ def build(deck, output, bank_dir):
         px, py, _ = rp_[net]
         P.wire(net, 'm1', [(px, py), (rail_x, py)]); P.stack(net, rail_x, py, 1, 2); P.wire(net, 'm2', [(rail_x, top_y), (rail_x, py)])
         endpoint(net, (px, py, 'm1'))
+    # D and EN descend on M5 between the last data column's bitlines and the
+    # replica bitlines (no other M5 there in the band); D lands on its first
+    # gate access, EN 300 nm to the left on an M4 extension of its track.
     qx, qy, _ = bp[f'SA_Q{cols-1}']; dx, dy, _ = lp['D']
-    if abs(dy - qy) > 1e-6: raise ValueError('Latch D track is not aligned to the selected sense output')
-    P.stack('LATCH_DATA', qx, qy, 3, 4); P.wire('LATCH_DATA', 'm4', [(qx, qy), (dx, dy)], 140.)
-    ex, ey, _ = lp['EN']; sy = bars['sen_far'][1]
-    P.wire('LATCH_ENABLE', 'm5', [(tap, sy), (ex, sy), (ex, ey)]); P.stack('LATCH_ENABLE', ex, ey, 4, 5)
+    ex, ey, _ = lp['EN']; drop = dx - 300.; sy = bars['sen_far'][1]
+    bank_conductor(bank.cell, 'm4', drop, sy)
+    P.stack('LATCH_DATA', qx, qy, 3, 4); P.wire('LATCH_DATA', 'm4', [(qx, qy), (dx, qy)], 140.)
+    P.stack('LATCH_DATA', dx, qy, 4, 5); P.wire('LATCH_DATA', 'm5', [(dx, qy), (dx, dy)]); P.stack('LATCH_DATA', dx, dy, 4, 5)
+    P.stack('LATCH_ENABLE', drop, sy, 4, 5); P.wire('LATCH_ENABLE', 'm5', [(drop, sy), (drop, ey)])
+    P.stack('LATCH_ENABLE', drop, ey, 4, 5); P.wire('LATCH_ENABLE', 'm4', [(drop, ey), (ex, ey)], 140.)
     endpoint('LATCH_DATA', (qx, qy, 'm3'), latch['D']); endpoint('LATCH_DATA', (dx, dy, 'm4'), latch['D'])
-    endpoint('LATCH_ENABLE', (ex, ey, 'm4'), latch['EN'])
-    for net, ty, tx in (('VSS', lpy - 270, trunks['VSS']), ('VDD', lpy + 630, trunks['VDD'])):
-        px, py, _ = lp[net]; side = lpx - 200
-        P.wire(net, 'm1', [(px, py), (side, py), (side, ty), (tx, ty)]); P.stack(net, tx, ty, 1, 6)
+    endpoint('LATCH_ENABLE', (drop, sy, 'm4'), latch['EN']); endpoint('LATCH_ENABLE', (ex, ey, 'm4'), latch['EN'])
+    for net, px, py in latch_v.supply_rails:
+        px += lpx; py += lpy
+        if net == 'VDD': P.stack(net, px, py, 1, 4)   # into the register VDD bar
+        else: P.wire(net, 'm1', [(px, py), (trunks[net], py)]); P.stack(net, trunks[net], py, 1, 6)
         endpoint(net, (px, py, 'm1'))
+
+    # 9a. Macro edge pins on every side but the array's. Inputs run on M10
+    #     (the router never uses it) from their escape stacks: straight to the
+    #     left edge if free, else straight to the bottom or top edge (the
+    #     pad's nearer half first), else after one jog to a free column. The
+    #     latch outputs reach the right edge on M4, and the supply trunks
+    #     continue on M6 to the top and bottom edges. Per-column DIN/SA_Q/SA_QB
+    #     stay internal: every band carries M4 bars and M5 bitlines, and the
+    #     array edges M3 straps, so no column has a via path to an edge.
+    extent = b.cell.dbbox()
+    x_left, x_right, y_bottom, y_top = (v * 1000 for v in (extent.left, extent.right, extent.bottom, extent.top))
+    macro_pins = {}
+    pads = {n: (x + frame_x, y + y0) for n, (x, y) in ctrl.escapes.items()}
+    def m10(path):
+        r = pya.Region()
+        for (ax, ay), (bx, by) in zip(path, path[1:]):
+            r.insert(pya.Box(u(min(ax, bx) - M10_HALF), u(min(ay, by) - M10_HALF),
+                             u(max(ax, bx) + M10_HALF), u(max(ay, by) + M10_HALF)))
+        return r.merged()
+    taken = pya.Region(b.cell.begin_shapes_rec(b.li('m10'))).merged()
+    def free(net, path):
+        return (m10(path).sized(u(M10_SPACE)) & (taken - m10([pads[net]] * 2))).is_empty()
+    ends = {'left': lambda x, y: (x_left + M10_HALF, y), 'bottom': lambda x, y: (x, y_bottom + M10_HALF),
+            'top': lambda x, y: (x, y_top - M10_HALF)}
+    pad_ys = [y for _, y in pads.values()]; middle = (min(pad_ys) + max(pad_ys)) / 2
+    vertical = lambda y: ('bottom', 'top') if y <= middle else ('top', 'bottom')
+    escape = {}
+    for net in sorted(pads, key=lambda n: pads[n]):
+        x, y = pads[net]
+        for side in ('left',) + vertical(y):
+            path = [(x, y), ends[side](x, y)]
+            if free(net, path): escape[net] = (side, path); taken = (taken + m10(path)).merged(); break
+    columns = [frame_x + GRID * i for i in range(ceil(M10_HALF / GRID), floor((width - M10_HALF) / GRID) + 1)]
+    for net in sorted(set(pads) - set(escape), key=lambda n: pads[n]):
+        x, y = pads[net]
+        for side in vertical(y):
+            path = next(([(x, y), (c, y), ends[side](c, y)] for c in sorted(columns, key=lambda c: abs(c - x))
+                         if free(net, [(x, y), (c, y), ends[side](c, y)])), None)
+            if path: escape[net] = (side, path); taken = (taken + m10(path)).merged(); break
+        else: raise ValueError(f'Macro input {net} has no M10 path to an edge')
+    for net, (side, path) in escape.items():
+        P.wire(net, 'm10', path)
+        endpoint(net, (*pads[net], 'm10')); endpoint(net, (*path[-1], 'm10'))
+        macro_pins[net] = [(side, *path[-1], 'm10')]
+        links.append(dict(macro_port=net, side=side, route='M10 from the capture access to the macro edge',
+                          escape=ctrl.escape_modes[net], path_nm=[list(pt) for pt in path]))
+    for port, key in (('OUT', 'Q'), ('OUT_B', 'QB')):
+        x, y, layer = lp[key]
+        if layer != 'm4': raise ValueError('Latch outputs are expected on M4')
+        P.wire('LATCH_' + port, 'm4', [(x, y), (x_right - 70., y)], 140.)
+        endpoint('LATCH_' + port, (x, y, 'm4'), latch[key]); endpoint('LATCH_' + port, (x_right - 70., y, 'm4'), latch[key])
+        macro_pins[port] = [('right', x_right - 70., y, 'm4')]
+    for net, tx in trunks.items():
+        _, ty0, _, ty1 = bank_conductor(bank.cell, 'm6', tx, bp[net][1])
+        P.wire(net, 'm6', [(tx, y_bottom + 72.5), (tx, ty0 + 72.5)]); P.wire(net, 'm6', [(tx, ty1 - 72.5), (tx, y_top - 72.5)])
+        endpoint(net, (tx, y_bottom + 72.5, 'm6')); endpoint(net, (tx, y_top - 72.5, 'm6'))
+        macro_pins[net] = [('bottom', tx, y_bottom + 72.5, 'm6'), ('top', tx, y_top - 72.5, 'm6')]
     P.check(b.cell)
+    if b.cell.dbbox() != extent: raise ValueError('Macro pins extend the macro boundary')
     from .conductor_ownership import port_conductors
     check_ports, check_aliases = {}, {}
     for net, points in endpoints.items():
@@ -470,13 +567,14 @@ def build(deck, output, bank_dir):
     # 9. Macro ports and the complete source component.
     ports = tuple(source.ports); pins = {}
     for p in ports:
-        if p in ('VDD', 'VSS'): pins[p] = (trunks[p], bp[p][1], 'm6')
-        elif p in ('OUT', 'OUT_B'): pins[p] = lp['Q' if p == 'OUT' else 'QB']
+        if p in macro_pins: pins[p] = tuple(macro_pins[p][0][1:])
         elif p in reg_pins: pins[p] = reg_pins[p]
         elif p in bp: pins[p] = bp[p]
-        else: pins[p] = cp[p]
+        else: raise ValueError(f'Macro port {p} has no pin')
         x, y, layer = pins[p]; b.label(layer, p, x, y)
-    formal = source.instances['XTIME_CONTROL']['pins']
+        for _, x, y, layer in macro_pins.get(p, [])[1:]: b.label(layer, p, x, y)
+    pin_records = ([dict(port=p, side=side, x_nm=x, y_nm=y, layer=layer) for p in ports for side, x, y, layer in macro_pins.get(p, [])]
+                   + [dict(port=p, side='internal', x_nm=pins[p][0], y_nm=pins[p][1], layer=pins[p][2]) for p in ports if p not in macro_pins])
     bank_ports = tuple(bm['pins'])
     specs = {n: read_component(deck, n) for n in bm['included_instances']}
     bc = Component(bm['primary'], bank_ports, (), tuple(Instance(n, tuple(source.instances[n]['pins'][p] for p in c.ports), c)
@@ -531,6 +629,10 @@ def build(deck, output, bank_dir):
         guard_policy=('far-end feedback and fixed digital delays; no intentional RC guards'
                       if not source.passives else 'archived intentional RC; values require independent extraction'),
         interface_conductor_audit_excluded_bbox_nm=interior,
+        macro_pins=pin_records,
+        macro_pin_sides={side: [r['port'] for r in pin_records if r['side'] == side]
+                         for side in ('left', 'bottom', 'top', 'right', 'internal')},
+        output_latch=dict(folded=True, origin_nm=[lpx, lpy], width_nm=latch_v.width_nm, height_nm=latch_v.height_nm),
         waveform_validation='not run', defaults_promotable=False, external_pins=pins,
         compiler_provenance=bm.get('compiler_provenance'))
     return write_view(v, output, deck, 'complete split bank with TIME_CONTROL between the decoder halves', metadata)

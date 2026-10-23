@@ -390,6 +390,8 @@ path is unchanged.
 
 ### Macro pin positions
 
+Implemented on 2026-10-21 with a different access scheme; see
+[Macro edge pins and right edge](#macro-edge-pins-and-right-edge).
 The centre layout labels every port at an interior point: the controller's
 gate access for `clk`, `csb`, `web` and `A*` on M4, the register D tracks for
 `DIN*`, the sense tracks for `SA_Q*`/`SA_QB*`, the latch for `OUT`/`OUT_B` and
@@ -479,6 +481,107 @@ post-layout extraction or yield) with the candidate-2 table:
 | 32×32 | SS 0.9 V 125 °C | 9.0 ns | pass |
 
 Each run is bound by its result hash in `docs/data/LAYOUT_PERFORMANCE_V2_2_8.json`.
+
+## Macro edge pins and right edge
+
+The 2026-10-21 pass puts the centre macro's pins on all four edges instead of
+labelling them inside, and moves the output latch inside the bank so that the
+bank's VSS trunk is the macro's right edge. Source SPICE, sizing, timing and
+the array pitch are unchanged. The evidence is bound in
+[`MACRO_PINS_V2_2_8.json`](../../data/MACRO_PINS_V2_2_8.json).
+
+| Ports | Edge | Layer | Connection |
+| --- | --- | --- | --- |
+| `clk`, `csb`, `web`, `A*` | left, bottom or top (per layout, table below) | M10 | from the input's capture access |
+| `OUT`, `OUT_B` | right | M4 | output-latch `Q`/`QB` tracks extended |
+| `VDD`, `VSS` | bottom and top | M6 | supply trunks extended |
+| `DIN*`, `SA_Q*`, `SA_QB*` | internal, unchanged | M3 | register `D`, sense outputs |
+
+### Inputs
+
+Before routing, each input's capture access continues as a via stack to M10:
+the M8 landing of its register's `D` pin, or for `clk` the M4 access of the
+clock buffer's gate. The router sees the stack only as fixed metal of the
+input's own net. The candidate-2 variants instead gave the router edge pads or
+landings beside the gates as new targets and set off rip-up cascades; here an
+input needs no extra connection. Attaching pins only after routing does not
+work either: on the candidate-2 layouts, router M9 lies within spacing above
+the access of 5 of the 8 inputs at 32×32 and of every input at 128×128 and
+512×512.
+
+A stack that would come within spacing of another stack, an access or a bank
+conductor slides along a stub on its access layer, at most 3 µm. If no stub is
+clear, the stack stands alone at the nearest clear point within 8 µm and the
+router joins it as one more access of the net. At 256×256 the clock buffer's
+access is boxed in on M4 and beside a register's `D` landing, and `clk` takes
+this path.
+
+After routing, each input runs on M10, which the router never uses: straight
+to the left edge if that run is free, otherwise straight down or up (first
+toward the half of the inputs it belongs to), otherwise after one horizontal
+jog to the nearest free column. Runs keep 800 nm from the decoder bridges, the
+other stacks and the runs already drawn. The register rows decide the outcome:
+the first register column reaches the left edge, and the other columns leave
+downward from the lower rows and upward from the upper rows. The FreePDK45
+antenna rule at each metal step counts only the layers below that metal, so the
+M10 runs add nothing to any ratio.
+
+### Right edge
+
+The latch was a 2.91 µm single row placed past the supply trunks, and the
+far-end return stacks reached 465 nm past the VSS trunk. Together they made the
+macro 3.46–3.54 µm wider than the bank.
+
+- The latch folds into two 1365 nm rows (1.67 × 2.73 µm). The inverter and the
+  input NANDs form the lower row. The cross-coupled pair is mirrored above onto a
+  shared VDD rail and shifted 390 nm, so each pair input sits over the gate that
+  drives it and `INT1`/`INT2` are straight M3 lines. No M4 track comes within
+  495 nm of the row boundary, so a supply bar can cross it there.
+- It sits in the replica strip at register-band height, where neither the
+  register band nor the write band places devices. It is 300 nm from the last
+  register slot (pwell–nwell spacing is 225 nm), with its row boundary on the
+  highest register VDD bar whose window holds no other M4. The bar supplies the
+  shared rail through an M1–M4 stack, and both VSS rails stack into the VSS
+  trunk. `D` (the last column's sense output) and `EN` (from the `s_en` bar)
+  descend on M5 between the last data column's bitlines and the replica
+  bitlines, the only M5-free channel in the band.
+- The return stacks sit 300 nm left of the VDD trunk's centre, between the
+  replica bitline and the trunk, with 140 nm M5/M6 spacing to both.
+
+### Data pins
+
+`DIN*`, `SA_Q*` and `SA_QB*` stay internal. On the 32×32 layout, two M5
+bitlines per 705 nm column leave 190–225 nm gaps through every band, where an
+M5 landing between them needs 420 nm. At each array edge the bitlines change
+from M3 to M5 through an M4 landing row with 195–230 nm gaps. Below that row
+the array's full-width M3 straps close the 265–300 nm M3 gaps between the
+bitline stubs. No column has a via path to an edge; per-column edge pins need a
+different band layer plan.
+
+### Layouts
+
+All five banks were built from one generator tree (hashes in
+`dev/layout_pins/final_tree.sha256`) and verified with the FreePDK45 Calibre
+decks (receipts, pin coordinates and hashes in
+`docs/data/MACRO_PINS_V2_2_8.json`). OUT/OUT_B are on the right edge and
+VDD/VSS on the bottom and top edges at every size:
+
+| Bank | Macro (µm) | Area (µm²) | vs candidate 2 | Left | Bottom | Top | Build (candidate 2) | DRC | LVS | Extraction |
+| --- | --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- |
+| 32×32 | 38.95 × 73.12 | 2,848 | -8.2 % | `web`, `A0`, `A2`, `A4` | `A1`, `A3` | `clk`, `csb` | 16 min, 61 rip-ups (7 min, 26) | 0 | CORRECT | distributed R+C+CC |
+| 64×64 | 61.46 × 118.70 | 7,295 | -5.3 % | `csb`, `A0`, `A2`, `A4` | `A1`, `A3` | `clk`, `web`, `A5` | 24 min, 46 rip-ups (7 min, 10) | 0 | CORRECT | distributed R+C+CC |
+| 128×128 | 110.28 × 206.06 | 22,724 | -3.1 % | `A0`, `A3`, `A6` | `A1`, `A2`, `A4`, `A5` | `clk`, `csb`, `web` | 15 min, 2 rip-ups (17 min, 2) | 0 | CORRECT | distributed R+C+CC |
+| 256×256 | 205.81 × 380.78 | 78,367 | -1.7 % | `clk`, `web`, `A0`, `A3`, `A6` | `A1`, `A2`, `A4`, `A5` | `csb`, `A7` | 41 min, 4 rip-ups (37 min, 5) | 0 | CORRECT | distributed R+C+CC |
+| 512×512 | 393.29 × 730.22 | 287,186 | -0.9 % | `web`, `A0`, `A5` | `A1`, `A2`, `A3`, `A4` | `clk`, `csb`, `A6`, `A7`, `A8` | 73 min, 0 rip-ups (70 min, 0) | 0 | CORRECT | distributed R+C+CC |
+
+Rip-ups here are the TIME_CONTROL rip-ups numbered in each build log, counted
+the same way for both builds. The 28/13/8/15/14 in the candidate-2 table above
+count every log line that mentions a rip-up, including per-block summary
+lines. At 256×256 the `clk` lift found no clear stack within 3 µm of its
+access and was placed as a standalone stack the router reaches (`escape` mode
+`routed`). The escape pads cost routing at the narrow frames: 32×32 and 64×64
+take 16 and 24 minutes against 7. Widths fall 3.46–3.54 µm at every size, so
+the saving is largest in relative terms at 32×32.
 
 ## Evidence and limits
 

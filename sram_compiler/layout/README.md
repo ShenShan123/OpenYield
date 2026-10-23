@@ -139,13 +139,14 @@ below 16 rows have no integrated controller layout; `beside` remains a
 [scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md) for areas,
 verification and limits.
 
-The macro's ports are labelled at interior points (controller gate accesses,
-register and sense tracks, the latch, the trunks). Moving them to the
-boundary is studied but not implemented: planned router accesses for the
-control inputs set off rip-up cascades, and the per-column `DIN*`, `SA_Q*`
-and `SA_QB*` ports cannot reach an edge because every band carries
-full-width M4 bars and M5 is the bitline layer. See the
-[scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md#macro-pin-positions).
+The macro's control and address inputs leave on M10 to the left, bottom or
+top edge from their capture accesses, which are lifted to M10 before routing.
+`OUT`/`OUT_B` reach the right edge on M4, and the `VDD`/`VSS` trunks reach the
+bottom and top edges. `layout.json` records each pin's side under
+`macro_pins`. The per-column `DIN*`, `SA_Q*` and `SA_QB*` ports stay internal:
+every band carries full-width M4 bars and M5 bitlines. The output latch is
+folded inside the bank, so the bank's VSS trunk is the macro's right edge. See
+the [scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md#macro-edge-pins-and-right-edge).
 
 The driver candidate was re-derived on 2026-10-16 (candidate 2, performance
 first): each class is the smallest whose worst-corner coupon edge stays within

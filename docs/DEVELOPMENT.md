@@ -72,6 +72,17 @@ and bound by `docs/data/LAYOUT_PERFORMANCE_V2_2_8.json`
   markdown tables from the performance record.
 `dev/centre_floorplan/xor_gds.py` compares two GDS files layer by layer.
 
+The 2026-10-21 macro edge-pin and right-edge pass is recorded in the
+[scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#macro-edge-pins-and-right-edge)
+and bound by `docs/data/MACRO_PINS_V2_2_8.json` (`dev/layout_pins/record.py`;
+`table.py` prints its markdown table). The generator tree of its layouts is
+`dev/layout_pins/final_tree.sha256`. `build.sh` / `verify.sh` build and verify
+one size, `queue_verify.sh` starts each Calibre run when its build exits, and
+`build_from_parts.sh` reruns only the centre integration on an existing bank.
+`check_edges.py` confirms that each edge pin's conductor reaches its side and
+that nothing lies past the bank's right edge. `edge_*` and `probe_256` under
+`outputs/layout_scaling/` are superseded probes from earlier code.
+
 On 2026-10-11, workspace cleanup removed 25,603 obsolete simulation artifacts
 and logs (about 1.905 TB) from `outputs/validation/`, older smoke and CLI runs,
 and the top-level output logs. Historical raw decks, generated model cards and
