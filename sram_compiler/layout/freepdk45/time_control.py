@@ -296,6 +296,7 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0):
     # outputs such as DFF Q, bank nets, far lane gates) usually arrive over
     # M7/M8: each gets a diffusion antenna tap.
     lane=order[done:];block=list(prepared)
+    if lane and not lanes:raise ValueError('Controller gates exceed a frame without decoder lanes')
     driver={entries[p][0][1]['Z']:p for p in lane if 'Z' in entries[p][0][1]}
     planned={}
     for k,path in enumerate(lane):

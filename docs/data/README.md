@@ -1,5 +1,31 @@
 # Characterisation and diagnostic data
 
+## Historical layout evidence
+
+The current physical flows are documented in the
+[compact-cell record](../design/layout/COMPACT_CELL_V2_2_8.md),
+[OpenRAM-pitch record](../design/layout/OPENRAM_PITCH_V2_2_8.md) and
+[scaling record](../design/layout/LAYOUT_SCALING_V2_2_8.md).
+On 2026-10-24, superseded layout reports were removed; their JSON evidence
+remains unchanged. Retrieve the old prose with
+`git show 8dc77df:docs/design/layout/<report-name>`.
+
+| Removed report | Preserved evidence |
+| --- | --- |
+| `BANK_LAYOUT_V2_2_8.md` | [Data-path bank](BANK_LAYOUT_V2_2_8.json) |
+| `BANK_INTEGRATION_V2_2_8.md` | [Folded integrated bank](BANK_INTEGRATION_V2_2_8.json) |
+| `BANK_ROW_PITCH_V2_2_8.md` | [400 nm row-pitch bank](BANK_ROW_PITCH_V2_2_8.json) |
+| `TIME_CONTROL_COMPACTION_REPORT_V2_2_8.md` | [Controller compaction](TIME_CONTROL_COMPACTION_V2_2_8.json) |
+| `TIME_CONTROL_LAYOUT_V2_2_8.md` | [Planned interface](TIME_CONTROL_PLANNED_INTERFACE_V2_2_8.json), [earlier controller](TIME_CONTROL_LAYOUT_V2_2_8.json) |
+
+The superseded eight-chain compact decoder's raw outputs were also purged;
+their dimensions, hashes and physical-check summaries remain under
+`superseded_eight_chain_decoder` in [the compact evidence](COMPACT_CELL_V2_2_8.json).
+The ten current compact bank/centre layouts, receipts, sources and final-tree
+XOR regenerations remain under ignored `outputs/layout/compact/`.
+
+## Simulation and characterization records
+
 [`V2_2_6_CONFIGURATION_REVIEW.json`](V2_2_6_CONFIGURATION_REVIEW.json) records
 targeted software, DC and four-case waveform diagnostics for the
 [configuration fixes](../design/compiler/CONFIGURATION_REVIEW_V2_2_6.md). It is not a

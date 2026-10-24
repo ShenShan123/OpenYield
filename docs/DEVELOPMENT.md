@@ -10,8 +10,8 @@ is `tests/spice/v228_scaling_cases.json`; the explicit sizing candidate is
 bounded fixed timing, controller ports and Boolean factoring, RC deletion,
 width-preserving fingers, routing and physical conductor connectivity.
 
-The optional 32×32 TIME_CONTROL physical flow is documented in
-[the controller layout record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md).
+The historical 32×32 beside-controller flow has
+[preserved interface evidence](data/TIME_CONTROL_PLANNED_INTERFACE_V2_2_8.json).
 Local `dev/time_control/` scripts retain primitive, register, passive-coupon,
 controller and complete-bank experiments, including failed attempts.
 The resumed compaction and evidence assembler live under
@@ -80,8 +80,36 @@ and bound by `docs/data/MACRO_PINS_V2_2_8.json` (`dev/layout_pins/record.py`;
 one size, `queue_verify.sh` starts each Calibre run when its build exits, and
 `build_from_parts.sh` reruns only the centre integration on an existing bank.
 `check_edges.py` confirms that each edge pin's conductor reaches its side and
-that nothing lies past the bank's right edge. `edge_*` and `probe_256` under
-`outputs/layout_scaling/` are superseded probes from earlier code.
+that nothing lies past the bank's right edge. The superseded `edge_*` and
+`probe_256` probes under `outputs/layout_scaling/` were purged on 2026-10-24.
+
+The 2026-10-23 compact cell is recorded in the
+[compact cell record](design/layout/COMPACT_CELL_V2_2_8.md) and bound by
+`docs/data/COMPACT_CELL_V2_2_8.json` (`dev/compact_cell/collect_evidence.py`
+reads the layouts and receipts under `outputs/layout/compact/`).
+`tests/test_compact_cell.py` is its local regression check. The superseded
+eight-chain outputs were purged on 2026-10-24; their summaries remain in the
+evidence JSON and the collector preserves them when rebuilding it.
+`dev/compact_cell/render_bitcell.py` renders the annotated bitcell PNG from
+the verified 32×32 GDS, checks every layer against the current generator and
+checks all six gate W/L against the source deck. `final_tree/` holds the XOR
+regenerations and `campaign.log` the result of each build and verification.
+
+The 2026-10-24 cleanup removed five superseded layout reports and 1,736 local
+output files (37.7 GB) from the eight-chain campaign and obsolete macro-pin
+probes (`edge_*`, `probe_256`, `pins_32_01_parts`). The local inventory is
+`dev/cleanup/2026-10-24-stale-compact-layout.json`. All tracked evidence,
+current compact outputs and OpenRAM comparisons remain. Historical report
+links now point to their preserved JSON evidence; see the
+[evidence index](data/README.md#historical-layout-evidence).
+
+Cleanup verification: 67 local checks passed with no skips via
+`python -m unittest tests.test_compact_cell tests.test_layout_scaling
+tests.test_centre_floorplan tests.test_openram_pitch tests.test_time_control_layout`.
+All 267 links checked in the changed Markdown files resolved; the 28 existing
+JSON/CSV evidence files were byte-identical to commit `8dc77df`. The ten retained compact
+GDS hashes matched their recorded passing receipts. No new Calibre or waveform
+run was performed for this cleanup.
 
 On 2026-10-11, workspace cleanup removed 25,603 obsolete simulation artifacts
 and logs (about 1.905 TB) from `outputs/validation/`, older smoke and CLI runs,
@@ -173,12 +201,12 @@ decoder-left placement, full row-height alignment and every direct M2 WL link.
 The combined
 suite has 59 passing checks; official 8×8/32×32 checks are recorded in
 [`v228_bank_integration_cases.json`](../tests/spice/v228_bank_integration_cases.json)
-and [the integration record](design/layout/BANK_INTEGRATION_V2_2_8.md). Local helpers
+and [the integration record](data/BANK_INTEGRATION_V2_2_8.json). Local helpers
 are in ignored `dev/bank_integration/`.
 
-The current pitch-matched floorplan is recorded in
+The historical 400 nm pitch-matched floorplan is recorded in
 [`v228_bank_row_pitch_cases.json`](../tests/spice/v228_bank_row_pitch_cases.json)
-and [the row-pitch record](design/layout/BANK_ROW_PITCH_V2_2_8.md). Its local runners and
+and [the row-pitch record](data/BANK_ROW_PITCH_V2_2_8.json). Its local runners and
 previews are under `dev/bank_pitch/`. The executed external OpenRAM reference
 has local helpers under `dev/openram_reference/` and an isolated environment
 under `outputs/openram_reference/`; the cloned OpenRAM source is unchanged.
@@ -188,7 +216,7 @@ bank scope, all-device/finger coverage, real GDS gate area, mirrored bitlines an
 terminal maps, column-track reuse, rejected bitcell changes and preserved failed
 attempts. Run it with the component suite below. The tracked
 [`v228_bank_cases.json`](../tests/spice/v228_bank_cases.json) records the physical
-protocol; [the bank record](design/layout/BANK_LAYOUT_V2_2_8.md) states the checked sizes
+protocol; [the bank record](data/BANK_LAYOUT_V2_2_8.json) states the checked sizes
 and remaining integration scope. Local runners and native GDS preview scripts
 are in ignored `dev/bank_layout/`.
 

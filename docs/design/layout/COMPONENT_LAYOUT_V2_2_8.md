@@ -193,20 +193,22 @@ The initial `layout bank` entrance assembled and verified the **bank data path**
 the complete data array plus precharge, sense, write drivers and data buffers.
 It exposed decoded wordlines and control signals. That stage did not integrate
 the decoder, replica, TIME_CONTROL or output latch. The
-[bank design record](BANK_LAYOUT_V2_2_8.md) describes the physical connections,
-scope, reproduction and remaining work at that stage. The subsequent
-[integrated bank](BANK_INTEGRATION_V2_2_8.md) adds row logic, replica circuitry
+[bank evidence](../../data/BANK_LAYOUT_V2_2_8.json) records the physical scope
+and verification at that stage. The subsequent
+[integrated bank](../../data/BANK_INTEGRATION_V2_2_8.json) adds row logic, replica circuitry
 inside the core and the output latch, keeping TIME_CONTROL external. The
 original data-path boundary is available with `--data-path-only`. No bank
 waveform validation ran in either physical integration stage.
 
-The [row-pitch correction](BANK_ROW_PITCH_V2_2_8.md) subsequently places the
+The [row-pitch correction](../../data/BANK_ROW_PITCH_V2_2_8.json) subsequently places the
 decoder to the left of the core with exact 400 nm WL alignment. The
 [executed OpenRAM reference](OPENRAM_REFERENCE_V2_2_8.md) records the generated
 32×32 reference bank and its separate verification limits.
 
 The [OpenRAM-pitch implementation](OPENRAM_PITCH_V2_2_8.md) adopts its
-705 nm column / 1365 nm row pitch. The optional
-[TIME_CONTROL integration](TIME_CONTROL_LAYOUT_V2_2_8.md) resumes the controller
-work with reusable standard cells and input registers in the lower-left
-decoder/readout corner, preserving the compiler's total device W/L and topology.
+705 nm column / 1365 nm row pitch. Historical
+[beside-controller evidence](../../data/TIME_CONTROL_PLANNED_INTERFACE_V2_2_8.json)
+retains the earlier standard-cell integration. The current
+[centre floorplan](LAYOUT_SCALING_V2_2_8.md#split-arrays-with-a-centre-periphery)
+places TIME_CONTROL between the decoder halves; the opt-in
+[compact cell](COMPACT_CELL_V2_2_8.md) re-pitches the bank around its thinner cell.

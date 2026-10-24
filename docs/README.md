@@ -14,9 +14,10 @@ Paths in commands are relative to the repository root unless stated otherwise.
 | [Development guide](DEVELOPMENT.md) | Local tools, regressions and qualification workflows |
 | [Changelog](CHANGELOG.md) | Release history and links to its records |
 
-The [bank record](design/layout/OPENRAM_PITCH_V2_2_8.md) and
-[TIME_CONTROL record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md) describe the current
-component-based physical flows and their verification limits.
+The [compact cell record](design/layout/COMPACT_CELL_V2_2_8.md),
+[OpenRAM-pitch bank record](design/layout/OPENRAM_PITCH_V2_2_8.md) and
+[centre floorplan record](design/layout/LAYOUT_SCALING_V2_2_8.md) describe the current
+physical flows and their verification limits.
 The [organization record](design/compiler/ORGANIZATION_V2_2_7.md) documents the unified
 experiment entrance and integrated per-device variation. The compiler version
 is V2.2.8; no full V2.2.8 screen is complete.
@@ -117,7 +118,7 @@ The carried Phase 6 scope. The working plans that defined it
 
 | Release | Record |
 |---|---|
-| V2.2.8 | [component-based banks](design/layout/OPENRAM_PITCH_V2_2_8.md), [TIME_CONTROL](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md) |
+| V2.2.8 | [compact cell](design/layout/COMPACT_CELL_V2_2_8.md), [OpenRAM-pitch banks](design/layout/OPENRAM_PITCH_V2_2_8.md), [TIME_CONTROL and scaling](design/layout/LAYOUT_SCALING_V2_2_8.md) |
 | V2.2.7 | [compiler organization and experiment entrance](design/compiler/ORGANIZATION_V2_2_7.md) |
 | V2.2.6 | [configuration review and fixes](design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) |
 | V2.2.5 | [macro entrance and generation checks](design/compiler/COMPILER_ENTRY_V2_2_5.md) |
@@ -160,4 +161,4 @@ The supplied evidence CSVs are kept unchanged in `data/`:
 | [Yield estimation](../yield_estimation/README.md) | Monte Carlo and importance-sampling algorithms |
 
 - [OpenRAM-pitch bank implementation and physical verification](design/layout/OPENRAM_PITCH_V2_2_8.md)
-- [TIME_CONTROL compaction and larger array readiness report](design/layout/TIME_CONTROL_COMPACTION_REPORT_V2_2_8.md)
+- [Compact bitcell and pitch-matched periphery](design/layout/COMPACT_CELL_V2_2_8.md)

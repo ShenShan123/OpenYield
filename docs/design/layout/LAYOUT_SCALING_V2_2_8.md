@@ -398,7 +398,7 @@ set to a FreePDK45 installation and Calibre on PATH.
 python main_sram.py simulate --rows 512 --cols 512 --operation 'read&write' \
   --variation-mode nominal --real-cell-mode 0 --period 80e-9 --no-run-xyce \
   --sizing-lookup sram_compiler/sizing/layout_sizing_lookup.json \
-  --compact-control --no-w-rc --output-dir outputs/layout/scaling_source
+  --compact-control --no-w-rc --no-column-mux --output-dir outputs/layout/scaling_source
 python main_sram.py layout bank --with-controller --deck "$DECK" \
   --output-dir outputs/layout/scaling_512
 python main_sram.py layout verify-full --layout-dir outputs/layout/scaling_512 \

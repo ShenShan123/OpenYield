@@ -12,7 +12,7 @@ proposals and that circuit review were purged after V2.2.6; retrieve them with
 ## V2.2.8 — 2026-10-11 — component-based bank and controller layouts
 
 [Bank record](design/layout/OPENRAM_PITCH_V2_2_8.md),
-[TIME_CONTROL record](design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md) and
+[compact cell record](design/layout/COMPACT_CELL_V2_2_8.md) and
 [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md).
 
 The older fixed, full, scaled and compact macro generators and their
@@ -48,11 +48,32 @@ in the scaling record.
   latch folds inside the bank, narrowing the macro by 3.46–3.54 µm (area
   −8.2 % at 32×32 to −0.9 % at 512×512). All five square banks pass Calibre
   DRC, LVS and xRC.
+- 2026-10-23 [compact cell](design/layout/COMPACT_CELL_V2_2_8.md): opt-in
+  `layout bank --compact-cell [--with-controller]` builds a point-symmetric
+  1125 × 395 nm 6T cell after the TSMC N28 MC2 thin cell (−53.8 % cell area,
+  OpenRAM device W/L). The periphery is re-pitched with a 2:1 column mux:
+  2250 nm pair slots, one 3-to-8 decoder slice per eight rows in two
+  mirrored gate rows, and TIME_CONTROL between the decoder halves (from
+  256×256 the controller, not the decoder, sets the block width). The
+  complete macro is smaller than the OpenRAM-pitch one by 2.5 % at 32×32,
+  20.1 % at 64×64, 32.3 % at 128×128, 39.1 % at 256×256 and 41.5 % at
+  512×512. Ten bank and macro layouts pass Calibre DRC, LVS and xRC. Sizing,
+  timing and the OpenRAM-pitch layout default are unchanged.
+- 2026-10-23: the compiler's default deck has the 2:1 column mux
+  (`choose_columnmux` in `global.yaml`, `ARRAY` in `main_sram.py`), without
+  simulation re-validation; its clock follows the mux timing ladder (16×16:
+  9.5 ns instead of 9.0 ns). OpenRAM-pitch layout decks need
+  `--no-column-mux`. `layout preview --region` renders one window of a
+  layout.
 - The default `layout bank` uses OpenRAM's 705 nm column / 1365 nm row pitch
   with source-preserving refingering, compact left-side row logic and an
   integrated replica column; `--legacy-pitch` keeps the previous bank. Control
   stays external, and sizing, timing and RC defaults are unchanged.
-- The optional 32×32 `layout bank --with-controller` adds TIME_CONTROL
+- 2026-10-24: remove five superseded layout reports, the eight-chain compact
+  outputs and obsolete macro-pin probes (37.7 GB locally). Preserve tracked
+  evidence and current verified layouts, update the documentation links, and
+  add a GDS-derived bitcell PNG labeling all six MOS instances and their W/L.
+- The historical 32×32 `layout bank --with-controller --controller-floorplan beside` added TIME_CONTROL
   (source-matched standard cells, 39 registers, four calibrated RC guards)
   with a planned interface instead of maze routing: bank-facing pins on the
   controller's right edge at their conductors' heights, a 4×8 data-register
@@ -69,15 +90,15 @@ in the scaling record.
 - The density review removes duplicate diffusion-strip gaps, fixes parent-via
   and mirrored-boundary clearance and reuses routing tracks by span.
   `layout bank` integrates the dense array with precharge, sense, write
-  drivers and data buffers ([bank record](design/layout/BANK_LAYOUT_V2_2_8.md));
+  drivers and data buffers ([bank record](data/BANK_LAYOUT_V2_2_8.json));
   `--data-path-only` keeps the original data-path boundary.
 - `layout bank` integrates the decoder, data/RWL drivers, replica column,
   dummy loads, replica periphery and output latch, routing source-owned leaf
   ports and recording every MOS terminal; DRC/LVS/R+C+CC pass at 8×8 and
-  32×32 ([integration record](design/layout/BANK_INTEGRATION_V2_2_8.md)).
+  32×32 ([integration record](data/BANK_INTEGRATION_V2_2_8.json)).
 - The decoder moves left of the core with 400 nm M2 wordline spacing; eight-row
   bands keep every source device, including unused predecode branches
-  ([row-pitch record](design/layout/BANK_ROW_PITCH_V2_2_8.md)). An
+  ([row-pitch record](data/BANK_ROW_PITCH_V2_2_8.json)). An
   [OpenRAM run](design/layout/OPENRAM_REFERENCE_V2_2_8.md) supplies a 32×32
   reference bank GDS; its conditional supply check is distinguished from the
   full OpenRAM macro's failed LVS.

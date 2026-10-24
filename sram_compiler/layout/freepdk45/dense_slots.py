@@ -115,16 +115,16 @@ class _Slot:
             self.m3.append((net, x, y - 70, y + 70))
         return ys
 
-    def supplies(self):
+    def supplies(self, x=SUPPLY_X):
         done = set()
         for net, y in self.boundaries:
             if y in done:
                 continue
             done.add(y)
-            self.b.via(1, SUPPLY_X, y)
+            self.b.via(1, x, y)
             for n in (2, 3):
-                self.via(n, SUPPLY_X, y)
-            self.m3.append((net, SUPPLY_X, y - 70, y + 70))
+                self.via(n, x, y)
+            self.m3.append((net, x, y - 70, y + 70))
         return sorted({(net, y) for net, y in self.boundaries}, key=lambda t: t[1])
 
     def audit(self):
@@ -169,11 +169,12 @@ def _inv_fingers(wp, wn, limit=3):
     raise ValueError('No legal inverter folding')
 
 
-def _driver_rows(layout, name, role, write, tie_din=False):
+def _driver_rows(layout, name, role, write, tie_din=False, geo=None):
     """Inverter, BL tristate and BLB tristate rows of one write driver."""
+    geo = geo or OPENRAM
     pre = role + '.'
     devs = {n: _named(d, pre, n) for n, d in _devices(write).items()}
-    t = TRACKS[role]
+    t = geo['tracks'][role]
     net = lambda n: n if n in ('VDD', 'VSS') else pre + n
     nets = {n: net(n) for n in ('DIN', 'DINB', 'EN', 'ENB', 'BL', 'BLB', 'int1', 'int2', 'int3', 'int4', 'VDD', 'VSS')}
     din = 'VSS' if tie_din else nets['DIN']
@@ -198,7 +199,7 @@ def _driver_rows(layout, name, role, write, tie_din=False):
         reach[din] = [t['DIN']]
     else:
         reach['VSS'] = [t['DIN']]
-    inv = make_row(layout, f'{name}_{role}_INV', gates, p_sd, n_sd, levels, reach)
+    inv = make_row(layout, f'{name}_{role}_INV', gates, p_sd, n_sd, levels, reach, width=geo['width'])
     rows = [inv]
     # Tristates: P VDD-(DINB|DIN)-int-ENB-out, N out-EN-int-(DINB|DIN)-VSS.
     for out, (pa, pb_, na, nb_), (ip, inn), gate in (
@@ -223,15 +224,16 @@ def _driver_rows(layout, name, role, write, tie_din=False):
         if g == 'VSS':
             reach = {k: v for k, v in reach.items() if k != 'VSS'}
             reach['VSS'] = [t['DIN']]
-        rows.append(make_row(layout, f'{name}_{role}_{out}', gates, p_sd, n_sd, levels, reach))
+        rows.append(make_row(layout, f'{name}_{role}_{out}', gates, p_sd, n_sd, levels, reach, width=geo['width']))
     return rows, nets
 
 
-def _buffer_rows(layout, name, buffers):
+def _buffer_rows(layout, name, buffers, geo=None):
     """Data-buffer rows: one shared row, or one row per column when the
     output inverter is too narrow to fold into two fingers."""
+    geo = geo or OPENRAM
     try:
-        return [_buffer_row(layout, name, buffers)]
+        return [_buffer_row(layout, name, buffers, geo)]
     except ValueError as error:
         if 'legal fingers' not in str(error):
             raise
@@ -249,13 +251,16 @@ def _buffer_rows(layout, name, buffers):
         levels = {('g', n['A']): 0, ('g', n['X']): 1}
         for r in ('p', 'n'):
             levels.update({(r, n['X']): 0, (r, n['Z']): 1})
-        reach = {n['A']: [BUFFER['A_' + role]], n['Z']: [TRACKS[role]['DIN']], n['X']: [BUFFER['X_' + role]]}
-        rows.append(make_row(layout, f'{name}_{role}_BUF', gates, p_sd, n_sd, levels, reach))
+        reach = {n['A']: [geo['buffer']['A_' + role]], n['Z']: [geo['tracks'][role]['DIN']], n['X']: [geo['buffer']['X_' + role]]}
+        rows.append(make_row(layout, f'{name}_{role}_BUF', gates, p_sd, n_sd, levels, reach, width=geo['width']))
     return rows
 
 
-def _buffer_row(layout, name, buffers):
-    """Both data buffers: column c+1 (U) on the left, column c (L) right."""
+def _buffer_row(layout, name, buffers, geo=None):
+    """Both data buffers: column c+1 (U) on the left, column c (L) right
+    (swapped when the geometry puts column c's tracks on the left)."""
+    geo = geo or OPENRAM
+    left, right = ('L', 'U') if geo['buffer_swap'] else ('U', 'L')
     gates = []
     p_sd, n_sd = [], []
     order = []
@@ -278,33 +283,36 @@ def _buffer_row(layout, name, buffers):
         n = m(role); return {'A': n['A'], 'Z': n['X'], 'VDD': 'VDD', 'VSS': 'VSS'}
     def inv1(role):
         n = m(role); return {'A': n['X'], 'Z': n['Z'], 'VDD': 'VDD', 'VSS': 'VSS'}
-    i0p, i0n, i1p, i1n, w1p, w1n = widths['U']
-    gates += [(Gate(i0p, 0, i0p.width_m * 1e9, inv0('U')), Gate(i0n, 0, i0n.width_m * 1e9, inv0('U'))),
-              (Gate(i1p, 0, w1p, inv1('U')), Gate(i1n, 0, w1n, inv1('U'))),
-              (Gate(i1p, 1, w1p, inv1('U')), Gate(i1n, 1, w1n, inv1('U')))]
-    i0p, i0n, i1p, i1n, w1p, w1n = widths['L']
-    gates += [(Gate(i1p, 0, w1p, inv1('L')), Gate(i1n, 0, w1n, inv1('L'))),
-              (Gate(i1p, 1, w1p, inv1('L')), Gate(i1n, 1, w1n, inv1('L'))),
-              (Gate(i0p, 0, i0p.width_m * 1e9, inv0('L')), Gate(i0n, 0, i0n.width_m * 1e9, inv0('L')))]
-    U, L = m('U'), m('L')
+    i0p, i0n, i1p, i1n, w1p, w1n = widths[left]
+    gates += [(Gate(i0p, 0, i0p.width_m * 1e9, inv0(left)), Gate(i0n, 0, i0n.width_m * 1e9, inv0(left))),
+              (Gate(i1p, 0, w1p, inv1(left)), Gate(i1n, 0, w1n, inv1(left))),
+              (Gate(i1p, 1, w1p, inv1(left)), Gate(i1n, 1, w1n, inv1(left)))]
+    i0p, i0n, i1p, i1n, w1p, w1n = widths[right]
+    gates += [(Gate(i1p, 0, w1p, inv1(right)), Gate(i1n, 0, w1n, inv1(right))),
+              (Gate(i1p, 1, w1p, inv1(right)), Gate(i1n, 1, w1n, inv1(right))),
+              (Gate(i0p, 0, i0p.width_m * 1e9, inv0(right)), Gate(i0n, 0, i0n.width_m * 1e9, inv0(right)))]
+    U, L = m(left), m(right)
     p_sd = [U['X'], 'VDD', U['Z'], 'VDD', L['Z'], 'VDD', L['X']]
     n_sd = [U['X'], 'VSS', U['Z'], 'VSS', L['Z'], 'VSS', L['X']]
-    # U (left) and L (right) halves share levels with disjoint extents.
+    # Left and right halves share levels with disjoint extents.
     levels = {('g', U['A']): 0, ('g', L['A']): 0, ('g', U['X']): 1, ('g', L['X']): 2}
     for r in ('p', 'n'):
         levels.update({(r, U['X']): 0, (r, L['X']): 0, (r, U['Z']): 1, (r, L['Z']): 1})
-    reach = {U['A']: [BUFFER['A_U']], L['A']: [BUFFER['A_L']],
-             U['Z']: [TRACKS['U']['DIN']], L['Z']: [TRACKS['L']['DIN']],
-             U['X']: [BUFFER['X_U']], L['X']: [BUFFER['X_L']]}
-    return make_row(layout, name + '_BUF', gates, p_sd, n_sd, levels, reach)
+    buf, tracks = geo['buffer'], geo['tracks']
+    reach = {U['A']: [buf['A_' + left]], L['A']: [buf['A_' + right]],
+             U['Z']: [tracks[left]['DIN']], L['Z']: [tracks[right]['DIN']],
+             U['X']: [buf['X_' + left]], L['X']: [buf['X_' + right]]}
+    return make_row(layout, name + '_BUF', gates, p_sd, n_sd, levels, reach, width=geo['width'])
 
 
-def make_write_slot(layout, name, writes, buffers, replica=False):
+def make_write_slot(layout, name, writes, buffers, replica=False, geometry=None):
     """writes/buffers: role ('L' column c, 'U' column c+1) -> source component.
 
     The replica slot carries only the U write-driver load with DIN tied to
     VSS; the empty L rows keep their heights so every slot aligns.
+    geometry selects the slot width and track tables (default: OpenRAM pitch).
     """
+    geo = geometry or OPENRAM
     s = _Slot(layout, name)
     roles = ('U',) if replica else ('L', 'U')
     rows = {}
@@ -312,8 +320,8 @@ def make_write_slot(layout, name, writes, buffers, replica=False):
     reference = writes['U']
     for role in ('L', 'U'):
         rows[role], nets[role] = _driver_rows(layout, name, role, writes.get(role, reference),
-                                              tie_din=replica)
-    bufs = _buffer_rows(layout, name, buffers if not replica else {'U': buffers['U'], 'L': buffers['U']})
+                                              tie_din=replica, geo=geo)
+    bufs = _buffer_rows(layout, name, buffers if not replica else {'U': buffers['U'], 'L': buffers['U']}, geo)
     plan = [('buf', buf, False) for buf in bufs] + [(r, row, k % 2 == 0) for r in ('L', 'U')
                                                    for k, row in enumerate(rows[r])]
     # Mirror alternate rows so neighbours share rails: buf normal, then alternate.
@@ -325,7 +333,7 @@ def make_write_slot(layout, name, writes, buffers, replica=False):
         s.add(row, mirror, None)
     pins = defaultdict(list)
     for role in roles:
-        t, n = TRACKS[role], nets[role]
+        t, n = geo['tracks'][role], nets[role]
         for out in ('BL', 'BLB'):
             ys = s.stack(n[out], t[out])
             pins[role + '.' + out].append((t[out], min(ys), 'm5'))
@@ -349,18 +357,19 @@ def make_write_slot(layout, name, writes, buffers, replica=False):
             s.track(n['DIN'], t['DIN'])
     if not replica:
         for role, key in (('U', 'X_U'), ('L', 'X_L')):
-            s.track(role + 'B.X', BUFFER[key])
+            s.track(role + 'B.X', geo['buffer'][key])
         for role, key in (('U', 'A_U'), ('L', 'A_L')):
-            lo, hi = s.track(role + 'B.A', BUFFER[key], extra=(-300.,))
-            pins[role + 'B.A'].append((BUFFER[key], -300., 'm3'))
-    supplies = s.supplies()
+            lo, hi = s.track(role + 'B.A', geo['buffer'][key], extra=(-300.,))
+            pins[role + 'B.A'].append((geo['buffer'][key], -300., 'm3'))
+    supplies = s.supplies(geo['supply_x'])
     s.audit()
-    s.b.rect('bnd', 0, 0, SLOT, s.y)
-    v = SlotView(s.b, SLOT, s.y, s.terminals, s.fingers, dict(pins), supplies, s.m3, s.rows)
+    s.b.rect('bnd', 0, 0, geo['width'], s.y)
+    v = SlotView(s.b, geo['width'], s.y, s.terminals, s.fingers, dict(pins), supplies, s.m3, s.rows)
     return v
 
 
-def _precharge_row(layout, name, role, comp):
+def _precharge_row(layout, name, role, comp, geo=None):
+    geo = geo or OPENRAM
     pre = role + '.'
     devs = {n: _named(d, pre, n) for n, d in _devices(comp).items()}
     net = lambda n: n if n == 'VDD' else pre + n
@@ -377,19 +386,21 @@ def _precharge_row(layout, name, role, comp):
             gates.append((Gate(devs[dev], k, wf, gmap), None))
             p_sd.append(nxt)
     p_sd = [gmap[n] for n in p_sd]
-    t = TRACKS[role]
+    t = geo['tracks'][role]
     levels = {('g', gmap['ENB']): 0, ('p', gmap['BL']): 1, ('p', gmap['BLB']): 2}
-    reach = {gmap['BL']: [t['BL']], gmap['BLB']: [t['BLB']], gmap['ENB']: [PRE_TAP]}
+    reach = {gmap['BL']: [t['BL']], gmap['BLB']: [t['BLB']], gmap['ENB']: [geo['pre_tap']]}
     # The PRE M4 bar on the gate level stays >= 280 nm from the BL/BLB M4
     # landings: the P region is at least 465 nm even for narrow fingers.
-    return make_row(layout, f'{name}_{role}_PC', gates, p_sd, None, levels, reach, min_region={'p': 465.})
+    return make_row(layout, f'{name}_{role}_PC', gates, p_sd, None, levels, reach, width=geo['width'],
+                    min_region={'p': 465.})
 
 
-def make_precharge_slot(layout, name, precharges, replica=False):
+def make_precharge_slot(layout, name, precharges, replica=False, geometry=None):
     """Two mirrored P-only rows: L (column c) below, U (column c+1) above."""
+    geo = geometry or OPENRAM
     s = _Slot(layout, name)
-    lower = _precharge_row(layout, name, 'L', precharges.get('L', precharges['U']))
-    upper = _precharge_row(layout, name, 'U', precharges['U'])
+    lower = _precharge_row(layout, name, 'L', precharges.get('L', precharges['U']), geo)
+    upper = _precharge_row(layout, name, 'U', precharges['U'], geo)
     if replica:
         s.y += lower.height
     else:
@@ -397,18 +408,18 @@ def make_precharge_slot(layout, name, precharges, replica=False):
     s.add(upper, True, None)
     pins = defaultdict(list)
     for role in (('U',) if replica else ('L', 'U')):
-        t = TRACKS[role]
+        t, tap = geo['tracks'][role], geo['pre_tap']
         for out in ('BL', 'BLB'):
             ys = s.stack(role + '.' + out, t[out])
             pins[role + '.' + out].append((t[out], min(ys), 'm5'))
         (y, x0, x1), = s.bars[role + '.ENB']
-        s.b.via(2, PRE_TAP, y); s.via(3, PRE_TAP, y)
-        s.m3.append((role + '.ENB', PRE_TAP, y - 70, y + 70))
-        pins[role + '.ENB'].append((PRE_TAP, y, 'm4'))
-    supplies = s.supplies()
+        s.b.via(2, tap, y); s.via(3, tap, y)
+        s.m3.append((role + '.ENB', tap, y - 70, y + 70))
+        pins[role + '.ENB'].append((tap, y, 'm4'))
+    supplies = s.supplies(geo['supply_x'])
     s.audit()
-    s.b.rect('bnd', 0, 0, SLOT, s.y)
-    return SlotView(s.b, SLOT, s.y, s.terminals, s.fingers, dict(pins), supplies, s.m3, s.rows)
+    s.b.rect('bnd', 0, 0, geo['width'], s.y)
+    return SlotView(s.b, geo['width'], s.y, s.terminals, s.fingers, dict(pins), supplies, s.m3, s.rows)
 
 
 # Data registers: each source DFF folds into two rows (A: data latch, B:
@@ -436,6 +447,11 @@ COMPACT_REGISTER_TRACKS = {
     'U': dict(CLKB=280., z2=1120., D=560., Q=BUFFER['A_U'], D_b=700., z1=1260., z3=840.,
               z4=560., z5=1260., QB=840.),
 }
+
+
+# Default slot geometry: the OpenRAM 1410 nm column pair.
+OPENRAM = dict(width=SLOT, tracks=TRACKS, buffer=BUFFER, pre_tap=PRE_TAP, supply_x=SUPPLY_X,
+               register=COMPACT_REGISTER_TRACKS, buffer_swap=False)
 
 
 def _gate_levels(columns, reach):
@@ -486,7 +502,7 @@ def _strip_levels(nets, reach):
     return levels
 
 
-def _register_rows(layout, name, role, dff, tracks=None):
+def _register_rows(layout, name, role, dff, tracks=None, width=SLOT):
     """Two rows of one transmission-gate DFF; nets are role-prefixed.
 
     tracks (a COMPACT_REGISTER_TRACKS entry) replaces the fixed level plan by
@@ -544,22 +560,24 @@ def _register_rows(layout, name, role, dff, tracks=None):
             levels = {('g', g.gate): g.level for pair in pairs for g in pair}
             for kind, sd in (('p', p_sd), ('n', n_sd)):
                 levels.update({(kind, k): v for k, v in _strip_levels(sd, reach).items()})
-            rows.append(make_row(layout, f'{name}_{role}_REG{tag}', pairs, p_sd, n_sd, levels, reach))
+            rows.append(make_row(layout, f'{name}_{role}_REG{tag}', pairs, p_sd, n_sd, levels, reach, width=width))
         return tuple(rows)
     row_b = make_row(layout, f'{name}_{role}_REGB', b_gates, b_p, b_n, b_levels, b_reach)
     return row_a, row_b
 
 
-def make_register_slot(layout, name, dff, roles=('L', 'U'), compact=False):
+def make_register_slot(layout, name, dff, roles=('L', 'U'), compact=False, geometry=None):
     """Data registers of columns c (L, bottom rows) and c+1 (U, top rows).
 
     D inputs enter from below on M3, Q outputs leave the top on the write
     slot's buffer-input tracks, and one shared CLK track meets an M4 bar.
-    compact uses COMPACT_REGISTER_TRACKS and the fewest legal levels.
+    compact uses COMPACT_REGISTER_TRACKS and the fewest legal levels; a
+    geometry supplies its own (compact-style) register table and width.
     """
+    geo = geometry or OPENRAM
     s = _Slot(layout, name)
-    table = COMPACT_REGISTER_TRACKS if compact else None
-    rows = {r: _register_rows(layout, name, r, dff, table) for r in ('L', 'U')}
+    table = geo['register'] if geometry else COMPACT_REGISTER_TRACKS if compact else None
+    rows = {r: _register_rows(layout, name, r, dff, table, geo['width']) for r in ('L', 'U')}
     plan = [(r, row) for r in ('L', 'U') for row in rows[r]]
     for i, (role, row) in enumerate(plan):
         if role in roles:
@@ -588,7 +606,7 @@ def make_register_slot(layout, name, dff, roles=('L', 'U'), compact=False):
         # Q climbs past the band top to overlap the write slot's input track.
         s.track(pre + 'Q', t['Q'], extra=(top + 370.,))
         pins[pre + 'Q'].append((t['Q'], top + 370., 'm3'))
-    supplies = s.supplies()
+    supplies = s.supplies(geo['supply_x'])
     s.audit()
-    s.b.rect('bnd', 0, 0, SLOT, top)
-    return SlotView(s.b, SLOT, top, s.terminals, s.fingers, dict(pins), supplies, s.m3, s.rows)
+    s.b.rect('bnd', 0, 0, geo['width'], top)
+    return SlotView(s.b, geo['width'], top, s.terminals, s.fingers, dict(pins), supplies, s.m3, s.rows)

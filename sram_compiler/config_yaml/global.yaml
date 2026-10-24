@@ -14,7 +14,7 @@ num_rows: 16                      # SRAM行数 / Number of SRAM rows
 num_cols: 16                        # SRAM列数 / Number of SRAM columns
 monte_carlo_runs: 1               # 蒙特卡洛仿真次数 / Monte Carlo simulation runs/设计参数有几行就改成几
 timeout: 120                      # 仿真超时时间(秒) / Simulation timeout (seconds)
-choose_columnmux: false             # 是否选择列复用器 / Whether to choose column mux
+choose_columnmux: true              # 是否选择列复用器 / Whether to choose column mux
 # Driver sizing: lookup (default) selects fixed integer driver size classes from
 # sram_compiler/sizing/sizing_lookup.json by row and column class, the same
 # sizes for every cell candidate, PVT sample and RC configuration; unseen

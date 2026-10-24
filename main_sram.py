@@ -30,7 +30,7 @@ _PROJECT_ROOT = str(Path(__file__).resolve().parent)
 
 # ============================ Settings ============================
 # Array architecture: [num_rows, num_cols, choose_columnmux]
-ARRAY: List[Any] = [16, 16, False]
+ARRAY: List[Any] = [16, 16, True]
 CORNER = "TT"                   # PDK corner: TT / FF / SS / FS / SF
 # 6T cell, applied when global.yaml selects SRAM_6T_CELL (widths/length in metres):
 # [pd_width, pg_width, pu_width, length, pd_model, pg_model, pu_model]

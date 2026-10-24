@@ -6,7 +6,9 @@ import os
 from pathlib import Path
 
 
-def render(directory: Path, pixels: int = 1600) -> list[Path]:
+def render(directory: Path, pixels: int = 1600, region: tuple[float, float, float, float] | None = None,
+           name: str = 'region.png') -> list[Path]:
+    """Default previews, or only `name` for a region (um, macro coordinates)."""
     os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
     import klayout.lay as lay
     import klayout.db as db
@@ -45,6 +47,9 @@ def render(directory: Path, pixels: int = 1600) -> list[Path]:
         outputs.append(path)
 
     layers()
+    if region:
+        save(name, db.DBox(*region))
+        return outputs
     save('layout.png', box)
     layers(True)
     save('placement.png', box)
@@ -65,10 +70,20 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--layout-dir', type=Path, required=True)
     parser.add_argument('--pixels', type=int, default=1600)
+    parser.add_argument('--region', help='X0,Y0,X1,Y1 in um: render only this window (all layers)')
+    parser.add_argument('--name', default='region.png', help='file name of the --region image')
     args = parser.parse_args(argv)
     if args.pixels < 400 or args.pixels > 4000:
         parser.error('--pixels must be between 400 and 4000')
-    for path in render(args.layout_dir, args.pixels):
+    region = None
+    if args.region:
+        try:
+            region = tuple(float(v) for v in args.region.split(','))
+        except ValueError:
+            region = ()
+        if len(region) != 4 or region[0] >= region[2] or region[1] >= region[3]:
+            parser.error('--region takes X0,Y0,X1,Y1 with X0<X1 and Y0<Y1')
+    for path in render(args.layout_dir, args.pixels, region, args.name):
         print(path)
     return 0
 

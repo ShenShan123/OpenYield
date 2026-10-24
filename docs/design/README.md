@@ -12,15 +12,15 @@ tracks release status and open work.
 
 Component, bank and TIME_CONTROL physical design and verification.
 
-- [V2.2.8 bank integration with external TIME_CONTROL](layout/BANK_INTEGRATION_V2_2_8.md)
-- [V2.2.8 component-based bank data path](layout/BANK_LAYOUT_V2_2_8.md)
-- [V2.2.8 left-side decoder and core row-pitch correction](layout/BANK_ROW_PITCH_V2_2_8.md)
+- [Compact point-symmetric bitcell and pitch-matched bank — V2.2.8](layout/COMPACT_CELL_V2_2_8.md)
 - [V2.2.8 component layout development](layout/COMPONENT_LAYOUT_V2_2_8.md)
 - [Single-bank layout scaling, driver candidates and centre floorplan — V2.2.8](layout/LAYOUT_SCALING_V2_2_8.md)
 - [OpenRAM-pitch bank layout, V2.2.8](layout/OPENRAM_PITCH_V2_2_8.md)
 - [OpenRAM 32×32 FreePDK45 reference run](layout/OPENRAM_REFERENCE_V2_2_8.md)
-- [TIME_CONTROL compaction and larger array readiness report](layout/TIME_CONTROL_COMPACTION_REPORT_V2_2_8.md)
-- [Compact TIME_CONTROL layout — V2.2.8](layout/TIME_CONTROL_LAYOUT_V2_2_8.md)
+
+Superseded data-path, folded-bank, row-pitch and controller reports were purged
+on 2026-10-24. Their [physical evidence](../data/README.md#historical-layout-evidence)
+retains its original scope; the reports are available at `git show 8dc77df:docs/design/layout/<name>`.
 
 ## Compiler
 

@@ -10,12 +10,12 @@ inside the core. Its decoder is on the left, using OpenRAM’s 1.365 µm row
 and 0.705 µm column pitch. See the [pitch and area verification record](docs/design/layout/OPENRAM_PITCH_V2_2_8.md).
 The [OpenRAM reference run](docs/design/layout/OPENRAM_REFERENCE_V2_2_8.md) provides a
 separate generated 32×32 bank layout. The optional
-[TIME_CONTROL flow](docs/design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md) adds reusable
-standard cells, with control logic beside the decoder and data registers below
-the periphery. Its controller-to-core routing uses explicit planned tracks
-instead of maze search. The recorded complete 32×32 bank passes DRC/LVS and
-coupled extraction at 4050.7 µm², 29.7% smaller than the maze-routed export.
-Physical checks do not qualify autonomous bank operation.
+[TIME_CONTROL flow](docs/design/layout/LAYOUT_SCALING_V2_2_8.md#split-arrays-with-a-centre-periphery)
+splits the arrays around the periphery, with control logic between the decoder
+halves. The opt-in [compact cell](docs/design/layout/COMPACT_CELL_V2_2_8.md)
+uses a 1125 × 395 nm point-symmetric 6T cell and pitch-matched periphery with a
+2:1 column mux. Its [annotated bitcell PNG](docs/design/layout/COMPACT_CELL_V2_2_8.png)
+identifies all six MOS instances. Physical checks do not qualify autonomous bank operation.
 
 **Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The V2.2.5 campaign stopped incomplete; the [V2.2.5 simulation summary](docs/validation/V2_2_5_SIMULATION_SUMMARY.md) records it with the corrected-model diagnostics, which retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/timing/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
 

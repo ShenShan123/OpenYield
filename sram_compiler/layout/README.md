@@ -98,8 +98,8 @@ W/L and topology, plus four custom RC guards. The recorded export
 (`planned_02`) is 4050.6731 µm², 29.7% smaller than the maze-routed `full_40`.
 It passes zero Calibre DRC violations, strict LVS `CORRECT` and distributed
 R+C+CC extraction; all four guard resistances are independently checked. See
-the [controller layout record](../../docs/design/layout/TIME_CONTROL_LAYOUT_V2_2_8.md)
-for the floorplan, routing comparison, verification and limitations.
+the [historical controller evidence](../../docs/data/TIME_CONTROL_PLANNED_INTERFACE_V2_2_8.json)
+for the recorded geometry and verification scope.
 
 ```bash
 python main_sram.py layout bank --with-controller --controller-floorplan beside \
@@ -158,8 +158,41 @@ and guard stage counts per class. See the
 [scaling record](../../docs/design/layout/LAYOUT_SCALING_V2_2_8.md#performance-pass-candidate-2).
 
 `layout preview --layout-dir PATH` produces `layout.png`, `placement.png` and
-`time_control.png` directly from the GDS. `layout driver-audit` measures metal
+`time_control.png` directly from the GDS; `--region=X0,Y0,X1,Y1` (µm, macro
+coordinates) with `--name FILE.png` renders only that window, for example a
+decoder band. `layout driver-audit` measures metal
 loads and gate widths only after hash-bound, passing DRC/LVS/coupled extraction.
+
+## Compact point-symmetric cell (opt-in)
+
+`layout bank --compact-cell` builds the bank on a **1125 nm column / 395 nm
+row** 6T cell (0.444 µm², 54 % below OpenRAM's) with the OpenRAM device sizes.
+The cell follows the TSMC N28 MC2 thin cell: two halves rotated 180° about
+the cell centre, the PMOS pair in a shared centre n-well, and rows and columns
+mirrored. The periphery is re-pitched to it: one 2250 nm slot per column
+pair holds a 2:1 column mux and one sense amplifier, a merged write slot and
+the precharge and register slots, and one 3-to-8 decoder slice per eight-row
+band, its chains in two mirrored gate rows. The source deck must have the
+column mux (the compiler default since 2026-10-23):
+
+```bash
+python main_sram.py simulate --rows 128 --cols 128 --operation 'read&write' --variation-mode nominal \
+  --real-cell-mode 0 --period 30e-9 --no-run-xyce --compact-control --no-w-rc --column-mux \
+  --sizing-lookup sram_compiler/sizing/layout_sizing_lookup.json --output-dir outputs/layout/compact/source_128x128
+python main_sram.py layout bank --compact-cell --deck "$DECK" --output-dir outputs/layout/compact/bank_128x128
+python main_sram.py layout bank --compact-cell --with-controller --deck "$DECK" \
+  --output-dir outputs/layout/compact/centre_128x128
+```
+
+Without `--with-controller`, TIME_CONTROL, the replica wordline driver and
+the output latch stay external and `SEL0`/`SEL1` are bank inputs. With it,
+the centre floorplan places TIME_CONTROL in the block between the decoder
+halves (16 rows or more). Sizing and timing tables are unchanged, so the
+driver classes still come from OpenRAM-pitch loads. See the
+[compact cell record](../../docs/design/layout/COMPACT_CELL_V2_2_8.md) for the
+cell rules, areas, verification and limits.
+The [annotated bitcell PNG](../../docs/design/layout/COMPACT_CELL_V2_2_8.png)
+labels all six MOS instances and their source W/L directly on the GDS geometry.
 
 ## Integrated bank with external control (historical pitch)
 
@@ -184,7 +217,7 @@ python main_sram.py layout verify-full \
 
 The 8×8 and 32×32 integrated banks pass DRC/LVS/R+C+CC. These are physical
 checks, with no new waveform qualification or default promotion. See the
-[row-pitch record](../../docs/design/layout/BANK_ROW_PITCH_V2_2_8.md) for geometry,
+[row-pitch record](../../docs/data/BANK_ROW_PITCH_V2_2_8.json) for geometry,
 source coverage, dimensions, receipts and native previews. The generic leaves
 currently produce a wide decoder strip; the measured area increase is recorded.
 The [executed OpenRAM reference](../../docs/design/layout/OPENRAM_REFERENCE_V2_2_8.md)
@@ -209,7 +242,7 @@ python main_sram.py layout verify-full \
 
 Use a native nominal, mode-0 6T deck with explicit illustrative wiring using
 `main_sram.py simulate --variation-mode nominal --real-cell-mode 0 --operation
-read&write --no-run-xyce --interconnect-config
+read&write --no-run-xyce --no-column-mux --interconnect-config
 sram_compiler/config_yaml/interconnect_illustrative.yaml`. The dense tile requires even dimensions of
 at least 2×2 and its exact device geometry/connectivity. The generator rejects
 changed bitcells, muxed columns, mismatched peripheral variants, and unsupported
@@ -226,7 +259,7 @@ count/area, transformed instance pins, full bounding-box area, density, and
 source/generator provenance. `cells/` exports independently verifiable masters.
 Generated geometry stays unverified until a separate receipt completes DRC,
 LVS and R+C+CC extraction. Failed attempts remain in their own directories.
-See the [bank record](../../docs/design/layout/BANK_LAYOUT_V2_2_8.md) and
+See the [bank evidence](../../docs/data/BANK_LAYOUT_V2_2_8.json) and
 [density review](../../docs/design/layout/COMPONENT_LAYOUT_V2_2_8.md#density-and-bank-integration-review)
 for measurements and exact validation scope. No bank waveform comparison or
 RC-default promotion is implied by these physical checks.
@@ -239,7 +272,7 @@ and an external FreePDK45 kit selected by `PDK_DIR`.
 
 ```bash
 python main_sram.py simulate --rows 8 --cols 8 --operation 'read&write' \
-  --variation-mode nominal --real-cell-mode 0 --no-run-xyce \
+  --variation-mode nominal --real-cell-mode 0 --no-run-xyce --no-column-mux \
   --interconnect-config sram_compiler/config_yaml/interconnect_illustrative.yaml \
   --output-dir outputs/layout/source_8x8
 ```

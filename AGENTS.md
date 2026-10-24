@@ -3,8 +3,10 @@
 OpenYield is an open-source SRAM compiler for transistor-level 6T and 10T arrays, DC/transient analysis, sizing optimization, and yield research. The compiler version is **V2.2.8**. The [root tutorial](README.md) and subdirectory READMEs explain usage, and [docs/CHANGELOG.md](docs/CHANGELOG.md) carries release details.
 
 The working tree is **V2.2.8**. The [FreePDK45 workflow](sram_compiler/layout/README.md)
-covers component-based banks and TIME_CONTROL layouts. The older fixed,
-scaled and compact macro generators and their artifacts have been removed.
+covers component-based banks, TIME_CONTROL layouts and the opt-in
+compact-cell bank (`layout bank --compact-cell`). The older fixed and scaled
+macro generators, and the unrelated "compact macro" floorplans of early
+V2.2.8, have been removed with their artifacts.
 Keep sizing frozen; physical receipts do not establish waveform correctness
 or release qualification. Simulation retains its scoped reference RC profiles.
 

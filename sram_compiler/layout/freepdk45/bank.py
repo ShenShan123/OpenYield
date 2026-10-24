@@ -418,12 +418,27 @@ def main(argv=None):
                         help='retain the earlier data-array/column-periphery scope')
     parser.add_argument('--legacy-pitch',action='store_true',
                         help='use the historical 1365 nm column / 400 nm row bank')
+    parser.add_argument('--compact-cell',action='store_true',
+                        help='point-symmetric 1125 nm column / 395 nm row cell; needs a --column-mux deck '
+                             '(without --with-controller: TIME_CONTROL, RWL driver and output latch external)')
     parser.add_argument('--with-controller',action='store_true',help='integrate TIME_CONTROL and its data registers')
     parser.add_argument('--controller-floorplan',choices=('center','beside'),default='center',
                         help='center: column periphery between split arrays, controller in spare decoder rows (>=16 rows); '
                              'beside: the earlier 32x32 plan left of the decoder')
     parser.add_argument('--controller-layout-dir',type=Path,help='reuse control logic from a previous --with-controller run (OUTPUT_parts/control_logic)')
     args=parser.parse_args(argv)
+    if args.compact_cell:
+        if args.data_path_only or args.legacy_pitch or args.controller_layout_dir:
+            parser.error('--compact-cell excludes --data-path-only, --legacy-pitch and --controller-layout-dir')
+        if args.with_controller:
+            if args.controller_floorplan!='center':parser.error('--compact-cell has only the center floorplan')
+            from .compact_center import generate as compact_generate
+            compact_generate(args.deck,args.output_dir)
+        else:
+            from .compact_bank import build as compact_build
+            compact_build(args.deck,args.output_dir)
+        print(args.output_dir/'full_macro.gds')
+        return 0
     if args.with_controller:
         if args.data_path_only or args.legacy_pitch:parser.error('--with-controller requires the OpenRAM-pitch complete bank')
         if args.controller_floorplan=='center':
