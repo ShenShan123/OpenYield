@@ -23,6 +23,12 @@ superseded raw layouts and campaigns were purged on 2026-10-26. No layout change
 operating-point or yield qualification beyond the native 8×8 and 32×32 checks
 in the scaling record.
 
+- 2026-10-26: compact decoder leaves and WL NAND fingers, share facing body
+  taps, and reduce the minimum decoder/array gap from 400 to 225 nm. Refine
+  controller placement to the routing grid and reserve five escape tracks.
+  The [decoder-width record](design/layout/COMPACT_CELL_V2_2_8.md#decoder-and-array-spacing)
+  preserves source W/L, sizing, timing and simulation RC; physical checks
+  do not establish waveform correctness.
 - 2026-10-26: make compact-cell, column-split banks the only bank implementation
   and CLI default. Keep the two explicit flags as compatibility aliases and
   `--with-controller` as the complete-macro option. Retire alternative bank

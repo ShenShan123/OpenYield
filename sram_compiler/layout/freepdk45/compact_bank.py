@@ -21,6 +21,7 @@ from .lib import Builder, new_layout
 
 CONTROLS = ('PRE', 'w_en', 's_en', 'sa_iso', 'SEL0', 'SEL1')
 EXCLUDED = ('XTIME_CONTROL', 'XRWL', 'XD_LATCH')
+DECODER_GAP = 225.             # FreePDK45 opposite-well spacing at array edges
 
 
 def replica_contract(source: FullSource, specs: dict[str, Component], rows: int, cols: int) -> None:
@@ -156,9 +157,9 @@ def build(deck: Union[str, Path], output: Union[str, Path], core_x: Optional[flo
     cy = pc_y + pslot.height + 1000.
     dec_w = decoder.width_nm
     # The control trunks only span the periphery band, so they sit below the
-    # decoder's right edge and the core starts 400 nm past the decoder.
-    dx = core_left.width_nm + 400.
-    cx = dx + dec_w + 400. if core_x is None else max(dx + dec_w + 400., core_x)
+    # decoder's right edge. Opposite wells set the minimum array clearance.
+    dx = core_left.width_nm + DECODER_GAP
+    cx = dx + dec_w + DECODER_GAP if core_x is None else max(dx + dec_w + DECODER_GAP, core_x)
     def column_x(column: int) -> float:
         return column * W if column < cols // 2 else cx + (column - cols // 2) * W
     terminals, fingers, placed, pins = {}, [], [], {}
@@ -402,6 +403,8 @@ def build(deck: Union[str, Path], output: Union[str, Path], core_x: Optional[flo
                     core_pitch_nm=dict(row=395, column=1125), row_span=rows, column_span=cols,
                     column_mux=2, included_instances=list(specs), excluded_instances=list(EXCLUDED),
                     array_origin_nm=[cx, cy + HS], decoder_bbox_nm=[dx, cy + HS, dx + decoder.width_nm, cy + HS + decoder.height_nm],
+                    decoder_clearance_nm=dict(left=DECODER_GAP, right=cx-dx-dec_w,
+                                              minimum=DECODER_GAP),
                     periphery_bands_nm=dict(write=[0, wslot.height], sense=[sa_y, sa_y + sslot.height],
                                             precharge=[pc_y, pc_y + pslot.height], slot_pitch=SLOT_W, slots=pairs + 1),
                     core_geometry=dict(width_nm=core.width_nm, height_nm=core.height_nm,

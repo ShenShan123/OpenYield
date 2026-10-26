@@ -23,7 +23,7 @@ from . import macro_control
 from .macro_control import Planner, bank_conductor, snap, GRID
 
 INPUTS_EXTRA = ('SEL0', 'SEL1')     # bank inputs that are not TIME_CONTROL ports
-MIN_COLUMN_FRAME = 23100.          # clearance around fixed crossings in the smallest controller
+MIN_COLUMN_FRAME = 21900.          # smallest routed controller frame; larger sources use the fit search
 COLUMN_CONTROL_DROP = 0.           # align controller and data-register bottom edges
 
 
@@ -724,12 +724,12 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
         while not _fits(tc, hi, band, True, lanes):
             if hi > 1e6: raise ValueError('Controller gates do not fit a 1 mm block')
             lo, hi = hi, 2 * hi
-        while hi - lo > 1000:
+        while hi - lo > GRID:
             mid = snap((lo + hi) / 2)
             lo, hi = (lo, mid) if _fits(tc, mid, band, True, lanes) else (mid, hi)
         extra = hi - width + GRID
-    # Keep one micron beyond the placement minimum for crossing escapes.
-    extra = max(extra + 1000., MIN_COLUMN_FRAME - width)
+    # Keep five routing-grid tracks beyond the placement minimum for escapes.
+    extra = max(extra + 5 * GRID, MIN_COLUMN_FRAME - width)
     if extra:
         shutil.rmtree(bank_dir)
         build_bank(deck, bank_dir, core_x=bm['array_origin_nm'][0] + extra, controller_channel=True)

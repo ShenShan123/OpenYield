@@ -58,6 +58,7 @@ def make_decoder(layout: pya.Layout, source: FullSource, specs: dict[str, Compon
     every = {p: (c, source.instances[p]['pins']) for n, c in specs.items() for p, c, _ in leaves(c, path=n)}
     b = Builder(layout, f'COMPACT_DECODER_{rows}')
     cache, placed, terminals, fingers = {}, {}, {}, []
+    edge_taps = defaultdict(set)
     nbands = rows // 8
     top = nbands * BAND
 
@@ -112,6 +113,9 @@ def make_decoder(layout: pya.Layout, source: FullSource, specs: dict[str, Compon
         y0 = by + BAND if mirror else by
         t = (lambda y: y0 - y) if mirror else (lambda y: y0 + y)
         b.place(v.builder, x, y0, my=mirror)
+        if v.edge_tap is not None and 0 < y0 < top:
+            tx, ty = v.edge_tap
+            edge_taps[(x + tx, y0, ty)].add(mirror)
         placed[path] = (v, x, t, items[path][1], mirror)
         terminals.update({path + '/' + n: (px + x, t(py), l) for n, (px, py, l) in v.device_pins.items()})
         fingers.extend(dict(f, device=path + '/' + f['device'],
@@ -334,6 +338,14 @@ def make_decoder(layout: pya.Layout, source: FullSource, specs: dict[str, Compon
                 wire('m3', zx, zy, zx, y)
                 via(3, zx, y)
                 producer[items[chain[-1]][1]['Z']] = (zx, y)
+    # Facing stretched-driver VSS taps share diffusion at band boundaries.
+    # Their 65 nm isolated gap would violate Active.2; joining the same-body
+    # taps preserves every MOS and avoids a wider gate row.
+    for (tx, y, ty), sides in edge_taps.items():
+        if sides != {False, True}:
+            raise ValueError('Stretched driver tap lacks its facing neighbour')
+        b.rect('active', tx - 45., y - ty + 45., tx + 45., y + ty - 45.)
+        b.rect('pplus', tx - 60., y - ty + 60., tx + 60., y + ty - 60.)
     # Predecode outputs: M4 jog to the consumer level's enable slot, M5 trunk.
     consumers = defaultdict(list)
     for (level, sx), uses in trunks.items():

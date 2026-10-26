@@ -8,7 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from .components import CellView
+from .components import CellView, Component
 from .lib import Builder, pya
 
 HEIGHT=1365.
@@ -19,7 +19,7 @@ VSS_Y=100.
 VDD_Y=1265.
 
 
-def _plan(component):
+def _plan(component: Component, compact: bool = False) -> tuple:
     if component.children or not component.devices:
         raise ValueError('Dense logic requires a direct-MOS leaf')
     pmos=[d for d in component.devices if d.model=='PMOS_VTG']
@@ -50,9 +50,11 @@ def _plan(component):
     if set(by_gate)!={d.nodes[1] for d in nmos}:raise ValueError('P/N input mismatch')
     if nf>1 and len(chain)>2:raise ValueError('Folded NAND3 needs additional internal routing')
     if nf>1 and len(chain)==2 and (nf>2 or wn/nf<250):
-        # Such a folded NAND2 joins its series nodes above the N contacts
-        # (make_logic), which needs P + N/2 <= 447.5 nm per finger.
-        nf=next((n for n in range(nf,limit+1) if 90<=wn/n and wp/n+wn/n/2<=447.5
+        # The series-node track needs P + N/2 <= 447.5 nm. Compact
+        # drivers gain 45 nm by moving both strips/taps toward their rails;
+        # only sufficiently wide fingers retain the decoder's M2 margins.
+        nf=next((n for n in range(nf,limit+1) if 90<=wn/n and
+                 wp/n+wn/n/2<=(492.5 if compact and wp/n>=315 and wn/n>=230 else 447.5)
                  and all(abs(w/n/5-round(w/n/5))<1e-6 for w in (wp,wn))),None)
         if nf is None:raise ValueError('No folded NAND2 partition with a series-node track')
     gate_specs=[];n_contacts=['VSS'];n_fingers=defaultdict(int);p_fingers=defaultdict(int)
@@ -66,29 +68,36 @@ def _plan(component):
     return wp/nf,wn/nf,nf,gate_specs,n_contacts,p_contacts
 
 
-def make_logic(layout,component,area_ceiling=True,compact: bool=False):
-    wp,wn,nf,gates,ns,ps=_plan(component)
-    ident=hashlib.sha256((component.identity+(':compact-1365-v1' if compact else ':dense-1365-v1')).encode()).hexdigest()
+def make_logic(layout: pya.Layout, component: Component, area_ceiling: bool = True,
+               compact: bool = False) -> CellView:
+    wp,wn,nf,gates,ns,ps=_plan(component, compact)
+    ident=hashlib.sha256((component.identity+(':compact-1365-v2' if compact else ':dense-1365-v1')).encode()).hexdigest()
     b=Builder(layout,'DENSE_'+ident[:16])
-    # Compact gates keep 45 nm between abutting implants and 160 nm between
-    # the last input's via2 and the output. The default view is retained
-    # for the OpenRAM-pitch bank and controller cell contracts.
-    first=100.
+    # Compact gates join like implants at abutment, keep 55 nm well
+    # enclosure of diffusion and 152.5 nm input/output via2 separation.
+    # The controller's default dense view retains its original geometry.
+    first=92.5 if compact else 100.
     count=len(gates);contacts=[first+190*i for i in range(count+1)]
     gx=[first+95.+190*i for i in range(count)]
-    out_x=contacts[-1]+(65. if compact else 105.)
+    out_x=contacts[-1]+(57.5 if compact else 105.)
     width=out_x+35
     # A NAND2 folded more than twice, or with narrow N fingers, joins its
     # series nodes above the N contact pads: the legacy track below them
     # would cross VSS straps or output pads.
     high=nf>1 and len(gates)==2*nf and (nf>2 or wn<250)
-    nb=N_BOTTOM
-    ny=nb+wn/2;py=P_TOP-wp/2;gy=(nb+wn+P_TOP-wp)/2
+    # Shift diffusion and body taps together to keep 100 nm active spacing.
+    # The outward taps need well overhang and shared VSS diffusion where
+    # compact_decoder mirrors consecutive bands against each other.
+    stretched=compact and high and wp>=315 and wn>=230
+    edge=22.5 if stretched else 0.
+    nb=N_BOTTOM-edge
+    pt=P_TOP+edge
+    ny=nb+wn/2;py=pt-wp/2;gy=(nb+wn+pt-wp)/2
     if len(gates)==3:gy-=2.5
     track_y=235.
     if high:
         track_y=ny+170;gy=max(gy,ny+340)
-        if gy+135>py-70 or gy+87.5>P_TOP-wp:raise ValueError('No dense series-node track for this NAND2 folding')
+        if gy+135>py-70 or gy+87.5>pt-wp:raise ValueError('No dense series-node track for this NAND2 folding')
     paths=[];vias=[];terminals={};physical=[]
     def rect(layer,x0,y0,x1,y1):b.rect(layer,x0,y0,x1,y1)
     def wire(net,layer,x0,y0,x1,y1,w=70):
@@ -102,19 +111,21 @@ def make_logic(layout,component,area_ceiling=True,compact: bool=False):
         else:
             rect('m3',x-35,y-70,x+35,y+70)
         rect('m2',x-35,y-70,x+35,y+70)
-    rect('pwell',0,0,width,WELL_SPLIT);rect('nwell',0,WELL_SPLIT,width,HEIGHT)
+    rect('pwell',0,-edge,width,WELL_SPLIT);rect('nwell',0,WELL_SPLIT,width,HEIGHT+edge)
     rect('vtg',0,0,width,HEIGHT)
-    for layer,y0,y1 in [('nplus',nb-40,nb+wn+40),('pplus',P_TOP-wp-40,P_TOP+40)]:
-        rect(layer,contacts[0]-77.5,y0,contacts[-1]+77.5,y1)
+    for layer,y0,y1 in [('nplus',nb-40,nb+wn+40),('pplus',pt-wp-40,pt+40)]:
+        rect(layer,0 if compact else contacts[0]-77.5,y0,width if compact else contacts[-1]+77.5,y1)
     rect('active',contacts[0]-37.5,nb,contacts[-1]+37.5,nb+wn)
-    rect('active',contacts[0]-37.5,P_TOP-wp,contacts[-1]+37.5,P_TOP)
+    rect('active',contacts[0]-37.5,pt-wp,contacts[-1]+37.5,pt)
     for net,y in [('VSS',VSS_Y),('VDD',VDD_Y)]:wire(net,'m1',35,y,width-35,y)
     body={}
     for net,y,implant in [('VSS',VSS_Y,'pplus'),('VDD',VDD_Y,'nplus')]:
-        tx=contacts[0]
+        tx=100.
+        if stretched:
+            y+=-edge if net=='VSS' else edge
         rect('active',tx-45,y-45,tx+45,y+45)
         rect(implant,tx-60,y-60,tx+60,y+60)
-        b.cont(tx,y);rect('m1',tx-35,y-35,tx+35,y+35)
+        b.cont(tx,y);rect('m1',tx-(70 if stretched else 35),y-35,tx+(70 if stretched else 35),y+35)
         body[net]=(tx,y,'m1')
     n_sites={};p_sites={};internal=defaultdict(list)
     for row,netlist,cy,sites in [('n',ns,ny,n_sites),('p',ps,py,p_sites)]:
@@ -140,7 +151,7 @@ def make_logic(layout,component,area_ceiling=True,compact: bool=False):
         wire(net,'m1',min(x for x,_ in sites),track,max(x for x,_ in sites),track)
     inputs=defaultdict(list)
     for i,(nd,nf_i,pd,pf_i,a,c) in enumerate(gates):
-        x=gx[i];rect('poly',x-25,nb-50,x+25,P_TOP+50)
+        x=gx[i];rect('poly',x-25,nb-50,x+25,pt+50)
         inputs[nd.nodes[1]].append(x)
         for d,f,w,sd,left,right in [(nd,nf_i,wn,ns[i:i+2],n_sites[i],n_sites[i+1]),
                                    (pd,pf_i,wp,ps[i:i+2],p_sites[i],p_sites[i+1])]:
@@ -182,6 +193,7 @@ def make_logic(layout,component,area_ceiling=True,compact: bool=False):
     view=CellView(component,b,width,HEIGHT,pins,terminals,[],paths,vias)
     view.physical_fingers=physical
     view.output_rail_m2=(out_x,ny,py)
+    view.edge_tap=body['VSS'][:2] if stretched else None
     ASSETS = Path(__file__).with_name('assets') / 'openram'
     reference=json.loads((ASSETS/'area_reference.json').read_text())['cells']
     inputs=len(component.devices)//2

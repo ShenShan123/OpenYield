@@ -52,14 +52,50 @@ automatic timing remains limited to 512 × 256.
 
 | Block | Current implementation |
 | --- | --- |
-| Decoder | One source decoder and WL driver per logical row; each 3160 nm eight-row band holds two mirrored 1365 nm gate rows and seven M2 bus lines. INV/NAND output rails move inward 40 nm. |
+| Decoder | One source decoder and WL driver per logical row; each 3160 nm eight-row band holds two mirrored 1365 nm gate rows and seven M2 bus lines. Abutting implants and denser WL NAND folding reduce width; facing VSS taps share diffusion. |
 | Write | Three rows: buffers with input/enable inverters, BL tristates, BLB tristates. Tiling height 5.440 µm at 32 rows and 7.965 µm at 64–512 rows. |
 | Read/mux/sense | Select inverters, isolated BL/BLB transmission-gate islands sharing one row, folded sense amplifier; 5.060 µm total height. |
 | Precharge | Two mirrored, isolated three-PMOS strips in one row; one 1080 nm finger per device, shared central PRE access; 1.4625 µm tiling height. The replica keeps the same U geometry. |
 | Data registers | One frozen-source DFF per physical column, folded into pair slots below its own write buffer. Q tracks remain aligned with their buffer inputs. |
 | TIME_CONTROL | Below the shared decoder, bottom-aligned with both register bands. Large controllers use unoccupied lower decoder rows before the planner widens the array gap. |
 
-![Current decoder/read/write cell geometry beside its preceding baseline](COMPACT_REDESIGNED_COMPONENTS_V2_2_8.png)
+![Earlier decoder/read/write compaction beside its preceding baseline](COMPACT_REDESIGNED_COMPONENTS_V2_2_8.png)
+
+### Decoder and array spacing
+
+The decoder leaf cells now join like implants at their horizontal boundaries.
+Diffusion keeps 55 nm well enclosure, input/output via2 centres stay 152.5 nm
+apart, and the 190 nm gate pitch is unchanged. This saves **15 nm per leaf**
+relative to the preceding compact gates. The default controller gate geometry
+is unchanged.
+
+The wider WL NAND2 classes move both diffusion strips and body taps 22.5 nm
+toward their supply rails. The extra room around the internal series-node
+track permits **360/240 nm P/N fingers**, replacing 270/180 nm fingers.
+At 128/256/512 columns, each source MOS uses **3/6/12 fingers instead of
+4/8/16**. Total W/L, connectivity and models are preserved. Facing VSS taps
+merge across eight-row band boundaries; isolated taps at those positions
+would violate active and implant spacing.
+
+![Decoder and WL driver compaction, actual GDS at matched scale](COMPACT_DECODER_WIDTH_V2_2_8.png)
+
+The 128-column WL NAND shrinks from **1.720 to 1.325 µm** wide (23.0%).
+The 128-row decoder placement width falls from **40.670 to 38.580 µm**;
+the figure includes its additional rail/pin overhang. The bank's minimum
+decoder-to-array clearance falls from **400 to 225 nm** on each side,
+matching the opposite-well rule. The left half retains its supply-column
+slot. Complete macros may need more room on the right for TIME_CONTROL:
+the planner searches to the **100 nm routing grid** instead of stopping
+within 1 µm, then reserves five routing tracks (0.5 µm) for escapes instead
+of 1 µm. The minimum controller frame is 21.9 µm rather than 23.1 µm;
+actual placement can require more. In controller-limited large macros,
+decoder compaction can enlarge the remaining right-side corridor even as
+total macro width decreases; the evidence records both clearances.
+
+These changes affect junction and routing parasitics. Frozen transistor
+widths and DRC/LVS do not establish waveform equivalence.
+
+### Precharge
 
 The precharge placement follows the repeated mirrored device groups inspected
 in supplied `PLSRAM_FINAL_0427.gds`. Its `PLSRAM_FINAL` top is
@@ -101,18 +137,25 @@ fingers, terminals, bounds, split ownership, macro pins and provenance.
 
 ## Recorded physical results
 
-The latest [precharge evidence](../../data/COMPACT_PRECHARGE_V2_2_8.json)
+The latest [decoder-width evidence](../../data/COMPACT_DECODER_WIDTH_V2_2_8.json)
 binds these complete macros to their source, GDS, generator and tool/rule
 hashes. Bounds include every source instance, controller, register, replica,
 RWL driver, latch, route and macro pin.
 
-| Complete macro | Bounds (µm) | Area (µm²) | Calibre DRC / LVS | Distributed R+C+CC |
-| --- | --- | ---: | --- | --- |
-| 32 × 32 | 66.21 × 36.25 | 2,400.4 | 0 / CORRECT | extracted |
-| 64 × 64 | 105.91 × 51.42 | 5,445.8 | 0 / CORRECT | extracted |
-| 128 × 128 | 190.92 × 76.70 | 14,643.4 | 0 / CORRECT | extracted |
-| 256 × 256 | 357.68 × 127.26 | 45,518.0 | 0 / CORRECT | not run |
-| 512 × 512 | 693.58 × 228.38 | 158,399.2 | 0 / CORRECT | not run |
+| Complete macro | Bounds (µm) | Area (µm²) | Width saved (µm) | Calibre DRC / LVS | Distributed R+C+CC |
+| --- | --- | ---: | ---: | --- | --- |
+| 32 × 32 | 64.88 × 36.26 | 2,352.1 | 1.33 | 0 / CORRECT | extracted |
+| 64 × 64 | 104.58 × 51.42 | 5,377.4 | 1.33 | 0 / CORRECT | extracted |
+| 128 × 128 | 187.98 × 76.70 | 14,417.9 | 2.94 | 0 / CORRECT | extracted |
+| 256 × 256 | 357.32 × 127.26 | 45,472.2 | 0.36 | 0 / CORRECT | not run |
+| 512 × 512 | 692.38 × 228.38 | 158,125.2 | 1.20 | 0 / CORRECT | not run |
+
+Savings are against the preceding [precharge macros](../../data/COMPACT_PRECHARGE_V2_2_8.json);
+all heights are unchanged (the 32-row height is 36.255 µm before and after).
+The standalone 128-row decoder and an 8×128 single-band bank also pass
+DRC/LVS. Nineteen targeted regression checks pass, including frozen source
+conservation, controller ownership, default-cell and final-guard polygon
+comparisons, CLI behavior, and exact receipt hashes. No waveform checks ran.
 
 These are receipts for the recorded geometry; source cleanup does not rewrite
 or extend their qualification scope. Earlier compact and OpenRAM comparisons
@@ -163,9 +206,11 @@ remain external and SEL0/SEL1 are bank inputs.
 | `compact_center.py` | Registers, controller placement, feedback, auxiliaries and macro pins |
 | `dense_slots.py`, `macro_control.py` | Shared register-slot plumbing and checked wires/vias |
 
-The tracked physical reproduction protocol is
+The decoder-width reproduction protocol is
+[`v228_decoder_width_cases.json`](../../../tests/spice/v228_decoder_width_cases.json).
+The preceding precharge protocol is
 [`v228_compact_precharge_cases.json`](../../../tests/spice/v228_compact_precharge_cases.json).
-The default-path regression protocol is
+The default-promotion cleanup protocol, with its original geometry-comparison scope, is
 [`v228_default_layout_cases.json`](../../../tests/spice/v228_default_layout_cases.json).
 Local Python tests and ad hoc tools remain ignored, as required by the project.
 See the [layout guide](../../../sram_compiler/layout/README.md) for component

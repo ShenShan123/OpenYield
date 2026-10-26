@@ -45,6 +45,12 @@ register-band bottoms. Large controllers use spare decoder rows before
 widening the central gap. Controller routing and input escapes reach M10;
 OUT/OUT_B leave right on M4 and supply trunks reach top/bottom on M6.
 
+Compact decoder leaves abut like implants; wide WL NAND drivers use fewer,
+wider fingers at unchanged total W/L. Minimum decoder-to-array well clearance
+is 225 nm. The controller fit search uses the 100 nm routing grid, reserves
+500 nm for escapes and keeps a 21.9 µm minimum frame. Integrated controllers
+can require a larger right-side gap than the external-control bank.
+
 The [compact design record](../../docs/design/layout/COMPACT_CELL_V2_2_8.md)
 contains cell rules, module responsibilities, current area measurements,
 physical verification scope and limits. The latest five complete macros

@@ -2,15 +2,23 @@
 
 The [compact layout record](design/layout/COMPACT_CELL_V2_2_8.md) documents
 the default column-split bank and optional complete controller. The current
-physical evidence is `docs/data/COMPACT_PRECHARGE_V2_2_8.json`; its tracked
-protocol is `tests/spice/v228_compact_precharge_cases.json`. Sizing, timing
+physical evidence is `docs/data/COMPACT_DECODER_WIDTH_V2_2_8.json`; its tracked
+protocol is `tests/spice/v228_decoder_width_cases.json`. Sizing, timing
 and simulation RC retain their existing scope.
 
-Local `dev/plsram_reference/` holds the supplied-GDS audit, native builds,
-physical verification and evidence assembler. Latest selected macros, bank
-parts, receipts and previews remain at `outputs/layout/compact/plsram_reference/`.
-`selected.json` identifies the five qualified outputs. Those historical
-receipts bind their recorded generators; cleanup does not rewrite them.
+Local `dev/decoder_width/` holds the decoder compaction builds, matched-scale
+GDS figure, physical verification and evidence assembler. Selected macros,
+bank parts, receipts and previews are under `outputs/layout/compact/decoder_width/`;
+`selected.json` identifies the five physical-check outputs. Local
+`tests/test_decoder_width.py` checks frozen source widths, actual gates and
+unchanged default controller polygons. `tests/test_decoder_width_complete.py`
+checks complete-macro width/area, source ownership and exact receipt hashes.
+The 8×128 single-band bank additionally checks wide-driver boundary taps.
+
+The preceding precharge campaign remains in `dev/plsram_reference/` and
+`outputs/layout/compact/plsram_reference/`, with immutable evidence in
+`docs/data/COMPACT_PRECHARGE_V2_2_8.json`. Receipts bind their recorded
+generators; later geometry and source cleanup do not rewrite them.
 
 On 2026-10-26, the alternative bank pitches and floorplans, obsolete layout
 plans/previews, and superseded raw output campaigns were removed. Historical

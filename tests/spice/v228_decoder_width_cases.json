@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "Bottom-up compact decoder/WL-driver and complete column-split macro width reduction",
+  "sizes": [
+    [
+      32,
+      32
+    ],
+    [
+      64,
+      64
+    ],
+    [
+      128,
+      128
+    ],
+    [
+      256,
+      256
+    ],
+    [
+      512,
+      512
+    ]
+  ],
+  "source": {
+    "operation": "read&write",
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "column_mux": 2,
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 25,
+    "diagnostic_period_ns": {
+      "32": 9,
+      "64": 10.5,
+      "128": 30,
+      "256": 26.25,
+      "512": 80
+    },
+    "sizing_and_timing": "Frozen candidate-2 source decks; unchanged models, sizing/timing tables and simulation RC"
+  },
+  "baseline": "docs/data/COMPACT_PRECHARGE_V2_2_8.json",
+  "checks": [
+    "Preserve every source MOS, model, length, net and summed physical finger width; compare actual active/poly gate count and area",
+    "Compare every layer of default dense controller gates with the preceding source; compact=True alone changes geometry",
+    "Refold 128/256/512-column WL NAND2s from 4/8/16 to 3/6/12 fingers per MOS; verify all frozen driver classes",
+    "Join facing same-body VSS taps at eight-row decoder band boundaries; retain every row, predecode net and WL driver",
+    "Reduce minimum decoder-to-array well clearance from 400 to 225 nm; retain source-owned controller, registers, replica, latch and macro pins",
+    "Resolve controller placement to its 100 nm routing grid before adding a five-track (500 nm) escape margin",
+    "Require smaller actual complete-macro GDS width and area than the immediately preceding baseline at all five sizes",
+    "Calibre DRC zero and strict LVS CORRECT on the decoder component and all complete macros",
+    "Distributed R+C+CC extraction on complete 32/64/128 macros; explicitly no extraction at 256/512",
+    "Bind physical receipts to source, GDS, generator, tool and PDK rule hashes; preserve failed attempts and older evidence"
+  ],
+  "waveform_validation": "not run; physical compaction does not establish waveform correctness or release qualification",
+  "defaults_promotable": false,
+  "local_python_runners_tracked": false,
+  "rectangular_smoke": {
+    "bank_drc_lvs": [
+      [
+        8,
+        128
+      ]
+    ],
+    "native_cli_generation": [
+      [
+        8,
+        4
+      ]
+    ],
+    "intent": "A single decoder band with wide WL drivers must pass without relying on neighbouring tap bridges"
+  }
+}
