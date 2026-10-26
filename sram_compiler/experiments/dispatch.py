@@ -13,7 +13,6 @@ LAYOUT_ACTIONS = {
     'cells': 'cell_flow',
     'bank': 'bank',
     'time-control': 'time_control',
-    'controlled-bank': 'macro_control',
     'compare-full': 'compare_full',
     'compare-snm': 'compare_snm',
     'verify-full': 'verify_full',

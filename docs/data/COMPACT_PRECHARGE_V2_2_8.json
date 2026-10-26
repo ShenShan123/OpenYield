@@ -1,0 +1,832 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "recorded_utc": "2026-10-26T08:16:27.778835+00:00",
+  "scope": "pitch-aligned compact precharge pair and select-stack reservations in complete column-split macros",
+  "reference": {
+    "file": "PLSRAM_FINAL_0427.gds",
+    "sha256": "9904d847aaa9dd6ef622309a42d833cf2f6575846b16e1aa3d73ba347b314b95",
+    "dbu_um": 0.001,
+    "cells": 495,
+    "primary": "PLSRAM_FINAL",
+    "bbox_um": [
+      0.0,
+      0.0,
+      57.13,
+      88.5
+    ],
+    "bitcells": 16384,
+    "bitcells_per_half": {
+      "L": 8192,
+      "R": 8192
+    },
+    "peripheral_group_instances": 32,
+    "audit": "outputs/layout/compact/plsram_reference/reference_audit.json",
+    "audit_sha256": "946ed0cb60de09a6566f1537607c895c81c46fb66952e22c8d68154a14eeeb2e",
+    "scope": "hierarchy and geometry inspection only; no TSMC DRC, LVS or netlist extraction"
+  },
+  "baseline": {
+    "path": "docs/data/COMPACT_REDESIGNED_PERIPHERY_V2_2_8.json",
+    "sha256": "39f179491646939beb553a4c673cc60f079b77088445cb871cfd45fce47f8d34"
+  },
+  "protocol": {
+    "path": "tests/spice/v228_compact_precharge_cases.json",
+    "sha256": "d9894b96c31a03fe1b3472c2281898ba9d5dbf1a581adcfe589014fc16908873"
+  },
+  "precharge": {
+    "pair_pitch_nm": 2250,
+    "previous_height_nm": 1845,
+    "height_nm": 1462.5,
+    "previous_sense_gap_nm": 425,
+    "sense_gap_nm": 0,
+    "periphery_height_saving_nm": 807.5,
+    "source_width_nm": 1080,
+    "source_length_nm": 50,
+    "previous_fingers_per_device": 2,
+    "fingers_per_device": 1
+  },
+  "component_image": {
+    "sources": [
+      {
+        "gds": "outputs/layout/compact/redesign/bank32_final/full_macro.gds",
+        "sha256": "e3ecea86340b8bb70c72a8dbd7b88d7e6f3c0d1bb938238263fdfe67323f11bc"
+      },
+      {
+        "gds": "outputs/layout/compact/plsram_reference/bank32_02/full_macro.gds",
+        "sha256": "38dd1e243e70e1aff4718f214ad46cf63eb3b7e67bd2edbfb50d1302b2aa5595"
+      }
+    ],
+    "image": "docs/design/layout/COMPACT_PRECHARGE_V2_2_8.png",
+    "sha256": "7fd6c546e1b0a0f9f682996e48d39dd0b7a40477c8112e021a3a8cc4c12363bf",
+    "geometry": [
+      {
+        "gates": 12,
+        "contacts": 69,
+        "gate_area_um2": 0.324,
+        "p_diffusion_excluding_gates_um2": 0.9882
+      },
+      {
+        "gates": 6,
+        "contacts": 71,
+        "gate_area_um2": 0.324,
+        "p_diffusion_excluding_gates_um2": 1.0692
+      }
+    ],
+    "region_um": [
+      -0.22,
+      -0.2,
+      2.4699999999999998,
+      2.045
+    ],
+    "cell": "CMP_PRECHARGE_SLOT"
+  },
+  "component_final_xor": {
+    "cell": "CMP_PRECHARGE_SLOT",
+    "sources": [
+      {
+        "path": "outputs/layout/compact/plsram_reference/bank32_02/full_macro.gds",
+        "sha256": "38dd1e243e70e1aff4718f214ad46cf63eb3b7e67bd2edbfb50d1302b2aa5595"
+      },
+      {
+        "path": "outputs/layout/compact/plsram_reference/macro32_05/full_macro.gds",
+        "sha256": "c169162d4ebd5d72ec12252a1efa2a5db6cd9401af71c45528f397e42cb73079"
+      }
+    ],
+    "xor_empty_layers": [
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        9,
+        0
+      ],
+      [
+        10,
+        0
+      ],
+      [
+        11,
+        0
+      ],
+      [
+        12,
+        0
+      ],
+      [
+        13,
+        0
+      ],
+      [
+        14,
+        0
+      ],
+      [
+        15,
+        0
+      ],
+      [
+        16,
+        0
+      ],
+      [
+        17,
+        0
+      ],
+      [
+        18,
+        0
+      ],
+      [
+        19,
+        0
+      ],
+      [
+        20,
+        0
+      ],
+      [
+        21,
+        0
+      ],
+      [
+        22,
+        0
+      ],
+      [
+        23,
+        0
+      ],
+      [
+        24,
+        0
+      ],
+      [
+        25,
+        0
+      ],
+      [
+        26,
+        0
+      ],
+      [
+        27,
+        0
+      ],
+      [
+        28,
+        0
+      ],
+      [
+        29,
+        0
+      ],
+      [
+        235,
+        0
+      ]
+    ]
+  },
+  "layouts": [
+    {
+      "rows": 32,
+      "cols": 32,
+      "floorplan": "column_split",
+      "directory": "outputs/layout/compact/plsram_reference/macro32_05",
+      "primary": "OPENYIELD_COMPACT_32X32",
+      "bbox_um": [
+        -0.1,
+        -8.4025,
+        66.1075,
+        27.8525
+      ],
+      "macro_area_um2": 2400.3529124999995,
+      "baseline_area_um2": 2453.81546875,
+      "area_change_percent": -2.1787521079258187,
+      "source_mos": 9616,
+      "physical_gate_count": 10483,
+      "source_deck_sha256": "30267e61f2bdad2895e81c0c37a5954978685c6147b919c01ebac7ffe3cf3deb",
+      "source_sha256": "bd24553029f6421abf1d19f2fba652587cbaefd21ee99e7127e561da2089d2a2",
+      "layout_sha256": "c169162d4ebd5d72ec12252a1efa2a5db6cd9401af71c45528f397e42cb73079",
+      "manifest_sha256": "027b69caf85f9ab0b2d6ee8a022afd4075eaeec466757c99b9646a15fb42984b",
+      "generator_sources_sha256": {
+        "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "448a70afb759fced55be8bea5596fe3e04fbb106247b03f52532c874789377f9",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "export.py": "9da8ccfc6d1c681d645e907979e40cca5dc9855250a218991dcde6f3f1719ceb",
+        "__init__.py": "e1af0086e9bd7e585baf963ce0642d7f5b7a0f11b485a031b94c7e85ab131ea7",
+        "full_source.py": "885df5b53e89540783ef22b42c19e978b9aa74afa74ca5a88643d25651f75c26",
+        "router.py": "cb49b94cd4f90d90e64437a6dba7cb97ed6ecac1f37464dee619f6ea49dffc33",
+        "verify_full.py": "02d0eb07795c54c188fe1bf8c5b9dfd0a9de8165c6f811e6225d6b2839710c4c",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "66df3399129d56f6795f1610a0b0a63b1a5d001a068986928187ff28d5194ea6",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "0456d43f491531dcfc77e3b286da1140cb2fa505f14c893a7f00008ed71d17ed",
+        "components.py": "acc7843355b8f34ce56da8594fa16b711ed7a16e2a35faf02b9bdd229403ad6e",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "67c5c874a72da5d2e776a7bd1271e72dea46317dad7d8146c48fe8aef3cc9a11",
+        "bank_core.py": "0c922939e9131a2880d8b116d208ba6a80d80e90cedb3b5352601551f8951a6a",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+        "dense_logic.py": "68feb042b1e5c1165fbc6deb803fd45cd1265224e5e1edd5152b20989812a098",
+        "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+        "dense_views.py": "443f05ec62084c92e5a8f98a880dfeae18a86a0eda3abead5bd52bfbf3a4ea3a",
+        "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+        "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+        "dense_decoder.py": "b8df246d4e12ad0ba2abaae2313c34decb9b8acec1aebfebe2d2548f49bbfdb8",
+        "dense_core.py": "8c59c797c90558ae3b02a0bf8b92d77c49ce69d5b5db60ef6e0bc1b1b3cee677",
+        "dense_aux.py": "a18bb122e11b3ca1c0ebf3e5dfe2430e9979efe0f0343c4418d5be4039165abb",
+        "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+        "dense_bank.py": "1acd9477c0737cb0d6cb5d3af5456c1e5403ed8cfa75165334aa71238a576ae2",
+        "dense_budget.py": "267d70d6818ed6860ca112e9a2e7a24232673d7442a892d543ea5087083b782a",
+        "control_cells.py": "366c81afb54b57a4888b38078c1583d00e2783d627d8a6be2fdb5a440faadd1a",
+        "control_place.py": "1ebda6a303312d39333a0f68283e762eee7fdef7500cd10cd9e364cc9ba0ad50",
+        "control_passives.py": "415f9c9f6e13d54486baa6bad552e2f6ab20870bc66b2274667e4b6a01dc2f6e",
+        "macro_control.py": "035ce9bfb710d9932c1596eb2fd9cad9121abf5dfda142cbe778640943e49fdd",
+        "control_register.py": "18c274195c7f5971cd6a885e8519b2995a9e2a2fa0d749066ef79299b400100a",
+        "conductor_ownership.py": "8f23ac0d43220f396967b1d6f68cbe7184c67ad5f29b0e5ba040325bf54b71f7",
+        "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99",
+        "dense_rows.py": "77799b54170703eb410e82b4cbd3db85973a9d9beafa2ceeda021acede550644",
+        "dense_slots.py": "a91a8cd33860deecddec822157ca1fb25d7a04e7111eb648394a8ac6ee77d9e8",
+        "driver_audit.py": "9b9eb28d121f77300160cd828430bc9278228a7fc69ce6e9191025151b19c5ef",
+        "preview.py": "82e9bcacf1a0df3a20f131b64322edaadadbe60513ce19ff8d68d22325173c6b",
+        "center_control.py": "c383445e4aa3a1f60a2c7657c371ecf0aa3ade04dfb09b6a07753436c0147887",
+        "time_control.py": "215bbf54d04f2c0a0eeb85656e0970523e73ed36c9553d12c0045b8decd4723a",
+        "compact_core.py": "05c652d348424abe2a418e0aaeed6f63bf59131516d146935d690b8a2464b009",
+        "compact_array.py": "12758cb3f2384ae86bd1198280fcc468fe0b647ece0651ad66c369552160c14f",
+        "compact_slots.py": "52f0bdfb1db45c7b836a1df8da27c0fd5c079f9d3a2dded1366385b5f58d8488",
+        "compact_decoder.py": "5d5b1bbccd9759434d1d79a1d08247667614584852b5049e7fb556c4aa7d2f50",
+        "compact_bank.py": "8e4cde0964c591240df3538a64eb8b1310af04533b942896ac1f231590878bb1",
+        "compact_center.py": "546aed981196e9ad9d45e53f41f94061ce31b762185167c090f73eedb4dd7075"
+      },
+      "source_artifacts": {
+        "outputs/layout/compact/plsram_reference/macro32_05_parts/bank": "35ec3d1ca3c5b88ca207ca693d077c29b049a04684f27a7109bda42d0c89236b"
+      },
+      "verification": {
+        "receipt": "outputs/layout/compact/plsram_reference/macro32_05_verify/receipt.json",
+        "receipt_sha256": "ec377b7c22a63db92f74b52032b31909b3ee2493df830e8d1cebca6499dc9b4f",
+        "status": "extracted",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": "distributed R+C+CC",
+        "dspf_sha256": "008c26aaa3da235e466ea092951c8027b7572d0c8d697747605a9a1f60b20d16",
+        "nets": 3598,
+        "capacitance": {
+          "shunt_f": 5.503084440280615e-13,
+          "coupling_f": 1.7287511474819725e-12,
+          "annotated_total_f": 4.007811114100043e-12
+        },
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "calibre_executable": "/proj/eda_tools/Siemens/calibre/2025.1_16.10/aok_cal_2025.1_16.10/bin/calibre",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b"
+      },
+      "previews": {
+        "layout": {
+          "path": "outputs/layout/compact/plsram_reference/macro32_05/layout.png",
+          "sha256": "cea7488c65cb25669f92eaad0dc038827d0a3e7f84f1eb444c70f73e593ddabb"
+        },
+        "placement": {
+          "path": "outputs/layout/compact/plsram_reference/macro32_05/placement.png",
+          "sha256": "6a395bb4605b12f3ebc6b943b91e86dc67a920e90bc5be3654147175f20d4b03"
+        }
+      }
+    },
+    {
+      "rows": 64,
+      "cols": 64,
+      "floorplan": "column_split",
+      "directory": "outputs/layout/compact/plsram_reference/macro64_05",
+      "primary": "OPENYIELD_COMPACT_64X64",
+      "bbox_um": [
+        -0.1,
+        -8.4025,
+        105.8075,
+        43.0175
+      ],
+      "macro_area_um2": 5445.76365,
+      "baseline_area_um2": 5531.28395625,
+      "area_change_percent": -1.546120338901924,
+      "source_mos": 30898,
+      "physical_gate_count": 33257,
+      "source_deck_sha256": "207dcfe0202021e14a4576840e7d078c6f7075fc186f7bbd554ebb6f90a8862d",
+      "source_sha256": "bd7ed6280bb0f9c7add8dbd567b3d1a694263de59e716a143ecd2dbc0f0123c9",
+      "layout_sha256": "b42e67c052ca01c84e0be840919c657f03a49092f32791ae2dea670028d78085",
+      "manifest_sha256": "956e28f58058bbd730b8f88dc69bbf21081b589a6f407258435a939030aa6d0c",
+      "generator_sources_sha256": {
+        "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "448a70afb759fced55be8bea5596fe3e04fbb106247b03f52532c874789377f9",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "export.py": "9da8ccfc6d1c681d645e907979e40cca5dc9855250a218991dcde6f3f1719ceb",
+        "__init__.py": "e1af0086e9bd7e585baf963ce0642d7f5b7a0f11b485a031b94c7e85ab131ea7",
+        "full_source.py": "885df5b53e89540783ef22b42c19e978b9aa74afa74ca5a88643d25651f75c26",
+        "router.py": "cb49b94cd4f90d90e64437a6dba7cb97ed6ecac1f37464dee619f6ea49dffc33",
+        "verify_full.py": "02d0eb07795c54c188fe1bf8c5b9dfd0a9de8165c6f811e6225d6b2839710c4c",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "66df3399129d56f6795f1610a0b0a63b1a5d001a068986928187ff28d5194ea6",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "0456d43f491531dcfc77e3b286da1140cb2fa505f14c893a7f00008ed71d17ed",
+        "components.py": "acc7843355b8f34ce56da8594fa16b711ed7a16e2a35faf02b9bdd229403ad6e",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "67c5c874a72da5d2e776a7bd1271e72dea46317dad7d8146c48fe8aef3cc9a11",
+        "bank_core.py": "0c922939e9131a2880d8b116d208ba6a80d80e90cedb3b5352601551f8951a6a",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+        "dense_logic.py": "68feb042b1e5c1165fbc6deb803fd45cd1265224e5e1edd5152b20989812a098",
+        "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+        "dense_views.py": "443f05ec62084c92e5a8f98a880dfeae18a86a0eda3abead5bd52bfbf3a4ea3a",
+        "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+        "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+        "dense_decoder.py": "b8df246d4e12ad0ba2abaae2313c34decb9b8acec1aebfebe2d2548f49bbfdb8",
+        "dense_core.py": "8c59c797c90558ae3b02a0bf8b92d77c49ce69d5b5db60ef6e0bc1b1b3cee677",
+        "dense_aux.py": "a18bb122e11b3ca1c0ebf3e5dfe2430e9979efe0f0343c4418d5be4039165abb",
+        "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+        "dense_bank.py": "1acd9477c0737cb0d6cb5d3af5456c1e5403ed8cfa75165334aa71238a576ae2",
+        "dense_budget.py": "267d70d6818ed6860ca112e9a2e7a24232673d7442a892d543ea5087083b782a",
+        "control_cells.py": "366c81afb54b57a4888b38078c1583d00e2783d627d8a6be2fdb5a440faadd1a",
+        "control_place.py": "1ebda6a303312d39333a0f68283e762eee7fdef7500cd10cd9e364cc9ba0ad50",
+        "control_passives.py": "415f9c9f6e13d54486baa6bad552e2f6ab20870bc66b2274667e4b6a01dc2f6e",
+        "macro_control.py": "035ce9bfb710d9932c1596eb2fd9cad9121abf5dfda142cbe778640943e49fdd",
+        "control_register.py": "18c274195c7f5971cd6a885e8519b2995a9e2a2fa0d749066ef79299b400100a",
+        "conductor_ownership.py": "8f23ac0d43220f396967b1d6f68cbe7184c67ad5f29b0e5ba040325bf54b71f7",
+        "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99",
+        "dense_rows.py": "77799b54170703eb410e82b4cbd3db85973a9d9beafa2ceeda021acede550644",
+        "dense_slots.py": "a91a8cd33860deecddec822157ca1fb25d7a04e7111eb648394a8ac6ee77d9e8",
+        "driver_audit.py": "9b9eb28d121f77300160cd828430bc9278228a7fc69ce6e9191025151b19c5ef",
+        "preview.py": "82e9bcacf1a0df3a20f131b64322edaadadbe60513ce19ff8d68d22325173c6b",
+        "center_control.py": "c383445e4aa3a1f60a2c7657c371ecf0aa3ade04dfb09b6a07753436c0147887",
+        "time_control.py": "215bbf54d04f2c0a0eeb85656e0970523e73ed36c9553d12c0045b8decd4723a",
+        "compact_core.py": "05c652d348424abe2a418e0aaeed6f63bf59131516d146935d690b8a2464b009",
+        "compact_array.py": "12758cb3f2384ae86bd1198280fcc468fe0b647ece0651ad66c369552160c14f",
+        "compact_slots.py": "52f0bdfb1db45c7b836a1df8da27c0fd5c079f9d3a2dded1366385b5f58d8488",
+        "compact_decoder.py": "5d5b1bbccd9759434d1d79a1d08247667614584852b5049e7fb556c4aa7d2f50",
+        "compact_bank.py": "8e4cde0964c591240df3538a64eb8b1310af04533b942896ac1f231590878bb1",
+        "compact_center.py": "546aed981196e9ad9d45e53f41f94061ce31b762185167c090f73eedb4dd7075"
+      },
+      "source_artifacts": {
+        "outputs/layout/compact/plsram_reference/macro64_05_parts/bank": "7dff52c9fbcdd18efb2db30035a8f5f7a64dba0d7dd89ea4824d6597dddb88e7"
+      },
+      "verification": {
+        "receipt": "outputs/layout/compact/plsram_reference/macro64_05_verify/receipt.json",
+        "receipt_sha256": "1ac90ac09506eaf2082410dee35a1fbf56017e20876da0a69ff5f670ef1352dd",
+        "status": "extracted",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": "distributed R+C+CC",
+        "dspf_sha256": "57c00d7c2917c6302698fe6cd84f2e13ca7d8081232cd79d4bf44bc47fff7b0b",
+        "nets": 10982,
+        "capacitance": {
+          "shunt_f": 1.3828611822331598e-12,
+          "coupling_f": 4.760062931549585e-12,
+          "annotated_total_f": 1.0902989090201751e-11
+        },
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "calibre_executable": "/proj/eda_tools/Siemens/calibre/2025.1_16.10/aok_cal_2025.1_16.10/bin/calibre",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b"
+      },
+      "previews": {
+        "layout": {
+          "path": "outputs/layout/compact/plsram_reference/macro64_05/layout.png",
+          "sha256": "7e9cde3f0baf55479ce50a203249dc1edb5129805c197eefe0b5ed23dc4e850c"
+        },
+        "placement": {
+          "path": "outputs/layout/compact/plsram_reference/macro64_05/placement.png",
+          "sha256": "a64ce7cb541e8d9d7d2bdd36c365f4fee5e45f5d45aaf5a812d17b2a96b1c960"
+        }
+      }
+    },
+    {
+      "rows": 128,
+      "cols": 128,
+      "floorplan": "column_split",
+      "directory": "outputs/layout/compact/plsram_reference/macro128_05",
+      "primary": "OPENYIELD_COMPACT_128X128",
+      "bbox_um": [
+        -0.1,
+        -8.4025,
+        190.8175,
+        68.2975
+      ],
+      "macro_area_um2": 14643.37225,
+      "baseline_area_um2": 14797.538131250001,
+      "area_change_percent": -1.0418346611618334,
+      "source_mos": 110564,
+      "physical_gate_count": 117853,
+      "source_deck_sha256": "2ba0d5dfd25fc25db4715468fe5b4848b8c8ae51e45e94acba8916cc5efe2c3e",
+      "source_sha256": "e36c581089ceb2035313f167a2b1d24882e4888c75d2dfa0acc2d7af3cd983ab",
+      "layout_sha256": "783d2b7bb0079a74c38f5e23a04828288bcb197e6dd802df7501d3835c578fb2",
+      "manifest_sha256": "8c316c6952e141ea2ec7d8a6c691c676c5739e40ad0024f8d73c1211d5aec5ca",
+      "generator_sources_sha256": {
+        "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "448a70afb759fced55be8bea5596fe3e04fbb106247b03f52532c874789377f9",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "export.py": "9da8ccfc6d1c681d645e907979e40cca5dc9855250a218991dcde6f3f1719ceb",
+        "__init__.py": "e1af0086e9bd7e585baf963ce0642d7f5b7a0f11b485a031b94c7e85ab131ea7",
+        "full_source.py": "885df5b53e89540783ef22b42c19e978b9aa74afa74ca5a88643d25651f75c26",
+        "router.py": "cb49b94cd4f90d90e64437a6dba7cb97ed6ecac1f37464dee619f6ea49dffc33",
+        "verify_full.py": "02d0eb07795c54c188fe1bf8c5b9dfd0a9de8165c6f811e6225d6b2839710c4c",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "66df3399129d56f6795f1610a0b0a63b1a5d001a068986928187ff28d5194ea6",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "0456d43f491531dcfc77e3b286da1140cb2fa505f14c893a7f00008ed71d17ed",
+        "components.py": "acc7843355b8f34ce56da8594fa16b711ed7a16e2a35faf02b9bdd229403ad6e",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "67c5c874a72da5d2e776a7bd1271e72dea46317dad7d8146c48fe8aef3cc9a11",
+        "bank_core.py": "0c922939e9131a2880d8b116d208ba6a80d80e90cedb3b5352601551f8951a6a",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+        "dense_logic.py": "68feb042b1e5c1165fbc6deb803fd45cd1265224e5e1edd5152b20989812a098",
+        "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+        "dense_views.py": "443f05ec62084c92e5a8f98a880dfeae18a86a0eda3abead5bd52bfbf3a4ea3a",
+        "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+        "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+        "dense_decoder.py": "b8df246d4e12ad0ba2abaae2313c34decb9b8acec1aebfebe2d2548f49bbfdb8",
+        "dense_core.py": "8c59c797c90558ae3b02a0bf8b92d77c49ce69d5b5db60ef6e0bc1b1b3cee677",
+        "dense_aux.py": "a18bb122e11b3ca1c0ebf3e5dfe2430e9979efe0f0343c4418d5be4039165abb",
+        "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+        "dense_bank.py": "1acd9477c0737cb0d6cb5d3af5456c1e5403ed8cfa75165334aa71238a576ae2",
+        "dense_budget.py": "267d70d6818ed6860ca112e9a2e7a24232673d7442a892d543ea5087083b782a",
+        "control_cells.py": "366c81afb54b57a4888b38078c1583d00e2783d627d8a6be2fdb5a440faadd1a",
+        "control_place.py": "1ebda6a303312d39333a0f68283e762eee7fdef7500cd10cd9e364cc9ba0ad50",
+        "control_passives.py": "415f9c9f6e13d54486baa6bad552e2f6ab20870bc66b2274667e4b6a01dc2f6e",
+        "macro_control.py": "035ce9bfb710d9932c1596eb2fd9cad9121abf5dfda142cbe778640943e49fdd",
+        "control_register.py": "18c274195c7f5971cd6a885e8519b2995a9e2a2fa0d749066ef79299b400100a",
+        "conductor_ownership.py": "8f23ac0d43220f396967b1d6f68cbe7184c67ad5f29b0e5ba040325bf54b71f7",
+        "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99",
+        "dense_rows.py": "77799b54170703eb410e82b4cbd3db85973a9d9beafa2ceeda021acede550644",
+        "dense_slots.py": "a91a8cd33860deecddec822157ca1fb25d7a04e7111eb648394a8ac6ee77d9e8",
+        "driver_audit.py": "9b9eb28d121f77300160cd828430bc9278228a7fc69ce6e9191025151b19c5ef",
+        "preview.py": "82e9bcacf1a0df3a20f131b64322edaadadbe60513ce19ff8d68d22325173c6b",
+        "center_control.py": "c383445e4aa3a1f60a2c7657c371ecf0aa3ade04dfb09b6a07753436c0147887",
+        "time_control.py": "215bbf54d04f2c0a0eeb85656e0970523e73ed36c9553d12c0045b8decd4723a",
+        "compact_core.py": "05c652d348424abe2a418e0aaeed6f63bf59131516d146935d690b8a2464b009",
+        "compact_array.py": "12758cb3f2384ae86bd1198280fcc468fe0b647ece0651ad66c369552160c14f",
+        "compact_slots.py": "52f0bdfb1db45c7b836a1df8da27c0fd5c079f9d3a2dded1366385b5f58d8488",
+        "compact_decoder.py": "5d5b1bbccd9759434d1d79a1d08247667614584852b5049e7fb556c4aa7d2f50",
+        "compact_bank.py": "8e4cde0964c591240df3538a64eb8b1310af04533b942896ac1f231590878bb1",
+        "compact_center.py": "546aed981196e9ad9d45e53f41f94061ce31b762185167c090f73eedb4dd7075"
+      },
+      "source_artifacts": {
+        "outputs/layout/compact/plsram_reference/macro128_05_parts/bank": "f9d658268ca7288afea89f4b526c13ca9f9a28c6f923e2ecd5bcbd620cac7475"
+      },
+      "verification": {
+        "receipt": "outputs/layout/compact/plsram_reference/macro128_05_verify/receipt.json",
+        "receipt_sha256": "3d95fe3013c3353d5d48a4b97e753064270744719a621b97213dec159257e58f",
+        "status": "extracted",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": "distributed R+C+CC",
+        "dspf_sha256": "31922be67c8ab652e351cebd915259b29fff6181ffbaa1e512d4a2c0ac55b956",
+        "nets": 38158,
+        "capacitance": {
+          "shunt_f": 4.011487178249195e-12,
+          "coupling_f": 1.5093939945068864e-11,
+          "annotated_total_f": 3.41993684177066e-11
+        },
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "calibre_executable": "/proj/eda_tools/Siemens/calibre/2025.1_16.10/aok_cal_2025.1_16.10/bin/calibre",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b"
+      },
+      "previews": {
+        "layout": {
+          "path": "outputs/layout/compact/plsram_reference/macro128_05/layout.png",
+          "sha256": "edc876e68c5c64412ced02bd9363cc7a8b50e2cee24ec289ed8eb43d50fc4603"
+        },
+        "placement": {
+          "path": "outputs/layout/compact/plsram_reference/macro128_05/placement.png",
+          "sha256": "4d623bc04204e1ae1e834e8ac8e433e83a268ab4e219b09729a49a48f30c1d01"
+        }
+      }
+    },
+    {
+      "rows": 256,
+      "cols": 256,
+      "floorplan": "column_split",
+      "directory": "outputs/layout/compact/plsram_reference/macro256_05",
+      "primary": "OPENYIELD_COMPACT_256X256",
+      "bbox_um": [
+        -0.1,
+        -8.4025,
+        357.5775,
+        118.8575
+      ],
+      "macro_area_um2": 45518.03865,
+      "baseline_area_um2": 45806.86323125,
+      "area_change_percent": -0.6305268705955713,
+      "source_mos": 417522,
+      "physical_gate_count": 443425,
+      "source_deck_sha256": "083c181f0092976f15d09bceaae1c68d5e826ca441e9cdb519db021da9b21dc7",
+      "source_sha256": "7816132c2989785b7fe4a55bb36390d34d956357da5f1c3871c7e10c6f5363b7",
+      "layout_sha256": "4e2fd8298e8dab918c43bf39fcdd8a39d9ab42fbcd17dd673589ae6fe629a4a9",
+      "manifest_sha256": "8755f4fdd4b801a8540f96b535e056f1c28b583c6a15bc423af2ba8e384af854",
+      "generator_sources_sha256": {
+        "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "448a70afb759fced55be8bea5596fe3e04fbb106247b03f52532c874789377f9",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "export.py": "9da8ccfc6d1c681d645e907979e40cca5dc9855250a218991dcde6f3f1719ceb",
+        "__init__.py": "e1af0086e9bd7e585baf963ce0642d7f5b7a0f11b485a031b94c7e85ab131ea7",
+        "full_source.py": "885df5b53e89540783ef22b42c19e978b9aa74afa74ca5a88643d25651f75c26",
+        "router.py": "cb49b94cd4f90d90e64437a6dba7cb97ed6ecac1f37464dee619f6ea49dffc33",
+        "verify_full.py": "02d0eb07795c54c188fe1bf8c5b9dfd0a9de8165c6f811e6225d6b2839710c4c",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "66df3399129d56f6795f1610a0b0a63b1a5d001a068986928187ff28d5194ea6",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "0456d43f491531dcfc77e3b286da1140cb2fa505f14c893a7f00008ed71d17ed",
+        "components.py": "acc7843355b8f34ce56da8594fa16b711ed7a16e2a35faf02b9bdd229403ad6e",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "67c5c874a72da5d2e776a7bd1271e72dea46317dad7d8146c48fe8aef3cc9a11",
+        "bank_core.py": "0c922939e9131a2880d8b116d208ba6a80d80e90cedb3b5352601551f8951a6a",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+        "dense_logic.py": "68feb042b1e5c1165fbc6deb803fd45cd1265224e5e1edd5152b20989812a098",
+        "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+        "dense_views.py": "443f05ec62084c92e5a8f98a880dfeae18a86a0eda3abead5bd52bfbf3a4ea3a",
+        "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+        "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+        "dense_decoder.py": "b8df246d4e12ad0ba2abaae2313c34decb9b8acec1aebfebe2d2548f49bbfdb8",
+        "dense_core.py": "8c59c797c90558ae3b02a0bf8b92d77c49ce69d5b5db60ef6e0bc1b1b3cee677",
+        "dense_aux.py": "a18bb122e11b3ca1c0ebf3e5dfe2430e9979efe0f0343c4418d5be4039165abb",
+        "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+        "dense_bank.py": "1acd9477c0737cb0d6cb5d3af5456c1e5403ed8cfa75165334aa71238a576ae2",
+        "dense_budget.py": "267d70d6818ed6860ca112e9a2e7a24232673d7442a892d543ea5087083b782a",
+        "control_cells.py": "366c81afb54b57a4888b38078c1583d00e2783d627d8a6be2fdb5a440faadd1a",
+        "control_place.py": "1ebda6a303312d39333a0f68283e762eee7fdef7500cd10cd9e364cc9ba0ad50",
+        "control_passives.py": "415f9c9f6e13d54486baa6bad552e2f6ab20870bc66b2274667e4b6a01dc2f6e",
+        "macro_control.py": "035ce9bfb710d9932c1596eb2fd9cad9121abf5dfda142cbe778640943e49fdd",
+        "control_register.py": "18c274195c7f5971cd6a885e8519b2995a9e2a2fa0d749066ef79299b400100a",
+        "conductor_ownership.py": "8f23ac0d43220f396967b1d6f68cbe7184c67ad5f29b0e5ba040325bf54b71f7",
+        "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99",
+        "dense_rows.py": "77799b54170703eb410e82b4cbd3db85973a9d9beafa2ceeda021acede550644",
+        "dense_slots.py": "a91a8cd33860deecddec822157ca1fb25d7a04e7111eb648394a8ac6ee77d9e8",
+        "driver_audit.py": "9b9eb28d121f77300160cd828430bc9278228a7fc69ce6e9191025151b19c5ef",
+        "preview.py": "82e9bcacf1a0df3a20f131b64322edaadadbe60513ce19ff8d68d22325173c6b",
+        "center_control.py": "c383445e4aa3a1f60a2c7657c371ecf0aa3ade04dfb09b6a07753436c0147887",
+        "time_control.py": "215bbf54d04f2c0a0eeb85656e0970523e73ed36c9553d12c0045b8decd4723a",
+        "compact_core.py": "05c652d348424abe2a418e0aaeed6f63bf59131516d146935d690b8a2464b009",
+        "compact_array.py": "12758cb3f2384ae86bd1198280fcc468fe0b647ece0651ad66c369552160c14f",
+        "compact_slots.py": "52f0bdfb1db45c7b836a1df8da27c0fd5c079f9d3a2dded1366385b5f58d8488",
+        "compact_decoder.py": "5d5b1bbccd9759434d1d79a1d08247667614584852b5049e7fb556c4aa7d2f50",
+        "compact_bank.py": "8e4cde0964c591240df3538a64eb8b1310af04533b942896ac1f231590878bb1",
+        "compact_center.py": "546aed981196e9ad9d45e53f41f94061ce31b762185167c090f73eedb4dd7075"
+      },
+      "source_artifacts": {
+        "outputs/layout/compact/plsram_reference/macro256_05_parts/bank": "1f943e0ab3098cd51d8e20ea87d869bb3655fe37af250d39655c8c771de836e7"
+      },
+      "verification": {
+        "receipt": "outputs/layout/compact/plsram_reference/macro256_05_verify/receipt.json",
+        "receipt_sha256": "e1eda44b4f09df3ba55d40821fa99d91671addd504b8ca303cb711430177365d",
+        "status": "drc_lvs_passed",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": "not run",
+        "dspf_sha256": null,
+        "nets": null,
+        "capacitance": null,
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "calibre_executable": "/proj/eda_tools/Siemens/calibre/2025.1_16.10/aok_cal_2025.1_16.10/bin/calibre",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b"
+      },
+      "previews": {
+        "layout": {
+          "path": "outputs/layout/compact/plsram_reference/macro256_05/layout.png",
+          "sha256": "64c9059af68214170dd135cdc8cc48128ea82007e92f7c5ec9c3eff23fdcb31b"
+        },
+        "placement": {
+          "path": "outputs/layout/compact/plsram_reference/macro256_05/placement.png",
+          "sha256": "b46bfd755d2f881c35660d5a84e1fcd1ab8221d7a53d8138a8bbd9a004e14c03"
+        }
+      }
+    },
+    {
+      "rows": 512,
+      "cols": 512,
+      "floorplan": "column_split",
+      "directory": "outputs/layout/compact/plsram_reference/macro512_05",
+      "primary": "OPENYIELD_COMPACT_512X512",
+      "bbox_um": [
+        -0.1,
+        -8.4025,
+        693.4775,
+        219.9775
+      ],
+      "macro_area_um2": 158399.22944999998,
+      "baseline_area_um2": 158959.29328125,
+      "area_change_percent": -0.35233160621762627,
+      "source_mos": 1619792,
+      "physical_gate_count": 1713619,
+      "source_deck_sha256": "e0ec352d2e05b0534fa1e1a24292f476993aafe9d25a836e81bc1c664cdf750e",
+      "source_sha256": "1d523d5bd0273a78b635d0da89a62ce4a34ca23d902a00360b3cb79b8a693c22",
+      "layout_sha256": "d4e94401ca8a79ac8ed1f22ef0ee702b51286874c515b936afc8428a277c63dd",
+      "manifest_sha256": "332d52ad20bc9a04a469979472eca99da3a4ada25679716fbd44b2e107f7f58c",
+      "generator_sources_sha256": {
+        "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "448a70afb759fced55be8bea5596fe3e04fbb106247b03f52532c874789377f9",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "export.py": "9da8ccfc6d1c681d645e907979e40cca5dc9855250a218991dcde6f3f1719ceb",
+        "__init__.py": "e1af0086e9bd7e585baf963ce0642d7f5b7a0f11b485a031b94c7e85ab131ea7",
+        "full_source.py": "885df5b53e89540783ef22b42c19e978b9aa74afa74ca5a88643d25651f75c26",
+        "router.py": "cb49b94cd4f90d90e64437a6dba7cb97ed6ecac1f37464dee619f6ea49dffc33",
+        "verify_full.py": "02d0eb07795c54c188fe1bf8c5b9dfd0a9de8165c6f811e6225d6b2839710c4c",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "66df3399129d56f6795f1610a0b0a63b1a5d001a068986928187ff28d5194ea6",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "0456d43f491531dcfc77e3b286da1140cb2fa505f14c893a7f00008ed71d17ed",
+        "components.py": "acc7843355b8f34ce56da8594fa16b711ed7a16e2a35faf02b9bdd229403ad6e",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "67c5c874a72da5d2e776a7bd1271e72dea46317dad7d8146c48fe8aef3cc9a11",
+        "bank_core.py": "0c922939e9131a2880d8b116d208ba6a80d80e90cedb3b5352601551f8951a6a",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+        "dense_logic.py": "68feb042b1e5c1165fbc6deb803fd45cd1265224e5e1edd5152b20989812a098",
+        "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+        "dense_views.py": "443f05ec62084c92e5a8f98a880dfeae18a86a0eda3abead5bd52bfbf3a4ea3a",
+        "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+        "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+        "dense_decoder.py": "b8df246d4e12ad0ba2abaae2313c34decb9b8acec1aebfebe2d2548f49bbfdb8",
+        "dense_core.py": "8c59c797c90558ae3b02a0bf8b92d77c49ce69d5b5db60ef6e0bc1b1b3cee677",
+        "dense_aux.py": "a18bb122e11b3ca1c0ebf3e5dfe2430e9979efe0f0343c4418d5be4039165abb",
+        "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+        "dense_bank.py": "1acd9477c0737cb0d6cb5d3af5456c1e5403ed8cfa75165334aa71238a576ae2",
+        "dense_budget.py": "267d70d6818ed6860ca112e9a2e7a24232673d7442a892d543ea5087083b782a",
+        "control_cells.py": "366c81afb54b57a4888b38078c1583d00e2783d627d8a6be2fdb5a440faadd1a",
+        "control_place.py": "1ebda6a303312d39333a0f68283e762eee7fdef7500cd10cd9e364cc9ba0ad50",
+        "control_passives.py": "415f9c9f6e13d54486baa6bad552e2f6ab20870bc66b2274667e4b6a01dc2f6e",
+        "macro_control.py": "035ce9bfb710d9932c1596eb2fd9cad9121abf5dfda142cbe778640943e49fdd",
+        "control_register.py": "18c274195c7f5971cd6a885e8519b2995a9e2a2fa0d749066ef79299b400100a",
+        "conductor_ownership.py": "8f23ac0d43220f396967b1d6f68cbe7184c67ad5f29b0e5ba040325bf54b71f7",
+        "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99",
+        "dense_rows.py": "77799b54170703eb410e82b4cbd3db85973a9d9beafa2ceeda021acede550644",
+        "dense_slots.py": "a91a8cd33860deecddec822157ca1fb25d7a04e7111eb648394a8ac6ee77d9e8",
+        "driver_audit.py": "9b9eb28d121f77300160cd828430bc9278228a7fc69ce6e9191025151b19c5ef",
+        "preview.py": "82e9bcacf1a0df3a20f131b64322edaadadbe60513ce19ff8d68d22325173c6b",
+        "center_control.py": "c383445e4aa3a1f60a2c7657c371ecf0aa3ade04dfb09b6a07753436c0147887",
+        "time_control.py": "215bbf54d04f2c0a0eeb85656e0970523e73ed36c9553d12c0045b8decd4723a",
+        "compact_core.py": "05c652d348424abe2a418e0aaeed6f63bf59131516d146935d690b8a2464b009",
+        "compact_array.py": "12758cb3f2384ae86bd1198280fcc468fe0b647ece0651ad66c369552160c14f",
+        "compact_slots.py": "52f0bdfb1db45c7b836a1df8da27c0fd5c079f9d3a2dded1366385b5f58d8488",
+        "compact_decoder.py": "5d5b1bbccd9759434d1d79a1d08247667614584852b5049e7fb556c4aa7d2f50",
+        "compact_bank.py": "8e4cde0964c591240df3538a64eb8b1310af04533b942896ac1f231590878bb1",
+        "compact_center.py": "546aed981196e9ad9d45e53f41f94061ce31b762185167c090f73eedb4dd7075"
+      },
+      "source_artifacts": {
+        "outputs/layout/compact/plsram_reference/macro512_05_parts/bank": "6b57f908cdb5193e532758ef93f750ca47ff8443a27eef1cf00045ca15e45ae5"
+      },
+      "verification": {
+        "receipt": "outputs/layout/compact/plsram_reference/macro512_05_verify/receipt.json",
+        "receipt_sha256": "79666f6ae261cf18303c88b582b0171920da7d532c4ee33c5f1f9fc9ad72aace",
+        "status": "drc_lvs_passed",
+        "drc_violations": 0,
+        "lvs": "CORRECT",
+        "extraction": "not run",
+        "dspf_sha256": null,
+        "nets": null,
+        "capacitance": null,
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        },
+        "calibre_executable": "/proj/eda_tools/Siemens/calibre/2025.1_16.10/aok_cal_2025.1_16.10/bin/calibre",
+        "calibre_sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b"
+      },
+      "previews": {
+        "layout": {
+          "path": "outputs/layout/compact/plsram_reference/macro512_05/layout.png",
+          "sha256": "42a9fc58e235ecee777fc9f3cf9a61ac16c3f095ebc9b1f421bbc17d6232f53d"
+        },
+        "placement": {
+          "path": "outputs/layout/compact/plsram_reference/macro512_05/placement.png",
+          "sha256": "ff8c9128c995f806db595971db22f0ff5f784cca21fc931f2afb3df43d7ef67f"
+        }
+      }
+    }
+  ],
+  "additional_checks": [
+    {
+      "directory": "outputs/layout/compact/plsram_reference/bank32_02",
+      "receipt": "outputs/layout/compact/plsram_reference/bank32_02_verify/receipt.json",
+      "receipt_sha256": "0829eefa38de21d9962cb18ea4fc0eeff4e5e07cc044f7c3b2d401f3efa3e15d",
+      "status": "extracted",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "extraction": "distributed R+C+CC",
+      "layout_sha256": "38dd1e243e70e1aff4718f214ad46cf63eb3b7e67bd2edbfb50d1302b2aa5595",
+      "source_sha256": "4a3d4087637db7e46c562b0de28a3144c0736dcf3d30e67acc5e6bd28c63f1e7"
+    },
+    {
+      "directory": "outputs/layout/compact/plsram_reference/bank32_unsplit",
+      "receipt": "outputs/layout/compact/plsram_reference/bank32_unsplit_verify/receipt.json",
+      "receipt_sha256": "5d10442eba9dccbd3d8fce3be1e3b078538d90d18a74a7ecc9cb60ff6d913e5b",
+      "status": "drc_lvs_passed",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "extraction": "not run",
+      "layout_sha256": "00fa9c9f240d4474186cd2f1c560cb73661494bdbb055b2782f51f58c948a406",
+      "source_sha256": "4a3d4087637db7e46c562b0de28a3144c0736dcf3d30e67acc5e6bd28c63f1e7"
+    },
+    {
+      "directory": "outputs/layout/compact/plsram_reference/bank32_rows",
+      "receipt": "outputs/layout/compact/plsram_reference/bank32_rows_verify/receipt.json",
+      "receipt_sha256": "aec787036b69da3e322926b2ccee211f67dcffbcb0e4754b9c97689ee00e4681",
+      "status": "drc_lvs_passed",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "extraction": "not run",
+      "layout_sha256": "eefe5d24bc39427eeef481ce5b92f0682f35cb442ca22c755324edb74049c899",
+      "source_sha256": "4a3d4087637db7e46c562b0de28a3144c0736dcf3d30e67acc5e6bd28c63f1e7"
+    },
+    {
+      "directory": "outputs/layout/compact/plsram_reference/macro32_rows_02",
+      "receipt": "outputs/layout/compact/plsram_reference/macro32_rows_02_verify/receipt.json",
+      "receipt_sha256": "2d361ffe58a4ec3937db330fab164c22978e24f6855891c689b7c6b84913beea",
+      "status": "drc_lvs_passed",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "extraction": "not run",
+      "layout_sha256": "03fa876c962eb79f7ed55b1517ff5af8e21555ce3c5bf46247f7902240397a9d",
+      "source_sha256": "bd24553029f6421abf1d19f2fba652587cbaefd21ee99e7127e561da2089d2a2"
+    }
+  ],
+  "local_tests": {
+    "count": 93,
+    "failures": 0,
+    "skipped": 0,
+    "runs": [
+      {
+        "count": 79,
+        "log": "outputs/layout/compact/plsram_reference/source_regression.log",
+        "sha256": "2dd9c35f1f81dfd192004ccf8496f517a0b3c760e595771e71fe5c37f30760a7"
+      },
+      {
+        "count": 7,
+        "log": "outputs/layout/compact/plsram_reference/historical_regression.log",
+        "sha256": "f12ef8053c53474850bcc60de4e32d66aaceda12166b741906b357963167a407"
+      },
+      {
+        "count": 7,
+        "log": "outputs/layout/compact/plsram_reference/integration_regression.log",
+        "sha256": "91de5a7091c24ef6b31b427dddaa30bd84dba7e2f6c9f58ecccea87fb7f743e3"
+      }
+    ]
+  },
+  "waveform_validation": "not run",
+  "extracted_timing_validation": "not run",
+  "yield_validation": "not run",
+  "ir_em_validation": "not run",
+  "defaults_promotable": false
+}

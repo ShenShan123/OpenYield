@@ -14,23 +14,20 @@ Paths in commands are relative to the repository root unless stated otherwise.
 | [Development guide](DEVELOPMENT.md) | Local tools, regressions and qualification workflows |
 | [Changelog](CHANGELOG.md) | Release history and links to its records |
 
-The [compact cell record](design/layout/COMPACT_CELL_V2_2_8.md),
-[OpenRAM-pitch bank record](design/layout/OPENRAM_PITCH_V2_2_8.md) and
-[centre floorplan record](design/layout/LAYOUT_SCALING_V2_2_8.md) describe the current
-physical flows and their verification limits.
+The [compact column-split record](design/layout/COMPACT_CELL_V2_2_8.md)
+describes the default bank and its verification limits. Alternative physical
+bank plans have been retired; their JSON evidence remains in `data/`.
 The [organization record](design/compiler/ORGANIZATION_V2_2_7.md) documents the unified
 experiment entrance and integrated per-device variation. The compiler version
 is V2.2.8; no full V2.2.8 screen is complete.
 
 ## Open items
 
-The [single-bank scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md) covers
-512×512 generation, smaller-bank extracted-load driver candidates and removal
-of intentional TIME_CONTROL RC guards. Its evidence retains separate layout,
-coupon and native small-array waveform scopes. It also records the split-array
-centre floorplan, the default since the corner plan was retired on 2026-10-16:
-physical verification and areas only, with no waveform or operating-point
-qualification.
+The [compact layout record](design/layout/COMPACT_CELL_V2_2_8.md) covers
+512×512 diagnostic generation and optional TIME_CONTROL integration. Source
+sizing and timing remain frozen; compact waveform and operating-point
+qualification is pending. Latest 256×256 and 512×512 geometries also lack
+R+C+CC extraction.
 
 The carried Phase 6 scope. The working plans that defined it
 (`V2_1_1_TIMING_FOLLOWUP.md`, `V2_1_2_QUALIFICATION_SCOPE.md`,
@@ -118,7 +115,7 @@ The carried Phase 6 scope. The working plans that defined it
 
 | Release | Record |
 |---|---|
-| V2.2.8 | [compact cell](design/layout/COMPACT_CELL_V2_2_8.md), [OpenRAM-pitch banks](design/layout/OPENRAM_PITCH_V2_2_8.md), [TIME_CONTROL and scaling](design/layout/LAYOUT_SCALING_V2_2_8.md) |
+| V2.2.8 | [Default compact column-split bank](design/layout/COMPACT_CELL_V2_2_8.md) |
 | V2.2.7 | [compiler organization and experiment entrance](design/compiler/ORGANIZATION_V2_2_7.md) |
 | V2.2.6 | [configuration review and fixes](design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) |
 | V2.2.5 | [macro entrance and generation checks](design/compiler/COMPILER_ENTRY_V2_2_5.md) |
@@ -160,5 +157,4 @@ The supplied evidence CSVs are kept unchanged in `data/`:
 | [Sizing optimization](../size_optimization/README.md) | Circuit-backed algorithms and offline optimizers |
 | [Yield estimation](../yield_estimation/README.md) | Monte Carlo and importance-sampling algorithms |
 
-- [OpenRAM-pitch bank implementation and physical verification](design/layout/OPENRAM_PITCH_V2_2_8.md)
 - [Compact bitcell and pitch-matched periphery](design/layout/COMPACT_CELL_V2_2_8.md)

@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "compact column-split bank as the sole bank implementation and CLI default",
+  "source": {
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "column_mux": 2,
+    "sizing_and_timing": "unchanged frozen source decks and layout sizing candidate"
+  },
+  "checks": [
+    "Flag-free layout bank and either/both explicit positive flags select the same compact column-split builder",
+    "--with-controller completes that column split with TIME_CONTROL, data registers, XRWL and XD_LATCH",
+    "Retired data-path, legacy-pitch, controller-floorplan and controller-layout-dir options fail explicitly; controlled-bank is removed",
+    "Native 8x4 generation retains all rows, disjoint column-pair ownership, one replica column and bank routing through M6 only",
+    "Unmuxed decks and integrated controllers below 16 rows fail before layout export",
+    "32x32 bank and complete-macro GDS are XOR-identical on every layer to the pre-cleanup compact column-split implementation",
+    "Source SPICE, total MOS widths, models, lengths, physical fingers, terminals, ports and bounds remain unchanged",
+    "128x128 hierarchical decoder/bank remains XOR-identical to the latest verified bank parts",
+    "Fresh complete 32x32 macro passes Calibre DRC zero, strict LVS CORRECT and distributed R+C+CC extraction",
+    "Latest retained 32/64/128/256/512 physical receipts match GDS and source hashes with their original extraction scopes",
+    "Preserved docs/data and docs/qualification evidence remains byte-identical; current markdown links and imports resolve"
+  ],
+  "waveform_validation": "not run; no circuit sizing, timing or simulation RC profile changes",
+  "defaults_promotable": false,
+  "local_python_runners_tracked": false
+}

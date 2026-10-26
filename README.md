@@ -2,20 +2,16 @@
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
 
-The opt-in [small-cell flow](sram_compiler/layout/README.md#small-cells-and-component-placement)
-builds internally routed, pitch-constrained cells, then places and routes their
-instances. The [integrated bank flow](sram_compiler/layout/README.md#openram-pitch-bank)
-includes row logic, column periphery, the output latch, and a replica column
-inside the core. Its decoder is on the left, using OpenRAM’s 1.365 µm row
-and 0.705 µm column pitch. See the [pitch and area verification record](docs/design/layout/OPENRAM_PITCH_V2_2_8.md).
-The [OpenRAM reference run](docs/design/layout/OPENRAM_REFERENCE_V2_2_8.md) provides a
-separate generated 32×32 bank layout. The optional
-[TIME_CONTROL flow](docs/design/layout/LAYOUT_SCALING_V2_2_8.md#split-arrays-with-a-centre-periphery)
-splits the arrays around the periphery, with control logic between the decoder
-halves. The opt-in [compact cell](docs/design/layout/COMPACT_CELL_V2_2_8.md)
-uses a 1125 × 395 nm point-symmetric 6T cell and pitch-matched periphery with a
-2:1 column mux. Its [annotated bitcell PNG](docs/design/layout/COMPACT_CELL_V2_2_8.png)
-identifies all six MOS instances. Physical checks do not qualify autonomous bank operation.
+The [layout flow](sram_compiler/layout/README.md) defaults to a
+1125 × 395 nm point-symmetric 6T cell, two column halves around one shared
+decoder, and pitch-aligned periphery with a 2:1 column mux. Use
+`layout bank --with-controller` for TIME_CONTROL, data registers, the RWL
+driver and output latch. The explicit `--compact-cell --split-columns` flags
+remain accepted. The [compact design record](docs/design/layout/COMPACT_CELL_V2_2_8.md)
+contains current geometry, physical evidence and limits; its
+[annotated bitcell](docs/design/layout/COMPACT_CELL_V2_2_8.png) identifies all
+six MOS instances. Component and standalone controller tools remain available.
+Physical checks do not qualify autonomous bank operation.
 
 **Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The V2.2.5 campaign stopped incomplete; the [V2.2.5 simulation summary](docs/validation/V2_2_5_SIMULATION_SUMMARY.md) records it with the corrected-model diagnostics, which retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/timing/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
 
@@ -100,12 +96,10 @@ install Xyce or native libraries; use `environment.yml` for the conda setup.
 
 ## Quick start
 
-Single-bank 512×512 layout diagnostics, extracted-load driver candidates and
-TIME_CONTROL without intentional RC guards are described in the
-[layout scaling record](docs/design/layout/LAYOUT_SCALING_V2_2_8.md). Automatic timing
+The [compact layout record](docs/design/layout/COMPACT_CELL_V2_2_8.md)
+covers the default column-split bank and optional controller. Automatic timing
 retains the 512×256 envelope; 512×512 requires an explicit diagnostic period
-and has no qualified operating point. The same record covers the split-array
-centre floorplan that `layout bank --with-controller` uses by default.
+and has no qualified operating point. Sizing and simulation RC stay frozen.
 
 Run commands from the repository root after completing the environment setup:
 

@@ -114,13 +114,14 @@ def _corner_inventory(library,component,width,exclude):
 
 
 def centre_lanes_used(component: Component,width: float,exclude: tuple[str,...],
-                      band_span: tuple[float,float],lanes: list[tuple]) -> tuple[int,int]:
+                      band_span: tuple[float,float],lanes: list[tuple],compact_registers: bool=False) -> tuple[int,int]:
     """Lane rows a centre frame fills and the unsliced decoder drivers it
     leaves outside the band, from a placement in a scratch layout."""
-    layout=new_layout();library=StandardLibrary(layout)
+    layout=new_layout();library=StandardLibrary(layout,compact_registers=compact_registers)
     inventory=_corner_inventory(library,component,width,exclude)
     inventory.sort(key=lambda item:item[1].standard_family!='DFF')
-    prepared,_,_=_place_centre(layout,inventory,{p:c for p,c,_ in units(component)},width,band_span,lanes,300.)
+    prepared,_,_=_place_centre(layout,inventory,{p:c for p,c,_ in units(component)},width,band_span,lanes,300.,
+                              local_logic=compact_registers)
     ys=[lane[0] for lane in lanes]
     used=max((ys.index(y)+1 for _,_,_,_,y,row,_ in prepared if row<0),default=0)
     lane=[p for p,_,_,_,_,row,_ in prepared if row<0]
@@ -224,7 +225,7 @@ def _antenna(path: str,m: dict) -> bool:
     return any(m[p] in ANTENNA_INPUTS for p in m if p not in ('VDD','VSS','Z')) or path=='Xpre_unbuf'
 
 
-def _place_centre(layout,inventory,sources,width,band_span,lanes,x0):
+def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic: bool=False):
     """Fill the full-width band, then decoder lanes, keeping source order.
 
     Band rows use the controller's 1500/1800 nm rows; DFFs, transmission
@@ -254,7 +255,6 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0):
     decoder=({p.split('/')[0] for p in order if entries[p][0][1].get('Z','').startswith('A_dff')
               or entries[p][0][1].get('Z')=='wl_en'})
     first=[p for p in order if p.split('/')[0] in decoder and entries[p][0][0].standard_family not in ('DFF','TG')]
-    rest=[p for p in order if p not in fixed and p not in first]
     def fill(order):
         prepared=[];rows=[];state=dict(cursor=x0,y=y0,height=0.,vdd=0.,row=0)
         done=0;budget=BAND_FILL*width*(y1-y0);used=0.
@@ -270,7 +270,8 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0):
                 family_break=prepared and (prepared[-1][1].standard_family=='DFF')!=dff
                 if (state['cursor']+v.width_nm+tap>width-300 and state['cursor']>x0) or family_break:
                     rows.append((state['y'],state['height'],state['vdd']))
-                    gap=(100 if dff else 125) if state['height']==1800 else 125 if dff else 0
+                    gap=((100 if dff else 25) if state['height']==1900 else
+                         (100 if dff else 125) if state['height']==1800 else 125 if dff else 0)
                     state.update(y=state['y']+state['height']+gap,cursor=x0,height=0.,vdd=0.,row=state['row']+1)
                 if state['y']+v.height_nm>y1-1000 or state['cursor']+v.width_nm+tap>width-300:
                     fits=False;break
@@ -286,12 +287,26 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0):
         if state['height']:rows.append((state['y'],state['height'],state['vdd']))
         if any(p in fixed for p in order[done:]):raise ValueError('Band cells left out of the full band')
         return prepared,rows,done
-    try:
-        order=first+[p for p in fixed if p not in first]+rest;prepared,rows,done=fill(order)
-    except ValueError:
-        # Large decoder drivers (512 rows) leave the fixed cells no room:
-        # those go first and the drivers follow while space remains.
-        order=fixed+[p for p in first if p not in fixed]+rest;prepared,rows,done=fill(order)
+    def fill_band():
+        rest=[p for p in entries if p not in fixed and p not in first]
+        try:
+            order=first+[p for p in fixed if p not in first]+rest;prepared,rows,done=fill(order)
+        except ValueError:
+            # Large decoder drivers leave the fixed cells no room: place
+            # those first and the drivers while space remains.
+            order=fixed+[p for p in first if p not in fixed]+rest;prepared,rows,done=fill(order)
+        return order,prepared,rows,done
+    order,prepared,rows,done=fill_band()
+    if local_logic and done<len(order):
+        # NORs must stay in the band. Keep their small combinational partners
+        # there too, rather than stretching a local ready/enable net through
+        # the entire decoder. Only the remaining buffer/delay cells spill.
+        fixed=set(fixed)|{p for p in order if entries[p][0][0].standard_family!='INV' or '/' not in p}
+        parents={p.rsplit('/',1)[0] for p in fixed if '/' in p}
+        parents.update(p.rsplit('/',1)[0] for p in order
+                       if entries[p][0][1].get('Z') in {'clk_buf','PRE','w_en','s_en','sa_iso'} and '/' in p)
+        fixed=[p for p in order if p in fixed or ('/' in p and p.rsplit('/',1)[0] in parents)]
+        order,prepared,rows,done=fill_band()
     # Lane inputs not driven by a lane gate close in source order (block
     # outputs such as DFF Q, bank nets, far lane gates) usually arrive over
     # M7/M8: each gets a diffusion antenna tap.
@@ -473,13 +488,15 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                  band_span: Optional[tuple[float,float]]=None,lanes: Optional[list[tuple]]=None,
                  profile: Optional[list[tuple[float,float,float]]]=None,
                  obstacles: Optional[list[tuple[str,float,float,float,float,Optional[str]]]]=None,
-                 escapes: tuple[str,...]=()) -> CellView:
+                 escapes: tuple[str,...]=(),compact_registers: bool=False) -> CellView:
     """Place and route TIME_CONTROL from its frozen source units.
 
     exclude lists unit-path prefixes that another physical block places, such
     as the data-register array. pin_plan maps each macro-facing net to an
     explicit (x, y, layer) access on the frame edge, replacing the default
     left-side M8 interface grid; M8 entries also reserve M9 above them.
+    compact_registers keeps private DFF clocks on M4 and exposes M4/M5 pins
+    so bank M6 crossings do not force the registers below the peripheral band.
 
     corner=True fits a fixed-width bank corner: cells start at the left edge,
     oversized gates split into parallel finger slices, and pin_plan may be a
@@ -491,8 +508,9 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     Lane gates use the decoder's 1365 nm rows and its M1 supply rails; DFFs,
     transmission gates and antenna-tapped receivers stay in the band. profile
     lists the left-aligned (y0, y1, width) routing region, and obstacles the
-    fixed bank conductors inside it as (layer, x0, y0, x1, y1, None); they
-    block every net. pin_plan values may then be lists of accesses to one net.
+    fixed bank conductors inside it as (layer, x0, y0, x1, y1, owner). An
+    owner permits access by that net; None blocks every net. pin_plan values
+    may then be lists of accesses to one net.
 
     escapes lists macro input nets whose first access (a register D landing or
     a gate access) is lifted to M10 before routing. The router only sees the
@@ -501,7 +519,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     """
     if lanes is not None and (not corner or band_span is None or profile is None):
         raise ValueError('Decoder lanes require a corner-style band frame and a routing profile')
-    library=StandardLibrary(layout)
+    library=StandardLibrary(layout,compact_registers=compact_registers)
     b=Builder(layout,('TIME_CONTROL_CORNER_' if corner else 'TIME_CONTROL_LOGIC_' if exclude else 'TIME_CONTROL_STD_')+component.identity[:12])
     if corner:
         inventory=_corner_inventory(library,component,width,exclude)
@@ -538,7 +556,8 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     prepared=[];cursor=x0;y=band;row_height=0.;row_vdd=0.;row=0;rows=[];lane_taps={}
     if lanes is not None:
         sources={p:c for p,c,_ in units(component)}
-        prepared,rows,lane_taps=_place_centre(layout,inventory,sources,width,band_span,lanes,x0)
+        prepared,rows,lane_taps=_place_centre(layout,inventory,sources,width,band_span,lanes,x0,
+                                            local_logic=compact_registers)
         inventory=[]
         y=rows[-1][0];row_height=rows[-1][1]
     for index,(path,v,m) in enumerate(inventory):
@@ -552,7 +571,8 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             rows.append((y,row_height,row_vdd))
             # Preserve clearance between the register's M5/M6 clock rails
             # as well as the wells at the next row's mixed logic boundary.
-            gap=(100 if v.standard_family=='DFF' else 125) if row_height==1800 else 0
+            gap=((100 if v.standard_family=='DFF' else 25) if row_height==1900 else
+                 (100 if v.standard_family=='DFF' else 125) if row_height==1800 else 0)
             y+=row_height+gap;cursor=x0;row_height=0;row_vdd=0;row+=1
         x=cursor
         if x+v.width_nm+tap_space>width-300:raise ValueError(f'{path} ({v.width_nm} nm) does not fit the {width} nm controller row')
@@ -678,7 +698,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                     wire('m3',px,yy,px,sy);lift(px,sy,2,3)
                     ownership.append((net,(px,yy,'m3')))
                 continue
-            if v.standard_family=='DFF':
+            if v.standard_family=='DFF' and l=='m7':
                 tx=(ceil(px/GRID) if p=='CLK' else round(px/GRID))*GRID;ty=round(yy/GRID)*GRID
                 wire('m7',px,yy,tx,yy,400);wire('m7',tx,yy,tx,ty,400)
                 lift(tx,ty,7,8);point=(tx,ty,'m8');ownership.append((net,(px,yy,'m7')))
@@ -720,6 +740,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             else:
                 tx=round(px/GRID)*GRID;ty=round(yy/GRID)*GRID
                 wire(l,px,yy,tx,yy,145);wire(l,tx,yy,tx,ty,145);point=(tx,ty,l)
+                if v.standard_family=='DFF' and p=='D':escape(net,tx,ty,int(l[1:]))
             routed[net].append(point);access.append((net,point));ownership.append((net,point))
             gate,diode=port_loads.get(p,(0.,False));loads[net,point][0]+=gate;loads[net,point][1]|=diode or tap
             if row<0:lane_points[path,x,v.width_nm].append((y,p,net,point,l))
@@ -773,6 +794,22 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         # The native M3/M2 rails already join every row. Access their lower
         # trunk beside the bank supply, avoiding a redundant tall metal route.
         vdd_x,vdd_y=width-100.,pin_plan['VDD'][1];vdd_source_y=pins['VDD'][1]
+        if compact_registers:
+            # The combined write-input row changes the bank rail height.
+            # Keep the native M4 supply access clear of fixed signal M4/M5
+            # before asking the router to join it to the planned M6 pin.
+            fixed={layer:pya.Region(b.cell.begin_shapes_rec(b.li(layer))).merged() for layer in ('m4','m5')}
+            def supply_clear(ty: float) -> bool:
+                probe=pya.Region(pya.Box(u(vdd_x-212.5),u(ty-212.5),u(vdd_x+212.5),u(ty+212.5)))
+                if any(limit>1 and x0<=vdd_x<=x1 and y0<=ty<=y1
+                       for x0,y0,x1,y1,limit in blocked_boxes):return False
+                if any(layer in ('m4','m5') and owner!='VDD'
+                       and x0-212.5<vdd_x<x1+212.5 and y0-212.5<ty<y1+212.5
+                       for layer,x0,y0,x1,y1,owner in obstacles or ()):return False
+                return all((metal & probe).is_empty() for metal in fixed.values())
+            candidates=(vdd_y+GRID*k*side for k in range(int(height//GRID)) for side in (1,-1))
+            vdd_y=next((ty for ty in candidates if base+300<=ty<=band_span[1]-300 and supply_clear(ty)),None)
+            if vdd_y is None:raise ValueError('No clear native VDD access beside the controller rows')
     for net,tx,ty in [('VSS',100.,base+200.),('VDD',vdd_x,vdd_y)]:
         if net=='VDD':
             wire('m3',tx,vdd_source_y,tx,ty);lift(tx,ty,3,4)
@@ -837,8 +874,10 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             if not (pya.Region(area(x0,y0,x1,y1,half+space))&(local[k]-own)).is_empty():return True
             return any(l==f'm{k}' and ox0<x1+half+space and ox1>x0-half-space and oy0<y1+half+space and oy1>y0-half-space
                        for l,ox0,oy0,ox1,oy1,_ in blocks)
-        def clear(ex,ey,lowest):return 0<ex<width and 0<ey<height and not any(
-            crowded(k,ex,ey,ex,ey,ESCAPE_LANDING[k]/2,pya.Region()) for k in range(lowest,10))
+        def clear(ex,ey,lowest):
+            return (0<ex<width and 0<ey<height
+                    and (profile is None or any(a<=ey<=z and ex<w for a,z,w in profile))
+                    and not any(crowded(k,ex,ey,ex,ey,ESCAPE_LANDING[k]/2,pya.Region()) for k in range(lowest,10)))
         mine=local[base].interacting(pya.Region(area(x,y,x,y,2.5)))
         steps=sorted(range(-ESCAPE_REACH,ESCAPE_REACH+1,int(GRID)),key=abs)
         stub=next(((ex,ey) for ex,ey in dict.fromkeys(p for d in steps for p in ((x+d,y),(x,y+d)))
@@ -858,22 +897,48 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         have[base].insert(area(x,y,ex,ey,ESCAPE_LANDING[base]/2) if stub else area(ex,ey,ex,ey,ESCAPE_LANDING[base]/2))
         for k in range(base+1,10):have[k].insert(area(ex,ey,ex,ey,ESCAPE_LANDING[k]/2))
         ownership.extend((net,(ex,ey,f'm{k}')) for k in range(base,10))
+    owned_bank=[o for o in obstacles or () if o[0]=='m6' and o[5] is not None]
+    if owned_bank:
+        # Fixed DFF clock rails exist before routing. A bank supply crossing
+        # through one cannot be repaired by the router; reject it immediately.
+        from .conductor_ownership import port_conductors
+        # High-metal accesses identify DFF rails and escape stacks; the two
+        # native supply accesses identify any fixed power metal. Avoid probing
+        # every low-metal gate input in a large controller.
+        probes=[(net,point) for net,point in ownership
+                if int(point[2][1:])>=6 or (net in ('VDD','VSS') and point[2]=='m4')]
+        fixed_points={str(i):point for i,(_,point) in enumerate(probes)}
+        fixed_aliases={str(i):net.upper() for i,(net,_) in enumerate(probes)}
+        fixed=port_conductors(b,fixed_points,fixed_aliases,minimum_metal=6)
+        known=pya.Region()
+        for net,layer,polygon in fixed:
+            if layer!=21:continue
+            native=pya.Region(polygon);known+=native
+            for _,x0,y0,x1,y1,owner in owned_bank:
+                if net!=owner.upper() and not (native&pya.Region(pya.Box(u(x0),u(y0),u(x1),u(y1)))).is_empty():
+                    raise ValueError(f'Fixed controller {net} M6 overlaps bank {owner}; separate the cell placement')
+        private=pya.Region(b.cell.begin_shapes_rec(b.li('m6')))-known
+        for _,x0,y0,x1,y1,owner in owned_bank:
+            if not (private&pya.Region(pya.Box(u(x0),u(y0),u(x1),u(y1)))).is_empty():
+                raise ValueError(f'Private controller M6 overlaps bank {owner}; separate the cell placement')
     router=ControlRouter(b,width,height,upper_metal=9,profile=profile)
     for layer_index,layer in enumerate(router.layers):
         reg=pya.Region(b.cell.begin_shapes_rec(b.li(layer))).merged()
         sites=[(n,pya.Point(u(pt[0]),u(pt[1]))) for n,pt in ownership if pt[2]==layer]
-        # Bank conductors inside the routing region block every net; planned
-        # accesses on them are reopened below. The clearance is square: a wire
+        # Fixed bank metal blocks every foreign net; known owners can join
+        # their own conductors. The clearance is square: a wire
         # ending beside an obstacle corner extends half its width past the
         # last grid point.
         clearance=1202.5 if layer_index>=5 else 602.5 if layer_index>=3 else 212.5
         for o_layer,ox0,oy0,ox1,oy1,owner in obstacles or ():
             if o_layer!=layer:continue
-            if owner is not None:raise ValueError('Bank obstacles carry no owner')
             for xi in range(ceil((ox0-clearance)/GRID),floor((ox1+clearance)/GRID)+1):
                 for yi in range(ceil((oy0-clearance)/GRID),floor((oy1+clearance)/GRID)+1):
                     dx=max(0.,ox0-xi*GRID,xi*GRID-ox1);dy=max(0.,oy0-yi*GRID,yi*GRID-oy1)
-                    if dx<clearance and dy<clearance:router.blocked.add((xi,yi,layer_index))
+                    if dx<clearance and dy<clearance:
+                        pt=(xi,yi,layer_index)
+                        if owner is None:router.blocked.add(pt)
+                        else:router.clearance.setdefault(pt,set()).add(owner)
         for pg in reg.each():
             bb=pg.bbox();scale=layout.dbu*1000
             owners={net for net,point in sites if pg.inside(point)}

@@ -16,9 +16,6 @@ every WL leaves its driver on its own M4 line at its row's y.
 Trunks are M5 in each level's left region, where no wordline runs, and each
 level reserves only the slots it uses. A predecode slice spreads its chains
 over up to four bands of its span.
-
-A split bank builds two halves; a half's slices sit at the end of their span
-farthest from the centre periphery, and shared nets end at the band edge.
 """
 from collections import defaultdict
 from math import ceil
@@ -27,7 +24,8 @@ import re
 from .components import Component, Instance, CellView
 from .cell_flow import leaves
 from .dense_logic import make_logic, VSS_Y, VDD_Y, WELL_SPLIT
-from .lib import Builder
+from .full_source import FullSource
+from .lib import Builder, pya
 from .compact_core import H as ROW
 
 BAND = 8 * ROW
@@ -50,21 +48,17 @@ def spread(used):
     return cols, ceil(4 / cols)
 
 
-def make_decoder(layout, source, specs, span=None):
-    """span=(r0, r1): one half of a split bank, local y=(row-r0)*395."""
+def make_decoder(layout: pya.Layout, source: FullSource, specs: dict[str, Component]) -> CellView:
+    """One source-owned decoder shared by both full-row column halves."""
     rows = source.rows
     if rows < 8 or rows % 8 or rows > 512:
         raise ValueError('Compact decoder supports 8 to 512 rows in multiples of 8')
-    r0, r1 = span or (0, rows)
-    if span is not None and (r0 % 8 or r1 % 8 or not (r0 == 0) != (r1 == rows) or not 0 <= r0 < r1 <= rows):
-        raise ValueError('A decoder half spans whole 8-row slices from one array edge')
     if LINE0 + LINE * (len(LINES) - 1) + 105. > BAND - CELL_M2[1]:
         raise ValueError('Bus lines do not fit between the gate rows')
-    edge_side = None if span is None else 'top' if r0 == 0 else 'bottom'
     every = {p: (c, source.instances[p]['pins']) for n, c in specs.items() for p, c, _ in leaves(c, path=n)}
-    b = Builder(layout, f'COMPACT_DECODER_{rows}' if span is None else f'COMPACT_DECODER_{rows}_R{r0}_{r1}')
+    b = Builder(layout, f'COMPACT_DECODER_{rows}')
     cache, placed, terminals, fingers = {}, {}, {}, []
-    nbands = (r1 - r0) // 8
+    nbands = rows // 8
     top = nbands * BAND
 
     def wire(layer, x, y, xx, yy, w=None):
@@ -105,7 +99,7 @@ def make_decoder(layout, source, specs, span=None):
     def view_of(path):
         c, m = every[path]
         if c.identity not in cache:
-            v = make_logic(layout, c, False)
+            v = make_logic(layout, c, False, compact=True)
             m2 = v.builder.cell.dbbox_per_layer(v.builder.li('m2'))
             if m2.bottom * 1000 < CELL_M2[0] - 1e-6 or m2.top * 1000 > CELL_M2[1] + 1e-6:
                 raise ValueError(f'{path}: gate M2 leaves the {CELL_M2} nm margin of the bus lines')
@@ -157,47 +151,27 @@ def make_decoder(layout, source, specs, span=None):
     levels = 1 + max(tier(r)[0] for r in every_root)
     span_rows = lambda level: 8 * 8 ** (levels - 1 - level)
 
-    def placement_in(root, a, z, side):
-        """(first band, free bands) of a slice in rows [a, z), or None."""
+    def placement(root):
         level, index = tier(root)
         start = span_rows(level) * index
         end = min(start + span_rows(level), rows)
-        if a <= start and end <= z:
-            lo, hi = start, end
-        elif a == 0 and start < z < end:
-            lo, hi = start, z           # spans both halves: stays in the lower one
-        else:
-            return None
-        used = min(8, (hi - lo) // 8)
-        first = (hi - a) // 8 - used if side == 'bottom' else (lo - a) // 8
-        return first, used
-
-    def placement(root):
-        return placement_in(root, r0, r1, edge_side)
+        return start // 8, min(8, (end - start) // 8)
 
     def en_of(root):
         return every[root + '/XAND_EN0/XPNAND3'][1]['B']
 
-    # Both halves of a split bank share every level's region and chain grid,
-    # so a net's trunk sits at one x in both (straight bridges, aligned risers).
-    if span is None:
-        halves = [(0, rows, None)]
-    else:
-        cut = r1 if r0 == 0 else r0
-        halves = [(0, cut, 'top'), (cut, rows, 'bottom')]
     cols, multi, enables, ties = {}, defaultdict(bool), defaultdict(set), defaultdict(bool)
-    for a, z, side in halves:
-        for r in every_root:
-            p = placement_in(r, a, z, side)
-            if p:
-                level, index = tier(r)
-                c, nb = spread(p[1])
-                cols[level] = max(cols.get(level, 1), c)
-                multi[level] |= nb > 1
-                if en_of(r) in ('VDD', 'VSS'):
-                    ties[level] = True
-                else:
-                    enables[level].add(index % 8)
+    for r in every_root:
+        p = placement(r)
+        if p:
+            level, index = tier(r)
+            c, nb = spread(p[1])
+            cols[level] = max(cols.get(level, 1), c)
+            multi[level] |= nb > 1
+            if en_of(r) in ('VDD', 'VSS'):
+                ties[level] = True
+            else:
+                enables[level].add(index % 8)
 
     roots = [r for r in every_root if placement(r) is not None]
 
@@ -205,7 +179,7 @@ def make_decoder(layout, source, specs, span=None):
         match = re.match(r'(.*/XDEC_\d+_\d+)/', p)
         if match:
             return match.group(1) in roots
-        return r0 <= int(re.match(r'XWL_DRV_(\d+)/', p).group(1)) < r1
+        return 0 <= int(re.match(r'XWL_DRV_(\d+)/', p).group(1)) < rows
     items = {p: v for p, v in every.items() if owner(p)}
     final_level = levels - 1
     for r in roots:
@@ -263,8 +237,6 @@ def make_decoder(layout, source, specs, span=None):
         level, index = tier(root)
         first, used = placement(root)
         ncols, nb = spread(used)
-        if edge_side == 'bottom':
-            first += used - nb
         g = region[level]
         inv = [items[root + f'/XINV_A{i}'][1] for i in (1, 2, 3)]
         en = items[root + '/XAND_EN0/XPNAND3'][1]['B']
@@ -343,7 +315,7 @@ def make_decoder(layout, source, specs, span=None):
                 rise(chain[4], 'B', wlen_y(band, mirror))
                 row = index * 8 + k
                 zx, zy, _ = point(chain[-1], 'Z')
-                y = (row - r0) * ROW + ROW / 2
+                y = row * ROW + ROW / 2
                 wire('m3', zx, zy, zx, y)
                 via(3, zx, y)
                 wire('m4', zx, y, width, y)
@@ -363,28 +335,20 @@ def make_decoder(layout, source, specs, span=None):
                 via(3, zx, y)
                 producer[items[chain[-1]][1]['Z']] = (zx, y)
     # Predecode outputs: M4 jog to the consumer level's enable slot, M5 trunk.
-    # An output whose child slice sits in the other half ends at the band edge.
     consumers = defaultdict(list)
     for (level, sx), uses in trunks.items():
         for n, y in uses:
             consumers[n].append((level, sx, y))
-    shared_edge = None if edge_side is None else (top - 100 if edge_side == 'top' else 100.)
     remote = set()
     for n, (zx, zy) in producer.items():
         uses = consumers.get(n, [])
-        if not uses and shared_edge is None:
+        if not uses:
             continue                      # disabled predecode branch
         targets = {sx for _, sx, _ in uses}
         if len(targets) > 1:
             raise ValueError(f'{n}: predecode consumers disagree on the trunk slot')
-        if uses:
-            sx = targets.pop()
-            ys = [zy] + [y for _, _, y in uses]
-        else:
-            level = min(l for l in region if l > 0)
-            sx = region[level]['slots'][f'E{int(n.rsplit("_", 1)[1])}']
-            ys = [zy, shared_edge]
-            pins[n] = (sx, shared_edge, 'm5')
+        sx = targets.pop()
+        ys = [zy] + [y for _, _, y in uses]
         wire('m4', zx, zy, sx, zy)
         via(4, sx, zy)
         wire('m5', sx, min(ys), sx, max(ys))
@@ -398,15 +362,13 @@ def make_decoder(layout, source, specs, span=None):
         for n, y in uses:
             by_net[n].append(y)
         for n, ys in by_net.items():
-            # Addresses and wl_en, plus enables produced in the other half.
+            # Address and wl_en accesses face the controller below.
             external = n in boundary or n == 'wl_en' or (n in consumed and n not in producer)
-            if external and shared_edge is not None:
-                ys = ys + [shared_edge]
-            elif external:
+            if external:
                 ys = ys + [100.]
             wire('m5', sx, min(ys), sx, max(ys))
             if external:
-                pins[n] = (sx, shared_edge if shared_edge is not None else 100., 'm5')
+                pins[n] = (sx, 100., 'm5')
             if n == 'wl_en':
                 wlen_tracks[sx] = (min(ys), max(ys))
     # Supplies: M1 rails along both gate rows of every band, joined by M2 rails.
@@ -416,7 +378,7 @@ def make_decoder(layout, source, specs, span=None):
         for y in ys:
             wire('m1', x, y, width, y)
             b.via(1, x, y); b.rect('m1', x - 70, y - 35, x + 70, y + 35); b.rect('m2', x - 35, y - 70, x + 35, y + 70)
-        pins[n] = (x, ys[-1] if edge_side == 'top' else ys[0], 'm2')
+        pins[n] = (x, ys[0], 'm2')
     for band in range(nbands):
         b.rect('nwell', 0, band * BAND + WELL_SPLIT, width, (band + 1) * BAND - WELL_SPLIT)
     if set(placed) != set(items):

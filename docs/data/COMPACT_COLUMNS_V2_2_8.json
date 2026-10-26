@@ -1,0 +1,513 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "compiler_version": "V2.2.8",
+  "scope": "opt-in column-split bank with external TIME_CONTROL, RWL driver and output latch",
+  "reference": {
+    "gds": "ts1n28hpcplvtb512x32m4s_120a.gds",
+    "sha256": "35331718c40ca3509fdd3bdefbd112251cfdcfc68c66acc9a8490227de630cc3",
+    "half_rows": 128,
+    "half_columns": 64,
+    "cells_per_half": 8192,
+    "bitcell_half_array_um": [
+      37.12,
+      34.56
+    ],
+    "half_array_aspect_ratio": 1.074074074074074
+  },
+  "layouts": [
+    {
+      "directory": "outputs/layout/compact/column_split_round/bank_32x32_03",
+      "receipt": "outputs/layout/compact/column_split_round/bank_32x32_03_verify/receipt.json",
+      "rows": 32,
+      "cols": 32,
+      "source_deck_sha256": "30267e61f2bdad2895e81c0c37a5954978685c6147b919c01ebac7ffe3cf3deb",
+      "layout_sha256": "d208566e5340ca88ce0f5975e16e3fe10bf0351f7f8896d996f5059aaba85c97",
+      "source_sha256": "4a3d4087637db7e46c562b0de28a3144c0736dcf3d30e67acc5e6bd28c63f1e7",
+      "manifest_sha256": "5b235d5516cedeff19bd8f7b7240dd026c3d32cae2f2ac54564d8a1f9853964f",
+      "receipt_sha256": "9b67fdd8d07a87bd8e331aa81de43757485413334d6059e988c9e4a8f3b3eb9d",
+      "macro_dimensions_um": [
+        65.18750000000001,
+        32.1425
+      ],
+      "macro_area_um2": 2095.2892187499997,
+      "previous_unsplit_bank_area_um2": 2043.70050625,
+      "bank_area_change_percent": 2.5242794794164913,
+      "split": {
+        "axis": "columns",
+        "column": 16,
+        "left_columns": [
+          0,
+          16
+        ],
+        "right_columns": [
+          16,
+          32
+        ],
+        "rows": [
+          0,
+          32
+        ],
+        "left_array_origin_nm": [
+          0.0,
+          18185.0
+        ],
+        "right_array_origin_nm": [
+          43865.0,
+          18185.0
+        ],
+        "periphery_origins_nm": [
+          0.0,
+          43865.0
+        ],
+        "bitcell_half_array_nm": [
+          18000.0,
+          12640.0
+        ],
+        "half_array_aspect_ratio": 1.4240506329113924,
+        "decoder": "one shared decoder and one source wordline driver per logical row",
+        "wordlines": "M3 within both arrays, M6 crossing the centre decoder",
+        "bitlines": "M2 in each array, local M5 drops to its own column-pair periphery"
+      },
+      "metal_area_um2": {
+        "m1": 302.0733625,
+        "m2": 335.9938625,
+        "m3": 284.537575,
+        "m4": 226.56619999999998,
+        "m5": 143.2078,
+        "m6": 128.77885
+      },
+      "physical_gate_count": 8890,
+      "source_mos": 8250,
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "extraction": "extracted",
+      "extraction_statistics": "distributed R+C+CC",
+      "dspf_sha256": "faf8963a01f5961f278d64a3afc74f2bbe5e8885e592b515be88300a70aaac4c",
+      "extracted_nets": 2996,
+      "capacitance": {
+        "shunt_f": 4.1184262975195687e-13,
+        "coupling_f": 1.2812359222066696e-12,
+        "annotated_total_f": 2.974313613099715e-12
+      },
+      "solver": {
+        "executable": "/proj/eda_tools/Siemens/calibre/2025.1_16.10/aok_cal_2025.1_16.10/bin/calibre",
+        "sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        }
+      },
+      "compiler_provenance": {
+        "compiler_version": "V2.2.8",
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature": 25,
+        "variation_mode": "nominal",
+        "real_cell_mode": 0,
+        "seed": 20260711,
+        "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+        "timing": {
+          "budget": "shared",
+          "driver_key": "a260c58df1d733c58f96b83d9aa7d6f502311f1553a5ad93ec7778575907d1c0",
+          "extrapolated": false,
+          "high": 0,
+          "low_read": 0,
+          "low_write": 0,
+          "margin": 0,
+          "options_key": "6c3c2baefa3d302e214d2a377329287ec055ef233c375a966e6cd14464fd4e9c",
+          "qualified": false,
+          "size_class": "",
+          "source": "fixed",
+          "t_period": 9e-09,
+          "table_sha256": "",
+          "table_version": ""
+        },
+        "driver_sizes": {
+          "area_precharge_width": 1.08e-06,
+          "area_senseamp_width": 5.4e-07,
+          "area_wordline_width": 1.08e-06,
+          "canonical_read": true,
+          "cell_type": "SRAM_6T_CELL",
+          "cols": 32,
+          "compact_control": true,
+          "control_architecture": "v2.2.8-compact-digital-guards-high-access",
+          "dc_stages": 9,
+          "dec_inv": 1.0,
+          "effort_buffers": true,
+          "enable_off_guard_stages": 4,
+          "enable_off_tau": 3.0624000000000008e-12,
+          "extrapolated": false,
+          "isolation_guard_stages": 4,
+          "isolation_tau": 1.2064000000000002e-12,
+          "key": "a260c58df1d733c58f96b83d9aa7d6f502311f1553a5ad93ec7778575907d1c0",
+          "loads": {
+            "access_load": 5.0,
+            "far_enable_observer_load_units": 1.75,
+            "iso_load": 68.0,
+            "num_sa": 17,
+            "observer_load_units": 1.0,
+            "pre_load": 298.0,
+            "sen_effort": 4.0,
+            "sen_load": 18.0,
+            "wen_load": 183.25000000000003,
+            "wenb_scale": 10,
+            "wl_load": 33.0
+          },
+          "mux": true,
+          "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+          "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+          "physical_key": "6e4d56d4c94f70f69546a9fbc9b9c204764ca140400ac3e33bcd445159eb05da",
+          "pre": 4.0,
+          "precharge_guard_stages": 4,
+          "precharge_off_guard": true,
+          "precharge_off_guard_stages": 4,
+          "precharge_off_tau": 4.870400000000001e-12,
+          "qualified_context_key": "",
+          "replica_k": 1,
+          "replica_length": 5e-08,
+          "replica_matched": true,
+          "replica_nmos_models": [
+            "NMOS_VTG",
+            "NMOS_VTG"
+          ],
+          "replica_nmos_widths": [
+            2.05e-07,
+            1.35e-07
+          ],
+          "replica_pmos_model": "PMOS_VTG",
+          "replica_pmos_width": 9e-08,
+          "replica_precharge_guard": true,
+          "rows": 32,
+          "rule_version": "v2.0.5-local-1",
+          "size_class": "rows<=32/cols<=32",
+          "source": "lookup",
+          "wd_in": 1.0,
+          "wd_out": 4.0,
+          "wl_inv": 4.0,
+          "wl_nand": 1.0,
+          "wordline_setup_stages": 2
+        },
+        "source_simulation_rc_reference": {
+          "mode": "per_net",
+          "reference_profile": "sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/profile.json.gz",
+          "reference_profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "cell_pin_rc": false
+        }
+      },
+      "generator_sources_sha256": {
+        "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "448a70afb759fced55be8bea5596fe3e04fbb106247b03f52532c874789377f9",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "export.py": "9da8ccfc6d1c681d645e907979e40cca5dc9855250a218991dcde6f3f1719ceb",
+        "__init__.py": "e1af0086e9bd7e585baf963ce0642d7f5b7a0f11b485a031b94c7e85ab131ea7",
+        "full_source.py": "885df5b53e89540783ef22b42c19e978b9aa74afa74ca5a88643d25651f75c26",
+        "router.py": "cb49b94cd4f90d90e64437a6dba7cb97ed6ecac1f37464dee619f6ea49dffc33",
+        "verify_full.py": "02d0eb07795c54c188fe1bf8c5b9dfd0a9de8165c6f811e6225d6b2839710c4c",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "66df3399129d56f6795f1610a0b0a63b1a5d001a068986928187ff28d5194ea6",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "0456d43f491531dcfc77e3b286da1140cb2fa505f14c893a7f00008ed71d17ed",
+        "components.py": "acc7843355b8f34ce56da8594fa16b711ed7a16e2a35faf02b9bdd229403ad6e",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "76ea75669144783807308f11d4e3810b331cf62aa4d148c4fa499e39e1e95c0c",
+        "bank_core.py": "0c922939e9131a2880d8b116d208ba6a80d80e90cedb3b5352601551f8951a6a",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+        "dense_logic.py": "9420142945107b58fff15cd5f228f4bb52684816c24ee9912987af9294b26c5f",
+        "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+        "dense_views.py": "443f05ec62084c92e5a8f98a880dfeae18a86a0eda3abead5bd52bfbf3a4ea3a",
+        "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+        "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+        "dense_decoder.py": "b8df246d4e12ad0ba2abaae2313c34decb9b8acec1aebfebe2d2548f49bbfdb8",
+        "dense_core.py": "8c59c797c90558ae3b02a0bf8b92d77c49ce69d5b5db60ef6e0bc1b1b3cee677",
+        "dense_aux.py": "a18bb122e11b3ca1c0ebf3e5dfe2430e9979efe0f0343c4418d5be4039165abb",
+        "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+        "dense_bank.py": "1acd9477c0737cb0d6cb5d3af5456c1e5403ed8cfa75165334aa71238a576ae2",
+        "dense_budget.py": "267d70d6818ed6860ca112e9a2e7a24232673d7442a892d543ea5087083b782a",
+        "control_cells.py": "366c81afb54b57a4888b38078c1583d00e2783d627d8a6be2fdb5a440faadd1a",
+        "control_place.py": "2a910de9fd624166998c2e5eeaf4e0be9c3b64168927bbfb3ede30aaafd0ee9f",
+        "control_passives.py": "415f9c9f6e13d54486baa6bad552e2f6ab20870bc66b2274667e4b6a01dc2f6e",
+        "macro_control.py": "035ce9bfb710d9932c1596eb2fd9cad9121abf5dfda142cbe778640943e49fdd",
+        "control_register.py": "2ebbf407fcbe4118183ff308f850a68ba7de1821a8485072c5332b4b5abc6324",
+        "conductor_ownership.py": "8f23ac0d43220f396967b1d6f68cbe7184c67ad5f29b0e5ba040325bf54b71f7",
+        "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99",
+        "dense_rows.py": "e56e071b9ba7bf6e93164c97b0f4332da7b56064e2067ce0c7295f4d48e9cbe5",
+        "dense_slots.py": "4f4eaab6c8e2e2d0ac00394f16d4e3d5a33c2c533d3203345452dfafebc63b90",
+        "driver_audit.py": "9b9eb28d121f77300160cd828430bc9278228a7fc69ce6e9191025151b19c5ef",
+        "preview.py": "82e9bcacf1a0df3a20f131b64322edaadadbe60513ce19ff8d68d22325173c6b",
+        "center_control.py": "c383445e4aa3a1f60a2c7657c371ecf0aa3ade04dfb09b6a07753436c0147887",
+        "time_control.py": "1a629ba557c0a4fe5969b45b9e9f133367dc5c96c1b92a99b3ef90943085cded",
+        "compact_core.py": "05c652d348424abe2a418e0aaeed6f63bf59131516d146935d690b8a2464b009",
+        "compact_array.py": "12758cb3f2384ae86bd1198280fcc468fe0b647ece0651ad66c369552160c14f",
+        "compact_slots.py": "5158964be3950d2cb68ccc038ef967c6c3044a0a4be121f2d42cad9721ea1dd4",
+        "compact_decoder.py": "297305ac1ed893d442c5894c09dd5cb2ca1186add78d932b5f97e6bec6e97637",
+        "compact_bank.py": "cc10b407ed92e250845e579fc92a8548c1f138d353c04ea0cb2ad24ae6074d7a",
+        "compact_center.py": "dcd4d62286af2bc4f95fecdaa52305e2923a1361e7dd7465c0e6bcf146a319f2"
+      }
+    },
+    {
+      "directory": "outputs/layout/compact/column_split_round/bank_128x128_02",
+      "receipt": "outputs/layout/compact/column_split_round/bank_128x128_02_verify/receipt.json",
+      "rows": 128,
+      "cols": 128,
+      "source_deck_sha256": "2ba0d5dfd25fc25db4715468fe5b4848b8c8ae51e45e94acba8916cc5efe2c3e",
+      "layout_sha256": "36320c9ce02008272cef6f91ef29d99d55fdb3462992ddee0cd4547ffa5d3e97",
+      "source_sha256": "0e8be440af8564dc751f318658c91f3c4ddea172d4cca451be18def274f4b53b",
+      "manifest_sha256": "fa5caa52a7a51900ff55a68219a8c964cc3091560ab19967ecbbdd34c502dc94",
+      "receipt_sha256": "1d6d78f20ee54f60db37ea5bd2982c22abb90876da56cf781fef123c6efac72f",
+      "macro_dimensions_um": [
+        191.4375,
+        71.01750000000001
+      ],
+      "macro_area_um2": 13595.412656250002,
+      "previous_unsplit_bank_area_um2": 13481.429568750003,
+      "bank_area_change_percent": 0.8454822014144048,
+      "split": {
+        "axis": "columns",
+        "column": 64,
+        "left_columns": [
+          0,
+          64
+        ],
+        "right_columns": [
+          64,
+          128
+        ],
+        "rows": [
+          0,
+          128
+        ],
+        "left_array_origin_nm": [
+          0.0,
+          19140.0
+        ],
+        "right_array_origin_nm": [
+          116115.0,
+          19140.0
+        ],
+        "periphery_origins_nm": [
+          0.0,
+          116115.0
+        ],
+        "bitcell_half_array_nm": [
+          72000.0,
+          50560.0
+        ],
+        "half_array_aspect_ratio": 1.4240506329113924,
+        "decoder": "one shared decoder and one source wordline driver per logical row",
+        "wordlines": "M3 within both arrays, M6 crossing the centre decoder",
+        "bitlines": "M2 in each array, local M5 drops to its own column-pair periphery"
+      },
+      "metal_area_um2": {
+        "m1": 3077.0728624999997,
+        "m2": 3207.5685624999996,
+        "m3": 3130.0965499999998,
+        "m4": 737.9232,
+        "m5": 622.93015,
+        "m6": 826.874825
+      },
+      "physical_gate_count": 113134,
+      "source_mos": 106526,
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "extraction": "extracted",
+      "extraction_statistics": "distributed R+C+CC",
+      "dspf_sha256": "b18d34d0ebfd11683769dd3fa492112461cf589c65af4b6ca32d34962a5e84a3",
+      "extracted_nets": 36416,
+      "capacitance": {
+        "shunt_f": 3.5967070577834245e-12,
+        "coupling_f": 1.3772520883932631e-11,
+        "annotated_total_f": 3.1141749259806564e-11
+      },
+      "solver": {
+        "executable": "/proj/eda_tools/Siemens/calibre/2025.1_16.10/aok_cal_2025.1_16.10/bin/calibre",
+        "sha256": "5f4c3a357d80a5228088738a2e93ed9836100b3f7f1c4dd3c2c7e95c40565f8b",
+        "rule_sha256": {
+          "calibreDRC.rul": "d8cd653d627476178e308fcc50e82f3ff64a64550bad70792e9acf971e34da2d",
+          "calibreLVS.rul": "c60d51360d2de1dbabd586efc1df57f7fb2cca568aca1fe5daddf673550ecd49",
+          "calibrexRC.rul": "94b56526e7115812ddf4980f3f5b09c1be721fceef8e12ab0f7efca958bbe1d3"
+        }
+      },
+      "compiler_provenance": {
+        "compiler_version": "V2.2.8",
+        "corner": "TT",
+        "vdd": 1.0,
+        "temperature": 25,
+        "variation_mode": "nominal",
+        "real_cell_mode": 0,
+        "seed": 20260711,
+        "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+        "timing": {
+          "budget": "shared",
+          "driver_key": "6eb21ab01fda9da4cec3c637f4044af69938c80d5dba89a8659c9deb54dd2adb",
+          "extrapolated": false,
+          "high": 0,
+          "low_read": 0,
+          "low_write": 0,
+          "margin": 0,
+          "options_key": "6e348f670be7d705260846d758710a98d052963407b65c810f9d670146aade63",
+          "qualified": false,
+          "size_class": "",
+          "source": "fixed",
+          "t_period": 3e-08,
+          "table_sha256": "",
+          "table_version": ""
+        },
+        "driver_sizes": {
+          "area_precharge_width": 1.08e-06,
+          "area_senseamp_width": 5.4e-07,
+          "area_wordline_width": 4.32e-06,
+          "canonical_read": true,
+          "cell_type": "SRAM_6T_CELL",
+          "cols": 128,
+          "compact_control": true,
+          "control_architecture": "v2.2.8-compact-digital-guards-high-access",
+          "dc_stages": 9,
+          "dec_inv": 1.0,
+          "effort_buffers": true,
+          "enable_off_guard_stages": 16,
+          "enable_off_tau": 9.267840000000002e-11,
+          "extrapolated": false,
+          "isolation_guard_stages": 16,
+          "isolation_tau": 1.83424e-11,
+          "key": "6eb21ab01fda9da4cec3c637f4044af69938c80d5dba89a8659c9deb54dd2adb",
+          "loads": {
+            "access_load": 30.0,
+            "far_enable_observer_load_units": 1.75,
+            "iso_load": 260.0,
+            "num_sa": 65,
+            "observer_load_units": 1.0,
+            "pre_load": 1162.0,
+            "sen_effort": 4.0,
+            "sen_load": 54.0,
+            "wen_load": 1420.7500000000002,
+            "wenb_scale": 80,
+            "wl_load": 516.0
+          },
+          "mux": true,
+          "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+          "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+          "physical_key": "6e4d56d4c94f70f69546a9fbc9b9c204764ca140400ac3e33bcd445159eb05da",
+          "pre": 4.0,
+          "precharge_guard_stages": 16,
+          "precharge_off_guard": true,
+          "precharge_off_guard_stages": 16,
+          "precharge_off_tau": 7.600640000000001e-11,
+          "qualified_context_key": "",
+          "replica_k": 1,
+          "replica_length": 5e-08,
+          "replica_matched": true,
+          "replica_nmos_models": [
+            "NMOS_VTG",
+            "NMOS_VTG"
+          ],
+          "replica_nmos_widths": [
+            2.05e-07,
+            1.35e-07
+          ],
+          "replica_pmos_model": "PMOS_VTG",
+          "replica_pmos_width": 9e-08,
+          "replica_precharge_guard": true,
+          "rows": 128,
+          "rule_version": "v2.0.5-local-1",
+          "size_class": "rows<=128/cols<=128",
+          "source": "lookup",
+          "wd_in": 2.0,
+          "wd_out": 8.0,
+          "wl_inv": 16.0,
+          "wl_nand": 4.0,
+          "wordline_setup_stages": 2
+        },
+        "source_simulation_rc_reference": {
+          "mode": "per_net",
+          "reference_profile": "sram_compiler/config_yaml/rc_profiles/freepdk45_8x8/profile.json.gz",
+          "reference_profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "cell_pin_rc": false
+        }
+      },
+      "generator_sources_sha256": {
+        "lib.py": "bac970bbeae396327a0284ecf39c37bb6f2750afb6b2b815ecc1f56b72d7886a",
+        "bitcell.py": "e64f16d972070449563843ecbeb3030757f98165d5d792685ff78067efdce143",
+        "colperi.py": "448a70afb759fced55be8bea5596fe3e04fbb106247b03f52532c874789377f9",
+        "edge.py": "bec2976d91a0d774110b5b1097e1b167ddc343d572db7d225290da92fa4db8e0",
+        "export.py": "9da8ccfc6d1c681d645e907979e40cca5dc9855250a218991dcde6f3f1719ceb",
+        "__init__.py": "e1af0086e9bd7e585baf963ce0642d7f5b7a0f11b485a031b94c7e85ab131ea7",
+        "full_source.py": "885df5b53e89540783ef22b42c19e978b9aa74afa74ca5a88643d25651f75c26",
+        "router.py": "cb49b94cd4f90d90e64437a6dba7cb97ed6ecac1f37464dee619f6ea49dffc33",
+        "verify_full.py": "02d0eb07795c54c188fe1bf8c5b9dfd0a9de8165c6f811e6225d6b2839710c4c",
+        "reduce_rc.py": "08d1c1c00851d1f4181b918bbc8b84afa3e035938ae7846c2b68427f8909fa94",
+        "compare_full.py": "66df3399129d56f6795f1610a0b0a63b1a5d001a068986928187ff28d5194ea6",
+        "split_rc.py": "215d50d7861096633ecc85e968beda96a6eb82750dda798c14bc8ee1922bfba3",
+        "compare_snm.py": "bc29ac4af3e117e178290dc6410ba38f77fec3be2b5da31fffea4cf9608af146",
+        "waveform_metrics.py": "5d87a82745c37274fc072c0f9b80c8c73668321aae34b823a006f51668af0bad",
+        "placement.py": "0456d43f491531dcfc77e3b286da1140cb2fa505f14c893a7f00008ed71d17ed",
+        "components.py": "acc7843355b8f34ce56da8594fa16b711ed7a16e2a35faf02b9bdd229403ad6e",
+        "cell_flow.py": "8249d49bd087b4e28ca904204dfa498af8acea2eb965a23f399df8701111eb11",
+        "bank.py": "76ea75669144783807308f11d4e3810b331cf62aa4d148c4fa499e39e1e95c0c",
+        "bank_core.py": "0c922939e9131a2880d8b116d208ba6a80d80e90cedb3b5352601551f8951a6a",
+        "bank_rows.py": "7569771b4038a68de6ec7dae031927bfa2baf782b0724d2186621fbe853bd228",
+        "bank_complete.py": "b5d7e4df5e57432c2c411e5e1d69a55cecdf9dde8f0ec33eb5858fbb4aec5527",
+        "bank_decoder.py": "cba15b99af996b5457820b8c5f15705fd968999f4382ddb53898bb00dd53803c",
+        "dense_logic.py": "9420142945107b58fff15cd5f228f4bb52684816c24ee9912987af9294b26c5f",
+        "openram_core.py": "c637041bd6aaae16d93474d788791f2588fe71cd7581b12cb317078583736f9f",
+        "dense_views.py": "443f05ec62084c92e5a8f98a880dfeae18a86a0eda3abead5bd52bfbf3a4ea3a",
+        "dense_columns.py": "4b40b2d87d3ca1ed75288cf2437784b9c8031394e86c5a39b5812092f5706138",
+        "dense_write.py": "10096cdd174dc4504de75c619f2f34fd35ae0c4700a54ece2d281edfab15d39f",
+        "dense_decoder.py": "b8df246d4e12ad0ba2abaae2313c34decb9b8acec1aebfebe2d2548f49bbfdb8",
+        "dense_core.py": "8c59c797c90558ae3b02a0bf8b92d77c49ce69d5b5db60ef6e0bc1b1b3cee677",
+        "dense_aux.py": "a18bb122e11b3ca1c0ebf3e5dfe2430e9979efe0f0343c4418d5be4039165abb",
+        "dense_contract.py": "9336e90aac6c133efb0a671f136f26e39443d3dae09e374f5c4e651e02a6a79e",
+        "dense_bank.py": "1acd9477c0737cb0d6cb5d3af5456c1e5403ed8cfa75165334aa71238a576ae2",
+        "dense_budget.py": "267d70d6818ed6860ca112e9a2e7a24232673d7442a892d543ea5087083b782a",
+        "control_cells.py": "366c81afb54b57a4888b38078c1583d00e2783d627d8a6be2fdb5a440faadd1a",
+        "control_place.py": "2a910de9fd624166998c2e5eeaf4e0be9c3b64168927bbfb3ede30aaafd0ee9f",
+        "control_passives.py": "415f9c9f6e13d54486baa6bad552e2f6ab20870bc66b2274667e4b6a01dc2f6e",
+        "macro_control.py": "035ce9bfb710d9932c1596eb2fd9cad9121abf5dfda142cbe778640943e49fdd",
+        "control_register.py": "2ebbf407fcbe4118183ff308f850a68ba7de1821a8485072c5332b4b5abc6324",
+        "conductor_ownership.py": "8f23ac0d43220f396967b1d6f68cbe7184c67ad5f29b0e5ba040325bf54b71f7",
+        "control_registers.py": "b3f530f83aba5d42d5b4f199a3d8c748d379249a02d9482dca1418d982ad4a99",
+        "dense_rows.py": "e56e071b9ba7bf6e93164c97b0f4332da7b56064e2067ce0c7295f4d48e9cbe5",
+        "dense_slots.py": "4f4eaab6c8e2e2d0ac00394f16d4e3d5a33c2c533d3203345452dfafebc63b90",
+        "driver_audit.py": "9b9eb28d121f77300160cd828430bc9278228a7fc69ce6e9191025151b19c5ef",
+        "preview.py": "82e9bcacf1a0df3a20f131b64322edaadadbe60513ce19ff8d68d22325173c6b",
+        "center_control.py": "c383445e4aa3a1f60a2c7657c371ecf0aa3ade04dfb09b6a07753436c0147887",
+        "time_control.py": "1a629ba557c0a4fe5969b45b9e9f133367dc5c96c1b92a99b3ef90943085cded",
+        "compact_core.py": "05c652d348424abe2a418e0aaeed6f63bf59131516d146935d690b8a2464b009",
+        "compact_array.py": "12758cb3f2384ae86bd1198280fcc468fe0b647ece0651ad66c369552160c14f",
+        "compact_slots.py": "5158964be3950d2cb68ccc038ef967c6c3044a0a4be121f2d42cad9721ea1dd4",
+        "compact_decoder.py": "297305ac1ed893d442c5894c09dd5cb2ca1186add78d932b5f97e6bec6e97637",
+        "compact_bank.py": "cc10b407ed92e250845e579fc92a8548c1f138d353c04ea0cb2ad24ae6074d7a",
+        "compact_center.py": "dcd4d62286af2bc4f95fecdaa52305e2923a1361e7dd7465c0e6bcf146a319f2"
+      }
+    }
+  ],
+  "waveform_validation": "not run",
+  "defaults_promotable": false,
+  "limits": [
+    "Only the recorded 32x32 and 128x128 layouts received DRC/LVS/xRC validation.",
+    "The integrated controller retains the existing row split and M10 routing.",
+    "A column split approaches a square; it does not remap the source memory organization.",
+    "Sizing and timing remain frozen; extracted RC is not a waveform or yield qualification."
+  ],
+  "images": {
+    "gallery": "outputs/layout/compact/column_split_round/index.html",
+    "archive": "outputs/layout/compact/column_split_round/component_images.zip",
+    "overview_sha256": "c0ddfeddd56b15619efa3823fca37d063eafbfa77450d116d6e9bf18132d8903",
+    "components_sha256": "4236980d339982b448829eb14beb6bd427ba982eaa7fbdb229fce0e8b05d8387"
+  },
+  "regressions": {
+    "existing_compact_tests": 10,
+    "column_split_tests": 3,
+    "full_local_suite_tests": 70,
+    "full_local_suite_skips": 0,
+    "full_local_suite_log_sha256": "4d5f6b84d65753ebc24af8e6bbed542194561cc3fd73965bdc652b9c8512bdd0",
+    "column_split_log_sha256": "5128e26cd23c99b5dd6133b02f91c34dd2e4de0d3de297f6c989c661a1c12991",
+    "unsplit_32x32_all_layer_xor_area_um2": 0.0
+  }
+}

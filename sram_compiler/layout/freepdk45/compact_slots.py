@@ -1,34 +1,36 @@
 """Column-pair slots at the compact pitch: 2250 nm, columns c (L) and c+1 (U).
 
 Odd columns mirror, so the pair's bitlines sit at 172.5 (BL c), 952.5
-(BLB c), 1297.5 (BLB c+1) and 2077.5 nm (BL c+1). Precharge and register
-slots reuse the dense_slots builders with mirror-symmetric track tables.
+(BLB c), 1297.5 (BLB c+1) and 2077.5 nm (BL c+1). Precharge uses two
+mirrored diffusion islands in one row; registers reuse the dense_slots
+builder with mirror-symmetric track tables.
 The sense slot is new: one 2:1 column mux and the sense amplifier of
-its group, folded into four dense_rows rows:
+its group, folded into three dense_rows rows:
 
 * SEL inverters (SEL0 -> SELB0, SEL1 -> SELB1);
-* the BL transmission gates, BL c - SA_IN - BL c+1;
-* the BLB transmission gates, BLB c - SA_INB - BLB c+1;
+* isolated BL and BLB transmission-gate islands sharing select buses;
 * the amplifier: P strip IN Q VDD QB INB, N strip Q net1 VSS net1 QB, with
   the tail device folded into two fingers.
 
-The write slot puts both columns in every row: one input-inverter row and
-one row each of BL and BLB tristates (two fingers per device), with one
-shared EN net, instead of three rows per column.
+The write slot puts data buffers and input inverters in one row of four
+diffusion islands, followed by one row each of BL and BLB tristates (two
+fingers per device). Both columns share the source EN net.
 
 The replica slots keep the replica column in the U position; its mux input
 1, select inputs and DIN are tied to the rails as in the source.
 """
 from collections import defaultdict
 
-from .dense_rows import make_row, Gate
+from .dense_rows import make_row, Gate, RowView
 from .dense_rows import X0, PITCH
-from .dense_slots import _Slot, SlotView, _devices, _named, _even, _buffer_rows
+from .dense_slots import _Slot, SlotView, _devices, _named, _even
+from .lib import Builder, pya
+from .components import Component
 
 WIDTH = 2250.
 _L = dict(BL=172.5, BLB=952.5, DIN=312.5, DINB=452.5, ENB=592.5, EN=732.5)
 TRACKS = {'L': _L, 'U': {k: WIDTH - x for k, x in _L.items()}}
-BUFFER = dict(A_L=872.5, X_L=452.5, A_U=WIDTH - 872.5, X_U=WIDTH - 452.5)
+BUFFER = dict(A_L=872.5, X_L=140., A_U=WIDTH - 872.5, X_U=WIDTH - 140.)
 # Register tracks: the 1410 nm searched set with Q moved to the wider buffer
 # inputs; a conflict-repair loop then moved L.z5 and four U tracks (7730 nm).
 REGISTER = {
@@ -39,15 +41,15 @@ REGISTER = {
               z4=560., z5=1855., QB=2030.),
 }
 GEOMETRY = dict(width=WIDTH, tracks=TRACKS, buffer=BUFFER, pre_tap=WIDTH / 2, supply_x=0.,
-                register=REGISTER, buffer_swap=True)
+                register=REGISTER, buffer_swap=True, buffer_pitch=300.)
 # Sense-slot M3 tracks (left half for group input 0 / SA_IN, right half mirrored).
 SENSE = dict(SEL0=312.5, SELB0=452.5, SA_IN=592.5, Q=732.5,
              SEL1=WIDTH - 312.5, SELB1=WIDTH - 452.5, SA_INB=WIDTH - 592.5, QB=WIDTH - 732.5,
              EN=WIDTH / 2, ISO=WIDTH / 2)
 
 
-def _row(layout, name, columns, p_sd, n_sd, levels, reach, min_region=None):
-    return make_row(layout, name, columns, p_sd, n_sd, levels, reach, width=WIDTH, min_region=min_region)
+def _row(layout, name, columns, p_sd, n_sd, levels, reach, min_region=None, pitch=PITCH):
+    return make_row(layout, name, columns, p_sd, n_sd, levels, reach, width=WIDTH, min_region=min_region, pitch=pitch)
 
 
 def _strip_levels(kind, nets, reach):
@@ -122,11 +124,15 @@ def make_sense_slot(layout, name, mux, sa, replica=False):
     p_sd = [net['SELB0'], 'VDD', net['SELB1']]
     n_sd = [net['SELB0'], 'VSS', net['SELB1']]
     # Fixed levels keep normal and replica rows the same height.
-    levels = {('g', net['SEL0']): 0, ('g', net['SEL1']): 1}
+    levels = {('g', net['SEL0']): 0, ('g', net['SEL1']): 0}
     for k in ('p', 'n'):
         levels.update({(k, net['SELB0']): 0, (k, net['SELB1']): 1})
-    rows = [('inv', _row(layout, f'{name}_SEL', inv, p_sd, n_sd, levels, reach))]
-    # 2/3: transmission gates (N gate SELi below, P gate SELBi above)
+    # Two gates need little of the slot width. Spreading them lets disjoint
+    # select bars share a level, reducing the height without resizing devices.
+    rows = [('inv', _row(layout, f'{name}_SEL', inv, p_sd, n_sd, levels, reach, pitch=400.))]
+    # One switch row: separate BL/BLB diffusion islands share the rails,
+    # wells and select buses. Each island still contains both source TGs.
+    switch = []
     for tag, out in (('BL', 'SA_IN'), ('BLB', 'SA_INB')):
         cols = [(g(md[f'MMuxp_{tag}_0'], 0, w135(md[f'MMuxp_{tag}_0']), mux_map),
                  g(md[f'MMuxn_{tag}_0'], 0, w135(md[f'MMuxn_{tag}_0']), mux_map)),
@@ -141,12 +147,15 @@ def make_sense_slot(layout, name, mux, sa, replica=False):
         # the column-edge supply stacks 172.5 nm away.
         for k in ('p', 'n'):
             rail = 'VDD' if k == 'p' else 'VSS'
-            levels.update({(k, n): v for n, v in ((net[out], 0), (sd[0], 1), (sd[2], 2)) if n != rail})
+            levels.update({(k, n): v for n, v in ((net[out], 0), (sd[0], 3 if replica and tag == 'BLB' else 1),
+                                                 (sd[2], 2 if replica or tag == 'BL' else 3)) if n != rail})
         # The replica's tied-high P contact needs no bar; keep both slots'
-        # three-level regions so their rails abut.
-        rows.append((tag, _row(layout, f'{name}_{tag}', cols, sd, sd, levels, reach,
-                               min_region={'p': 355., 'n': 355.})))
-    # 4: amplifier
+        # four-level regions so their rails abut.
+        switch.append(make_row(layout, f'{name}_{tag}', cols, sd, sd, levels, reach,
+                               width=WIDTH, x0=100. if tag == 'BL' else 1225.,
+                               min_region={'p': 495., 'n': 495.}, pitch=400.))
+    rows.append(('mux', _merge_rows(layout, name + '_MUX', switch)))
+    # Amplifier
     amap = {'VDD': 'VDD', 'VSS': 'VSS', 'EN': 'A.EN', 'ISO': 'A.ISO', 'IN': net['SA_IN'], 'INB': net['SA_INB'],
             'Q': 'A.Q', 'QB': 'A.QB', 'net1': 'A.net1'}
     m7 = _even(w135(ad['M7']), 2)
@@ -185,8 +194,7 @@ def make_sense_slot(layout, name, mux, sa, replica=False):
             _tie(s, n, SENSE[key])
             continue
         s.track(n, SENSE[key])
-        # SEL0 meets its bank bar on the lowest row, SEL1 on the highest, so
-        # the two M4 bars do not sit one gate level (150 nm) apart.
+        # Distinct select levels keep their M4 bars clear of bitline stacks.
         ys = [y for y, x0, x1 in s.bars[n]]
         y = min(ys) if key == 'SEL0' else max(ys)
         s.b.via(3, SENSE[key], y); s.b.sq('m4', SENSE[key], y, 140)
@@ -216,6 +224,83 @@ def _window(lo, hi, bars, clear=280.):
     return best[1]
 
 
+def _merge_rows(layout: pya.Layout, name: str, rows: list[RowView]) -> RowView:
+    """Co-planar diffusion islands with common rails and bar levels."""
+    b = Builder(layout, name)
+    bars, terminals, fingers = {}, {}, []
+    height = rows[0].height
+    for row in rows:
+        if row.height != height or row.rails != rows[0].rails:
+            raise ValueError('Merged islands require identical rail and well geometry')
+        b.place(row.builder)
+        for key, (y, lo, hi) in row.bars.items():
+            if key in bars:
+                old, a, z = bars[key]
+                if old != y:
+                    raise ValueError('Merged bars disagree on their level')
+                lo, hi = min(lo, a), max(hi, z)
+            bars[key] = (y, lo, hi)
+        terminals.update(row.terminals)
+        fingers.extend(row.fingers)
+    # Same-net islands need one continuous bus; check every other bus on
+    # that level before drawing the union (including its via enclosure).
+    for key, (y, lo, hi) in bars.items():
+        for other, (oy, a, z) in bars.items():
+            if key[0] != other[0] and y == oy and max(lo, a) - min(hi, z) < 210.:
+                raise ValueError(f'Merged bars {key[0]} and {other[0]} collide')
+        b.rect('m2', lo - 70., y - 35., hi + 70., y + 35.)
+    return RowView(b, WIDTH, height, bars, terminals, fingers, rows[0].rails)
+
+
+def make_precharge_slot(layout: pya.Layout, name: str, precharges: dict[str, Component],
+                        replica: bool = False) -> SlotView:
+    """Pitch-aligned precharge pair sharing one PRE bus and one VDD rail.
+
+    Each column keeps its own three-device diffusion island. The U island
+    mirrors L about the pair centre, matching the mirrored array bitlines.
+    Full-width fingers use the spare horizontal pitch to avoid a second
+    row. VDD faces the sense slot so the two bands share their rail. The
+    replica retains only U, at the same coordinates as a normal pair.
+    """
+    s = _Slot(layout, name)
+    rows = []
+    roles = ('U',) if replica else ('L', 'U')
+    for role in roles:
+        devs = {n: _named(d, role + '.', n) for n, d in _devices(precharges[role]).items()}
+        if set(devs) != {'M1', 'M2', 'M3'}:
+            raise ValueError('Compact precharge requires the source three-PMOS cell')
+        nets = dict(VDD='VDD', ENB='PRE', BL=role + '.BL', BLB=role + '.BLB')
+        order = ('M1', 'M2', 'M3') if role == 'L' else ('M3', 'M2', 'M1')
+        sd = ('BL', 'VDD', 'BLB', 'BL') if role == 'L' else ('BL', 'BLB', 'VDD', 'BL')
+        gates = [(Gate(devs[n], 0, devs[n].width_m * 1e9, nets), None) for n in order]
+        levels = {('g', 'PRE'): 0, ('p', nets['BL']): 1, ('p', nets['BLB']): 2}
+        reach = {nets[n]: [TRACKS[role][n]] for n in ('BL', 'BLB')}
+        reach['PRE'] = [WIDTH / 2]
+        # 115 nm leaves the outer implant/endcap margin; the opposite
+        # island is its exact x mirror. Both bars clear the central gap.
+        x0 = 115. if role == 'L' else WIDTH - 115. - 3 * PITCH
+        rows.append(make_row(layout, name + '_' + role + '_PC', gates,
+                             [nets[n] for n in sd], None, levels, reach,
+                             width=WIDTH, x0=x0, min_region={'p': 465.}))
+    s.add(_merge_rows(layout, name + '_ROW', rows), True, None)
+    pins = defaultdict(list)
+    for role in roles:
+        for net in ('BL', 'BLB'):
+            x = TRACKS[role][net]
+            ys = s.stack(role + '.' + net, x)
+            pins[role + '.' + net].append((x, min(ys), 'm5'))
+    (y, _, _), = s.bars['PRE']
+    tap = WIDTH / 2
+    s.b.via(2, tap, y); s.via(3, tap, y)
+    s.m3.append(('PRE', tap, y - 70, y + 70))
+    for role in roles:
+        pins[role + '.ENB'].append((tap, y, 'm4'))
+    supplies = s.supplies(0.)
+    s.audit()
+    s.b.rect('bnd', 0, 0, WIDTH, s.y)
+    return SlotView(s.b, WIDTH, s.y, s.terminals, s.fingers, dict(pins), supplies, s.m3, s.rows)
+
+
 def _tie(s, net, x):
     """Join every bar of a supply-held net at x to the nearest rail of it."""
     ys = [y for y, x0, x1 in s.bars[net] if x0 - 1e-6 <= x <= x1 + 1e-6]
@@ -231,11 +316,61 @@ def _tie(s, net, x):
 EN_TRACK = _L['EN']       # the write slot's shared EN track
 
 
+def _write_front_row(layout: pya.Layout, name: str, devs: dict, buffers: dict[str, Component],
+                     nets: dict, replica: bool) -> RowView:
+    """Buffers and input inverters in four isolated, co-planar islands.
+
+    Single fingers preserve the frozen widths; reversing the left buffer
+    lets strip buses use three levels. The replica retains only its input
+    inverters, with the same wells and rail positions as a full pair.
+    """
+    gate_levels = {'LB.X': 0, 'L.DIN': 1, 'LB.A': 2, 'EN': 0,
+                   'U.DIN': 1, 'UB.A': 2, 'UB.X': 0}
+    strip_levels = {'L.DIN': 0, 'LB.X': 1, 'L.DINB': 2, 'L.ENB': 0,
+                    'U.DINB': 1, 'U.ENB': 0, 'UB.X': 2, 'U.DIN': 0}
+    reach = {'EN': [EN_TRACK]}
+    for role in ('L', 'U'):
+        reach.update({role + 'B.A': [BUFFER['A_' + role]], role + 'B.X': [BUFFER['X_' + role]]})
+        reach.update({role + '.' + n: [TRACKS[role][n]] for n in ('DIN', 'DINB', 'ENB')})
+    # All islands share the largest source width and bar-region height.
+    bd = {r: {n: _named(d, r + 'B.', n) for n, d in _devices(buffers[r]).items()} for r in ('L', 'U')}
+    region = {kind: max(355., max(d.width_m * 1e9 for r in ('L', 'U')
+                                for d in (*bd[r].values(), *(devs[r][f'M{i}'] for i in range(1, 5)))
+                                if d.model == model))
+              for kind, model in (('p', 'PMOS_VTG'), ('n', 'NMOS_VTG'))}
+    rows = []
+    for index, (role, kind) in enumerate((('L', 'buf'), ('L', 'inv'), ('U', 'inv'), ('U', 'buf'))):
+        if replica and (role == 'L' or kind == 'buf'):
+            continue
+        if kind == 'buf':
+            cols = []
+            for stage in ((1, 0) if role == 'L' else (0, 1)):
+                inp = role + ('B.A' if stage == 0 else 'B.X')
+                out = role + ('B.X' if stage == 0 else '.DIN')
+                mapping = dict(A=inp, Z=out, VDD='VDD', VSS='VSS')
+                cols.append(tuple(Gate(bd[role][f'Xinv{stage}/Mpinv_{k}'], 0,
+                                       bd[role][f'Xinv{stage}/Mpinv_{k}'].width_m * 1e9, mapping)
+                                  for k in ('pmos', 'nmos')))
+            sd = [role + '.DIN', 'VDD', role + 'B.X'] if role == 'L' else [role + 'B.X', 'VDD', role + '.DIN']
+        else:
+            cols = [tuple(Gate(devs[role][f'M{i}'], 0, devs[role][f'M{i}'].width_m * 1e9, nets[role])
+                          for i in pair) for pair in ((1, 2), (3, 4))]
+            sd = [role + '.DINB', 'VDD', role + '.ENB']
+        levels = {('g', 'VSS' if replica and n == 'U.DIN' else n): lv for n, lv in gate_levels.items()}
+        levels.update({(k, n): lv for n, lv in strip_levels.items() for k in ('p', 'n')})
+        n_sd = ['VSS' if n == 'VDD' else n for n in sd]
+        if replica:
+            reach['VSS'] = [TRACKS['U']['DIN']]
+        rows.append(make_row(layout, f'{name}_{role}_{kind.upper()}', cols, sd, n_sd, levels, reach,
+                             width=WIDTH, x0=100. + 535. * index, min_region=region, min_gate_level=2))
+    return _merge_rows(layout, name + '_FRONT', rows)
+
+
 def make_write_slot(layout, name, writes, buffers, replica=False):
     """writes/buffers: role ('L' column c, 'U' column c+1) -> source component.
 
-    Rows, bottom to top: data buffers, input inverters, BL tristates, BLB
-    tristates. Gate and strip levels are fixed so the replica slot (the U
+    Rows, bottom to top: combined data buffers/input inverters, BL
+    tristates and BLB tristates. Gate and strip levels are fixed so the replica slot (the U
     driver only, DIN at VSS) keeps every row height.
     """
     s = _Slot(layout, name)
@@ -251,24 +386,10 @@ def make_write_slot(layout, name, writes, buffers, replica=False):
         return n
     nm = {r: nets(r) for r in ('L', 'U')}
     w = lambda d: d.width_m * 1e9
-    try:
-        fi = 2
-        wpi, wni = _even(w(devs['U']['M1']), 2), _even(w(devs['U']['M2']), 2)
-    except ValueError:
-        raise ValueError('Compact write slot needs two-finger input inverters')
     wpt, wnt = _even(w(devs['U']['M5']), 2), _even(w(devs['U']['M8']), 2)
     G = lambda r, d, k, wd, lv: Gate(devs[r][d], k, wd, nm[r], lv)
     # Gate levels per role (U mirrors L's order, so its DIN/ENB levels swap).
-    lv = {'L': dict(DIN=0, EN=1, TIN=1, TEN=0, TENB=2), 'U': dict(DIN=0, EN=1, TIN=2, TEN=0, TENB=1)}
-    x_u = {'inv': X0 + PITCH * 2 * fi, 'tri': X0 + PITCH * 4}
-
-    def inv_part(r):
-        din = [(G(r, 'M1', k, wpi, lv[r]['DIN']), G(r, 'M2', k, wni, lv[r]['DIN'])) for k in range(fi)]
-        en = [(G(r, 'M3', k, wpi, lv[r]['EN']), G(r, 'M4', k, wni, lv[r]['EN'])) for k in range(fi)]
-        n = nm[r]
-        if r == 'L':
-            return din + en, [n['DINB'], 'ENB']
-        return en + din, ['ENB', n['DINB']]
+    lv = {'L': dict(TIN=1, TEN=0, TENB=2), 'U': dict(TIN=2, TEN=0, TENB=1)}
 
     def tri_part(r, out):
         pa, pb, na, nb = ('M5', 'M6', 'M7', 'M8') if out == 'BL' else ('M9', 'M10', 'M11', 'M12')
@@ -298,31 +419,16 @@ def make_write_slot(layout, name, writes, buffers, replica=False):
     def levels_of(cols, p_sd, n_sd, r_map):
         levels = {('g', g.gate): g.level for pair in cols for g in pair}
         outs = {nm[r][o] for r in ('L', 'U') for o in ('BL', 'BLB')}
-        if outs & set(p_sd):
-            # Tristates: series nodes on level 0, bitlines on level 1 (their
-            # M4 landings clear the column-edge supply stacks).
-            for k, sd in (('p', p_sd), ('n', n_sd)):
-                levels.update({(k, n): 1 if n in outs else 0 for n in sd if n not in ('VDD', 'VSS')})
-        else:
-            for k, sd in (('p', p_sd), ('n', n_sd)):
-                levels.update(_strip_levels(k, sd, r_map))
+        # Series nodes use level 0; bitline stacks use level 1 to clear
+        # the column-edge supply stacks.
+        for k, sd in (('p', p_sd), ('n', n_sd)):
+            levels.update({(k, n): 1 if n in outs else 0 for n in sd if n not in ('VDD', 'VSS')})
         return levels
 
     # Fixed strip levels (computed from the full pair) keep replica rows aligned.
     def full_levels(build):
         cols, p_sd, n_sd, r_map = build(('L', 'U'))
         return levels_of(cols, p_sd, n_sd, r_map)
-
-    def inv_build(rs):
-        cols = []
-        p_sd, n_sd = ['VDD'], ['VSS']
-        for r in rs:
-            c, outs = inv_part(r)
-            cols += c
-            n = nm[r]
-            o1, o2 = (n['DINB'], n['ENB']) if r == 'L' else (n['ENB'], n['DINB'])
-            p_sd += [o1, 'VDD', o2, 'VDD']; n_sd += [o1, 'VSS', o2, 'VSS']
-        return cols, p_sd, n_sd, reach(rs, ('DIN', 'DINB', 'ENB'))
 
     def tri_build(out):
         def build(rs):
@@ -337,20 +443,16 @@ def make_write_slot(layout, name, writes, buffers, replica=False):
         return build
 
     rows = []
-    for tag, build, x_key in (('INV', inv_build, 'inv'), ('BL', tri_build('BL'), 'tri'), ('BLB', tri_build('BLB'), 'tri')):
+    for tag, build in (('BL', tri_build('BL')), ('BLB', tri_build('BLB'))):
         levels = full_levels(build)
         cols, p_sd, n_sd, r_map = build(roles)
         if replica:
             # The replica's DIN is VSS: its gate bars take the U DIN levels.
             levels.update({k: v for k, v in levels_of(cols, p_sd, n_sd, r_map).items() if k not in levels})
         rows.append(make_row(layout, f'{name}_{tag}', cols, p_sd, n_sd, levels, r_map, width=WIDTH,
-                             x0=x_u[x_key] if replica else X0))
-    bufs = _buffer_rows(layout, name, buffers if not replica else {'U': buffers['U'], 'L': buffers['U']}, GEOMETRY)
-    plan = [('buf', row) for row in bufs] + [('drv', row) for row in rows]
-    for i, (tag, row) in enumerate(plan):
-        if tag == 'buf' and replica:
-            s.y += row.height
-            continue
+                             x0=X0 + PITCH * 4 if replica else X0))
+    front = _write_front_row(layout, name, devs, buffers if not replica else {'U': buffers['U'], 'L': buffers['U']}, nm, replica)
+    for i, row in enumerate([front] + rows):
         s.add(row, i % 2 == 1, None)
     pins = defaultdict(list)
     for r in roles:

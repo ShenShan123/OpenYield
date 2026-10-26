@@ -1,18 +1,13 @@
-"""TIME_CONTROL between the halves of a split bank at the compact pitch.
+"""TIME_CONTROL below the shared decoder of a compact column-split bank.
 
-Same plan as ``center_control`` (column periphery between the lower and
-upper arrays, continuous M5 bitlines, data registers folded into their
-column slots below the write band, explicit interface tracks, M10 bridges
-for decoder nets of both halves, inputs escaping on M10), with the compact
-geometry: 2250 nm column-pair slots, one M6 trunk per control net, the
-replica wordline's far end on the core's M4 riser, the mux output RBL_MUX
-as the replica sense return, and SEL0/SEL1 as macro inputs. The compact
-decoder's 3160 nm bands leave a block between its halves wide enough for
-every controller gate, so there are no decoder lanes.
+Data registers stay under their own half-arrays with their bottom edges
+aligned to the controller. Large controllers use spare lower decoder rows.
+The bank uses M1-M6; controller routing and macro input escapes reach M10.
 """
 from __future__ import annotations
 from math import ceil, floor
 from pathlib import Path
+from typing import Sequence, Union
 import hashlib, json, shutil
 
 from .components import Component, Instance, CellView, read_component
@@ -21,15 +16,48 @@ from .dense_views import write_view, expand
 from .dense_aux import make_aux
 from .dense_slots import make_register_slot
 from .compact_slots import GEOMETRY, WIDTH as SLOT_W
-from .compact_bank import build as build_bank, split_row
-from .center_control import (_imported, _latch_y, TRUNK_GAP, TOP_GAP, REG_GAP, FRAME_X, RETURN_SPACE,
-                             DRIVE_SPACE, BOTTOM_GAP, ROUTER_LAYERS, BRIDGE_PITCH, LATCH_GAP, M10_HALF, M10_SPACE)
+from .compact_bank import build as build_bank
 from .lib import Builder, new_layout, pya, u
 from .time_control import make_control, units, centre_lanes_used
 from . import macro_control
 from .macro_control import Planner, bank_conductor, snap, GRID
 
 INPUTS_EXTRA = ('SEL0', 'SEL1')     # bank inputs that are not TIME_CONTROL ports
+MIN_COLUMN_FRAME = 23100.          # clearance around fixed crossings in the smallest controller
+COLUMN_CONTROL_DROP = 0.           # align controller and data-register bottom edges
+
+
+TRUNK_GAP = 600.
+TOP_GAP = 1000.
+REG_GAP = 300.
+FRAME_X = 35.
+RETURN_SPACE = 800.
+DRIVE_SPACE = 300.
+ROUTER_LAYERS = ('m4', 'm5', 'm6', 'm7', 'm8', 'm9')
+LATCH_GAP = 300.
+M10_HALF, M10_SPACE = 402.5, 800.
+
+
+def _imported(ly: pya.Layout, directory: Path, m: dict) -> Builder:
+    src = new_layout(); src.read(str(directory / 'full_macro.gds'))
+    cell = Builder(ly, m['primary']); cell.cell.copy_tree(src.cell(m['primary']))
+    return cell
+
+
+def _latch_y(cell: pya.Cell, ly: pya.Layout, reg_y: float, supplies: Sequence[tuple[str, float]],
+             lpx: float, latch: CellView, right: float) -> float:
+    """Bottom of the folded latch: the highest register VDD bar at its row
+    boundary whose window holds no other M4, from the EN drop to the edge."""
+    m4 = pya.Region(cell.begin_shapes_rec(ly.layer(17, 0))).merged()
+    vx, vy, _ = latch.pins['VDD']
+    for net, y in sorted(supplies, key=lambda t: -t[1]):
+        if net != 'VDD': continue
+        bottom = reg_y + y - vy
+        box = pya.Region(pya.Box(u(lpx - 300 - 70 - 140), u(bottom - 150), u(right), u(bottom + latch.height_nm + 150)))
+        hits = m4 & box
+        bar = hits.interacting(pya.Region(pya.Box(u(lpx + vx) - 1, u(reg_y + y) - 1, u(lpx + vx) + 1, u(reg_y + y) + 1)))
+        if not bar.is_empty() and (hits - bar).is_empty() and bar.bbox().height() <= u(140): return bottom
+    raise ValueError('No register VDD bar with a free window for the output latch')
 
 
 def _register_slot(layout, deck):
@@ -44,30 +72,51 @@ def _register_origin(rs) -> tuple[float, float]:
     return clock_y - c_rel, clock_y
 
 
-def register_reserve(deck) -> float:
-    _, _, rs = _register_slot(new_layout(), deck)
-    return BOTTOM_GAP - _register_origin(rs)[0]
+def _column_lanes(bank: Builder, bm: dict) -> list[tuple]:
+    """Unoccupied bottom gate rows of compact decoder bands, from actual metal.
+
+    Mirrored upper rows and rows crossed by lower-metal predecode buses are
+    excluded. Controller accesses also avoid every M4/M5 decoder conductor.
+    """
+    dx, dy, right, top = bm['decoder_bbox_nm']
+    frame_x = dx + FRAME_X
+    scale = bank.ly.dbu * 1000
+    bounds = pya.Box(u(frame_x + 300.), u(dy), u(right), u(top))
+    layers = {layer: (pya.Region(bank.cell.begin_shapes_rec_overlapping(bank.li(layer), bounds)) & pya.Region(bounds)).merged()
+              for layer in ('active', 'poly', 'm2', 'm3', 'm4', 'm5')}
+    lanes = []
+    for band in range(bm['rows'] // 8):
+        y = dy + band * 3160.
+        left = frame_x + 300.
+        box = pya.Region(pya.Box(u(left), u(y + 210.), u(right), u(y + 1365.)))
+        first = right
+        for layer in ('active', 'poly', 'm2', 'm3'):
+            hits = layers[layer] & box
+            if not hits.is_empty():
+                first = min(first, hits.bbox().left * scale)
+        width = floor((first - 500. - frame_x) / GRID) * GRID
+        if width < 2000.:
+            continue
+        keep = []
+        window = pya.Region(pya.Box(u(left), u(y), u(frame_x + width), u(y + 1365.)))
+        for layer in ('m4', 'm5'):
+            for pg in (layers[layer] & window).each():
+                bb = pg.bbox()
+                keep.append((layer, bb.left * scale - frame_x, bb.right * scale - frame_x))
+        lanes.append((y, width, keep))
+    return lanes
 
 
-def _block(deck, bm, tc):
-    """Width and gate band (y span) of the block between the decoder halves,
-    as build() derives them from a split bank manifest."""
-    _, _, rs = _register_slot(new_layout(), deck)
-    reg_y, _ = _register_origin(rs)
-    band_top = int((bm['array_origin_nm'][1] - 460. - TOP_GAP) // GRID) * GRID
-    width = snap(min(bm['control_trunks_nm'].values()) - TRUNK_GAP - FRAME_X)
-    lower = any('lower' in ends for n, ends in bm['split']['decoder_band_pins'].items() if n in tc.ports)
-    return width, (reg_y + (1000. if lower else 0.), band_top)
-
-
-def _fits(tc, width, band):
+def _fits(tc: Component, width: float, band: tuple[float, float], compact_registers: bool = False,
+          lanes: Sequence[tuple] = ()) -> bool:
     try:
-        return not centre_lanes_used(tc, width, ('Xdff_buf_data/',), band, [])[0]
-    except ValueError:              # gates overflow a frame without decoder lanes
+        used, _ = centre_lanes_used(tc, width, ('Xdff_buf_data/',), band, lanes, compact_registers)
+        return used <= len(lanes)
+    except ValueError:              # gates overflow the band and available decoder lanes
         return False
 
 
-def build(deck, output, bank_dir):
+def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str, Path]) -> dict:
     source = flatten(deck); rows, cols = source.rows, source.cols
     macro_control._conductors.clear()
     groups = cols // 2
@@ -81,14 +130,14 @@ def build(deck, output, bank_dir):
     if hashlib.sha256((bank_dir / 'full_macro.gds').read_bytes()).hexdigest() != bm['layout_sha256']:
         raise ValueError('Bank GDS differs from its layout manifest')
     split = bm.get('split')
-    if (set(bm.get('excluded_instances', [])) != {'XTIME_CONTROL', 'XRWL', 'XD_LATCH'} or not split
-            or split['decoder_bridges']):
-        raise ValueError('Centre integration requires a split compact bank without decoder bridges')
+    if (set(bm.get('excluded_instances', [])) != {'XTIME_CONTROL', 'XRWL', 'XD_LATCH'}
+            or not split or split.get('axis') != 'columns' or 'controller_channel_nm' not in bm):
+        raise ValueError('Controller integration requires a compact column-split bank with a controller channel')
     ly = new_layout(); b = Builder(ly, f'OPENYIELD_COMPACT_{rows}X{cols}'); P = Planner(b)
     bank = _imported(ly, bank_dir, bm); b.place(bank)
     bp = bm['external_pins']; cx, cy = bm['array_origin_nm']
     cy -= 460.                       # upper core origin (array origin minus its bottom strap)
-    yb = split['lower_array_top_nm']; cut = split['row']
+    frame_x = bm['decoder_bbox_nm'][0] + FRAME_X
     endpoints = {}; links = []
     def endpoint(net, point, alias=None):
         endpoints.setdefault(net, []).append((point, alias or net))
@@ -99,12 +148,11 @@ def build(deck, output, bank_dir):
     if len(registers) != cols or any(c.identity != registers[0][1].identity for _, c, _ in registers):
         raise ValueError('Every data column needs one identical source register')
     reg_y, clock_y = _register_origin(rs)
-    if abs(reg_y - BOTTOM_GAP - yb) > 1e-6:
-        raise ValueError('Register band does not match the bank reserve')
     terminals, physical, reg_pins = {}, [], {}
     clock_xs = []
     for pair in range(groups):
-        x = cx + pair * SLOT_W; b.place(rs.builder, x, reg_y)
+        x = pair * SLOT_W if pair < groups // 2 else cx + (pair - groups // 2) * SLOT_W
+        b.place(rs.builder, x, reg_y)
         roles = {}
         for role, col in (('L', 2 * pair), ('U', 2 * pair + 1)):
             q = f'DIN_dff{col}'
@@ -121,14 +169,44 @@ def build(deck, output, bank_dir):
             physical.append(dict(f, device=roles[role] + '/' + rest, gate_xy_nm=(x + gx, reg_y + gy)))
         clock_xs.append(x + rs.pins['CLK'][0][0])
     trunks = dict(bm['supply_trunks_nm'])
+    def register_bar(net: str, yy: float) -> None:
+        tx = trunks[net]
+        left, right = bm['controller_channel_nm']
+        if bm.get('left_supply_trunks_nm'):
+            lx = bm['left_supply_trunks_nm'][net]
+            P.wire(net, 'm4', [(0., yy), (lx, yy)], 140.)
+            P.stack(net, lx, yy, 4, 6)
+            top = min(y for n, y in bm['write_supplies'] if n == net)
+            P.wire(net, 'm6', [(lx, yy), (lx, top)])
+            P.wire(net, 'm6', [(right - 1000., yy), (right, yy)])
+            P.stack(net, right, yy, 4, 6)
+        else:
+            P.wire(net, 'm4', [(0., yy), (left, yy)], 140.)
+            P.wire(net, 'm6', [(left, yy), (right, yy)])
+            for sx in (left, right): P.stack(net, sx, yy, 4, 6)
+        P.wire(net, 'm4', [(right, yy), (tx, yy)], 140.)
+        P.stack(net, tx, yy, 4, 6)
     for net, y in rs.supplies:
         tx = trunks[net]; yy = reg_y + y
-        P.wire(net, 'm4', [(cx, yy), (tx, yy)], 140.); P.stack(net, tx, yy, 4, 6)
+        register_bar(net, yy)
     for net, tx in trunks.items():
         x0, y0, x1, y1 = bank_conductor(bank.cell, 'm6', tx, bp[net][1])
         low = min(reg_y + y for n, y in rs.supplies if n == net)
         if low < y0 + 72.5: P.wire(net, 'm6', [(tx, y0 + 72.5), (tx, low)])
         endpoint(net, (tx, low, 'm6'))
+    channel_sites = []
+    left, right = bm['controller_channel_nm']
+    middle = (left + right) / 2
+    supply_site = right - 500. if bm.get('left_supply_trunks_nm') else middle
+    channel_sites = [(net, middle, y) for net, ys in bm['control_bars_nm'].items() for y in ys]
+    channel_sites += [(net, supply_site, y) for net, y in bm['write_supplies']]
+    channel_sites += [(net, supply_site, reg_y + y) for net, y in rs.supplies]
+    channel_sites += [(net, supply_site, y) for net, ys in bm['supply_bars_nm'].items() for y in ys]
+    P.wire('clk_buf', 'm6', [(left, clock_y), (min(bm['control_trunks_nm'].values()) - 300., clock_y)])
+    channel_sites.append(('clk_buf', middle, clock_y))
+    channel_m6 = pya.Region(b.cell.begin_shapes_rec(ly.layer(21, 0))).merged()
+    channel_sites = [(n, x, y) for n, x, y in channel_sites
+                     if any(pg.inside(pya.Point(u(x), u(y))) for pg in channel_m6.each())]
 
     # 2. Interface heights from the bank conductors. Each control net has its
     #    own M6 trunk; return pins are spread at RETURN_SPACE on the block edge.
@@ -138,11 +216,13 @@ def build(deck, output, bank_dir):
     drives = {}
     for net in ('PRE', 'w_en', 's_en', 'sa_iso'):
         _, y0, _, y1 = trunk(net)
-        drives[net] = snap((y0 + y1) / 2)
+        middle = (y0 + y1) / 2
+        drives[net] = snap(min(bm['control_bars_nm'][net], key=lambda y: abs(y - middle)))
     drives['clk_buf'] = clock_y
     supply_y = {}
     for net, y in bm['write_supplies']:
         supply_y.setdefault(net, y)
+    supply_y['VDD'] = max(y for net, y in bm['write_supplies'] if net == 'VDD')
     far = {'pre_far': 'PRE', 'wen_far': 'w_en', 'sen_far': 's_en', 'iso_far': 'sa_iso', 'rbl': 'RBL_MUX'}
     band_top = int((cy - TOP_GAP) // GRID) * GRID
     # The mux output returns straight at its track top; SEL0/SEL1 stack to
@@ -151,6 +231,15 @@ def build(deck, output, bank_dir):
     sel_y = {}
     for net in INPUTS_EXTRA:
         _, sy0, _, sy1 = trunk(net); sel_y[net] = snap((sy0 + sy1) / 2)
+    # M10 pads need more separation than their M4 select bars. Extend a
+    # select's own M6 trunk within the periphery when the switch row places
+    # those bars less than one M10 pad/space pitch apart.
+    select_pitch = ceil((2 * M10_HALF + M10_SPACE) / GRID) * GRID
+    previous = None
+    for net in sorted(sel_y, key=sel_y.get):
+        if previous is not None:
+            sel_y[net] = max(sel_y[net], previous + select_pitch)
+        previous = sel_y[net]
     # Router accesses on M7 block a full RETURN_SPACE, so pins keep one grid
     # step more. The mux return jogs on M7 at the replica slot from its pin
     # height to the mux output, so the other returns keep clear of that span.
@@ -169,41 +258,54 @@ def build(deck, output, bank_dir):
     if any(b2 - a < DRIVE_SPACE for a, b2 in zip(ys, ys[1:])):
         raise ValueError(f'Centre drive pins closer than {DRIVE_SPACE} nm: {ys}')
 
-    # 3. The block between the decoder halves holds every controller gate.
-    width = snap(min(ctl.values()) - TRUNK_GAP - FRAME_X)
-    frame_x = FRAME_X
-    ends_by_net = split['decoder_band_pins']
-    bridged = sorted((n for n, ends in ends_by_net.items() if len(ends) == 2), key=lambda n: ends_by_net[n]['lower'][0])
-    if any(ends_by_net[n]['lower'][0] != ends_by_net[n]['upper'][0] for n in bridged):
-        raise ValueError('Decoder halves disagree on a bridged trunk phase')
-    decoder_nets = {n: [('lower' if 'lower' in ends else 'upper', *ends['lower' if 'lower' in ends else 'upper'][:2])]
+    # 3. The controller block holds every gate outside the data-register slots.
+    width = snap(min(ctl.values()) - TRUNK_GAP - frame_x)
+    ends_by_net = ({n: {'upper': p} for n, p in bp.items() if n in tc.ports and p[2] == 'm5'})
+    decoder_nets = {n: [('upper', *ends['upper'][:2])]
                     for n, ends in ends_by_net.items() if n in tc.ports}
-    edge_halves = {half for points in decoder_nets.values() for half, *_ in points}
-    band_lo = reg_y + (1000. if 'lower' in edge_halves else 0.)
-    used, _ = centre_lanes_used(tc, width, ('Xdff_buf_data/',), (band_lo, band_top), [])
-    if used:
-        raise ValueError('Controller gates exceed the block between the decoder halves')
-    y0 = reg_y
-    height = snap(band_top - y0 + 50)
+    cell_drop = COLUMN_CONTROL_DROP
+    band_lo = reg_y - cell_drop
+    # The controller placer already keeps its last cell 1 um below the
+    # band ceiling. Reserving that margin twice drops a whole gate row
+    # after peripheral compaction and needlessly widens large macros.
+    band_hi = band_top - cell_drop
+    lanes_abs = _column_lanes(bank, bm)
+    used, _ = centre_lanes_used(tc, width, ('Xdff_buf_data/',), (band_lo, band_hi), lanes_abs, True)
+    if used > len(lanes_abs):
+        raise ValueError('Controller gates exceed the block below the shared decoder')
+    y0 = reg_y - cell_drop
+    highest = max([band_top] + [y + 1365. for y, _, _ in lanes_abs[:used]])
+    highest = max(highest, min(band_top + 10000., bm['upper_decoder_top_nm'] - 1000.))
+    height = snap(highest - y0 + 50)
     local = lambda y: y - y0
+    lanes = [(local(y), w, keep) for y, w, keep in lanes_abs]
     profile = [(0., height, width)]
+    if used:
+        # Above the peripheral band, only the spare decoder strip provides
+        # access to lane pins. Avoid searching the occupied decoder body.
+        neck = local(band_top) + 1000.
+        lane_width = min(width, max(w for _, w, _ in lanes_abs[:used]) + 1000.)
+        profile = [(0., neck, width), (neck, height, lane_width)]
     obstacles = []
     for layer in ROUTER_LAYERS:
         li = ly.layer(*{f'm{i}': (9 + 2 * i, 0) for i in range(4, 10)}[layer])
         box = pya.Box(u(frame_x - 1500), u(y0 - 1500), u(frame_x + width + 1500), u(y0 + height + 1500))
-        region = pya.Region(bank.cell.begin_shapes_rec_overlapping(li, box)) & pya.Region(box)
+        region = pya.Region(b.cell.begin_shapes_rec_overlapping(li, box)) & pya.Region(box)
         for pg in region.merged().each():
+            owners = {n for n, x, y in channel_sites if layer == 'm6' and pg.inside(pya.Point(u(x), u(y)))}
+            if len(owners) > 1: raise ValueError(f'Controller channel shorts bank nets: {owners}, {pg.bbox()}')
             for trap in pg.decompose_trapezoids():
                 bb = trap.bbox(); s = ly.dbu * 1000
                 obstacles.append((layer, bb.left * s - frame_x, bb.bottom * s - y0,
-                                  bb.right * s - frame_x, bb.top * s - y0, None))
-    edge_y = {'upper': local(band_top) // GRID * GRID - 100., 'lower': local(reg_y) + 100.}
+                                  bb.right * s - frame_x, bb.top * s - y0, next(iter(owners), None)))
+    edge_y = {'upper': next(y for y in (local(band_top) // GRID * GRID - 500. - GRID * k for k in range(30))
+                           if all(abs(y + y0 - yy) >= 350. for _, _, yy in channel_sites))}
     grid_x = lambda x: min(snap(x - frame_x), width - 200.) + frame_x
     # Off-grid decoder trunks jog to the router grid. Neighbours 300 nm apart
     # jog the same way, so their stubs take heights 300 nm apart, the one on
     # the side the jog points away from nearest the block.
     jog_y = {}
-    for half, base, step in (('lower', reg_y - 500., -300.), ('upper', band_top + 500., 300.)):
+    for half, base, step in (('upper', band_top + 500., 300.),):
         runs = []
         for x in sorted(x for points in decoder_nets.values() for h, x, _ in points if h == half):
             if runs and x - runs[-1][-1] <= 300. + 1e-6: runs[-1].append(x)
@@ -217,7 +319,7 @@ def build(deck, output, bank_dir):
         jy = jog_y[half, x]
         if not min(py, y) + 300. < jy < max(py, y) - 300.: raise ValueError(f'{half} decoder riser at {x} has no jog room')
         return [(px, py), (px, jy), (x, jy), (x, y)]
-    for half in ('lower', 'upper'):
+    for half in ('upper',):
         xs = sorted(riser(half, x, y)[0][0] for points in decoder_nets.values() for h, x, y in points if h == half)
         if any(b2 - a < 300 for a, b2 in zip(xs, xs[1:])): raise ValueError(f'{half} decoder pins closer than 300 nm')
     shapes = {}
@@ -232,51 +334,26 @@ def build(deck, output, bank_dir):
         grown = shapes[n].merged().sized(u(140.) - 1)
         if any(not (grown & shapes[m]).is_empty() for m in names[i + 1:]):
             raise ValueError(f'Decoder riser {n} violates M5 spacing to another riser')
-    for points in decoder_nets.values():
+    for net, points in decoder_nets.items():
         for half, x, y in points:
             path = riser(half, x, y)
             for (ax, ay), (bx, by) in zip(path, path[1:]):
                 obstacles.append(('m5', min(ax, bx) - 72.5 - frame_x, min(ay, by) - 72.5 - y0,
-                                  max(ax, bx) + 72.5 - frame_x, max(ay, by) + 72.5 - y0, None))
-    # Bridges: stacks on each half's trunk inside the decoder (clear of its
-    # band-edge M6 join), M8 jogs to columns over the array, M10 across the band.
-    m6 = ly.layer(21, 0)
-    def free_m6(x, y):
-        box = pya.Box(u(x - 300), u(y - 300), u(x + 300), u(y + 300))
-        return pya.Region(bank.cell.begin_shapes_rec_overlapping(m6, box)).is_empty()
-    upper_edge = ends_by_net[bridged[0]]['upper'][1] if bridged else cy
-    def stack_ys(half):
-        # Each stack sits on its own trunk (an enable trunk ends at its slice),
-        # 900 nm from every other net's so the M8 jogs keep their spacing.
-        spans = {}
-        for n in bridged:
-            x, y = ends_by_net[n][half][:2]
-            _, t0, _, t1 = bank_conductor(bank.cell, 'm5', x, y)
-            spans[n] = (t0, t1)
-        chosen = {}
-        for n in sorted(bridged, key=lambda n: spans[n][1] - spans[n][0]):
-            t0, t1 = spans[n]; x = ends_by_net[n][half][0]
-            steps = range(int((t1 - t0 - 600) // GRID) + 1)
-            cands = [t0 + 400. + GRID * k for k in steps] if half == 'upper' else [t1 - 400. - GRID * k for k in steps]
-            for y in cands:
-                if all(abs(y - c) >= 900. for c in chosen.values()) and free_m6(x, y):
-                    chosen[n] = y; break
-            else:
-                raise ValueError(f'{n}: no bridge stack position on its {half} trunk')
-        return [chosen[n] for n in bridged]
-    bridges = [(n, ends_by_net[n]['upper'][0], cx + 1000. + BRIDGE_PITCH * i, yl, yu)
-               for i, (n, yl, yu) in enumerate(zip(bridged, stack_ys('lower'), stack_ys('upper')))]
-    if bridges and bridges[-1][2] + 1000. > cx + bm['core_geometry']['width_nm']:
-        raise ValueError('Decoder bridges exceed the array width')
-    tap_y = band_top + 100.
+                                  max(ax, bx) + 72.5 - frame_x, max(ay, by) + 72.5 - y0, net))
     def blocked(layer, x0, y0_, x1, y1_, half):
         obstacles.append((layer, min(x0, x1) - half - frame_x, min(y0_, y1_) - half - y0,
                           max(x0, x1) + half - frame_x, max(y0_, y1_) + half - y0, None))
-    for n, x, xb, yl, yu in bridges:
-        for y in (yl, yu):
-            for layer, half in (('m5', 72.5), ('m6', 72.5), ('m7', 240.), ('m8', 242.5)): blocked(layer, x, y, x, y, half)
-            blocked('m8', x, y, xb, y, 202.5)
-        blocked('m5', x, upper_edge, x, tap_y, 72.5); blocked('m4', x, tap_y, x, tap_y, 70.)
+    # Select inputs climb from M6 to M10 after controller routing. Reserve
+    # every landing first: their M9 pads can crowd routes near the frame
+    # edge even when the M10 pads and M7 feedback lines are well separated.
+    for net, sy in sel_y.items():
+        tx = ctl[net]
+        for k in range(6, 10):
+            blocked(f'm{k}', tx, sy, tx, sy, macro_control.LANDING[k] / 2)
+        _, sy0, _, sy1 = trunk(net)
+        anchor = max(sy0 + 72.5, min(sy, sy1 - 72.5))
+        if anchor != sy:
+            blocked('m6', tx, anchor, tx, sy, 72.5)
     # Replica wordline far end: the core's M4 riser at the RWL load row; M7
     # over the upper array, M9 down over the decoder into the block's top.
     rwl_tap = tuple(bm['rwl_tap_nm'])
@@ -298,8 +375,8 @@ def build(deck, output, bank_dir):
     if any(p not in tc.ports or formal[p] != p for p in inputs):
         raise ValueError('Macro inputs must be TIME_CONTROL ports of the same name')
     ctrl = make_control(ly, tc, width, exclude=('Xdff_buf_data/',), pin_plan=plan, corner=True,
-                        min_height=height, band_span=(local(band_lo), local(band_top)), lanes=[],
-                        profile=profile, obstacles=obstacles, escapes=tuple(inputs))
+                        min_height=height, band_span=(local(band_lo), local(band_hi)), lanes=lanes,
+                        profile=profile, obstacles=obstacles, escapes=tuple(inputs), compact_registers=True)
     if any(not 0 <= p['y_nm'] <= ctrl.height_nm - p['height_nm'] for p in ctrl.placements):
         raise ValueError('Controller gates were placed outside the routed frame')
     b.place(ctrl.builder, frame_x, y0)
@@ -315,23 +392,29 @@ def build(deck, output, bank_dir):
     for net in ('PRE', 'w_en', 's_en', 'sa_iso'):
         x, y, _ = cp[net]
         _, by0, _, by1 = trunk(net)
-        ty = y if by1 - by0 > 300 else (by0 + by1) / 2
-        if not by0 + 72.5 <= ty <= by1 - 72.5 and by1 - by0 > 145: raise ValueError(f'{net} drive misses its trunk')
-        P.wire(net, 'm6', [(x, y), (x + 300, y), (x + 300, ty), (ctl[net], ty)])
-        endpoint(net, (x, y, 'm6')); endpoint(net, (ctl[net], ty, 'm6'))
-        links.append(dict(controller_port=net, route='M6 into the bank trunk', y_nm=y))
+        endpoint(net, (x, y, 'm6'))
+        endpoint(net, (ctl[net], (by0 + by1) / 2, 'm6'))
+        links.append(dict(controller_port=net, route='existing M6 bank crossing', y_nm=y))
     x, y, _ = cp['clk_buf']
     if abs(y - clock_y) > GRID / 2: raise ValueError('Register clock pin is off its bar')
-    P.wire('clk_buf', 'm6', [(x, y), (min(ctl.values()) - 300., y)]); P.stack('clk_buf', min(ctl.values()) - 300., y, 4, 6)
-    P.wire('clk_buf', 'm4', [(min(ctl.values()) - 300., y), (max(clock_xs), y)], 140.)
-    endpoint('clk_buf', (x, y, 'm6')); endpoint('clk_buf', (clock_xs[0], y, 'm4'))
+    left = bm['controller_channel_nm'][0]
+    right = min(ctl.values()) - 300.
+    for tx, end in ((left, min(clock_xs)), (right, max(clock_xs))):
+        P.stack('clk_buf', tx, clock_y, 4, 6)
+        P.wire('clk_buf', 'm4', [(tx, clock_y), (end, clock_y)], 140.)
+    endpoint('clk_buf', (x, y, 'm6')); endpoint('clk_buf', (clock_xs[0], clock_y, 'm4'))
     links.append(dict(controller_port='clk_buf', route='M6 + M4 register clock bar', y_nm=y))
     for net, y in supply_y.items():
         x, py, _ = cp[net]
-        sx = x + 400.
-        P.stack(net, sx, py, 4, 6); P.wire(net, 'm6', [(x, py), (sx, py)])
-        P.wire(net, 'm4', [(sx, py), (sx, y), (cx, y)], 140.)
         endpoint(net, (x, py, 'm6')); endpoint(net, (cx, y, 'm4'))
+        if net == 'VDD':
+            # The native controller VDD rail ends on M4 at this access.
+            # Join the bank landing instead of leaving two close pads.
+            native = pya.Region(ctrl.builder.cell.begin_shapes_rec(ctrl.builder.li('v3')))
+            probe = pya.Region(pya.Box(u(x - frame_x) - 1, u(py - y0) - 1,
+                                       u(x - frame_x) + 1, u(py - y0) + 1))
+            if not (native & probe).is_empty():
+                P.rect('m4', x - 72.5, py - 72.5, bm['controller_channel_nm'][1] + 70., py + 72.5)
     # 5. Decoder nets rise on M5 from a block edge into one decoder half.
     for net, points in decoder_nets.items():
         for (half, tx, ty), (px, py, _) in zip(points, planned[net]):
@@ -339,17 +422,10 @@ def build(deck, output, bank_dir):
             P.wire(net, 'm5', riser(half, tx, ty))
             endpoint(net, (px, py, 'm5')); endpoint(net, (tx, ty, 'm5'))
             links.append(dict(controller_port=net, half=half, route='M5 riser into the decoder', x_nm=px))
-    from .control_passives import antenna_diode
-    for net, x, xb, yl, yu in bridges:
-        for y in (yl, yu):
-            P.stack(net, x, y, 5, 8); P.wire(net, 'm8', [(x, y), (xb, y)]); P.stack(net, xb, y, 8, 10)
-        P.wire(net, 'm10', [(xb, yl), (xb, yu)])
-        P.wire(net, 'm5', [(x, upper_edge), (x, tap_y)]); antenna_diode(b, x, tap_y); P.stack(net, x, tap_y, 3, 5)
-        endpoint('BRIDGE_' + net, (x, yl, 'm5'), net); endpoint('BRIDGE_' + net, (x, yu, 'm5'), net)
-        links.append(dict(decoder_net=net, route='M5-M8 stacks, M8 jogs and an M10 bridge over the array', x_nm=x, bridge_x_nm=xb))
     # 6. Far-end returns: each bar's right end continues to a stack beside the
     #    VDD trunk, then M7 back; the mux output returns from the replica slot.
     tap = trunks['VDD'] - 300.
+    replica_left = cx + (groups // 2) * SLOT_W
     bars = {}
     for port, net in far.items():
         x, ry, _ = cp[port]
@@ -363,14 +439,26 @@ def build(deck, output, bank_dir):
         ybar, xend = max(((y, bank_conductor(bank.cell, 'm4', ctl[net], y)[2]) for y in bm['control_bars_nm'][net]),
                          key=lambda t: t[1])
         bars[port] = (xend, ybar)
+        # Each return owns its M5 climb. A shorter sense row can reverse
+        # the order of bar and return heights; sharing one x would short
+        # overlapping climbs even though the M7 return pins remain spaced.
+        metal = pya.Region(b.cell.begin_shapes_rec(b.li('m5'))).merged()
+        def clear_return(x: float) -> bool:
+            box = pya.Box(u(x - 212.5), u(min(ry, ybar) - 212.5),
+                          u(x + 212.5), u(max(ry, ybar) + 212.5))
+            return (metal & pya.Region(box)).is_empty()
+        tx = next((tap - GRID * k for k in range(int((tap - replica_left) // GRID) + 1)
+                   if clear_return(tap - GRID * k)), None)
+        if tx is None:
+            raise ValueError(f'{port}: no clear M5 return column in the replica slot')
         # Bars may sit closer than an M7 pad pitch (400 + 400 nm), so each
         # return climbs on M5 to its own pin height before lifting to M7.
-        P.wire(net, 'm4', [(xend - 70, ybar), (tap, ybar)], 140.)
+        P.wire(net, 'm4', [(xend - 70, ybar), (tx, ybar)], 140.)
         if ry != ybar:
-            P.stack(net, tap, ybar, 4, 5); P.wire(net, 'm5', [(tap, ybar), (tap, ry)]); P.stack(net, tap, ry, 5, 7)
+            P.stack(net, tx, ybar, 4, 5); P.wire(net, 'm5', [(tx, ybar), (tx, ry)]); P.stack(net, tx, ry, 5, 7)
         else:
-            P.stack(net, tap, ybar, 4, 7)
-        P.wire('RETURN_' + port, 'm7', [(x, ry), (tap, ry)])
+            P.stack(net, tx, ybar, 4, 7)
+        P.wire('RETURN_' + port, 'm7', [(x, ry), (tx, ry)])
         endpoint('RETURN_' + port, (x, ry, 'm7'), net); endpoint('RETURN_' + port, (xend - 100, ybar, 'm4'), net)
         links.append(dict(controller_port=port, bank_net=net, route='M4 bar end + M7', y_nm=ry))
     # 7. Replica wordline return.
@@ -387,10 +475,10 @@ def build(deck, output, bank_dir):
     ceiling = rows <= 32 and cols <= 32
     rwl_c = read_component(deck, 'XRWL'); rwl_v = make_aux(ly, rwl_c, ceiling)
     dec_top = bm['upper_decoder_top_nm']
-    dec_right = split['upper_decoder_bbox_nm'][2]
+    dec_right = bm['decoder_bbox_nm'][2]
     rpx = snap(dec_right - rwl_v.width_nm - 300.); rpy = dec_top
     latch_c = read_component(deck, 'XD_LATCH'); latch_v = make_aux(ly, latch_c, folded=True)
-    lpx = cx + groups * SLOT_W + LATCH_GAP
+    lpx = cx + (groups // 2) * SLOT_W + LATCH_GAP
     if lpx + latch_v.width_nm > trunks['VSS'] - 67.5 - 70:
         raise ValueError('Output latch does not fit between the register band and the supply trunks')
     lpy = _latch_y(b.cell, ly, reg_y, rs.supplies, lpx, latch_v, trunks['VSS'] + 72.5)
@@ -412,10 +500,11 @@ def build(deck, output, bank_dir):
     P.wire('wl_en', 'm4', [(bx, rpy + 385), (spine[0], rpy + 385)]); P.stack('wl_en', spine[0], rpy + 385, 4, 5)
     P.wire('wl_en', 'm5', [(spine[0], rpy + 385), spine])
     endpoint('wl_en', (bx, by, 'm3'))
-    for net, rail_x in (('VSS', 200.), ('VDD', 50.)):
+    for net, offset in (('VSS', 200.), ('VDD', 50.)):
+        rail_x = bm['decoder_bbox_nm'][0] + offset
         px, py, _ = rp_[net]
         P.wire(net, 'm1', [(px, py), (rail_x, py)]); P.stack(net, rail_x, py, 1, 2)
-        py_probe = split['upper_decoder_bbox_nm'][1] + 1300.     # both rails cross band 0 here
+        py_probe = (bm['decoder_bbox_nm'][1]) + 1300.
         probe = pya.Box(u(rail_x) - 1, u(py_probe) - 1, u(rail_x) + 1, u(py_probe) + 1)
         rail = pya.Region(bank.cell.begin_shapes_rec(ly.layer(13, 0))).merged().interacting(pya.Region(probe))
         if rail.count() != 1: raise ValueError(f'No unique decoder {net} M2 rail')
@@ -456,6 +545,10 @@ def build(deck, output, bank_dir):
     pads = {n: (x + frame_x, y + y0) for n, (x, y) in ctrl.escapes.items()}
     for net in INPUTS_EXTRA:
         tx = ctl[net]; sy = sel_y[net]
+        _, sy0, _, sy1 = trunk(net)
+        anchor = max(sy0 + 72.5, min(sy, sy1 - 72.5))
+        if anchor != sy:
+            P.wire(net, 'm6', [(tx, anchor), (tx, sy)])
         P.stack(net, tx, sy, 6, 10); pads[net] = (tx, sy)
     def m10(path):
         r = pya.Region()
@@ -466,21 +559,25 @@ def build(deck, output, bank_dir):
     taken = pya.Region(b.cell.begin_shapes_rec(b.li('m10'))).merged()
     def free(net, path):
         return (m10(path).sized(u(M10_SPACE)) & (taken - m10([pads[net]] * 2))).is_empty()
-    ends = {'left': lambda x, y: (x_left + M10_HALF, y), 'bottom': lambda x, y: (x, y_bottom + M10_HALF),
+    ends = {'left': lambda x, y: (x_left + M10_HALF, y), 'right': lambda x, y: (x_right - M10_HALF, y),
+            'bottom': lambda x, y: (x, y_bottom + M10_HALF),
             'top': lambda x, y: (x, y_top - M10_HALF)}
     pad_ys = [y for _, y in pads.values()]; middle = (min(pad_ys) + max(pad_ys)) / 2
     vertical = lambda y: ('bottom', 'top') if y <= middle else ('top', 'bottom')
     escape = {}
     for net in sorted(pads, key=lambda n: pads[n]):
         x, y = pads[net]
-        for side in ('left',) + vertical(y):
+        # Select trunks sit outside the controller frame. Escape them over
+        # their own array instead of fencing them behind controller inputs.
+        sides = ('right', 'left') + vertical(y) if net in INPUTS_EXTRA else ('left',) + vertical(y)
+        for side in sides:
             path = [(x, y), ends[side](x, y)]
             if free(net, path): escape[net] = (side, path); taken = (taken + m10(path)).merged(); break
-    columns = [frame_x + GRID * i for i in range(ceil(M10_HALF / GRID), floor((width - M10_HALF) / GRID) + 1)]
+    escape_columns = [frame_x + GRID * i for i in range(ceil(M10_HALF / GRID), floor((width - M10_HALF) / GRID) + 1)]
     for net in sorted(set(pads) - set(escape), key=lambda n: pads[n]):
         x, y = pads[net]
         for side in vertical(y):
-            path = next(([(x, y), (c, y), ends[side](c, y)] for c in sorted(columns, key=lambda c: abs(c - x))
+            path = next(([(x, y), (c, y), ends[side](c, y)] for c in sorted(escape_columns, key=lambda c: abs(c - x))
                          if free(net, [(x, y), (c, y), ends[side](c, y)])), None)
             if path: escape[net] = (side, path); taken = (taken + m10(path)).merged(); break
         else: raise ValueError(f'Macro input {net} has no M10 path to an edge')
@@ -500,6 +597,27 @@ def build(deck, output, bank_dir):
         P.wire(net, 'm6', [(tx, y_bottom + 72.5), (tx, ty0 + 72.5)]); P.wire(net, 'm6', [(tx, ty1 - 72.5), (tx, y_top - 72.5)])
         endpoint(net, (tx, y_bottom + 72.5, 'm6')); endpoint(net, (tx, y_top - 72.5, 'm6'))
         macro_pins[net] = [('bottom', tx, y_bottom + 72.5, 'm6'), ('top', tx, y_top - 72.5, 'm6')]
+    low = reg_y + max(y for net, y in rs.supplies if net == 'VSS')
+    high = min(y for net, y in bm['write_supplies'] if net == 'VSS')
+    if 0. < high - low < 400.:
+        left, right = bm['controller_channel_nm']
+        if bm.get('left_supply_trunks_nm'):left = right - 1000.
+        P.rect('m6', left - 72.5, low - 72.5, right + 72.5, high + 72.5)
+    # Controller routes are on a 100 nm grid; bank crossings are on the
+    # device grid. Close sub-rule notches within their joined conductors.
+    # Check foreign polygons before adding any metal.
+    metal = pya.Region(b.cell.begin_shapes_rec(b.li('m6'))).merged()
+    for net in ('PRE', 'w_en', 's_en', 'sa_iso'):
+        px, py, _ = cp[net]
+        probe = pya.Region(pya.Box(u(px) - 1, u(py) - 1, u(px) + 1, u(py) + 1))
+        own = metal.interacting(probe)
+        fill = own.sized(u(70.)).sized(-u(70.)) - own
+        if not (fill.sized(u(140.)) & (metal - own)).is_empty():
+            raise ValueError(f'{net}: crossing notch fill would crowd foreign M6')
+        for polygon in fill.each():
+            b.cell.shapes(b.li('m6')).insert(polygon)
+            P.drawn['m6'].insert(polygon)
+        metal = (metal + fill).merged()
     P.check(b.cell)
     if b.cell.dbbox() != extent: raise ValueError('Macro pins extend the macro boundary')
     from .conductor_ownership import port_conductors
@@ -507,11 +625,9 @@ def build(deck, output, bank_dir):
     for net, points in endpoints.items():
         for i, (point, alias) in enumerate(points):
             key = f'{net}:{i}'; check_ports[key] = point; check_aliases[key] = alias.upper()
-    lo_y0 = split['lower_array_origin_nm'][1]
-    top_rows = rows - cut
-    ix0 = max([cx + 2 * SLOT_W] + [xb + 1000 for _, _, xb, _, _ in bridges])
-    interior = ([(ix0, cy + 460 + 3160, cx + (cols - 2) * 1125, cy + 460 + (top_rows - 8) * 395),
-                 (ix0, lo_y0 + 3160, cx + (cols - 2) * 1125, yb - 460 - 3160)]
+    ix0 = cx + 2 * SLOT_W
+    interior = ([(2 * SLOT_W, cy + 460 + 3160, (cols // 2 - 2) * 1125, cy + 460 + (rows - 8) * 395),
+                 (ix0, cy + 460 + 3160, cx + (cols // 2 - 2) * 1125, cy + 460 + (rows - 8) * 395)]
                 if rows * cols > 4096 else None)
     port_conductors(b, check_ports, check_aliases, require_connected=True, exclude_bbox_nm=interior)
 
@@ -548,13 +664,15 @@ def build(deck, output, bank_dir):
     v = CellView(component, b, box.width() * 1000, box.height() * 1000, pins, terminals, [], P.segments, [])
     v.physical_fingers = physical
     bank_box = bank.cell.dbbox()
-    block = [frame_x, reg_y, frame_x + width, band_top]
-    metadata = dict(artifact_kind='bank', rows=rows, cols=cols, controller_layout=True, floorplan='centre',
+    block = [frame_x, y0, frame_x + width, band_top]
+    metadata = dict(artifact_kind='bank', rows=rows, cols=cols, controller_layout=True, floorplan='column_split',
         core_pitch_nm=dict(row=395, column=1125), row_span=rows, column_span=cols, column_mux=2,
         included_instances=list(bm['included_instances']) + ['XTIME_CONTROL', 'XRWL', 'XD_LATCH'], excluded_instances=[],
-        routing='control logic: grid router inside the block between the decoder halves; interface: planned straight tracks',
+        routing=('control logic: grid router below the shared decoder; interface: planned straight tracks'),
         split=split, controller_frame_nm=[frame_x, y0, frame_x + width, y0 + ctrl.height_nm],
-        controller_block_nm=block, controller_block_area_um2=width * (band_top - reg_y) / 1e6,
+        controller_block_nm=block, controller_block_area_um2=width * (band_top - y0) / 1e6,
+        controller_cell_drop_nm=cell_drop,
+        controller_decoder_lanes_nm=[[frame_x, y, frame_x + w, y + 1365.] for y, w, _ in lanes_abs[:used]],
         controller_placements=[dict(p, x_nm=p['x_nm'] + frame_x, y_nm=p['y_nm'] + y0) for p in ctrl.placements],
         register_band_nm=[cx, reg_y, cx + groups * SLOT_W, reg_y + rs.height],
         controller_standard_cells=ctrl.standard_cell_inventory, passive_locations=ctrl.passive_locations,
@@ -563,6 +681,7 @@ def build(deck, output, bank_dir):
         bank_bbox_nm=[v_ * 1000 for v_ in (bank_box.left, bank_box.bottom, bank_box.right, bank_box.top)],
         source_devices=len(source.mos), source_passives=source.passives,
         source_artifacts={str(bank_dir): hashlib.sha256((bank_dir / 'full_macro.gds').read_bytes()).hexdigest()},
+        controller_source_artifact=getattr(ctrl, 'source_artifact', None),
         guard_policy=('far-end feedback and fixed digital delays; no intentional RC guards'
                       if not source.passives else 'archived intentional RC; values require independent extraction'),
         interface_conductor_audit_excluded_bbox_nm=interior,
@@ -572,32 +691,46 @@ def build(deck, output, bank_dir):
         output_latch=dict(folded=True, origin_nm=[lpx, lpy], width_nm=latch_v.width_nm, height_nm=latch_v.height_nm),
         waveform_validation='not run', defaults_promotable=False, external_pins=pins,
         compiler_provenance=bm.get('compiler_provenance'))
-    return write_view(v, output, deck, 'complete compact split bank with TIME_CONTROL between the decoder halves', metadata)
+    metadata.update(register_band_nm=[0., reg_y, cx + cols // 2 * 1125., reg_y + rs.height],
+        left_supply_layers=bm.get('left_supply_layers', dict(VDD='m5', VSS='m5')),
+        left_supply_trunks_nm=bm.get('left_supply_trunks_nm'),
+        bank_incremental_routing=bm.get('incremental_routing_provenance'),
+        register_bands_nm=[
+        [0., reg_y, cols // 2 * 1125., reg_y + rs.height],
+        [cx, reg_y, cx + cols // 2 * 1125., reg_y + rs.height]],
+        metal_policy=dict(bank_highest_routing_layer='m6', highest_routing_layer='m10',
+                          upper_metals_used=True, purpose='TIME_CONTROL routing, feedback and macro input escapes'))
+    return write_view(v, output, deck, 'complete compact column-split bank with TIME_CONTROL, RWL driver and output latch', metadata)
 
 
-def generate(deck, output):
+def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
     source = flatten(deck)
-    cut = split_row(source.rows)
-    if cut is None: raise ValueError('The centre floorplan needs at least 16 rows')
+    if source.rows < 16:
+        raise ValueError('The integrated controller needs at least 16 rows')
     output = Path(output); parts = output.with_name(output.name + '_parts')
-    reserve = register_reserve(deck)
     bank_dir = parts / 'bank'
-    build_bank(deck, bank_dir, split=cut, reserve=reserve, bridge=False)
-    # Large banks are controller-limited: the block between the decoder halves
-    # widens (the core moves right) to the narrowest width, to 1 um, whose
-    # band holds every controller gate.
+    build_bank(deck, bank_dir, controller_channel=True)
+    # Use spare decoder rows before widening the central channel.
     bm = json.loads((bank_dir / 'layout.json').read_text())
     tc = read_component(deck, 'XTIME_CONTROL', allow_passives=True)
-    width, band = _block(deck, bm, tc)
-    if not _fits(tc, width, band):
+    _, _, rs = _register_slot(new_layout(), deck)
+    width = snap(min(bm['control_trunks_nm'].values()) - TRUNK_GAP - bm['decoder_bbox_nm'][0] - FRAME_X)
+    band = (_register_origin(rs)[0], int((bm['array_origin_nm'][1] - 460. - TOP_GAP) // GRID) * GRID)
+    lane_layout = new_layout()
+    lanes = _column_lanes(_imported(lane_layout, bank_dir, bm), bm)
+    extra = 0.
+    if not _fits(tc, width, band, True, lanes):
         lo, hi = width, 2 * width
-        while not _fits(tc, hi, band):
+        while not _fits(tc, hi, band, True, lanes):
             if hi > 1e6: raise ValueError('Controller gates do not fit a 1 mm block')
             lo, hi = hi, 2 * hi
         while hi - lo > 1000:
             mid = snap((lo + hi) / 2)
-            lo, hi = (lo, mid) if _fits(tc, mid, band) else (mid, hi)
+            lo, hi = (lo, mid) if _fits(tc, mid, band, True, lanes) else (mid, hi)
+        extra = hi - width + GRID
+    # Keep one micron beyond the placement minimum for crossing escapes.
+    extra = max(extra + 1000., MIN_COLUMN_FRAME - width)
+    if extra:
         shutil.rmtree(bank_dir)
-        build_bank(deck, bank_dir, split=cut, reserve=reserve, bridge=False,
-                   core_x=bm['array_origin_nm'][0] + hi - width + GRID)
+        build_bank(deck, bank_dir, core_x=bm['array_origin_nm'][0] + extra, controller_channel=True)
     return build(deck, output, bank_dir)

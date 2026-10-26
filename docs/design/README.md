@@ -10,17 +10,14 @@ tracks release status and open work.
 
 ## Layout
 
-Component, bank and TIME_CONTROL physical design and verification.
+The default physical flow and optional complete controller integration:
 
-- [Compact point-symmetric bitcell and pitch-matched bank — V2.2.8](layout/COMPACT_CELL_V2_2_8.md)
-- [V2.2.8 component layout development](layout/COMPONENT_LAYOUT_V2_2_8.md)
-- [Single-bank layout scaling, driver candidates and centre floorplan — V2.2.8](layout/LAYOUT_SCALING_V2_2_8.md)
-- [OpenRAM-pitch bank layout, V2.2.8](layout/OPENRAM_PITCH_V2_2_8.md)
-- [OpenRAM 32×32 FreePDK45 reference run](layout/OPENRAM_REFERENCE_V2_2_8.md)
+- [Compact column-split SRAM layout — V2.2.8](layout/COMPACT_CELL_V2_2_8.md)
 
-Superseded data-path, folded-bank, row-pitch and controller reports were purged
-on 2026-10-24. Their [physical evidence](../data/README.md#historical-layout-evidence)
-retains its original scope; the reports are available at `git show 8dc77df:docs/design/layout/<name>`.
+Superseded bank/controller plans and previews have been removed. Their
+[historical JSON evidence](../data/README.md#historical-layout-evidence)
+retains its original scope. The [layout guide](../../sram_compiler/layout/README.md)
+also documents the retained component and standalone TIME_CONTROL commands.
 
 ## Compiler
 

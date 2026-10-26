@@ -2,27 +2,28 @@
 
 ## Historical layout evidence
 
-The current physical flows are documented in the
-[compact-cell record](../design/layout/COMPACT_CELL_V2_2_8.md),
-[OpenRAM-pitch record](../design/layout/OPENRAM_PITCH_V2_2_8.md) and
-[scaling record](../design/layout/LAYOUT_SCALING_V2_2_8.md).
-On 2026-10-24, superseded layout reports were removed; their JSON evidence
-remains unchanged. Retrieve the old prose with
-`git show 8dc77df:docs/design/layout/<report-name>`.
+The [compact column-split record](../design/layout/COMPACT_CELL_V2_2_8.md)
+describes the sole bank implementation. The latest physical results are in
+[the precharge evidence](COMPACT_PRECHARGE_V2_2_8.json). Earlier JSON/CSV
+and qualification evidence remains byte-for-byte unchanged.
 
-| Removed report | Preserved evidence |
+Superseded layout plans and previews have been removed. Their historical
+records include:
+
+| Retired implementation or campaign | Preserved evidence |
 | --- | --- |
-| `BANK_LAYOUT_V2_2_8.md` | [Data-path bank](BANK_LAYOUT_V2_2_8.json) |
-| `BANK_INTEGRATION_V2_2_8.md` | [Folded integrated bank](BANK_INTEGRATION_V2_2_8.json) |
-| `BANK_ROW_PITCH_V2_2_8.md` | [400 nm row-pitch bank](BANK_ROW_PITCH_V2_2_8.json) |
-| `TIME_CONTROL_COMPACTION_REPORT_V2_2_8.md` | [Controller compaction](TIME_CONTROL_COMPACTION_V2_2_8.json) |
-| `TIME_CONTROL_LAYOUT_V2_2_8.md` | [Planned interface](TIME_CONTROL_PLANNED_INTERFACE_V2_2_8.json), [earlier controller](TIME_CONTROL_LAYOUT_V2_2_8.json) |
+| Component development | [Component layouts](COMPONENT_LAYOUT_V2_2_8.json) |
+| Data-path / integrated / row-pitch banks | [Data path](BANK_LAYOUT_V2_2_8.json), [integration](BANK_INTEGRATION_V2_2_8.json), [row pitch](BANK_ROW_PITCH_V2_2_8.json) |
+| OpenRAM-pitch bank and external reference | [Pitch](OPENRAM_PITCH_V2_2_8.json), [reference](OPENRAM_REFERENCE_V2_2_8.json) |
+| Beside / row-split controllers and driver campaigns | [Planned interface](TIME_CONTROL_PLANNED_INTERFACE_V2_2_8.json), [centre](CENTRE_FLOORPLAN_V2_2_8.json), [scaling](LAYOUT_SCALING_V2_2_8.json), [performance](LAYOUT_PERFORMANCE_V2_2_8.json) |
+| Compact geometry revisions | [Original](COMPACT_CELL_V2_2_8.json), [columns](COMPACT_COLUMNS_V2_2_8.json), [complete](COMPACT_COLUMNS_COMPLETE_V2_2_8.json), [tightening](COMPACT_TIGHTENED_COLUMNS_V2_2_8.json), [redesign](COMPACT_REDESIGNED_PERIPHERY_V2_2_8.json) |
 
-The superseded eight-chain compact decoder's raw outputs were also purged;
-their dimensions, hashes and physical-check summaries remain under
-`superseded_eight_chain_decoder` in [the compact evidence](COMPACT_CELL_V2_2_8.json).
-The ten current compact bank/centre layouts, receipts, sources and final-tree
-XOR regenerations remain under ignored `outputs/layout/compact/`.
+Superseded raw output campaigns were purged on 2026-10-26. Historical paths
+inside these immutable records can therefore be absent; their hashes and
+check summaries retain their original scope. The latest selected precharge
+builds, parts, physical receipts and source decks remain under
+`outputs/layout/compact/`. The deletion inventory is local at
+`dev/cleanup/2026-10-26-default-compact-layout.json`.
 
 ## Simulation and characterization records
 

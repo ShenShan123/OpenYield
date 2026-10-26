@@ -309,7 +309,8 @@ class ControlRouter(Router):
 
 class StandardLibrary:
     """Reusable views; row_height=1365 builds gates on the decoder's row rails."""
-    def __init__(self,layout,row_height=None):self.layout=layout;self.views={};self.row_height=row_height
+    def __init__(self,layout,row_height=None,compact_registers: bool=False):
+        self.layout=layout;self.views={};self.row_height=row_height;self.compact_registers=compact_registers
     def build(self,c):
         if self.row_height is not None:
             if c.identity not in self.views:self.views[c.identity]=make_logic(self.layout,c,self.row_height)
@@ -317,7 +318,7 @@ class StandardLibrary:
         if c.identity not in self.views:
             if c.name=='DFF':
                 from .control_register import make_register
-                v=make_register(self.layout,c)
+                v=make_register(self.layout,c,low_metal=self.compact_registers)
             elif c.name=='TRANSMISSION_GATE':v=make_transmission_gate(self.layout,c)
             elif c.children:v=assemble(self,c)
             else:v=make_logic(self.layout,c)

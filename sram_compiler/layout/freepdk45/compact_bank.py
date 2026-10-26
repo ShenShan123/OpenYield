@@ -1,33 +1,71 @@
-"""Bank at the compact point-symmetric pitch with a 2:1 column mux.
+"""Compact column-split bank with one shared decoder and a 2:1 mux.
 
-The decoder sits left of the core; the column periphery sits below the core
-in 2250 nm column-pair slots: data buffers and write drivers, then the
-column mux with its sense amplifier, then precharge. The replica column's
-periphery takes the U role of one more slot. Bitlines are continuous M5
-lines from the slot stacks to lifts in the core's bottom well strap; each
-control net has its own M6 trunk below the decoder's right edge, supplies use M6
-trunks right of the core. TIME_CONTROL, the RWL driver and the output latch
-are external; SEL0/SEL1 are bank inputs (the source drives them statically).
+Each full-row half-array has its own 2250 nm column-pair periphery below it.
+The right half owns the replica column. Wordlines cross the decoder on M6;
+bitlines drop locally on M5. TIME_CONTROL, the RWL driver and output latch
+remain external until compact_center integrates them.
 """
 from collections import defaultdict
 from pathlib import Path
+from typing import Optional, Union
 
 from .cell_flow import leaves
 from .components import Component, Instance, CellView, read_component
 from .compact_array import make_core
-from .compact_core import W, HS, bitline_x
+from .compact_core import W, H, HS, bitline_x
 from .compact_decoder import make_decoder
-from .compact_slots import GEOMETRY, WIDTH as SLOT_W, make_sense_slot, make_write_slot
-from .dense_slots import make_precharge_slot
+from .compact_slots import WIDTH as SLOT_W, make_sense_slot, make_write_slot, make_precharge_slot
 from .dense_views import write_view
-from .full_source import flatten
+from .full_source import FullSource, flatten
 from .lib import Builder, new_layout
 
 CONTROLS = ('PRE', 'w_en', 's_en', 'sa_iso', 'SEL0', 'SEL1')
 EXCLUDED = ('XTIME_CONTROL', 'XRWL', 'XD_LATCH')
 
 
-def compact_contract(deck):
+def replica_contract(source: FullSource, specs: dict[str, Component], rows: int, cols: int) -> None:
+    name = f'Xsram_{rows}x1_replica_column'
+    column = specs[name]
+    pins = source.instances[name]['pins']
+    expected_pins = dict(VDD='VDD',VSS='VSS',RBL='RBL',RBLB='RBLB',
+                         **{f'WL{r}': 'RWL' if r==rows-1 else 'VSS' for r in range(rows)})
+    if pins != expected_pins:
+        raise ValueError('Unsupported replica-column boundary mapping')
+    widths = {'MPGL':135,'MPGR':135,'MPDL':205,'MPDR':205,'MPUL':90,'MPUR':90}
+    def check(cell, kind):
+        nodes = {'MPGL':('RBL','WL','Q','VSS'), 'MPGR':('RBLB','WL','VDD','VSS'),
+                 'MPDL':('Q','VDD','VSS','VSS'), 'MPDR':('VDD','Q','VSS','VSS'),
+                 'MPUL':('Q','VDD','VDD','VDD'), 'MPUR':('VDD','Q','VDD','VDD')}
+        if kind=='passive':
+            nodes.update({n:(v[0],'VSS',v[2],v[3]) for n,v in nodes.items() if n not in ('MPGL','MPGR')})
+        if kind=='dummy':
+            nodes['MPGL']=('bl_node_noconnect','WL','Q','VSS')
+            nodes['MPGR']=('blb_node_noconnect','WL','VDD','VSS')
+        if {d.name for d in cell.devices} != set(widths):
+            raise ValueError('Replica/dummy device inventory differs from dense view')
+        for d in cell.devices:
+            model = 'PMOS_VTG' if d.name.startswith('MPU') else 'NMOS_VTG'
+            if (d.nodes!=nodes[d.name] or d.model!=model or d.fingers!=1 or
+                    abs(d.width_m*1e9-widths[d.name])>1e-6 or abs(d.length_m*1e9-50)>1e-6):
+                raise ValueError('Replica/dummy topology or W/L/NF differs from dense view')
+    children=list(leaves(column))
+    if len(children)!=rows:
+        raise ValueError('Replica column must retain every source cell')
+    for r,(path,cell,mapping) in enumerate(children):
+        kind='replica' if r==rows-1 else 'passive'
+        expected_name='Replica_CELL' if kind=='replica' else 'Replica_CELL_PASSIVE'
+        if (path!=f'XReplica_CELL_{r}' or cell.name!=expected_name or
+                mapping!=dict(VDD='VDD',VSS='VSS',RBL='RBL',RBLB='RBLB',WL=f'WL{r}')):
+            raise ValueError('Replica cell placement differs from dense view')
+        check(cell,kind)
+    for c in range(cols-1):
+        name=f'XRWL_LOAD_{c}'
+        if source.instances[name]['pins']!=dict(VDD='VDD',VSS='VSS',BL='VDD',BLB='VDD',WL='RWL'):
+            raise ValueError('Dummy load boundary differs from dense view')
+        check(specs[name],'dummy')
+
+
+def compact_contract(deck: Union[str, Path]) -> tuple[FullSource, str, dict[str, Component], dict[str, str]]:
     """Bind the muxed source to the compact physical plan."""
     source = flatten(deck)
     rows, cols = source.rows, source.cols
@@ -72,7 +110,6 @@ def compact_contract(deck):
         ids = {specs[n].identity for n in specs if n.startswith(kind + '_')}
         if len(ids) != 1:
             raise ValueError(f'{kind} instances differ physically')
-    from .bank_core import replica_contract
     replica_contract(source, specs, rows, cols)
     controls = dict(PRE=inst['XPRECHARGE_0']['pins']['ENB'], w_en=inst['XWRITEDRIVER_0']['pins']['EN'],
                     s_en=inst['XSENSEAMP_0']['pins']['EN'], sa_iso=inst['XSENSEAMP_0']['pins']['ISO'],
@@ -80,44 +117,31 @@ def compact_contract(deck):
     return source, core, specs, controls
 
 
-def split_row(rows):
-    """Lower-array rows of a split bank: whole 8-row bands, at least 8 each side."""
-    return (rows // 2) // 8 * 8 if rows >= 16 else None
+def build(deck: Union[str, Path], output: Union[str, Path], core_x: Optional[float] = None,
+          controller_channel: bool = False) -> dict:
+    """Full-row half-arrays beside one shared decoder and muxed periphery.
 
-
-def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
-    """split=row places rows [0, split) below the column periphery, their top
-    edge ``reserve`` nm below the write band (room for the data registers).
-    With ``bridge`` the decoder nets of both halves join on straight M5
-    tracks across the band; otherwise each half keeps band-edge pins.
-    ``core_x`` moves the core (and the control trunks) further right, for a
-    controller block wider than the decoder."""
+    ``core_x`` widens the central channel for TIME_CONTROL. With
+    ``controller_channel`` the central M4 bars cross on M6, leaving room
+    for the controller and separate half-array supply feeds.
+    """
     source, core_name, specs, controls = compact_contract(deck)
     inst = source.instances
     rows, cols = source.rows, source.cols
-    if split is not None and (split != split_row(rows) or reserve < 1000):
-        raise ValueError('A split compact bank uses split_row(rows) and a reserve of at least 1000 nm')
     ly = new_layout()
     b = Builder(ly, f'COMPACT_BANK_{rows}X{cols}')
     row_specs = {n: specs[n] for n in ['XDECODER'] + [f'XWL_DRV_{r}' for r in range(rows)]}
-    if split is None:
-        decoder = make_decoder(ly, source, row_specs)
-        core = make_core(ly, source, specs, core_name)
-    else:
-        decoder = make_decoder(ly, source, row_specs, (split, rows))
-        core = make_core(ly, source, specs, core_name, (split, rows))
-        decoder_lo = make_decoder(ly, source, row_specs, (0, split))
-        core_lo = make_core(ly, source, specs, core_name, (0, split))
-    G = GEOMETRY
+    decoder = make_decoder(ly, source, row_specs)
+    core = make_core(ly, source, specs, core_name, column_span=(cols // 2, cols))
+    core_left = make_core(ly, source, specs, core_name, column_span=(0, cols // 2))
     wslot = make_write_slot(ly, 'CMP_WRITE_SLOT', {'L': specs['XWRITEDRIVER_0'], 'U': specs['XWRITEDRIVER_1']},
                             {'L': specs['XDIN_BUF_0'], 'U': specs['XDIN_BUF_1']})
     wrep = make_write_slot(ly, 'CMP_WRITE_SLOT_RBL', {'U': specs['XREPLICA_WDRV_LOAD']},
                            {'U': specs['XDIN_BUF_0']}, replica=True)
     sslot = make_sense_slot(ly, 'CMP_SENSE_SLOT', specs['XCOLUMNMUX2_0'], specs['XSENSEAMP_0'])
     srep = make_sense_slot(ly, 'CMP_SENSE_SLOT_RBL', specs['XREPLICA_MUX'], specs['XREPLICA_SENSEAMP'], replica=True)
-    pslot = make_precharge_slot(ly, 'CMP_PRECHARGE_SLOT', {'L': specs['XPRECHARGE_0'], 'U': specs['XPRECHARGE_1']},
-                                geometry=G)
-    prep = make_precharge_slot(ly, 'CMP_PRECHARGE_SLOT_RBL', {'U': specs['XPRECHARGE_RBL']}, replica=True, geometry=G)
+    pslot = make_precharge_slot(ly, 'CMP_PRECHARGE_SLOT', {'L': specs['XPRECHARGE_0'], 'U': specs['XPRECHARGE_1']})
+    prep = make_precharge_slot(ly, 'CMP_PRECHARGE_SLOT_RBL', {'U': specs['XPRECHARGE_RBL']}, replica=True)
     # Bands abut where facing rails share a net. Otherwise 425 nm keeps the
     # facing wells (each overhangs 100 nm) 225 nm apart and the two rails'
     # full-width M4 supply bars clear of each other.
@@ -130,13 +154,25 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
     sa_y = wslot.height + gap(wslot, sslot)
     pc_y = sa_y + sslot.height + gap(sslot, pslot)
     cy = pc_y + pslot.height + 1000.
-    dec_w = max(decoder.width_nm, decoder_lo.width_nm) if split is not None else decoder.width_nm
+    dec_w = decoder.width_nm
     # The control trunks only span the periphery band, so they sit below the
     # decoder's right edge and the core starts 400 nm past the decoder.
-    cx = dec_w + 400. if core_x is None else max(dec_w + 400., core_x)
-    terminals, fingers, placed, points, pins = {}, [], [], defaultdict(list), {}
+    dx = core_left.width_nm + 400.
+    cx = dx + dec_w + 400. if core_x is None else max(dx + dec_w + 400., core_x)
+    def column_x(column: int) -> float:
+        return column * W if column < cols // 2 else cx + (column - cols // 2) * W
+    terminals, fingers, placed, pins = {}, [], [], {}
 
     def wire(layer, x, y, xx, yy, w=None):
+        if controller_channel and layer == 'm4' and y == yy and y < cy:
+            left, right = dx - 200., cx - 2100.
+            if min(x, xx) < left and max(x, xx) > right:
+                wire('m4', min(x, xx), y, left, y, w)
+                wire('m4', right, y, max(x, xx), y, w)
+                for sx in (left, right):
+                    via(4, sx, y); via(5, sx, y)
+                wire('m6', left, y, right, y)
+                return
         w = w or (70 if int(layer[1:]) < 4 else 140 if layer == 'm4' else 145)
         b.rect(layer, min(x, xx) - w / 2, min(y, yy) - w / 2, max(x, xx) + w / 2, max(y, yy) + w / 2)
 
@@ -185,19 +221,18 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
         return {k: [(x + px, y + py, l) for px, py, l in v] for k, v in view.pins.items()}
 
     cp = add(core, cx, cy)
-    dp = add(decoder, 0., cy + HS)
-    if split is not None:
-        # The lower array's top edge (yb) faces the data-register reserve.
-        yb = -reserve
-        ylo = yb - core_lo.height_nm
-        cp_lo = add(core_lo, cx, ylo)
-        dp_lo = add(decoder_lo, 0., ylo + HS)
-        wl_pins = {**dp_lo, **dp}
-        core_pins = {**cp_lo, **cp}
-    else:
-        wl_pins, core_pins = dp, cp
+    dp = add(decoder, dx, cy + HS)
+    left_supply_layers = {}
+    cp_left = add(core_left, 0., cy)
+    wl_pins, core_pins = dp, cp
     for r in range(rows):
         wire('m3', *wl_pins[f'WL{r}'][:2], *core_pins[f'WL{r}'][:2])
+        a, z = dp[f'WL{r}'], cp_left[f'WL{r}']
+        lift(a, 6); lift(z, 6)
+        wire('m6', *a[:2], *z[:2])
+    a, z = cp['RWL'], cp_left['RWL']
+    lift(a, 6); lift(z, 6)
+    wire('m6', *a[:2], *z[:2])
     # Column periphery: pair p holds columns 2p (L) and 2p+1 (U); the last
     # slot's U role is the replica column.
     bars = defaultdict(set)          # net -> {(x, y)} M4 bar pins
@@ -205,7 +240,7 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
     stacks = defaultdict(list)       # bitline x -> slot pin ys
     pairs = cols // 2
     for p in range(pairs + 1):
-        x = cx + p * SLOT_W
+        x = column_x(2 * p)
         last = p == pairs
         c = 2 * p
         if last:
@@ -244,26 +279,22 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
         bars['sa_iso'].add(s['A.ISO'][0][:2])
     # Bitlines: one M5 line per column from the lowest slot stack to a lift
     # in the core's bottom strap (the core pin is the strap's M2 line).
-    expected = {cx + c * W + bitline_x(c)[k] for c in list(range(cols)) + [cols + 1] for k in (0, 1)}
+    expected = {column_x(c) + bitline_x(c)[k] for c in list(range(cols)) + [cols + 1] for k in (0, 1)}
     if set(stacks) != expected:
         raise ValueError('Slot bitline stacks do not match the core columns')
     for x, ys in stacks.items():
         top = cy + 70.
-        if split is None:
-            wire('m5', x, min(ys), x, top)
-        else:
-            # The lower core's top strap carries a VSS M3 rail near its edge:
-            # the strap M2 bitline continues 140 nm past it to the lift.
-            low = yb + 70.
-            b.rect('m2', x - 35, yb - 35, x + 35, yb + 140)
-            lift((x, low, 'm2'), 5)
-            wire('m5', x, low, x, top)
+        wire('m5', x, min(ys), x, top)
         lift((x, top, 'm2'), 5)
-    for pins_, label in ((cp, 'upper'),) + (((cp_lo, 'lower'),) if split is not None else ()):
-        for c in range(cols):
+    for pins_, label in ((cp, 'right'),):
+        for c in range(cols // 2, cols):
             for n in ('BL', 'BLB'):
-                if abs(pins_[f'{n}{c}'][0] - (cx + c * W + bitline_x(c)[n == 'BLB'])) > 1e-6:
+                if abs(pins_[f'{n}{c}'][0] - (column_x(c) + bitline_x(c)[n == 'BLB'])) > 1e-6:
                     raise ValueError(f'{label} core bitline pin off its slot stack')
+    for c in range(cols // 2):
+        for n in ('BL', 'BLB'):
+            if cp_left[f'{n}{c}'][0] != column_x(c) + bitline_x(c)[n == 'BLB']:
+                raise ValueError('Left core bitline pin off its slot stack')
     # Control bars: M4 from each slot pin to the net's own M6 trunk.
     trunk_x = {net: cx - 150. - 300. * i for i, net in enumerate(CONTROLS)}
     trunk_y = defaultdict(list)
@@ -271,7 +302,7 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
         for y in sorted({y for x, y in sites}):
             xs = [x for x, yy in sites if yy == y]
             tx = trunk_x[net]
-            wire('m4', tx, y, max(xs), y)
+            wire('m4', min([tx] + xs), y, max([tx] + xs), y)
             via(4, tx, y); via(5, tx, y)
             trunk_y[net].append(y)
     for net, ys in trunk_y.items():
@@ -279,15 +310,32 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
         pins[controls[net]] = (trunk_x[net], min(ys), 'm6')
     # Supplies: M4 bars on every slot boundary rail, M6 trunks right of the core.
     root = {'VDD': cx + core.width_nm + 600., 'VSS': cx + core.width_nm + 900.}
+    left_root = {net: cp_left[net][0] for net in ('VDD', 'VSS')} if controller_channel else {}
     rail_y = defaultdict(list)
     for net, levels in supply.items():
         for y, xs in levels.items():
-            wire('m4', min(xs), y, root[net], y)
+            if controller_channel:
+                # Each half feeds its own rails. Repeated M6 power bridges
+                # through the controller would consume its signal lift sites.
+                lx = left_root[net]
+                wire('m4', min(xs), y, lx, y)
+                via(4, lx, y); via(5, lx, y)
+                right = cx - 2100.
+                wire('m4', right, y, root[net], y)
+                via(4, right, y); via(5, right, y)
+                wire('m6', right - 1000., y, right, y)
+            else:
+                wire('m4', min(xs), y, root[net], y)
             via(4, root[net], y); via(5, root[net], y)
             rail_y[net].append(y)
+    for net, lx in left_root.items():
+        # The left core already joins the decoder supply feed. End below
+        # its first M6 wordline crossing and lift onto its existing M4 trunk.
+        wire('m6', lx, min(supply[net]), lx, cy)
+        via(4, lx, cy); via(5, lx, cy)
     # Core trunks run right one row inside each array: VDD on M6 to the
     # nearer root, VSS on M5 under the VDD root trunk to its own.
-    for pins_, base in ((cp, cy + HS + 1700.),) + (((cp_lo, yb - HS - 2300.),) if split is not None else ()):
+    for pins_, base in ((cp, cy + HS + 1700.),):
         for net in ('VDD', 'VSS'):
             x, y, _ = pins_[net]
             yy = base + (300. if net == 'VSS' else 0.)
@@ -299,10 +347,22 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
             wire(layer, x, yy, root[net], yy)
             via(5, root[net], yy)
             rail_y[net].append(yy)
+    for net, yy in (('VDD', cy - 600.), ('VSS', cy - 300.)):
+        x, y, _ = cp_left[net]
+        target = dp[net][0]
+        # A fully used three-bit predecode has an input spine only
+        # 150 nm from VSS. Its controller riser crosses this feed, so
+        # use the clear M3 channel below the core instead of M5.
+        layer = ('m3' if controller_channel and net == 'VSS' and any(
+            l == 'm5' and abs(px - target) < 285. for px, _, l in dp.values()) else 'm5')
+        left_supply_layers[net] = layer
+        wire('m4', x, y, x, yy)
+        cut = 3 if layer == 'm3' else 4
+        via(cut, x, yy)
+        wire(layer, x, yy, target, yy)
+        via(cut, target, yy)
     # Decoder M2 rails leave each half on its band side, then M4 bars run right.
     halves = [(dp, (('VDD', cy - 600.), ('VSS', cy - 300.)))]
-    if split is not None:
-        halves.append((dp_lo, (('VDD', yb + 700.), ('VSS', yb + 400.))))   # clear of the bitline lifts
     for pins_, levels in halves:
         for net, yy in levels:
             x, y, _ = pins_[net]
@@ -311,20 +371,6 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
             wire('m4', x, yy, root[net], yy)
             via(4, root[net], yy); via(5, root[net], yy)
             rail_y[net].append(yy)
-    shared = {}
-    if split is not None:
-        # Decoder nets end at each half's band edge on M5; bank-only builds
-        # join both halves with straight M5 tracks across the band.
-        for net in [n for n in dict.fromkeys([*dp_lo, *dp]) if n not in ('VDD', 'VSS') and not n.startswith('WL')]:
-            ends = {k: v[net] for k, v in (('lower', dp_lo), ('upper', dp)) if net in v}
-            if any(l != 'm5' for _, _, l in ends.values()):
-                raise ValueError(f'{net}: decoder band pin is not on M5')
-            shared[net] = ends
-            if bridge and len(ends) == 2:
-                (x0, y0, _), (x1, y1, _) = ends['lower'], ends['upper']
-                if x0 != x1:
-                    raise ValueError(f'{net}: decoder halves disagree on the trunk phase')
-                wire('m5', x0, y0, x1, y1)
     for net, ys in rail_y.items():
         wire('m6', root[net], min(ys), root[net], max(ys))
         pins[net] = (root[net], min(ys), 'm6')
@@ -349,17 +395,17 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
         b.label(l, p, x, y)
     comp = Component(b.name, tuple(ports), (), tuple(
         Instance(n, tuple(inst[n]['pins'][p] for p in c.ports), c) for n, c in specs.items()))
-    bottom = 0. if split is None else ylo
-    v = CellView(comp, b, root['VSS'] + 100., cy + core.height_nm - bottom, pins, terminals, [], [], [])
+    v = CellView(comp, b, root['VSS'] + 100., cy + core.height_nm, pins, terminals, [], [], [])
     v.physical_fingers = fingers
     v.placements = placed
     metadata = dict(schema=1, artifact_kind='bank', rows=rows, cols=cols, controller_layout=False,
                     core_pitch_nm=dict(row=395, column=1125), row_span=rows, column_span=cols,
                     column_mux=2, included_instances=list(specs), excluded_instances=list(EXCLUDED),
-                    array_origin_nm=[cx, cy + HS], decoder_bbox_nm=[0, cy + HS, decoder.width_nm, cy + HS + decoder.height_nm],
+                    array_origin_nm=[cx, cy + HS], decoder_bbox_nm=[dx, cy + HS, dx + decoder.width_nm, cy + HS + decoder.height_nm],
                     periphery_bands_nm=dict(write=[0, wslot.height], sense=[sa_y, sa_y + sslot.height],
                                             precharge=[pc_y, pc_y + pslot.height], slot_pitch=SLOT_W, slots=pairs + 1),
-                    core_geometry=dict(width_nm=core.width_nm, height_nm=core.height_nm, replica_x_nm=(cols + 1) * W),
+                    core_geometry=dict(width_nm=core.width_nm, height_nm=core.height_nm,
+                                       replica_x_nm=((cols // 2) + 1) * W),
                     supply_trunks_nm=root, control_trunks_nm={controls[n]: trunk_x[n] for n in CONTROLS},
                     control_bars_nm={controls[n]: ys for n, ys in trunk_y.items()},
                     write_supplies=[list(t) for t in wslot.supplies],
@@ -368,16 +414,25 @@ def build(deck, output, split=None, reserve=1000., bridge=True, core_x=None):
     tracks = decoder.wlen_tracks
     first = min(tracks)
     metadata.update(rwl_tap_nm=[cx + rx, cy + ry], rwl_pin_nm=list(cp['RWL']),
-                    wl_en_spine_nm=[first, cy + HS + tracks[first][1]],
+                    wl_en_spine_nm=[dx + first, cy + HS + tracks[first][1]],
                     upper_decoder_top_nm=cy + HS + decoder.height_nm)
-    if split is not None:
-        metadata['split'] = dict(row=split, lower_rows=[0, split], upper_rows=[split, rows],
-            lower_array_origin_nm=[cx, ylo + HS], lower_array_top_nm=yb, register_reserve_nm=reserve,
-            upper_decoder_bbox_nm=[0, cy + HS, decoder.width_nm, cy + HS + decoder.height_nm],
-            lower_decoder_bbox_nm=[0, ylo + HS, decoder_lo.width_nm, ylo + HS + decoder_lo.height_nm],
-            decoder_regions_nm={str(k): v for k, v in decoder.regions.items()},
-            decoder_band_pins=shared, decoder_bridges=bridge,
-            bitlines='continuous M5 from the lower array top edge through the periphery to the upper array')
+    half_width, half_height = cols // 2 * W, rows * H
+    metadata['split'] = dict(axis='columns', column=cols // 2,
+        left_columns=[0, cols // 2], right_columns=[cols // 2, cols], rows=[0, rows],
+        left_array_origin_nm=[0., cy + HS], right_array_origin_nm=[cx, cy + HS],
+        periphery_origins_nm=[0., cx],
+        bitcell_half_array_nm=[half_width, half_height], half_array_aspect_ratio=half_width / half_height,
+        decoder='one shared decoder and one source wordline driver per logical row',
+        wordlines='M3 within both arrays, M6 crossing the centre decoder',
+        bitlines='M2 in each array, local M5 drops to its own column-pair periphery')
+    metadata['metal_policy'] = dict(highest_routing_layer='m6',
+        core_bitlines='m2', core_wordlines='m3', periphery_bars='m4', bitline_drops='m5',
+        decoder_crossings_and_control_supply_trunks='m6', upper_metals_used=False)
+    metadata['left_supply_layers'] = left_supply_layers
+    if controller_channel:
+        metadata['controller_channel_nm'] = [dx - 200., cx - 2100.]
+        metadata['supply_bars_nm'] = dict(rail_y)
+        metadata['left_supply_trunks_nm'] = left_root
     summary = Path(deck).with_name('summary.json')
     if summary.is_file():
         import hashlib

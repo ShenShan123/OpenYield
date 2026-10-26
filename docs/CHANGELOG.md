@@ -11,18 +11,25 @@ proposals and that circuit review were purged after V2.2.6; retrieve them with
 
 ## V2.2.8 — 2026-10-11 — component-based bank and controller layouts
 
-[Bank record](design/layout/OPENRAM_PITCH_V2_2_8.md),
+[Historical bank evidence](data/OPENRAM_PITCH_V2_2_8.json),
 [compact cell record](design/layout/COMPACT_CELL_V2_2_8.md) and
-[scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md).
+[historical scaling evidence](data/LAYOUT_SCALING_V2_2_8.json).
 
 The older fixed, full, scaled and compact macro generators and their
 campaigns were purged on 2026-10-14, and unreferenced scaling and
 centre-floorplan attempts on 2026-10-15
-([development notes](DEVELOPMENT.md)). Recorded layouts, receipts, audits and
-source decks remain. No layout change in this release carries waveform,
+([development notes](DEVELOPMENT.md)). Historical JSON evidence remains;
+superseded raw layouts and campaigns were purged on 2026-10-26. No layout change in this release carries waveform,
 operating-point or yield qualification beyond the native 8×8 and 32×32 checks
 in the scaling record.
 
+- 2026-10-26: make compact-cell, column-split banks the only bank implementation
+  and CLI default. Keep the two explicit flags as compatibility aliases and
+  `--with-controller` as the complete-macro option. Retire alternative bank
+  generators and stale plans/raw outputs; preserve evidence. The condensed
+  [current record](design/layout/COMPACT_CELL_V2_2_8.md) includes the latest
+  decoder, read/write and precharge geometry and exact physical-check scope.
+  Earlier bullets below describe historical implementations.
 - 2026-10-14: single-bank 512×512 generation, an explicit driver candidate
   from smaller-bank coupled extraction, compact control logic and no
   intentional RC guards. Automatic timing keeps its envelope.
@@ -35,13 +42,13 @@ in the scaling record.
 - 2026-10-16: the corner floorplan is retired and `layout bank
   --with-controller` defaults to the centre plan. Banks below 16 rows have no
   integrated controller; `beside` remains 32×32 only.
-- 2026-10-16 [performance pass](design/layout/LAYOUT_SCALING_V2_2_8.md#performance-pass-candidate-2):
+- 2026-10-16 [performance pass](data/LAYOUT_PERFORMANCE_V2_2_8.json):
   driver candidate 2 (smallest class within 10 % of the class half-period on
   centre-plan loads; wordline 4–64, precharge 4, write output 4/8/8/8/8 under
   control-bar column caps), per-class `setup_stages`/`guard_stages`, local
   tie-offs for constant gate inputs (an `Antenna.metal8` fix), 40/80 nm
   via-stack clearance (Via7.2–Via9.2) and a 13 µm minimum controller frame.
-- 2026-10-21 [macro edge pins](design/layout/LAYOUT_SCALING_V2_2_8.md#macro-edge-pins-and-right-edge):
+- 2026-10-21 [macro edge pins](data/MACRO_PINS_V2_2_8.json):
   `clk`, `csb`, `web` and `A*` leave on M10 to the left, bottom or top edge
   (lifted to M10 before routing, run to the edge after); `OUT`/`OUT_B` exit
   right and `VDD`/`VSS` top and bottom; data pins stay internal. The output
@@ -85,7 +92,7 @@ in the scaling record.
 - The opt-in `layout cells` flow builds circuit-owned small cells (shared
   diffusion, preserved W/L/NF, local wiring, physical interfaces) and places
   and routes their instances on the core pitch
-  ([component record](design/layout/COMPONENT_LAYOUT_V2_2_8.md)). It does not
+  ([component record](data/COMPONENT_LAYOUT_V2_2_8.json)). It does not
   replace or qualify a full bank.
 - The density review removes duplicate diffusion-strip gaps, fixes parent-via
   and mirrored-boundary clearance and reuses routing tracks by span.
@@ -99,7 +106,7 @@ in the scaling record.
 - The decoder moves left of the core with 400 nm M2 wordline spacing; eight-row
   bands keep every source device, including unused predecode branches
   ([row-pitch record](data/BANK_ROW_PITCH_V2_2_8.json)). An
-  [OpenRAM run](design/layout/OPENRAM_REFERENCE_V2_2_8.md) supplies a 32×32
+  [OpenRAM run](data/OPENRAM_REFERENCE_V2_2_8.json) supplies a 32×32
   reference bank GDS; its conditional supply check is distinguished from the
   full OpenRAM macro's failed LVS.
 

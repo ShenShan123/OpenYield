@@ -52,7 +52,8 @@ class RowView:
     rails: dict = field(default_factory=dict)
 
 
-def make_row(layout, name, gates, p_sd, n_sd, levels, reach=None, width=SLOT, x0=X0, min_region=None):
+def make_row(layout, name, gates, p_sd, n_sd, levels, reach=None, width=SLOT, x0=X0, min_region=None, pitch=PITCH,
+             min_gate_level: int=0):
     """Build one folded row.
 
     gates: list of (p Gate | None, n Gate | None) per gate column.
@@ -63,14 +64,16 @@ def make_row(layout, name, gates, p_sd, n_sd, levels, reach=None, width=SLOT, x0
     reach: net -> extra x positions its bars must cover (tracks or stacks).
     A strip's bar region may exceed its diffusion: straps run from the
     contacts to the bar, so narrow devices still get distinct bar levels.
+    min_gate_level aligns the wells and rails of co-planar islands that
+    use different subsets of the shared gate levels.
     """
     reach = reach or {}
     count = len(gates)
     has_p, has_n = p_sd is not None, n_sd is not None
     if (has_p and len(p_sd) != count + 1) or (has_n and len(n_sd) != count + 1):
         raise ValueError(f'{name}: contact list length differs from gate count')
-    cx = [x0 + PITCH * i for i in range(count + 1)]
-    gx = [x + PITCH / 2 for x in cx[:-1]]
+    cx = [x0 + pitch * i for i in range(count + 1)]
+    gx = [x + pitch / 2 for x in cx[:-1]]
     if cx[-1] + 37.5 + 77.5 > width or cx[0] - 77.5 < 0:
         raise ValueError(f'{name}: {count} gates exceed the {width} nm slot')
     wn = max((n.width for _, n in gates if n), default=0.)
@@ -81,7 +84,7 @@ def make_row(layout, name, gates, p_sd, n_sd, levels, reach=None, width=SLOT, x0
         return max(w, floor, 75. + STRIP_LEVEL * max(used)) if used else max(w, floor)
     rn, rp = region('n', wn), region('p', wp)
     glevel = lambda g: levels[('g', g.gate)] if g.level is None else g.level
-    top_level = max(glevel(g) for pair in gates for g in pair if g)
+    top_level = max(min_gate_level, max(glevel(g) for pair in gates for g in pair if g))
     base = NB + rn + GAP_EDGE if has_n else P_ONLY_BASE
     gate_y = lambda level: base + LEVEL * level
     pb = gate_y(top_level) + GAP_EDGE

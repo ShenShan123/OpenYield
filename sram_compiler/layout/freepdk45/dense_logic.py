@@ -6,6 +6,7 @@ S/D strips, rail taps and local M2/M3 routes replace the generic maze frames.
 from collections import defaultdict
 import hashlib
 import json
+from pathlib import Path
 
 from .components import CellView
 from .lib import Builder, pya
@@ -65,13 +66,17 @@ def _plan(component):
     return wp/nf,wn/nf,nf,gate_specs,n_contacts,p_contacts
 
 
-def make_logic(layout,component,area_ceiling=True):
+def make_logic(layout,component,area_ceiling=True,compact: bool=False):
     wp,wn,nf,gates,ns,ps=_plan(component)
-    ident=hashlib.sha256((component.identity+':dense-1365-v1').encode()).hexdigest()
+    ident=hashlib.sha256((component.identity+(':compact-1365-v1' if compact else ':dense-1365-v1')).encode()).hexdigest()
     b=Builder(layout,'DENSE_'+ident[:16])
-    count=len(gates);contacts=[100.+190*i for i in range(count+1)]
-    gx=[195.+190*i for i in range(count)]
-    out_x=contacts[-1]+105
+    # Compact gates keep 45 nm between abutting implants and 160 nm between
+    # the last input's via2 and the output. The default view is retained
+    # for the OpenRAM-pitch bank and controller cell contracts.
+    first=100.
+    count=len(gates);contacts=[first+190*i for i in range(count+1)]
+    gx=[first+95.+190*i for i in range(count)]
+    out_x=contacts[-1]+(65. if compact else 105.)
     width=out_x+35
     # A NAND2 folded more than twice, or with narrow N fingers, joins its
     # series nodes above the N contact pads: the legacy track below them
@@ -169,7 +174,7 @@ def make_logic(layout,component,area_ceiling=True):
                 terminals[f'{nd.name}@{ni}:g']=(gx[i],gy,'poly')
                 terminals[f'{pd.name}@{pi}:g']=(gx[i],gy,'poly')
     for net,y in [('VDD',VDD_Y),('VSS',VSS_Y)]:
-        pins[net]=(100,y,'m1')
+        pins[net]=(first,y,'m1')
     via('Z',2,out_x,gy);pins['Z']=(out_x,gy,'m3')
     for net,p in pins.items():b.label(p[2],net,p[0],p[1])
     rect('bnd',0,0,width,HEIGHT)
@@ -177,7 +182,7 @@ def make_logic(layout,component,area_ceiling=True):
     view=CellView(component,b,width,HEIGHT,pins,terminals,[],paths,vias)
     view.physical_fingers=physical
     view.output_rail_m2=(out_x,ny,py)
-    from .openram_core import ASSETS
+    ASSETS = Path(__file__).with_name('assets') / 'openram'
     reference=json.loads((ASSETS/'area_reference.json').read_text())['cells']
     inputs=len(component.devices)//2
     family='pnand'+str(inputs) if inputs>1 else ('pinv_0' if max(d.width_m for d in component.devices)>540e-9+1e-15 else 'pinv')

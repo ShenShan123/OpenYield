@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "pitch-aligned compact precharge pairs and complete column-split integration",
+  "reference": {
+    "file": "PLSRAM_FINAL_0427.gds",
+    "sha256": "9904d847aaa9dd6ef622309a42d833cf2f6575846b16e1aa3d73ba347b314b95",
+    "use": "hierarchy, repeated peripheral pitch and mirrored placement; no process geometry copied"
+  },
+  "sizes": [[32, 32], [64, 64], [128, 128], [256, 256], [512, 512]],
+  "source": {
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "column_mux": 2,
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 25,
+    "diagnostic_period_ns": {"32": 9, "64": 10.5, "128": 30, "256": 26.25, "512": 80},
+    "sizing_and_timing": "frozen candidate-2 source decks; unchanged sizing, timing and simulation RC tables"
+  },
+  "baseline": "docs/data/COMPACT_REDESIGNED_PERIPHERY_V2_2_8.json",
+  "checks": [
+    "Keep all six pair precharge MOS and all three replica MOS with unchanged topology/model/L/total W",
+    "Place the L/U diffusion islands as x mirrors on the existing BL/BLB tracks; preserve U geometry in the replica",
+    "Check actual active/poly gate area, terminal coverage, signal-layer mirror XOR and replica-window XOR",
+    "Share PRE at the pair centre and abut the precharge VDD rail to the sense VDD rail",
+    "Reserve select via landings before routing; preserve row/column floorplan selection and avoid duplicate controller placement margins",
+    "Native complete macro generation at all five sizes; preserve every source instance and compare actual GDS area",
+    "Official FreePDK45 Calibre DRC zero and strict LVS CORRECT at all five sizes",
+    "Distributed R+C+CC extraction on complete 32, 64 and 128 macros; no large-macro PEX claim",
+    "Bind evidence to source/GDS/tool/rule/generator hashes; preserve previous evidence"
+  ],
+  "waveform_validation": "not run; changed finger count, junctions and PRE distribution require new extracted validation",
+  "defaults_promotable": false,
+  "local_python_runners_tracked": false
+}

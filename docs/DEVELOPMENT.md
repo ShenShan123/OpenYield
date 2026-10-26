@@ -1,143 +1,30 @@
 # OpenYield V2.2.8 development tools
 
-Single-bank scaling is recorded in
-[the scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md). Local tools under
-`dev/layout_scaling/` audit coupled DSPF loads, sweep driver coupons and score
-native 8×8 waveforms; each layout attempt is written to its own directory.
-The tracked protocol
-is `tests/spice/v228_scaling_cases.json`; the explicit sizing candidate is
-`sram_compiler/sizing/layout_sizing_lookup.json`. Local regressions cover
-bounded fixed timing, controller ports and Boolean factoring, RC deletion,
-width-preserving fingers, routing and physical conductor connectivity.
+The [compact layout record](design/layout/COMPACT_CELL_V2_2_8.md) documents
+the default column-split bank and optional complete controller. The current
+physical evidence is `docs/data/COMPACT_PRECHARGE_V2_2_8.json`; its tracked
+protocol is `tests/spice/v228_compact_precharge_cases.json`. Sizing, timing
+and simulation RC retain their existing scope.
 
-The historical 32×32 beside-controller flow has
-[preserved interface evidence](data/TIME_CONTROL_PLANNED_INTERFACE_V2_2_8.json).
-Local `dev/time_control/` scripts retain primitive, register, passive-coupon,
-controller and complete-bank experiments, including failed attempts.
-The resumed compaction and evidence assembler live under
-`dev/time_control/resume_20261012/`. Current verified artifacts are `control_20`
-(standalone controller) and `planned_02` (planned interface). The superseded
-maze integration `full_40` and the `full_29` LVS failure remain preserved.
-`dev/time_control/record_planned.py` writes the planned-interface evidence. The
-old integration and its router are kept locally as
-`dev/time_control/macro_control_maze_v228.py`, `macro_negotiation.py` and
-`route_search.{py,cpp}`.
-`tests/test_time_control_layout.py` checks source-device conservation, RC
-coverage, frozen register contracts, actual GDS placement/pitch and hashed
-physical verification receipts. The tracked reproduction scope is
-`tests/spice/v228_time_control_layout_cases.json`; the Python runner remains
-local. These are physical-layout checks, not a transient/waveform screen.
+Local `dev/plsram_reference/` holds the supplied-GDS audit, native builds,
+physical verification and evidence assembler. Latest selected macros, bank
+parts, receipts and previews remain at `outputs/layout/compact/plsram_reference/`.
+`selected.json` identifies the five qualified outputs. Those historical
+receipts bind their recorded generators; cleanup does not rewrite them.
 
-The split-array centre floorplan (`--controller-floorplan center`, the default
-since the corner plan was retired on 2026-10-16) is recorded
-in the [scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#split-arrays-with-a-centre-periphery).
-Its local tools are in `dev/centre_floorplan/`:
-- `verify.sh` previews and Calibre-verifies one layout.
-- `record.py` writes `docs/data/CENTRE_FLOORPLAN_V2_2_8.json`.
-- `frozen_tree_15.sha256` lists the generator files of the recorded layouts.
-- Debug helpers:
-  - `antenna_probe.py` maps Calibre antenna results to gates and drivers.
-  - `cycle_debug.py` replays a build and dumps the router at a rip-up cycle.
-  - `repair_debug.py` keeps the controller cell when a width repair fails.
-  - `compare_placement.py` diffs centre placements between two trees.
-  - `lane_taps.py` lists lane gates and their antenna taps.
-  - `route_debug.py`, `check_debug.py`, `owner_check.py` and
-    `placement_stats.py` cover routing failures, planner checks, conductor
-    ownership and DFF-row crossings.
+On 2026-10-26, the alternative bank pitches and floorplans, obsolete layout
+plans/previews, and superseded raw output campaigns were removed. Historical
+JSON/CSV and qualification evidence is preserved unchanged. The local deletion
+inventory is `dev/cleanup/2026-10-26-default-compact-layout.json`. Historical
+scripts and tests that import retired generators or read purged paths need
+the corresponding archived sources/artifacts; they are not current regressions.
 
-The local regression is `tests/test_centre_floorplan.py`.
-
-The 2026-10-16 performance pass (driver candidate 2, class-dependent
-TIME_CONTROL delays, macro pin study) is recorded in the
-[scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#performance-pass-candidate-2)
-and bound by `docs/data/LAYOUT_PERFORMANCE_V2_2_8.json`
-(`dev/layout_scaling/record_performance.py`). Its local tools under
-`dev/layout_scaling/` all need Xyce except the last two:
-- `size_coupons_centre.py`: driver coupons on centre-plan loads (two
-  half-array branches for the bitline drivers, 128x128 geometry above 64)
-  with the 10 %-of-half-period selection.
-- `control_delay_coupons.py`: delay-stage speed, far-end control-line tails
-  and decoder settle per class; `line_sweep.py`: PRE / w_en far-end edges
-  against the bitline-driver class, joined with the restore edges.
-- `control_path_coupons.py`: the real TIME_CONTROL driving extracted-metal
-  line models of a mini bank, sweeping setup and guard stages per shape.
-- `trunk_resistance.py` / `trunk_geometry.py`: driving-point resistance of
-  the control nets in a verified DSPF, from all driver fingers to the bar's
-  near end, its gradient and the per-slot stubs.
-- `control_inventory.py`: TIME_CONTROL MOS count and gate width by function.
-- `lane_fill.py`: lane fill ratio and frame width per spare-column width
-  (why 32/64 columns need `MIN_FRAME_WIDTH`); `antenna_variants.py` +
-  `antenna_drc.sh`: DRC-only Calibre runs on GDS variants with single shapes
-  removed, used to isolate the 128×128 M8 antenna; `perf_tables.py`:
-  markdown tables from the performance record.
-`dev/centre_floorplan/xor_gds.py` compares two GDS files layer by layer.
-
-The 2026-10-21 macro edge-pin and right-edge pass is recorded in the
-[scaling record](design/layout/LAYOUT_SCALING_V2_2_8.md#macro-edge-pins-and-right-edge)
-and bound by `docs/data/MACRO_PINS_V2_2_8.json` (`dev/layout_pins/record.py`;
-`table.py` prints its markdown table). The generator tree of its layouts is
-`dev/layout_pins/final_tree.sha256`. `build.sh` / `verify.sh` build and verify
-one size, `queue_verify.sh` starts each Calibre run when its build exits, and
-`build_from_parts.sh` reruns only the centre integration on an existing bank.
-`check_edges.py` confirms that each edge pin's conductor reaches its side and
-that nothing lies past the bank's right edge. The superseded `edge_*` and
-`probe_256` probes under `outputs/layout_scaling/` were purged on 2026-10-24.
-
-The 2026-10-23 compact cell is recorded in the
-[compact cell record](design/layout/COMPACT_CELL_V2_2_8.md) and bound by
-`docs/data/COMPACT_CELL_V2_2_8.json` (`dev/compact_cell/collect_evidence.py`
-reads the layouts and receipts under `outputs/layout/compact/`).
-`tests/test_compact_cell.py` is its local regression check. The superseded
-eight-chain outputs were purged on 2026-10-24; their summaries remain in the
-evidence JSON and the collector preserves them when rebuilding it.
-`dev/compact_cell/render_bitcell.py` renders the annotated bitcell PNG from
-the verified 32×32 GDS, checks every layer against the current generator and
-checks all six gate W/L against the source deck. `final_tree/` holds the XOR
-regenerations and `campaign.log` the result of each build and verification.
-
-The 2026-10-24 cleanup removed five superseded layout reports and 1,736 local
-output files (37.7 GB) from the eight-chain campaign and obsolete macro-pin
-probes (`edge_*`, `probe_256`, `pins_32_01_parts`). The local inventory is
-`dev/cleanup/2026-10-24-stale-compact-layout.json`. All tracked evidence,
-current compact outputs and OpenRAM comparisons remain. Historical report
-links now point to their preserved JSON evidence; see the
-[evidence index](data/README.md#historical-layout-evidence).
-
-Cleanup verification: 67 local checks passed with no skips via
-`python -m unittest tests.test_compact_cell tests.test_layout_scaling
-tests.test_centre_floorplan tests.test_openram_pitch tests.test_time_control_layout`.
-All 267 links checked in the changed Markdown files resolved; the 28 existing
-JSON/CSV evidence files were byte-identical to commit `8dc77df`. The ten retained compact
-GDS hashes matched their recorded passing receipts. No new Calibre or waveform
-run was performed for this cleanup.
-
-On 2026-10-11, workspace cleanup removed 25,603 obsolete simulation artifacts
-and logs (about 1.905 TB) from `outputs/validation/`, older smoke and CLI runs,
-and the top-level output logs. Historical raw decks, generated model cards and
-waveforms at those paths are no longer available. Result summaries, CSVs,
-source archives and local scripts remain, along with the newer bank, TIME_CONTROL
-and OpenRAM artifacts. That cleanup preserved supplied documentation evidence.
-The subsequent legacy-layout purge removes its dedicated reports and artifacts;
-other simulation and qualification evidence remains unchanged. The local deletion
-inventory is `dev/cleanup/2026-10-11-stale-outputs.json`.
-
-On 2026-10-15, a layout-scaling purge removed 160 unreferenced result
-directories and files from `outputs/layout_scaling/` (5,501 files, about
-37.6 GB). These were the superseded centre-floorplan attempts and diagnostics
-`centre_*_01` to `_14`, and the earlier corner and scaling attempts. The purge
-also removed 92 local logs and tree-hash lists of superseded centre builds.
-`outputs/layout_scaling/` keeps the following:
-- every layout, verification receipt, extraction and driver audit referenced
-  by the tracked records;
-- the bank parts and the `baseline_32x32` layout that those receipts and
-  audits are bound to;
-- the `final_source_*` decks, `sizing_coupons_02` and the native waveforms.
-
-Some local recorders and coupon scripts under `dev/layout_scaling/` and
-`dev/decoder_control/` read removed inputs and need them regenerated before
-rerunning. `dev/decoder_control/build_512.py` imports the retired
-`corner_control` module and no longer runs. The deletion inventory, including
-the kept list, is `dev/cleanup/2026-10-15-stale-layout-scaling.json`.
+`tests/test_default_layout.py` checks flag-free and explicit-alias CLI behavior,
+rejects retired options, compares GDS against the pre-cleanup column-split
+implementation, and verifies source conservation and split ownership. The
+tracked protocol is `tests/spice/v228_default_layout_cases.json`.
+Local cleanup sources, comparison builds and check results are under
+`dev/default_layout_cleanup/`.
 
 V2.2.2's opt-in transistor-level transition checks are kept locally under
 [`tests/spice/`](../tests/spice/README.md); their case manifests remain tracked. They use full cells, record solver,
@@ -193,33 +80,6 @@ checkout. Run commands from the repository root.
 
 ## Local regression checks
 
-`tests/test_integrated_bank.py` extends the bank checks to the complete
-non-TIME_CONTROL instance set, physical replica/dummy hierarchy, internal
-wordlines, output latch, complete finger terminals and real GDS area. Its
-asymmetric 8×4 source exercises the default `layout bank` CLI and verifies
-decoder-left placement, full row-height alignment and every direct M2 WL link.
-The combined
-suite has 59 passing checks; official 8×8/32×32 checks are recorded in
-[`v228_bank_integration_cases.json`](../tests/spice/v228_bank_integration_cases.json)
-and [the integration record](data/BANK_INTEGRATION_V2_2_8.json). Local helpers
-are in ignored `dev/bank_integration/`.
-
-The historical 400 nm pitch-matched floorplan is recorded in
-[`v228_bank_row_pitch_cases.json`](../tests/spice/v228_bank_row_pitch_cases.json)
-and [the row-pitch record](data/BANK_ROW_PITCH_V2_2_8.json). Its local runners and
-previews are under `dev/bank_pitch/`. The executed external OpenRAM reference
-has local helpers under `dev/openram_reference/` and an isolated environment
-under `outputs/openram_reference/`; the cloned OpenRAM source is unchanged.
-
-`tests/test_bank_layout.py` generates an asymmetric nominal 2×4 source and checks
-bank scope, all-device/finger coverage, real GDS gate area, mirrored bitlines and
-terminal maps, column-track reuse, rejected bitcell changes and preserved failed
-attempts. Run it with the component suite below. The tracked
-[`v228_bank_cases.json`](../tests/spice/v228_bank_cases.json) records the physical
-protocol; [the bank record](data/BANK_LAYOUT_V2_2_8.json) states the checked sizes
-and remaining integration scope. Local runners and native GDS preview scripts
-are in ignored `dev/bank_layout/`.
-
 The component layout flow has local `tests/test_physical_cells.py` checks for
 actual active/poly gate area and finger count, geometry and connectivity cache
 identity, independent formal ports, diffusion sharing, pitch frames, array
@@ -228,8 +88,8 @@ access coordinates, component placement and preserved failures. Run
 tests.test_router_clearance tests.test_calibrated_rc tests.test_unified_entrance
 tests.test_time_control_config`. Campaign helpers remain under ignored
 `dev/cell_layout/`. The tracked
-[`v228_component_cases.json`](../tests/spice/v228_component_cases.json) and
-[component record](design/layout/COMPONENT_LAYOUT_V2_2_8.md) preserve the checked scope.
+[`v228_component_cases.json`](../tests/spice/v228_component_cases.json) preserves the checked scope. Current bank geometry is in the
+[compact layout record](design/layout/COMPACT_CELL_V2_2_8.md).
 
 The older fixed/scaled/compact macro generators, calibration campaigns,
 reports and local artifacts have been purged. Component routing checks remain
@@ -241,7 +101,7 @@ The scoped compiler RC profiles remain runtime inputs; they do not validate
 new bank/controller geometry.
 
 ```bash
-python3 -m unittest discover -s tests -v
+python -m unittest tests.test_default_layout tests.test_physical_cells tests.test_component_routing tests.test_router_clearance tests.test_unified_entrance tests.test_time_control_config
 python3 -m unittest discover -s size_optimization/openyield_v2/tests -v
 python3 -m compileall -q sram_compiler utils size_optimization/exp_utils.py
 git diff --check
@@ -533,15 +393,3 @@ scripts were retired from active `dev/` in V2.1.1; the archive that kept them
 (`outputs/validation/distributed-only-V2.1.0/incoming-source.tar.gz`) was
 purged in the V2.1.10 cleanup. The reviewed `dev/sizing/` source manifest was refreshed;
 old evidence is incompatible with the new scoring identity.
-
-
-### OpenRAM-pitch bank validation
-
-The current physical plans and area ceilings are recorded in
-[OPENRAM_PITCH_V2_2_8.md](design/layout/OPENRAM_PITCH_V2_2_8.md), with the tracked protocol
-in `tests/spice/v228_openram_pitch_cases.json`. Local `tests/test_openram_pitch.py`
-checks actual GDS placement pitch, source MOS conservation under refingering,
-terminal coverage, area bounds, rejection of changed fixed-cell sources, and
-hash-matched strict Calibre receipts. `dev/openram_pitch/render.py` generates
-geometry previews. Older integrated-bank regression fixtures explicitly use
-`--legacy-pitch` to retain their historical 400 nm row assertions.

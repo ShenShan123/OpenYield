@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "component-first compact decoder and read/write periphery, complete column-split macros",
+  "sizes": [[32, 32], [64, 64], [128, 128], [256, 256], [512, 512]],
+  "source": {
+    "operation": "read&write", "variation_mode": "nominal", "real_cell_mode": 0,
+    "column_mux": 2, "corner": "TT", "vdd": 1, "temperature_c": 25,
+    "diagnostic_period_ns": {"32": 9, "64": 10.5, "128": 30, "256": 26.25, "512": 80},
+    "sizing_and_timing": "frozen candidate-2 source decks; no table or RC-profile changes"
+  },
+  "baseline": "docs/data/COMPACT_TIGHTENED_COLUMNS_V2_2_8.json",
+  "checks": [
+    "Pack buffers/input inverters and BL/BLB mux islands into three-row write/read slots without deleting source MOS",
+    "Keep 2250 nm column-pair pitch, every mux pair within its half and one source decoder/wordline driver per row",
+    "Preserve topology, model, L and summed physical width of every source MOS, including replica ties",
+    "Verify actual active/poly gate count and area, terminal coverage and default dense-logic layer XOR",
+    "Regenerate complete macro floorplans with registers, TIME_CONTROL, RWL driver, latch, routing and edge pins",
+    "Compare actual GDS bounding-box area with the latest compact baseline at each size",
+    "Calibre DRC zero, strict LVS CORRECT and distributed R+C+CC extraction; bind receipts to source/GDS hashes",
+    "Preserve baseline evidence and failed attempts; record generator, rule, source and tool provenance"
+  ],
+  "waveform_validation": "not part of this physical redesign",
+  "defaults_promotable": false,
+  "local_python_runners_tracked": false
+}

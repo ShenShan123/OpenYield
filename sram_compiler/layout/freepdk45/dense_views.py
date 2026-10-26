@@ -1,4 +1,4 @@
-"""Export compact physical views with explicit OpenRAM-pitch metadata."""
+"""Export source-owned physical views with explicit geometry and provenance."""
 import hashlib,json
 from math import fsum
 from collections import defaultdict
