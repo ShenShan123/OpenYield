@@ -1,0 +1,147 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "Larger complete-macro area trials with frozen source sizing and conditional register Q bridges",
+  "baseline_evidence": "docs/data/PERIPHERY_HEIGHT_V2_2_8.json",
+  "previous_exploration": "docs/data/MACRO_AREA_EXPLORATION_V2_2_8.json",
+  "source_policy": "Reuse exact nominal full mode-0 baseline decks, frozen layout sizing lookup, models, topology and timing; no waveform validation",
+  "cases": [
+    {
+      "name": "pitch285_macro64",
+      "rows": 64,
+      "cols": 64,
+      "register_gap_nm": 300,
+      "decoder_trunk_pitch_nm": 285,
+      "controller_order": "source"
+    },
+    {
+      "name": "pitch285_macro128",
+      "rows": 128,
+      "cols": 128,
+      "register_gap_nm": 300,
+      "decoder_trunk_pitch_nm": 285,
+      "controller_order": "source"
+    },
+    {
+      "name": "gap1300_macro256",
+      "rows": 256,
+      "cols": 256,
+      "register_gap_nm": 1300,
+      "decoder_trunk_pitch_nm": 300,
+      "controller_order": "source",
+      "generation_limit_seconds": 5400,
+      "initial_generation_limit_seconds": 3600,
+      "limit_extension_reason": "Native retries continue to make progress; extend to finish current attempts without changing geometry or routing rules"
+    },
+    {
+      "name": "wide_macro256",
+      "rows": 256,
+      "cols": 256,
+      "register_gap_nm": 300,
+      "decoder_trunk_pitch_nm": 300,
+      "controller_order": "wide groups first",
+      "generation_limit_seconds": 5400,
+      "initial_generation_limit_seconds": 3600,
+      "limit_extension_reason": "Native retries continue to make progress; extend to finish current attempts without changing geometry or routing rules",
+      "expected_result": "Rejected: one Metal6.2 spacing violation; preserve original artifact and failed receipt"
+    },
+    {
+      "name": "gap3300_macro512",
+      "rows": 512,
+      "cols": 512,
+      "register_gap_nm": 3300,
+      "decoder_trunk_pitch_nm": 300,
+      "controller_order": "source"
+    },
+    {
+      "name": "pitch290_macro64",
+      "rows": 64,
+      "cols": 64,
+      "register_gap_nm": 300,
+      "decoder_trunk_pitch_nm": 290,
+      "controller_order": "source",
+      "purpose": "Fallback after sustained routing congestion in the 285 nm candidate"
+    },
+    {
+      "name": "pitch295_macro64",
+      "rows": 64,
+      "cols": 64,
+      "register_gap_nm": 300,
+      "decoder_trunk_pitch_nm": 295,
+      "controller_order": "source",
+      "purpose": "Fallback retaining 300 nm rounded decoder-pin separation after the 290 nm rejection"
+    },
+    {
+      "name": "gap1300_wide200_macro256",
+      "rows": 256,
+      "cols": 256,
+      "register_gap_nm": 1300,
+      "decoder_trunk_pitch_nm": 300,
+      "controller_order": "source",
+      "extra_frame_width_nm": 200,
+      "generation_limit_seconds": 3600,
+      "purpose": "Extra routing width while retaining a smaller total area than baseline"
+    },
+    {
+      "name": "wide_macro256_m6_repaired",
+      "rows": 256,
+      "cols": 256,
+      "register_gap_nm": 300,
+      "decoder_trunk_pitch_nm": 300,
+      "controller_order": "wide groups first",
+      "parent": "wide_macro256",
+      "postprocess": {
+        "net": "w_en",
+        "layer": "m6",
+        "added_rectangle_nm": [
+          152612.5,
+          540,
+          166357.5,
+          565
+        ],
+        "preconditions": [
+          "Both affected conductors belong to w_en",
+          "Keep 140nm clearance to foreign M6",
+          "Preserve every other layer and original M6",
+          "Re-run complete DRC/LVS"
+        ]
+      },
+      "expected_result": "DRC zero / LVS CORRECT required"
+    }
+  ],
+  "generation_limit_seconds_per_attempt": 3600,
+  "bridge_policy": "Add an aligned M3 Q-to-buffer segment only when the existing 70 nm end landings no longer overlap; retain source connectivity and frozen transistor geometry",
+  "checks": [
+    "Exact before/after layer comparison at default gap300 and preceding routed gap800",
+    "All data-register outputs connected at gaps1300 and3300; pre-change geometry must fail the same connectivity check",
+    "Preserve every source MOS model, node tuple, L, summed W and logical MOS terminal coverage and complete terminals for each current physical finger",
+    "Compare actual GDS bounds and area, including controller, registers, replica, latch and macro pins",
+    "Compare actual active/poly gate count and area with source and frozen baseline",
+    "Record bridge counts and native interface conductor audit",
+    "Limited M1-M10 minimum-width/spacing and opposite-well overlap/nonzero225nm spacing checks",
+    "Record completed, failed and timed-out attempts separately; none may inherit a historical physical receipt",
+    "Full Calibre DRC/LVS required before promoting any changed geometry"
+  ],
+  "defaults_promotable": false,
+  "waveform_validation": "not run",
+  "local_python_runners_tracked": false,
+  "physical_verification": {
+    "calibre_drc_lvs": "All completed native candidates, plus the preceding gap800_macro32 reference",
+    "extraction_not_run": [
+      "gap1300_macro256",
+      "wide_macro256",
+      "gap3300_macro512",
+      "gap1300_wide200_macro256",
+      "wide_macro256_m6_repaired"
+    ],
+    "license_configuration": "Use the configured local Siemens license service; preserve the initial unconfigured-license failures",
+    "planned_distributed_r_c_cc": [
+      "gap800_macro32",
+      "pitch285_macro64",
+      "pitch285_macro128",
+      "pitch290_macro64",
+      "pitch295_macro64"
+    ]
+  },
+  "adaptive_stop_policy": "A fallback may be stopped once a smaller candidate for the same size completes the required physical checks; report it as stopped, never as a physical pass"
+}

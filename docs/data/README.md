@@ -3,12 +3,19 @@
 ## Historical layout evidence
 
 The [compact column-split record](../design/layout/COMPACT_CELL_V2_2_8.md)
-describes the sole bank implementation. The latest physical results are in
+describes the sole bank implementation. The default geometry's results are in
 [the periphery-height evidence](PERIPHERY_HEIGHT_V2_2_8.json). The preceding
 [controller evidence](COMPACT_CONTROLLER_V2_2_8.json),
 [decoder-width evidence](COMPACT_DECODER_WIDTH_V2_2_8.json),
 [precharge evidence](COMPACT_PRECHARGE_V2_2_8.json) and earlier JSON/CSV
 and qualification evidence remain byte-for-byte unchanged.
+
+The [initial macro-area exploration](MACRO_AREA_EXPLORATION_V2_2_8.json)
+preserves its placement estimates and license-blocked verification attempts.
+The [larger-array follow-up](MACRO_AREA_LARGE_V2_2_8.json) records subsequent
+Calibre DRC/LVS results, scoped extraction, conditional register bridges,
+the separate M6 repair and rejected attempts. These candidates do not
+replace the periphery-height baseline or change the default floorplan.
 
 Superseded layout plans and previews have been removed. Their historical
 records include:

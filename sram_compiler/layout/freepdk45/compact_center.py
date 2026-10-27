@@ -161,6 +161,13 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
             path, c, m = by_q[q]; roles[role] = 'XTIME_CONTROL/' + path
             dx, dy, layer = rs.pins[role + '.D'][0]
             reg_pins[m['D']] = (x + dx, reg_y + dy, layer)
+            # Both M3 accesses have 70 nm end landings. Taller controller
+            # bands can separate them beyond the register's fixed Q overhang.
+            qx, qy, qlayer = rs.pins[role + '.Q'][0]
+            if reg_y + qy + 70. < bp[q][1] - 70.:
+                if qlayer != 'm3' or bp[q][2] != 'm3':
+                    raise ValueError(f'{q}: register bridge requires aligned M3 accesses')
+                P.wire(q, 'm3', [(x + qx, reg_y + qy), tuple(bp[q][:2])])
             endpoint(q, (bp[q][0], reg_y + rs.height, 'm3')); endpoint(q, tuple(bp[q]))
         for key, (px, py, layer) in rs.terminals.items():
             role, rest = key.split('.', 1); terminals[roles[role] + '/' + rest] = (x + px, reg_y + py, layer)

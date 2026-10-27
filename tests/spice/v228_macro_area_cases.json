@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "Experimental macro-area comparison; no production default change or qualification",
+  "baseline_commit": "2030db133ebb4fa181276cf752ec81f7fa3e8d2b",
+  "baseline_evidence": "docs/data/PERIPHERY_HEIGHT_V2_2_8.json",
+  "source": {
+    "operation": "read&write",
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "column_mux": 2,
+    "sizing_lookup": "sram_compiler/sizing/layout_sizing_lookup.json",
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 25,
+    "diagnostic_period_ns": {
+      "32": 9,
+      "64": 10.5,
+      "128": 30,
+      "256": 26.25,
+      "512": 80
+    },
+    "reuse_exact_baseline_decks": true
+  },
+  "placement_screens": {
+    "square_sizes": [
+      32,
+      64,
+      128,
+      256,
+      512
+    ],
+    "extra_register_gap_nm": [
+      0,
+      500,
+      1000,
+      1500,
+      2000,
+      3000,
+      4500,
+      6000,
+      9000
+    ],
+    "fine_32_extra_register_gap_nm": [
+      100,
+      200,
+      300,
+      400,
+      600,
+      700
+    ],
+    "group_order": {
+      "wide_and_narrow_zero_gap_sizes": [
+        32,
+        128,
+        256
+      ],
+      "wide_256_extra_gap_nm": [
+        1000,
+        2000,
+        3000
+      ],
+      "wide_512_extra_gap_nm": [
+        0,
+        1000,
+        3000
+      ]
+    },
+    "group_definition": "First source-path component; stable order within each group; sort groups by summed cell width",
+    "width_search": "Existing compact_center._fits predicate with 100 nm search, 500 nm escape allowance and 20600 nm frame floor",
+    "estimate": "(baseline macro width + frame-width change) * (baseline macro height + extra register gap)",
+    "scope": "Placement fit only; no routing or physical verification implied",
+    "wiring_limit": "Extra gaps above 500 nm require explicit Q-to-buffer M3 bridges, not implemented; these are conditional placement estimates"
+  },
+  "native_builds": [
+    {
+      "rows": 32,
+      "cols": 32,
+      "controller": true,
+      "register_gap_nm": 800,
+      "decoder_trunk_pitch_nm": 300
+    },
+    {
+      "rows": 32,
+      "cols": 32,
+      "controller": true,
+      "register_gap_nm": 400,
+      "decoder_trunk_pitch_nm": 300
+    },
+    {
+      "rows": 32,
+      "cols": 32,
+      "controller": false,
+      "decoder_trunk_pitch_nm": 290
+    },
+    {
+      "rows": 32,
+      "cols": 32,
+      "controller": false,
+      "decoder_trunk_pitch_nm": 280,
+      "expected": "Reject: M5 minimum-spacing violations"
+    },
+    {
+      "rows": 128,
+      "cols": 128,
+      "controller": false,
+      "decoder_trunk_pitch_nm": 300
+    },
+    {
+      "rows": 128,
+      "cols": 128,
+      "controller": false,
+      "decoder_trunk_pitch_nm": 290
+    },
+    {
+      "rows": 32,
+      "cols": 32,
+      "controller": false,
+      "decoder_trunk_pitch_nm": 285
+    },
+    {
+      "rows": 128,
+      "cols": 128,
+      "controller": false,
+      "decoder_trunk_pitch_nm": 285
+    }
+  ],
+  "checks": [
+    "Zero-offset placement estimates reproduce all five recorded baseline macro bounds and frame widths",
+    "Preserve exact source-deck hashes and every source MOS model, node tuple, L and summed W",
+    "Preserve device-terminal coverage and included/excluded source ownership",
+    "Measure area from actual GDS bounds and compare manifest dimensions",
+    "Count actual active/poly gates and total drawn gate area",
+    "Limited KLayout minimum-spacing screen; reject 280 nm decoder pitch",
+    "Limited opposite-well overlap/nonzero 225 nm separation screen",
+    "Bind process-local override settings and runner hashes to generated artifacts",
+    "Calibre DRC/LVS is required before promotion; license failure is not a physical pass"
+  ],
+  "waveform_validation": "not run",
+  "extraction": "not run",
+  "defaults_promotable": false,
+  "local_python_runners_tracked": false,
+  "narrowest_macro_routing_limit_seconds": 900
+}

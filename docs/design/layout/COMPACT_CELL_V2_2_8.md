@@ -182,7 +182,7 @@ fingers, terminals, bounds, split ownership, macro pins and provenance.
 
 ## Recorded physical results
 
-The latest results are the [periphery-height evidence](../../data/PERIPHERY_HEIGHT_V2_2_8.json),
+The default geometry's results are the [periphery-height evidence](../../data/PERIPHERY_HEIGHT_V2_2_8.json),
 with bounds and width/area tradeoffs in the [height-reduction record](PERIPHERY_HEIGHT_V2_2_8.md#physical-evidence).
 The table below preserves the preceding
 [controller baseline](../../data/COMPACT_CONTROLLER_V2_2_8.json). Both records
@@ -228,6 +228,15 @@ electromigration validation is claimed. Driver classes still derive from
 OpenRAM-pitch loads; compact wordlines are longer per cell and bitlines
 shorter. Re-deriving driver classes requires new extracted waveform evidence.
 The compiler's scoped simulation RC profiles do not describe this geometry.
+
+Further [macro-area experiments](MACRO_AREA_EXPLORATION_V2_2_8.md) compare
+controller height/width tradeoffs, group ordering and decoder trunk pitch.
+Those candidates do not change the production default or extend these
+physical receipts.
+The [larger-array follow-up](MACRO_AREA_LARGE_V2_2_8.md) records separate
+DRC/LVS receipts at 64–512 rows, scoped extraction, conditional data-register
+bridges and the explicitly repaired 256×256 candidate. No waveform or
+release qualification is inferred from those physical results.
 
 ## Reproduction and implementation
 
