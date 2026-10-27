@@ -2,9 +2,19 @@
 
 The [compact layout record](design/layout/COMPACT_CELL_V2_2_8.md) documents
 the default column-split bank and optional complete controller. The current
-physical evidence is `docs/data/COMPACT_CONTROLLER_V2_2_8.json`; its tracked
-protocol is `tests/spice/v228_controller_compact_cases.json`. Sizing, timing
+physical evidence is `docs/data/PERIPHERY_HEIGHT_V2_2_8.json`; its tracked
+protocol is `tests/spice/v228_periphery_height_cases.json`. Sizing, timing
 and simulation RC retain their existing scope.
+
+Local `dev/periphery_height/` holds the read/write compaction builds, fixed
+well-clearance checks and evidence assembler. Its outputs are under
+`outputs/layout/compact/periphery_height/`. Local
+`tests/test_periphery_height.py` checks frozen source geometry, replica
+alignment and unchanged precharge polygons;
+`tests/test_periphery_height_complete.py` checks complete macro ownership,
+height savings and exact receipts. The [design record](design/layout/PERIPHERY_HEIGHT_V2_2_8.md)
+retains the initial 128×128 well-spacing failure and the unrelated legacy
+precharge test import failure, alongside the final verification scope.
 
 Local `dev/controller_compact/current/` holds controller cell coupons, native
 macro builds, physical verification and the evidence assembler. Selected

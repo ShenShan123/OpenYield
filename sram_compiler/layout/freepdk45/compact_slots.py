@@ -13,8 +13,8 @@ its group, folded into three dense_rows rows:
   the tail device folded into two fingers.
 
 The write slot puts data buffers and input inverters in one row of four
-diffusion islands, followed by one row each of BL and BLB tristates (two
-fingers per device). Both columns share the source EN net.
+diffusion islands, followed by one row containing both BL and BLB tristates
+(one full-width finger per device). Both columns share the source EN net.
 
 The replica slots keep the replica column in the U position; its mux input
 1, select inputs and DIN are tied to the rails as in the source.
@@ -72,7 +72,8 @@ def _strip_levels(kind, nets, reach):
     return levels
 
 
-def make_sense_slot(layout, name, mux, sa, replica=False):
+def make_sense_slot(layout: pya.Layout, name: str, mux: Component, sa: Component,
+                    replica: bool = False) -> SlotView:
     """mux: COLUMNMUX2 source component, sa: SENSEAMP component.
 
     Device names keep the M./A. role prefix (mux / amplifier). replica maps
@@ -126,9 +127,9 @@ def make_sense_slot(layout, name, mux, sa, replica=False):
     # Fixed levels keep normal and replica rows the same height.
     levels = {('g', net['SEL0']): 0, ('g', net['SEL1']): 0}
     for k in ('p', 'n'):
-        levels.update({(k, net['SELB0']): 0, (k, net['SELB1']): 1})
-    # Two gates need little of the slot width. Spreading them lets disjoint
-    # select bars share a level, reducing the height without resizing devices.
+        levels.update({(k, net['SELB0']): 0, (k, net['SELB1']): 0})
+    # Two gates need little of the slot width. Spreading them lets both
+    # select gates and their disjoint output bars share one level.
     rows = [('inv', _row(layout, f'{name}_SEL', inv, p_sd, n_sd, levels, reach, pitch=400.))]
     # One switch row: separate BL/BLB diffusion islands share the rails,
     # wells and select buses. Each island still contains both source TGs.
@@ -366,93 +367,52 @@ def _write_front_row(layout: pya.Layout, name: str, devs: dict, buffers: dict[st
     return _merge_rows(layout, name + '_FRONT', rows)
 
 
-def make_write_slot(layout, name, writes, buffers, replica=False):
+def make_write_slot(layout: pya.Layout, name: str, writes: dict[str, Component],
+                    buffers: dict[str, Component], replica: bool = False) -> SlotView:
     """writes/buffers: role ('L' column c, 'U' column c+1) -> source component.
 
-    Rows, bottom to top: combined data buffers/input inverters, BL
-    tristates and BLB tristates. Gate and strip levels are fixed so the replica slot (the U
-    driver only, DIN at VSS) keeps every row height.
+    Rows, bottom to top: combined data buffers/input inverters, then
+    isolated L/U islands containing both BL and BLB tristates. Gate and strip
+    levels are fixed so the replica slot (U only, DIN at VSS) keeps every row
+    height. Its upper VSS rail abuts the sense slot's lower VSS rail.
     """
     s = _Slot(layout, name)
     roles = ('U',) if replica else ('L', 'U')
     ref = writes['U']
     devs = {r: {n: _named(d, r + '.', n) for n, d in _devices(writes.get(r, ref)).items()} for r in ('L', 'U')}
 
-    def nets(r):
+    def nets(r: str) -> dict[str, str]:
         n = {k: r + '.' + k for k in ('DIN', 'DINB', 'ENB', 'BL', 'BLB', 'int1', 'int2', 'int3', 'int4')}
         n.update(VDD='VDD', VSS='VSS', EN='EN')
         if replica:
             n['DIN'] = 'VSS'
         return n
     nm = {r: nets(r) for r in ('L', 'U')}
-    w = lambda d: d.width_m * 1e9
-    wpt, wnt = _even(w(devs['U']['M5']), 2), _even(w(devs['U']['M8']), 2)
-    G = lambda r, d, k, wd, lv: Gate(devs[r][d], k, wd, nm[r], lv)
-    # Gate levels per role (U mirrors L's order, so its DIN/ENB levels swap).
-    lv = {'L': dict(TIN=1, TEN=0, TENB=2), 'U': dict(TIN=2, TEN=0, TENB=1)}
-
-    def tri_part(r, out):
-        pa, pb, na, nb = ('M5', 'M6', 'M7', 'M8') if out == 'BL' else ('M9', 'M10', 'M11', 'M12')
-        cols = []
-        for finger, kind in ((0, 'in'), (0, 'en'), (1, 'en'), (1, 'in')):
-            if kind == 'in':
-                cols.append((G(r, pa, finger, wpt, lv[r]['TIN']), G(r, nb, finger, wnt, lv[r]['TIN'])))
-            else:
-                cols.append((G(r, pb, finger, wpt, lv[r]['TENB']), G(r, na, finger, wnt, lv[r]['TEN'])))
-        n = nm[r]
-        i1, i2 = (n['int1'], n['int2']) if out == 'BL' else (n['int3'], n['int4'])
-        return cols, ['VDD', i1, n[out], i1, 'VDD'], ['VSS', i2, n[out], i2, 'VSS']
-
-    def reach(rs, keys):
-        out = {}
-        for r in rs:
-            t = TRACKS[r]
-            for k in keys:
-                n = nm[r][k]
-                if n not in ('VDD', 'VSS', 'EN'):
-                    out[n] = [t[k]]
-        out['EN'] = [EN_TRACK]
-        if replica:
-            out['VSS'] = [TRACKS['U']['DIN']]
-        return out
-
-    def levels_of(cols, p_sd, n_sd, r_map):
-        levels = {('g', g.gate): g.level for pair in cols for g in pair}
-        outs = {nm[r][o] for r in ('L', 'U') for o in ('BL', 'BLB')}
-        # Series nodes use level 0; bitline stacks use level 1 to clear
-        # the column-edge supply stacks.
-        for k, sd in (('p', p_sd), ('n', n_sd)):
-            levels.update({(k, n): 1 if n in outs else 0 for n in sd if n not in ('VDD', 'VSS')})
-        return levels
-
-    # Fixed strip levels (computed from the full pair) keep replica rows aligned.
-    def full_levels(build):
-        cols, p_sd, n_sd, r_map = build(('L', 'U'))
-        return levels_of(cols, p_sd, n_sd, r_map)
-
-    def tri_build(out):
-        def build(rs):
-            cols, p_sd, n_sd = [], None, None
-            for r in rs:
-                c, p, n = tri_part(r, out)
-                cols += c
-                p_sd = p if p_sd is None else p_sd + p[1:]
-                n_sd = n if n_sd is None else n_sd + n[1:]
-            keys = ('DINB', 'ENB', out) if out == 'BL' else ('DIN', 'ENB', out)
-            return cols, p_sd, n_sd, reach(rs, keys)
-        return build
-
+    # A single full-width finger per device lets BL and BLB share the
+    # central supply contact in each column island. The two columns remain
+    # isolated, with identical rail geometry in the replica's U island.
     rows = []
-    for tag, build in (('BL', tri_build('BL')), ('BLB', tri_build('BLB'))):
-        levels = full_levels(build)
-        cols, p_sd, n_sd, r_map = build(roles)
-        if replica:
-            # The replica's DIN is VSS: its gate bars take the U DIN levels.
-            levels.update({k: v for k, v in levels_of(cols, p_sd, n_sd, r_map).items() if k not in levels})
-        rows.append(make_row(layout, f'{name}_{tag}', cols, p_sd, n_sd, levels, r_map, width=WIDTH,
-                             x0=X0 + PITCH * 4 if replica else X0))
+    for index, r in enumerate(('L', 'U')):
+        if r not in roles:
+            continue
+        n, t = nm[r], TRACKS[r]
+        pairs = ((6, 7), (5, 8), (9, 12), (10, 11))
+        cols = [tuple(Gate(devs[r][f'M{i}'], 0, devs[r][f'M{i}'].width_m * 1e9, n)
+                      for i in pair) for pair in pairs]
+        p_sd = [n['BL'], n['int1'], 'VDD', n['int3'], n['BLB']]
+        n_sd = [n['BL'], n['int2'], 'VSS', n['int4'], n['BLB']]
+        levels = {('g', 'EN'): 0, ('g', n['DINB']): 1,
+                  ('g', n['DIN']): 2, ('g', n['ENB']): 3}
+        for kind, sd in (('p', p_sd), ('n', n_sd)):
+            levels.update({(kind, net): 1 if net == n['BL'] else 2 if net == n['BLB'] else 0
+                           for net in sd if net not in ('VDD', 'VSS')})
+        reach = {n[key]: [t[key]] for key in ('BL', 'BLB', 'DIN', 'DINB', 'ENB')}
+        reach['EN'] = [EN_TRACK]
+        rows.append(make_row(layout, f'{name}_{r}_TRI', cols, p_sd, n_sd, levels, reach,
+                             width=WIDTH, x0=X0 + 1125. * index))
+    tristates = _merge_rows(layout, name + '_TRI', rows)
     front = _write_front_row(layout, name, devs, buffers if not replica else {'U': buffers['U'], 'L': buffers['U']}, nm, replica)
-    for i, row in enumerate([front] + rows):
+    for i, row in enumerate([front, tristates]):
         s.add(row, i % 2 == 1, None)
     pins = defaultdict(list)
     for r in roles:

@@ -23,6 +23,12 @@ superseded raw layouts and campaigns were purged on 2026-10-26. No layout change
 operating-point or yield qualification beyond the native 8×8 and 32×32 checks
 in the scaling record.
 
+- 2026-10-26: reduce compact write/read slot heights by 705/160 nm and abut
+  their VSS rails, removing a further 425 nm gap. Full-width write fingers
+  preserve every source MOS and total W/L. Check controller antenna-tap well
+  clearance before routing. The [periphery record](design/layout/PERIPHERY_HEIGHT_V2_2_8.md)
+  reports complete macro height savings, width/area tradeoffs and physical
+  verification; no waveform qualification is added.
 - 2026-10-26: compact TIME_CONTROL logic edges by 55 nm and controller DFFs
   from 5.710 to 5.325 µm, with source W/L, topology and timing frozen. Keep
   compact input escapes clear on M3 by moving their grid jogs to M4. Reduce

@@ -65,6 +65,12 @@ R+C+CC extraction. No compact waveform or operating point is qualified.
 The additional 16×4 controller routing screen did not complete; it has no
 DRC/LVS receipt. The five-size physical evidence does not qualify that case.
 
+The latest [read/write periphery](../../docs/design/layout/PERIPHERY_HEIGHT_V2_2_8.md)
+uses two write rows, one shared select-inverter output-bar level, and abutting
+write/read VSS rails. Complete macros are 1.290 µm shorter. Controller frame
+widening can offset the area saving; the linked record reports both bounds
+and area. Decoder antenna taps are checked for well clearance before routing.
+
 Alternative bank implementations and their CLI selectors have been removed:
 `--data-path-only`, `--legacy-pitch`, `--controller-floorplan`,
 `--controller-layout-dir`, and `layout controlled-bank`.

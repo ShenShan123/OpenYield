@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "Shorter compact read/write periphery with frozen source sizing and timing",
+  "complete_macros": [
+    [
+      32,
+      32
+    ],
+    [
+      64,
+      64
+    ],
+    [
+      128,
+      128
+    ],
+    [
+      256,
+      256
+    ],
+    [
+      512,
+      512
+    ]
+  ],
+  "external_control_banks": [
+    [
+      8,
+      128
+    ],
+    [
+      16,
+      4
+    ],
+    [
+      32,
+      32
+    ],
+    [
+      64,
+      64
+    ]
+  ],
+  "source": {
+    "operation": "read&write",
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "column_mux": 2,
+    "sizing_lookup": "sram_compiler/sizing/layout_sizing_lookup.json",
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 25,
+    "diagnostic_period_ns": {
+      "32": 9,
+      "64": 10.5,
+      "128": 30,
+      "256": 26.25,
+      "512": 80
+    }
+  },
+  "checks": [
+    "Keep the 2250 nm pair pitch and all source MOS, terminals, connectivity, models, total W and L",
+    "Place both BL/BLB tristates in one row with separate L/U islands and one full-width finger per device",
+    "Keep replica U devices at the full pair coordinates and identical row/supply heights",
+    "Share one select-inverter output bar level without shorts or resizing",
+    "Abut write/read VSS rails; remove the 425 nm gap only where the touching supply nets agree",
+    "Check decoder antenna-tap pwell clearance against placed controller nwells; preserve legal tap positions, try the opposite pin side when crowded, and fail if neither side is legal",
+    "Check actual active/poly gate count and area against source geometry for 8-512 row classes",
+    "Verify complete macro bounds, including controller, registers, replica, latch, routing and external pins",
+    "Compare complete source hashes and gate area with the incoming controller baseline; report width/area tradeoffs",
+    "Calibre DRC zero and strict LVS CORRECT for all recorded banks and macros",
+    "Distributed R+C+CC extraction for 32/64/128 macros; no extraction claim for 256/512",
+    "Bind receipts to actual GDS, source deck, generator, tool and rule hashes"
+  ],
+  "waveform_validation": "not run; physical compaction is not electrical or yield qualification",
+  "local_python_runners_tracked": false
+}

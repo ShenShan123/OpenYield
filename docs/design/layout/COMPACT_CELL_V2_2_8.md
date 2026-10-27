@@ -53,8 +53,8 @@ automatic timing remains limited to 512 × 256.
 | Block | Current implementation |
 | --- | --- |
 | Decoder | One source decoder and WL driver per logical row; each 3160 nm eight-row band holds two mirrored 1365 nm gate rows and seven M2 bus lines. Abutting implants and denser WL NAND folding reduce width; facing VSS taps share diffusion. |
-| Write | Three rows: buffers with input/enable inverters, BL tristates, BLB tristates. Tiling height 5.440 µm at 32 rows and 7.965 µm at 64–512 rows. |
-| Read/mux/sense | Select inverters, isolated BL/BLB transmission-gate islands sharing one row, folded sense amplifier; 5.060 µm total height. |
+| Write | Two rows: buffers with input/enable inverters, then both BL/BLB tristates in isolated L/U islands. Tiling height 4.735 µm at 32 rows and 7.260 µm at 64–512 rows. |
+| Read/mux/sense | Select inverters sharing one output-bar level, isolated BL/BLB transmission-gate islands sharing one row, folded sense amplifier; 4.900 µm total height. |
 | Precharge | Two mirrored, isolated three-PMOS strips in one row; one 1080 nm finger per device, shared central PRE access; 1.4625 µm tiling height. The replica keeps the same U geometry. |
 | Data registers | One frozen-source DFF per physical column, folded into pair slots below its own write buffer. Q tracks remain aligned with their buffer inputs. |
 | TIME_CONTROL | Below the shared decoder, bottom-aligned with both register bands. Large controllers use unoccupied lower decoder rows before the planner widens the array gap. |
@@ -151,6 +151,14 @@ different placement change parasitics despite frozen source W/L and timing.
 
 ## Routing contract
 
+The latest [read/write height reduction](PERIPHERY_HEIGHT_V2_2_8.md) saves
+705 nm in the write slot and 160 nm in the read slot. Their facing VSS rails
+now abut, removing another 425 nm gap. Each complete macro is 1.290 µm
+shorter; the controller fit can widen the macro, so area does not decrease
+at every organization. Crowded decoder antenna taps move to the other side
+of their pins to retain 225 nm opposite-well clearance. The linked record
+contains the current bounds, matched-scale GDS figure and physical evidence.
+
 | Connection | Layers |
 | --- | --- |
 | Devices, local array bitlines | M1/M2 |
@@ -174,10 +182,13 @@ fingers, terminals, bounds, split ownership, macro pins and provenance.
 
 ## Recorded physical results
 
-The latest [controller evidence](../../data/COMPACT_CONTROLLER_V2_2_8.json)
-binds these complete macros to their source, GDS, generator and tool/rule
-hashes. Bounds include every source instance, controller, register, replica,
-RWL driver, latch, route and macro pin.
+The latest results are the [periphery-height evidence](../../data/PERIPHERY_HEIGHT_V2_2_8.json),
+with bounds and width/area tradeoffs in the [height-reduction record](PERIPHERY_HEIGHT_V2_2_8.md#physical-evidence).
+The table below preserves the preceding
+[controller baseline](../../data/COMPACT_CONTROLLER_V2_2_8.json). Both records
+bind complete macros to source, GDS, generator and tool/rule hashes. Bounds
+include every source instance, controller, register, replica, RWL driver,
+latch, route and macro pin.
 
 | Complete macro | Bounds (µm) | Area (µm²) | Width saved (µm) | Controller cell area saved | Calibre DRC / LVS | Distributed R+C+CC |
 | --- | --- | ---: | ---: | ---: | --- | --- |
@@ -254,7 +265,9 @@ remain external and SEL0/SEL1 are bank inputs.
 | `compact_center.py` | Registers, controller placement, feedback, auxiliaries and macro pins |
 | `dense_slots.py`, `macro_control.py` | Shared register-slot plumbing and checked wires/vias |
 
-The controller reproduction protocol is
+The current periphery-height reproduction protocol is
+[`v228_periphery_height_cases.json`](../../../tests/spice/v228_periphery_height_cases.json).
+The preceding controller reproduction protocol is
 [`v228_controller_compact_cases.json`](../../../tests/spice/v228_controller_compact_cases.json).
 The preceding decoder-width protocol is
 [`v228_decoder_width_cases.json`](../../../tests/spice/v228_decoder_width_cases.json).

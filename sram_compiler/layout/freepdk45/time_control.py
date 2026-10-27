@@ -825,6 +825,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     # the data/address connections; no redundant perimeter bus is inserted.
     external={p:routed[p][0] for p in signal_ports if p in routed}
     if pin_plan is not None:
+        pin_nwell=pya.Region(b.cell.begin_shapes_rec(b.li('nwell'))).merged()
         for net,planned in pin_plan.items():
             points=planned if isinstance(planned,list) else [planned]
             # A multi-point net outside the controller source is a feed-through
@@ -843,6 +844,15 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                     # an N+ tap at the pin keeps them antenna-safe whatever the route.
                     below=lanes is None or point[1]>sum(band_span)/2
                     px,dy=point[0],point[1]+(-350. if below else 350.)
+                    # A shorter band can put its last logic row beside this
+                    # tap. Keep the full 225 nm opposite-well clearance; use
+                    # the other side of the pin if the inward tap is crowded.
+                    def tap_clear(y: float) -> bool:
+                        probe=pya.Region(pya.Box(u(px-355.),u(y-355.),u(px+355.),u(y+355.)))
+                        return (pin_nwell & probe).is_empty()
+                    if lanes is not None and not tap_clear(dy):
+                        dy=point[1]+(350. if below else -350.)
+                        if not tap_clear(dy):raise ValueError(f'No legal antenna-tap well clearance at {net} {point}')
                     b.rect('pwell',px-130,dy-130,px+130,dy+130);b.rect('nplus',px-105,dy-105,px+105,dy+105)
                     b.rect('active',px-75,dy-75,px+75,dy+75);b.cont(px,dy);b.rect('m1',px-35,dy-70,px+35,dy+70)
                     lift(px,dy,1,5);wire('m5',px,dy,px,point[1],145)
