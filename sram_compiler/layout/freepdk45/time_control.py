@@ -241,7 +241,7 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
     y0,y1=band_span
     order=list(dict.fromkeys(p for p,_,_ in inventory))
     entries={p:[(v,m) for q,v,m in inventory if q==p] for p in order}
-    lane_library=StandardLibrary(layout,1365.)
+    lane_library=StandardLibrary(layout,1365.,compact_registers=local_logic)
     def lane_ready(path):
         try:lane_library.build(sources[path])
         except ValueError:return False
@@ -715,8 +715,15 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                 # clear of the 420/820 nm input bars and folded-NAND straps.
                 else:phase=v.height_nm-100 if p=='Z' else 1020 if multi else 350+300*names.index(p)
                 ty=round((y+phase)/GRID)*GRID;tx=round(px/GRID)*GRID
-                wire('m3',px,yy,px,ty);wire('m3',px,ty,tx,ty)
-                lift(tx,ty,3,4);point=(tx,ty,'m4');escape(net,tx,ty,4)
+                wire('m3',px,yy,px,ty)
+                # The last input of a compact leaf is 152.5 nm from Z.
+                # Snap on M4: an M3 jog toward either neighbouring pin can
+                # violate spacing. Fixed-metal reservation sees this jog.
+                if p!='Z' and 'Z' in v.pins and 0<x+v.pins['Z'][0]-px<190.:
+                    lift(px,ty,3,4);wire('m4',px,ty,tx,ty,145)
+                else:
+                    wire('m3',px,ty,tx,ty);lift(tx,ty,3,4)
+                point=(tx,ty,'m4');escape(net,tx,ty,4)
                 tapped=lane_taps.get((path,x,y),())
                 if row<0 and p in tapped:
                     # Lane input tap in the space reserved right of the gate.

@@ -66,8 +66,8 @@ automatic timing remains limited to 512 × 256.
 The decoder leaf cells now join like implants at their horizontal boundaries.
 Diffusion keeps 55 nm well enclosure, input/output via2 centres stay 152.5 nm
 apart, and the 190 nm gate pitch is unchanged. This saves **15 nm per leaf**
-relative to the preceding compact gates. The default controller gate geometry
-is unchanged.
+relative to the preceding compact gates. That decoder revision left controller
+gate geometry unchanged; the subsequent controller changes are described below.
 
 The wider WL NAND2 classes move both diffusion strips and body taps 22.5 nm
 toward their supply rails. The extra room around the internal series-node
@@ -87,8 +87,8 @@ matching the opposite-well rule. The left half retains its supply-column
 slot. Complete macros may need more room on the right for TIME_CONTROL:
 the planner searches to the **100 nm routing grid** instead of stopping
 within 1 µm, then reserves five routing tracks (0.5 µm) for escapes instead
-of 1 µm. The minimum controller frame is 21.9 µm rather than 23.1 µm;
-actual placement can require more. In controller-limited large macros,
+of 1 µm. That revision reduced the minimum controller frame from 23.1 to
+21.9 µm; actual placement can require more. In controller-limited large macros,
 decoder compaction can enlarge the remaining right-side corridor even as
 total macro width decreases; the evidence records both clearances.
 
@@ -111,6 +111,43 @@ periphery is **807.5 nm shorter**. Total drawn precharge gate area stays
 0.324 µm², while PMOS diffusion outside gates grows from 0.9882 to
 1.0692 µm² (+8.2%). Refingering and routing change parasitics; geometric
 symmetry does not establish balanced BL/BLB capacitance or read/write margins.
+
+### Controller compaction
+
+The centre controller uses tighter INV/NAND/NOR cell edges in both its lower
+band and spare decoder lanes. Each logic leaf is **55 nm narrower**: the first
+diffusion contact moves from 100 to 92.5 nm, and the output access sits
+57.5 nm beyond the last contact instead of 105 nm. Diffusion retains 55 nm
+well enclosure; the last gate and output via2 centres remain 152.5 nm apart.
+The 190 nm gate pitch, row heights and leaf finger partitions are unchanged.
+The 30 nm inter-cell gap remains available to the placement and routing code.
+The last input lifts at its native x coordinate before jogging onto the
+100 nm routing grid on M4; rounding that access on M3 would crowd the
+neighbouring output pad.
+
+The seven inverters inside each low-metal controller DFF use those same
+edges. Its width falls from **5.710 to 5.325 µm (6.7%)** at the same 1.900 µm
+height. Like implants join only where inverter cells abut; their active
+regions remain isolated. Transmission gates, source topology, clock routing
+layers and data-column register slots are unchanged. The legacy standalone
+logic and DFF views retain their previous polygons.
+
+The minimum controller frame is now **20.6 µm**. The planner retains the
+100 nm fit search and 500 nm escape allowance, and uses spare decoder lanes
+before widening the bank. Reducing controller cells can save occupied cell
+area even where the decoder determines the macro's outer width.
+Moving gates between the 1500 nm band and 1365 nm decoder lanes, or changing
+their parallel slices, can change physical finger counts. Every source MOS
+retains its total W/L, model and connectivity; the evidence lists these
+placement-dependent refingerings. At 128×128, six inverters move from
+five fingers per MOS to four, retaining 2160/720 nm total P/N widths.
+
+![Controller register and 32-row frame before and after compaction, actual GDS at matched scale](COMPACT_CONTROLLER_V2_2_8.png)
+
+All 391 supported frozen logic-cell/row-height combinations, paired at 30 nm spacing,
+and the standalone compact controller DFF pass Calibre DRC/LVS. Physical
+checks do not establish waveform equivalence: shorter local wires and
+different placement change parasitics despite frozen source W/L and timing.
 
 ## Routing contract
 
@@ -137,25 +174,36 @@ fingers, terminals, bounds, split ownership, macro pins and provenance.
 
 ## Recorded physical results
 
-The latest [decoder-width evidence](../../data/COMPACT_DECODER_WIDTH_V2_2_8.json)
+The latest [controller evidence](../../data/COMPACT_CONTROLLER_V2_2_8.json)
 binds these complete macros to their source, GDS, generator and tool/rule
 hashes. Bounds include every source instance, controller, register, replica,
 RWL driver, latch, route and macro pin.
 
-| Complete macro | Bounds (µm) | Area (µm²) | Width saved (µm) | Calibre DRC / LVS | Distributed R+C+CC |
-| --- | --- | ---: | ---: | --- | --- |
-| 32 × 32 | 64.88 × 36.26 | 2,352.1 | 1.33 | 0 / CORRECT | extracted |
-| 64 × 64 | 104.58 × 51.42 | 5,377.4 | 1.33 | 0 / CORRECT | extracted |
-| 128 × 128 | 187.98 × 76.70 | 14,417.9 | 2.94 | 0 / CORRECT | extracted |
-| 256 × 256 | 357.32 × 127.26 | 45,472.2 | 0.36 | 0 / CORRECT | not run |
-| 512 × 512 | 692.38 × 228.38 | 158,125.2 | 1.20 | 0 / CORRECT | not run |
+| Complete macro | Bounds (µm) | Area (µm²) | Width saved (µm) | Controller cell area saved | Calibre DRC / LVS | Distributed R+C+CC |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| 32 × 32 | 63.58 × 36.26 | 2,305.0 | 1.30 | 7.9% | 0 / CORRECT | extracted |
+| 64 × 64 | 104.58 × 51.42 | 5,377.4 | 0.00 | 7.3% | 0 / CORRECT | extracted |
+| 128 × 128 | 187.98 × 76.70 | 14,417.9 | 0.00 | 6.7% | 0 / CORRECT | extracted |
+| 256 × 256 | 355.42 × 127.26 | 45,230.4 | 1.90 | 6.6% | 0 / CORRECT | not run |
+| 512 × 512 | 683.18 × 228.38 | 156,024.1 | 9.20 | 5.3% | 0 / CORRECT | not run |
 
-Savings are against the preceding [precharge macros](../../data/COMPACT_PRECHARGE_V2_2_8.json);
-all heights are unchanged (the 32-row height is 36.255 µm before and after).
-The standalone 128-row decoder and an 8×128 single-band bank also pass
-DRC/LVS. Nineteen targeted regression checks pass, including frozen source
-conservation, controller ownership, default-cell and final-guard polygon
-comparisons, CLI behavior, and exact receipt hashes. No waveform checks ran.
+Savings are against the preceding [decoder-width macros](../../data/COMPACT_DECODER_WIDTH_V2_2_8.json);
+all macro heights are unchanged. Controller cell area sums the placed cell
+rectangles, excluding inter-cell gaps and global routing. It is distinct
+from routed controller-frame area and transistor gate area. The 64×64 and
+128×128 outer bounds remain decoder-limited; the controller cell area still
+decreases. All source MOS retain their total W/L and models.
+
+Twenty-one targeted regression checks pass, including frozen source
+conservation, controller ownership, legacy cell/register polygon comparisons,
+fixed M3 escape spacing, CLI behavior and exact receipt hashes. No waveform
+checks ran. Earlier decoder and single-band physical checks retain their
+original scope in the preceding evidence.
+
+An additional native 16×4 boundary screen was stopped after 33 minutes and
+122 routing rip-ups without a completed macro. Its attempt is preserved;
+DRC/LVS and its dependent regression were not run. The verified controller
+macro matrix above therefore covers 32–512 rows, not that minimum-row case.
 
 These are receipts for the recorded geometry; source cleanup does not rewrite
 or extend their qualification scope. Earlier compact and OpenRAM comparisons
@@ -206,7 +254,9 @@ remain external and SEL0/SEL1 are bank inputs.
 | `compact_center.py` | Registers, controller placement, feedback, auxiliaries and macro pins |
 | `dense_slots.py`, `macro_control.py` | Shared register-slot plumbing and checked wires/vias |
 
-The decoder-width reproduction protocol is
+The controller reproduction protocol is
+[`v228_controller_compact_cases.json`](../../../tests/spice/v228_controller_compact_cases.json).
+The preceding decoder-width protocol is
 [`v228_decoder_width_cases.json`](../../../tests/spice/v228_decoder_width_cases.json).
 The preceding precharge protocol is
 [`v228_compact_precharge_cases.json`](../../../tests/spice/v228_compact_precharge_cases.json).

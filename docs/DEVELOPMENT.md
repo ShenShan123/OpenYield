@@ -2,9 +2,23 @@
 
 The [compact layout record](design/layout/COMPACT_CELL_V2_2_8.md) documents
 the default column-split bank and optional complete controller. The current
-physical evidence is `docs/data/COMPACT_DECODER_WIDTH_V2_2_8.json`; its tracked
-protocol is `tests/spice/v228_decoder_width_cases.json`. Sizing, timing
+physical evidence is `docs/data/COMPACT_CONTROLLER_V2_2_8.json`; its tracked
+protocol is `tests/spice/v228_controller_compact_cases.json`. Sizing, timing
 and simulation RC retain their existing scope.
+
+Local `dev/controller_compact/current/` holds controller cell coupons, native
+macro builds, physical verification and the evidence assembler. Selected
+builds and receipts are under `outputs/layout/compact/controller_compact/`;
+`selected.json` identifies the accepted attempts. Local
+`tests/test_controller_compact.py` checks frozen source geometry, unchanged
+legacy views, compact DFF boundaries and M3 escape spacing before routing.
+`tests/test_controller_compact_complete.py` checks complete source ownership,
+occupied controller cell area, actual macro bounds and exact receipt hashes.
+Failed development attempts remain local; only the selected receipts support
+the current evidence. The additional native 16×4 boundary attempt was stopped
+during routing after 33 minutes; its DRC/LVS and dependent regression were
+not run. The five main sizes passed all 21 executed checks. No controller
+waveform validation ran.
 
 Local `dev/decoder_width/` holds the decoder compaction builds, matched-scale
 GDS figure, physical verification and evidence assembler. Selected macros,
@@ -15,7 +29,9 @@ unchanged default controller polygons. `tests/test_decoder_width_complete.py`
 checks complete-macro width/area, source ownership and exact receipt hashes.
 The 8×128 single-band bank additionally checks wide-driver boundary taps.
 
-The preceding precharge campaign remains in `dev/plsram_reference/` and
+The preceding decoder evidence remains in
+`docs/data/COMPACT_DECODER_WIDTH_V2_2_8.json`. The precharge campaign remains in
+`dev/plsram_reference/` and
 `outputs/layout/compact/plsram_reference/`, with immutable evidence in
 `docs/data/COMPACT_PRECHARGE_V2_2_8.json`. Receipts bind their recorded
 generators; later geometry and source cleanup do not rewrite them.

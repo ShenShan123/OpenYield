@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "version": "V2.2.8",
+  "scope": "Compact TIME_CONTROL logic edges and low-metal controller DFFs in the default column-split macro",
+  "source_policy": "Frozen nominal TT full mode-0 compact-control decks, column mux enabled, no local wire RC, layout_sizing_lookup.json; no source W/L, models, topology or timing changes; unchanged leaf finger partition policy, with row reassignment and oversized-gate slicing allowed to change physical finger counts while preserving total W/L",
+  "baseline": "docs/data/COMPACT_DECODER_WIDTH_V2_2_8.json",
+  "physical_changes": [
+    "55 nm narrower controller logic leaves with 190 nm gate pitch and 55 nm diffusion-to-well edge enclosure",
+    "Controller DFF inverter compaction, 5710 to 5325 nm, with like-implant bridges only at abutting inverters",
+    "Centre band and spare decoder-lane cells use the same compact edge option",
+    "20600 nm minimum controller frame; existing 100 nm fit search and 500 nm escape allowance retained"
+  ],
+  "cases": [
+    {
+      "kind": "paired_logic",
+      "unique_cell_height_cases": 391,
+      "row_heights_nm": [
+        1365,
+        1500,
+        1600
+      ],
+      "gap_nm": 30,
+      "checks": [
+        "frozen source W/L and topology",
+        "actual gate geometry",
+        "Calibre DRC",
+        "Calibre LVS"
+      ]
+    },
+    {
+      "kind": "controller_register",
+      "checks": [
+        "width reduction",
+        "clock metal layers",
+        "source conservation",
+        "active isolation and implant joins",
+        "Calibre DRC",
+        "Calibre LVS"
+      ]
+    },
+    {
+      "rows": 32,
+      "cols": 32,
+      "period_s": 9e-09,
+      "checks": [
+        "complete macro",
+        "smaller controller cell area and macro area",
+        "Calibre DRC/LVS",
+        "distributed R+C+CC"
+      ]
+    },
+    {
+      "rows": 64,
+      "cols": 64,
+      "period_s": 1.05e-08,
+      "checks": [
+        "complete macro",
+        "smaller controller cell area, no macro growth",
+        "Calibre DRC/LVS",
+        "distributed R+C+CC"
+      ]
+    },
+    {
+      "rows": 128,
+      "cols": 128,
+      "period_s": 3e-08,
+      "checks": [
+        "complete macro",
+        "smaller controller cell area, no macro growth",
+        "Calibre DRC/LVS",
+        "distributed R+C+CC"
+      ]
+    },
+    {
+      "rows": 256,
+      "cols": 256,
+      "period_s": 2.625e-08,
+      "checks": [
+        "complete macro",
+        "smaller controller cell area and macro area",
+        "Calibre DRC/LVS"
+      ]
+    },
+    {
+      "rows": 512,
+      "cols": 512,
+      "period_s": 8e-08,
+      "checks": [
+        "complete macro",
+        "smaller controller cell area and macro area",
+        "Calibre DRC/LVS"
+      ]
+    },
+    {
+      "rows": 16,
+      "cols": 4,
+      "period_s": 9e-09,
+      "checks": [
+        "native CLI routing attempt at minimum controller row count; incomplete, not included in passing checks"
+      ],
+      "outcome": "routing_stopped_without_completion",
+      "elapsed_seconds": 1991,
+      "drc": "not run",
+      "lvs": "not run"
+    }
+  ],
+  "regressions": [
+    "legacy logic and standalone register polygon identity",
+    "frozen source widths and physical terminal completeness",
+    "decoder lane ownership",
+    "macro pin connectivity",
+    "actual GDS bounds",
+    "exact GDS and schematic receipt hashes"
+  ],
+  "local_runners": [
+    "tests/test_controller_compact.py",
+    "tests/test_controller_compact_complete.py",
+    "dev/controller_compact/current/"
+  ],
+  "runner_policy": "Python runners are local and ignored; this protocol is tracked",
+  "waveform_validation": "not run",
+  "defaults_promotable": false,
+  "limitations": [
+    "No extracted waveform, timing, operating-point, yield, IR-drop or electromigration validation",
+    "Physical routing and junction changes are not represented by the existing simulation RC profiles",
+    "Diagnostic source periods are not qualified operating points"
+  ]
+}

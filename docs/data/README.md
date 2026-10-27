@@ -4,7 +4,8 @@
 
 The [compact column-split record](../design/layout/COMPACT_CELL_V2_2_8.md)
 describes the sole bank implementation. The latest physical results are in
-[the decoder-width evidence](COMPACT_DECODER_WIDTH_V2_2_8.json). The preceding
+[the controller evidence](COMPACT_CONTROLLER_V2_2_8.json). The preceding
+[decoder-width evidence](COMPACT_DECODER_WIDTH_V2_2_8.json),
 [precharge evidence](COMPACT_PRECHARGE_V2_2_8.json) and earlier JSON/CSV
 and qualification evidence remain byte-for-byte unchanged.
 
@@ -21,8 +22,8 @@ records include:
 
 Superseded raw output campaigns were purged on 2026-10-26. Historical paths
 inside these immutable records can therefore be absent; their hashes and
-check summaries retain their original scope. The selected decoder-width and
-preceding precharge builds, parts, physical receipts and source decks remain under
+check summaries retain their original scope. The selected controller,
+decoder-width and precharge builds, parts, physical receipts and source decks remain under
 `outputs/layout/compact/`. The deletion inventory is local at
 `dev/cleanup/2026-10-26-default-compact-layout.json`.
 

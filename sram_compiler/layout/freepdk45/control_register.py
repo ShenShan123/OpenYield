@@ -4,12 +4,12 @@ Adjacent data-path connections stay on M3. Two feedback tracks use M4;
 clock distribution uses separate M5 legs and M6 rails. The three public
 signal pins reach M7 for routing over register rows.
 """
-from .components import CellView
+from .components import CellView,Component
 from .control_cells import make_logic,make_transmission_gate
-from .lib import Builder
+from .lib import Builder,pya
 
 
-def make_register(layout,c,low_metal: bool=False):
+def make_register(layout: pya.Layout,c: Component,low_metal: bool=False) -> CellView:
     names=['Xinv1_clk','Xinv2_D','Xtg1','Xinv3','Xinv4','Xtg2','Xinv5','Xtg3','Xinv6','Xinv7','Xtg4']
     if c.passives or [i.name for i in c.children]!=names or c.ports!=('VDD','VSS','D','Q','CLK'):
         raise ValueError('Unsupported DFF topology')
@@ -28,10 +28,15 @@ def make_register(layout,c,low_metal: bool=False):
     for i in c.children:
         tg=i.component.name=='TRANSMISSION_GATE'
         key=i.component.identity
-        if key not in cache:cache[key]=make_transmission_gate(layout,i.component) if tg else make_logic(layout,i.component,1600.)
+        if key not in cache:cache[key]=make_transmission_gate(layout,i.component) if tg else make_logic(layout,i.component,1600.,compact=low_metal)
         v=cache[key]
         if tg:
             b.rect('pwell',x,dy,x+30,dy+680);b.rect('nwell',x,dy+680,x+30,dy+1600);x+=30
+        elif low_metal and placed and next(reversed(placed.values()))[0].standard_family!='TG':
+            # Adjacent compact inverters leave a 30 nm implant gap. Join
+            # like implants across their boundary; active stays isolated.
+            for layer,lo,hi in [('nplus',215.,545.),('pplus',815.,1395.)]:
+                b.rect(layer,x-15,dy+lo,x+15,dy+hi)
         b.place(v.builder,x,dy);mapping=dict(zip(i.component.ports,i.nodes));placed[i.name]=(v,x,mapping)
         terminals.update({i.name+'/'+n:(xx+x,yy+dy,l) for n,(xx,yy,l) in v.device_pins.items()})
         fs=getattr(v,'physical_fingers',None) or [dict(device=d.name,finger=0,width_nm=d.width_m*1e9,length_nm=d.length_m*1e9,model=d.model,nodes=d.nodes) for d in i.component.devices]

@@ -6,8 +6,8 @@ The 1.6 um internal row height accommodates 500/250 nm register devices and
 """
 from collections import defaultdict
 from math import ceil
-from .components import CellView
-from .lib import Builder
+from .components import CellView,Component
+from .lib import Builder,pya
 
 HEIGHT=1600.
 N_BOTTOM=245.
@@ -24,7 +24,7 @@ def partition(width,count):
     return result
 
 
-def make_logic(layout,component,row_height=1500.):
+def make_logic(layout: pya.Layout,component: Component,row_height: float=1500.,compact: bool=False) -> CellView:
     height=row_height
     n_bottom=255.
     p_top=height-245.
@@ -66,8 +66,12 @@ def make_logic(layout,component,row_height=1500.):
             specs.append((pd,nd,f,pw[f],nw[f]));sn.append(z)
     pn=[other_supply if i%2==0 else 'Z' for i in range(len(specs)+1)]
     pnodes,nnodes=(sn,pn) if nor else (pn,sn)
-    b=Builder(layout,'CTRL_STD_'+component.identity[:16]+'_H'+str(int(height)));count=len(specs)
-    xs=[100.+190*i for i in range(count+1)];out=xs[-1]+105;width=out+35
+    b=Builder(layout,'CTRL_STD_'+component.identity[:16]+'_H'+str(int(height))+('_C' if compact else ''));count=len(specs)
+    # Keep 55 nm well enclosure at both diffusion ends and 152.5 nm
+    # between the last gate access and the output via2. Gate pitch and
+    # finger partitions stay unchanged; the centre frame retains its gap.
+    first=92.5 if compact else 100.
+    xs=[first+190*i for i in range(count+1)];out=xs[-1]+(57.5 if compact else 105.);width=out+35
     gy=(n_bottom+max(nw)+p_top-max(pw))/2
     # Decoder-height rows split the wells mid-gap so each diffusion keeps
     # its own well (the fixed 680 nm split would cut a 470 nm P strip).
@@ -116,7 +120,7 @@ def make_logic(layout,component,row_height=1500.):
         wire('m3',min(x for x,y in sites),235,max(x for x,y in sites),235)
     inputs=defaultdict(list);terminals={};physical=[]
     for i,(pd,nd,f,pw_i,nw_i) in enumerate(specs):
-        x=195+190*i;b.rect('poly',x-25,n_bottom-50,x+25,p_top+50);inputs[nd.nodes[1]].append(x)
+        x=first+95+190*i;b.rect('poly',x-25,n_bottom-50,x+25,p_top+50);inputs[nd.nodes[1]].append(x)
         for d,w,sites,nodes in [(pd,pw_i,p_sites,pnodes),(nd,nw_i,n_sites,nnodes)]:
             a,z=sites[i],sites[i+1]
             drain,source=(a,z) if d.nodes[0]==nodes[i] else (z,a)

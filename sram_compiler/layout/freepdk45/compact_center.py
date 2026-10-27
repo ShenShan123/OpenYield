@@ -23,7 +23,7 @@ from . import macro_control
 from .macro_control import Planner, bank_conductor, snap, GRID
 
 INPUTS_EXTRA = ('SEL0', 'SEL1')     # bank inputs that are not TIME_CONTROL ports
-MIN_COLUMN_FRAME = 21900.          # smallest routed controller frame; larger sources use the fit search
+MIN_COLUMN_FRAME = 20600.          # smallest routed controller frame; larger sources use the fit search
 COLUMN_CONTROL_DROP = 0.           # align controller and data-register bottom edges
 
 

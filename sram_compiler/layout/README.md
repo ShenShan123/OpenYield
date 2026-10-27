@@ -48,14 +48,22 @@ OUT/OUT_B leave right on M4 and supply trunks reach top/bottom on M6.
 Compact decoder leaves abut like implants; wide WL NAND drivers use fewer,
 wider fingers at unchanged total W/L. Minimum decoder-to-array well clearance
 is 225 nm. The controller fit search uses the 100 nm routing grid, reserves
-500 nm for escapes and keeps a 21.9 µm minimum frame. Integrated controllers
+500 nm for escapes and keeps a 20.6 µm minimum frame. Integrated controllers
 can require a larger right-side gap than the external-control bank.
+
+Controller logic leaves are 55 nm narrower at unchanged source W/L and gate
+pitch. Their compact DFFs shrink from 5.710 to 5.325 µm; data-column register
+slots retain their geometry. Last-input escapes lift at the native pin
+position before jogging onto the routing grid on M4. Smaller controller cells
+do not necessarily reduce macro width when the decoder sets that width.
 
 The [compact design record](../../docs/design/layout/COMPACT_CELL_V2_2_8.md)
 contains cell rules, module responsibilities, current area measurements,
 physical verification scope and limits. The latest five complete macros
 pass DRC 0/LVS CORRECT; the latest 256×256 and 512×512 geometries have no
 R+C+CC extraction. No compact waveform or operating point is qualified.
+The additional 16×4 controller routing screen did not complete; it has no
+DRC/LVS receipt. The five-size physical evidence does not qualify that case.
 
 Alternative bank implementations and their CLI selectors have been removed:
 `--data-path-only`, `--legacy-pitch`, `--controller-floorplan`,

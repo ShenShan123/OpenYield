@@ -23,6 +23,13 @@ superseded raw layouts and campaigns were purged on 2026-10-26. No layout change
 operating-point or yield qualification beyond the native 8×8 and 32×32 checks
 in the scaling record.
 
+- 2026-10-26: compact TIME_CONTROL logic edges by 55 nm and controller DFFs
+  from 5.710 to 5.325 µm, with source W/L, topology and timing frozen. Keep
+  compact input escapes clear on M3 by moving their grid jogs to M4. Reduce
+  the minimum controller frame from 21.9 to 20.6 µm. The
+  [controller record](design/layout/COMPACT_CELL_V2_2_8.md#controller-compaction)
+  separates occupied cell savings from macro bounds and retains the physical
+  verification scope; no waveform qualification is added.
 - 2026-10-26: compact decoder leaves and WL NAND fingers, share facing body
   taps, and reduce the minimum decoder/array gap from 400 to 225 nm. Refine
   controller placement to the routing grid and reserve five escape tracks.
