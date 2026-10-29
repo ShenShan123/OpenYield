@@ -19,7 +19,8 @@ The older fixed, full, scaled and compact macro generators and their
 campaigns were purged on 2026-10-14, and unreferenced scaling and
 centre-floorplan attempts on 2026-10-15
 ([development notes](DEVELOPMENT.md)). Historical JSON evidence remains;
-superseded raw layouts and campaigns were purged on 2026-10-26. No layout change in this release carries waveform,
+superseded raw layouts and campaigns were purged on 2026-10-26, and uncited
+runs on 2026-10-28. No layout change in this release carries waveform,
 operating-point or yield qualification beyond the native 8×8 and 32×32 checks
 in the scaling record.
 

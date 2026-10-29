@@ -69,6 +69,10 @@ JSON/CSV and qualification evidence is preserved unchanged. The local deletion
 inventory is `dev/cleanup/2026-10-26-default-compact-layout.json`. Historical
 scripts and tests that import retired generators or read purged paths need
 the corresponding archived sources/artifacts; they are not current regressions.
+On 2026-10-28, output campaigns and runs that no file on a local branch or
+local test names were removed (4.08 GB), keeping `<run>_*` companions of cited
+runs, git worktrees and virtual environments. The inventory is
+`dev/cleanup/2026-10-28-uncited-outputs.json`.
 
 `tests/test_default_layout.py` checks flag-free and explicit-alias CLI behavior,
 rejects retired options, compares GDS against the pre-cleanup column-split
