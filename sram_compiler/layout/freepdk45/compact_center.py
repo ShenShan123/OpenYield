@@ -1,13 +1,17 @@
 """TIME_CONTROL below the shared decoder of a compact column-split bank.
 
 Data registers stay under their own half-arrays with their bottom edges
-aligned to the controller. Large controllers use spare lower decoder rows.
+aligned to the controller; by default they abut the write band on its VSS
+rail. Large controllers use spare lower decoder rows, widened by a decoder
+left pad rather than a gap beside the decoder; generate() picks the register
+gap and pad with the smallest estimated macro area. The replica wordline
+driver uses the decoder's empty top-band upper row when it fits.
 The bank uses M1-M6; controller routing and macro input escapes reach M10.
 """
 from __future__ import annotations
 from math import ceil, floor
 from pathlib import Path
-from typing import Sequence, Union
+from typing import Optional, Sequence, Union
 import hashlib, json, shutil
 
 from .components import Component, Instance, CellView, read_component
@@ -29,9 +33,14 @@ COLUMN_CONTROL_DROP = 0.           # align controller and data-register bottom e
 
 TRUNK_GAP = 600.
 TOP_GAP = 1000.
-REG_GAP = 300.
+REG_GAP = 0.                       # register band abuts the write band on their shared VSS rail
+# Taller controller bands considered by generate(): below 280 nm the two VSS
+# M4 bars would sit closer than their spacing without merging.
+REG_GAPS = (0.,) + tuple(300. + 100. * k for k in range(21))
 FRAME_X = 35.
 RETURN_SPACE = 800.
+LANE_SAVING = 1000.                # least width the decoder lanes must save to be used
+ROUTE_SLACK = 400.                 # band height a minimum-width frame keeps beyond its placement fit
 DRIVE_SPACE = 300.
 ROUTER_LAYERS = ('m4', 'm5', 'm6', 'm7', 'm8', 'm9')
 LATCH_GAP = 300.
@@ -66,17 +75,21 @@ def _register_slot(layout, deck):
     return tc, registers, make_register_slot(layout, 'CMP_REGISTER_SLOT', registers[0][1], geometry=GEOMETRY)
 
 
-def _register_origin(rs) -> tuple[float, float]:
+def _register_origin(rs, gap: Optional[float] = None) -> tuple[float, float]:
+    gap = REG_GAP if gap is None else gap
     c_rel = rs.pins['CLK'][0][1]
-    clock_y = ((-REG_GAP - rs.height + c_rel) // GRID) * GRID
+    if not gap:
+        # Exact abutment: a grid-snapped clock bar would open a sub-rule
+        # sliver between the two VSS rails.
+        return -rs.height, c_rel - rs.height
+    clock_y = ((-gap - rs.height + c_rel) // GRID) * GRID
     return clock_y - c_rel, clock_y
 
 
-def _column_lanes(bank: Builder, bm: dict) -> list[tuple]:
-    """Unoccupied bottom gate rows of compact decoder bands, from actual metal.
-
-    Mirrored upper rows and rows crossed by lower-metal predecode buses are
-    excluded. Controller accesses also avoid every M4/M5 decoder conductor.
+def _band_rows(bank: Builder, bm: dict) -> list[tuple]:
+    """(y, first, conductors, scale) of every compact decoder band's lower
+    gate row, from actual metal: the frame-local x of its first device or
+    M2/M3 shape and its frame-local M4/M5 regions before that x.
     """
     dx, dy, right, top = bm['decoder_bbox_nm']
     frame_x = dx + FRAME_X
@@ -84,7 +97,7 @@ def _column_lanes(bank: Builder, bm: dict) -> list[tuple]:
     bounds = pya.Box(u(frame_x + 300.), u(dy), u(right), u(top))
     layers = {layer: (pya.Region(bank.cell.begin_shapes_rec_overlapping(bank.li(layer), bounds)) & pya.Region(bounds)).merged()
               for layer in ('active', 'poly', 'm2', 'm3', 'm4', 'm5')}
-    lanes = []
+    rows = []
     for band in range(bm['rows'] // 8):
         y = dy + band * 3160.
         left = frame_x + 300.
@@ -94,17 +107,38 @@ def _column_lanes(bank: Builder, bm: dict) -> list[tuple]:
             hits = layers[layer] & box
             if not hits.is_empty():
                 first = min(first, hits.bbox().left * scale)
-        width = floor((first - 500. - frame_x) / GRID) * GRID
+        window = pya.Region(pya.Box(u(left), u(y), u(first), u(y + 1365.)))
+        keep = {layer: (layers[layer] & window).moved(-u(frame_x), 0) for layer in ('m4', 'm5')}
+        rows.append((y, first - frame_x, keep, scale))
+    return rows
+
+
+def _lanes(rows: Sequence[tuple], pad: float = 0.) -> list[tuple]:
+    """Controller lanes of `_band_rows` after an extra decoder left pad.
+
+    A pad shifts every decoder shape right, so each row's free stretch and
+    its conductors move by the same amount. Lanes narrower than 2 um are
+    left to the decoder.
+    """
+    lanes = []
+    for y, first, regions, scale in rows:
+        width = floor((first + pad - 500.) / GRID) * GRID
         if width < 2000.:
             continue
-        keep = []
-        window = pya.Region(pya.Box(u(left), u(y), u(frame_x + width), u(y + 1365.)))
-        for layer in ('m4', 'm5'):
-            for pg in (layers[layer] & window).each():
-                bb = pg.bbox()
-                keep.append((layer, bb.left * scale - frame_x, bb.right * scale - frame_x))
+        window = pya.Region(pya.Box(u(300.), u(y), u(width), u(y + 1365.)))
+        keep = [(layer, pg.bbox().left * scale, pg.bbox().right * scale)
+                for layer in ('m4', 'm5') for pg in (regions[layer].moved(u(pad), 0) & window).each()]
         lanes.append((y, width, keep))
     return lanes
+
+
+def _column_lanes(bank: Builder, bm: dict) -> list[tuple]:
+    """Unoccupied bottom gate rows of compact decoder bands, from actual metal.
+
+    Mirrored upper rows and rows crossed by lower-metal predecode buses are
+    excluded. Controller accesses also avoid every M4/M5 decoder conductor.
+    """
+    return _lanes(_band_rows(bank, bm))
 
 
 def _fits(tc: Component, width: float, band: tuple[float, float], compact_registers: bool = False,
@@ -116,7 +150,85 @@ def _fits(tc: Component, width: float, band: tuple[float, float], compact_regist
         return False
 
 
-def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str, Path]) -> dict:
+def _decoder_rwl(ly: pya.Layout, P: Planner, bank: Builder, bm: dict, deck: Union[str, Path]):
+    """Replica wordline driver in the upper gate row of the decoder's top band.
+
+    The driver uses the decoder's own wordline-driver gates, mirrored like
+    the decoder's upper rows, so it shares the band's M1 rails and well.
+    It sits at the lane origin of the decoder's empty left region; wl_en
+    comes from the decoder's top-edge M2 line and RWL drops onto the M6
+    replica wordline crossing above. Returns (view, origin, pins), or None
+    when that row or a connection corridor is occupied.
+    """
+    rwl_v = make_aux(ly, read_component(deck, 'XRWL'), False, compact=True)
+    dx, _, right, top = bm['decoder_bbox_nm']
+    x = dx + FRAME_X + 300.
+    pins = {n: (x + px, top - py, l) for n, (px, py, l) in rwl_v.pins.items()}
+    spine_x, spine_y = bm['wl_en_spine_nm']
+    rwl_y = bm['rwl_pin_nm'][1]
+    if abs(spine_y - (top - 105.)) > 1e-6 or not top < rwl_y:
+        return None
+    def shapes(layer: str, box: pya.Box) -> pya.Region:
+        return (pya.Region(bank.cell.begin_shapes_rec_overlapping(bank.li(layer), box)) & pya.Region(box)).merged()
+    def box(x0: float, y0: float, x1: float, y1: float) -> pya.Box:
+        return pya.Box(u(min(x0, x1)), u(min(y0, y1)), u(max(x0, x1)), u(max(y0, y1)))
+    # The gate row itself, with active/poly/contact spacing and M2/M3 room
+    # (the decoder's M2 supply spines end 100 nm left of the lane origin).
+    row = box(x - 100., top - 1365., x + rwl_v.width_nm + 300., top)
+    if any(not shapes(layer, row).is_empty() for layer in ('active', 'poly', 'cont', 'm2', 'm3', 'm4')):
+        return None
+    bx, by, bl = pins['B']; ax, ay, al = pins['A']; zx, zy, zl = pins['Z']
+    if (al, bl, zl) != ('m3', 'm3', 'm3') or not bx < spine_x - 70.:
+        return None
+    # wl_en: the top-edge M2 line continues left to the driver's B riser.
+    line = shapes('m2', box(bx - 175., spine_y - 105., spine_x - 70., spine_y + 105.))
+    own = line.interacting(pya.Region(box(spine_x - 87.5, spine_y - 2.5, spine_x - 82.5, spine_y + 2.5)))
+    if not (line - own).is_empty() or shapes('m3', box(bx - 105., by, bx + 105., spine_y + 140.)).count() > 0:
+        return None
+    # RWL: M3 up to the replica wordline height, then onto its M6 crossing.
+    if (not shapes('m3', box(zx - 105., zy, zx + 105., rwl_y + 140.)).is_empty()
+            or any(not shapes(layer, box(zx - 215., rwl_y - 215., zx + 215., rwl_y + 215.)).is_empty()
+                   for layer in ('m4', 'm5'))):
+        return None
+    try:
+        bank_conductor(bank.cell, 'm6', zx, rwl_y)
+    except ValueError:
+        return None
+    b = P.b
+    b.place(rwl_v.builder, x, top, my=True)
+    P.wire('wl_en', 'm3', [(bx, by), (bx, spine_y)])
+    P.rect('v2', bx - 35., spine_y - 35., bx + 35., spine_y + 35.)
+    P.rect('m3', bx - 35., spine_y - 70., bx + 35., spine_y + 70.)
+    # The line's end encloses the via2 by 35 nm on both sides along it.
+    P.wire('wl_en', 'm2', [(bx - 35., spine_y), (spine_x - 70., spine_y)])
+    P.wire('RWL', 'm3', [(zx, zy), (zx, rwl_y)]); P.stack('RWL', zx, rwl_y, 3, 6)
+    # A is tied high on the driver's own VDD rail, as the decoder ties inputs.
+    vx, vy, vl = pins['VDD']
+    P.wire('VDD', 'm3', [(ax, ay), (ax, vy)]); P.stack('VDD', ax, vy, 1, 3)
+    return rwl_v, (x, top), pins
+
+
+def _rwl_room(bank: Builder, bm: dict) -> float:
+    """Free width of the decoder's top-band upper row from the lane origin."""
+    dx, _, right, top = bm['decoder_bbox_nm']
+    x = dx + FRAME_X + 300.
+    row = pya.Box(u(x - 100.), u(top - 1365.), u(right), u(top))
+    first = right
+    for layer in ('active', 'poly', 'cont', 'm2', 'm3', 'm4'):
+        hits = (pya.Region(bank.cell.begin_shapes_rec_overlapping(bank.li(layer), row)) & pya.Region(row)).merged()
+        if not hits.is_empty():
+            first = min(first, hits.bbox().left * bank.ly.dbu * 1000)
+    return first - x
+
+
+def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str, Path],
+          reg_gap: Optional[float] = None) -> dict:
+    """Integrate TIME_CONTROL, registers, RWL driver and latch with a bank.
+
+    ``reg_gap`` (nm) separates the data registers from the write band;
+    the default REG_GAP abuts them on their shared VSS rail.
+    """
+    reg_gap = REG_GAP if reg_gap is None else reg_gap
     source = flatten(deck); rows, cols = source.rows, source.cols
     macro_control._conductors.clear()
     groups = cols // 2
@@ -147,7 +259,11 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
     by_q = {m['Q']: (p, c, m) for p, c, m in registers}
     if len(registers) != cols or any(c.identity != registers[0][1].identity for _, c, _ in registers):
         raise ValueError('Every data column needs one identical source register')
-    reg_y, clock_y = _register_origin(rs)
+    reg_y, clock_y = _register_origin(rs, reg_gap)
+    if not reg_gap:
+        (top_net, top_y), (low_net, low_y) = rs.supplies[-1], bm['write_supplies'][0]
+        if (top_net, top_y, low_y) != (low_net, rs.height, 0.):
+            raise ValueError('Abutting register and write bands need one shared supply rail')
     terminals, physical, reg_pins = {}, [], {}
     clock_xs = []
     for pair in range(groups):
@@ -293,6 +409,9 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
         neck = local(band_top) + 1000.
         lane_width = min(width, max(w for _, w, _ in lanes_abs[:used]) + 1000.)
         profile = [(0., neck, width), (neck, height, lane_width)]
+    # The replica wordline driver takes the decoder's top-band upper row
+    # before routing, so the router sees its metal.
+    inner_rwl = _decoder_rwl(ly, P, bank, bm, deck)
     obstacles = []
     for layer in ROUTER_LAYERS:
         li = ly.layer(*{f'm{i}': (9 + 2 * i, 0) for i in range(4, 10)}[layer])
@@ -366,8 +485,11 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
     rwl_tap = tuple(bm['rwl_tap_nm'])
     rwl_x = width - 1500.
     rwl_pin_y = edge_y['upper'] + y0
-    blocked('m9', rwl_x + frame_x, rwl_pin_y, rwl_x + frame_x, rwl_tap[1], 402.5)
-    blocked('m9', rwl_x + frame_x, rwl_tap[1], rwl_x + frame_x, rwl_tap[1], 482.5)
+    # The M9 drop starts low enough for its landing to stay inside the bank:
+    # the replica wordline row lies closer to the top edge than half an M9 pad.
+    rwl_drop = min(rwl_tap[1], bank.cell.dbbox().top * 1000 - macro_control.LANDING[9] / 2)
+    blocked('m9', rwl_x + frame_x, rwl_pin_y, rwl_x + frame_x, rwl_drop, 402.5)
+    blocked('m9', rwl_x + frame_x, rwl_drop, rwl_x + frame_x, rwl_drop, 482.5)
     def plan(h: float) -> dict:
         p = {n: (width - 100., snap(local(y)), 'm6') for n, y in drives.items()}
         p.update({n: (width - 300., snap(local(pin_y[n])), 'm7') for n in far})
@@ -471,53 +593,66 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
     # 7. Replica wordline return.
     bank_conductor(bank.cell, 'm4', *rwl_tap)
     x, ry, _ = cp['rwl']
-    P.stack('RWL', *rwl_tap, 4, 7); P.wire('RETURN_rwl', 'm7', [rwl_tap, (x, rwl_tap[1])])
-    P.stack('RWL', x, rwl_tap[1], 7, 9); P.wire('RETURN_rwl', 'm9', [(x, rwl_tap[1]), (x, ry)]); P.stack('RWL', x, ry, 8, 9)
+    P.stack('RWL', *rwl_tap, 4, 7)
+    P.wire('RETURN_rwl', 'm7', [rwl_tap, (x, rwl_tap[1])] + ([(x, rwl_drop)] if rwl_drop != rwl_tap[1] else []))
+    P.stack('RWL', x, rwl_drop, 7, 9); P.wire('RETURN_rwl', 'm9', [(x, rwl_drop), (x, ry)]); P.stack('RWL', x, ry, 8, 9)
     endpoint('RETURN_rwl', (x, ry, 'm8'), 'RWL'); endpoint('RETURN_rwl', (*rwl_tap, 'm4'), 'RWL')
     links.append(dict(controller_port='rwl', bank_net='RWL', route='M7 above the array + M9 over the decoder'))
 
-    # 8. Replica wordline driver on the upper decoder; output latch in the
-    #    replica slot's register position.
-    auxiliaries, positions, apins = {}, {}, {}
-    ceiling = rows <= 32 and cols <= 32
-    rwl_c = read_component(deck, 'XRWL'); rwl_v = make_aux(ly, rwl_c, ceiling)
-    dec_top = bm['upper_decoder_top_nm']
-    dec_right = bm['decoder_bbox_nm'][2]
-    rpx = snap(dec_right - rwl_v.width_nm - 300.); rpy = dec_top
+    # 8. Replica wordline driver inside the decoder's top band (or, without
+    #    room there, on the upper decoder); output latch in the replica
+    #    slot's register position.
+    auxiliaries, positions, apins, mirrored = {}, {}, {}, set()
     latch_c = read_component(deck, 'XD_LATCH'); latch_v = make_aux(ly, latch_c, folded=True)
     lpx = cx + (groups // 2) * SLOT_W + LATCH_GAP
     if lpx + latch_v.width_nm > trunks['VSS'] - 67.5 - 70:
         raise ValueError('Output latch does not fit between the register band and the supply trunks')
     lpy = _latch_y(b.cell, ly, reg_y, rs.supplies, lpx, latch_v, trunks['VSS'] + 72.5)
-    for name, v, x, y in (('XRWL', rwl_v, rpx, rpy), ('XD_LATCH', latch_v, lpx, lpy)):
-        auxiliaries[name] = v; positions[name] = (x, y); b.place(v.builder, x, y)
-        apins[name] = {p: (px + x, py + y, l) for p, (px, py, l) in v.pins.items()}
+    if inner_rwl:
+        rwl_v, (rpx, rpy), rp_ = inner_rwl
+        auxiliaries['XRWL'] = rwl_v; positions['XRWL'] = (rpx, rpy); apins['XRWL'] = rp_; mirrored.add('XRWL')
+        rx_, ry_, _ = bp['RWL']
+        endpoint('RWL_DRIVE', (*rp_['Z'][:2], 'm3'), 'RWL'); endpoint('RWL_DRIVE', (rx_, ry_, 'm3'), 'RWL')
+        endpoint('wl_en', (*rp_['B'][:2], 'm3'))
+        for net in ('VSS', 'VDD'):
+            endpoint(net, (*rp_[net][:2], 'm1'))
+    else:
+        ceiling = rows <= 32 and cols <= 32
+        rwl_c = read_component(deck, 'XRWL'); rwl_v = make_aux(ly, rwl_c, ceiling)
+        dec_top = bm['upper_decoder_top_nm']
+        dec_right = bm['decoder_bbox_nm'][2]
+        rpx = snap(dec_right - rwl_v.width_nm - 300.); rpy = dec_top
+        auxiliaries['XRWL'] = rwl_v; positions['XRWL'] = (rpx, rpy); b.place(rwl_v.builder, rpx, rpy)
+        apins['XRWL'] = {p: (px + rpx, py + rpy, l) for p, (px, py, l) in rwl_v.pins.items()}
+    auxiliaries['XD_LATCH'] = latch_v; positions['XD_LATCH'] = (lpx, lpy); b.place(latch_v.builder, lpx, lpy)
+    apins['XD_LATCH'] = {p: (px + lpx, py + lpy, l) for p, (px, py, l) in latch_v.pins.items()}
     rp_ = apins['XRWL']; lp = apins['XD_LATCH']
-    ax, ay, _ = rp_['A']; vx, vy, _ = rp_['VDD']
-    P.wire('VDD', 'm3', [(ax, ay), (ax, rpy + 1100), (vx, rpy + 1100)]); P.stack('VDD', vx, vy, 1, 3)
-    P.wire('VDD', 'm3', [(vx, rpy + 1100), (vx, vy)])
-    zx, zy, _ = rp_['Z']
-    rx_, ry_, _ = bp['RWL']
-    P.wire('RWL', 'm3', [(zx, zy), (zx, ry_), (rx_, ry_)])
-    endpoint('RWL_DRIVE', (zx, zy, 'm3'), 'RWL'); endpoint('RWL_DRIVE', (rx_, ry_, 'm3'), 'RWL')
-    bx, by, _ = rp_['B']
-    spine = tuple(bm['wl_en_spine_nm'])
-    bank_conductor(bank.cell, 'm5', *spine)
-    P.wire('wl_en', 'm3', [(bx, by), (bx, rpy + 385)]); P.stack('wl_en', bx, rpy + 385, 3, 4)
-    P.wire('wl_en', 'm4', [(bx, rpy + 385), (spine[0], rpy + 385)]); P.stack('wl_en', spine[0], rpy + 385, 4, 5)
-    P.wire('wl_en', 'm5', [(spine[0], rpy + 385), spine])
-    endpoint('wl_en', (bx, by, 'm3'))
-    for net, offset in (('VSS', 200.), ('VDD', 50.)):
-        rail_x = bm['decoder_bbox_nm'][0] + offset
-        px, py, _ = rp_[net]
-        P.wire(net, 'm1', [(px, py), (rail_x, py)]); P.stack(net, rail_x, py, 1, 2)
-        py_probe = (bm['decoder_bbox_nm'][1]) + 1300.
-        probe = pya.Box(u(rail_x) - 1, u(py_probe) - 1, u(rail_x) + 1, u(py_probe) + 1)
-        rail = pya.Region(bank.cell.begin_shapes_rec(ly.layer(13, 0))).merged().interacting(pya.Region(probe))
-        if rail.count() != 1: raise ValueError(f'No unique decoder {net} M2 rail')
-        ry1 = rail.bbox().top * ly.dbu * 1000
-        P.wire(net, 'm2', [(rail_x, ry1 - 35), (rail_x, py)])
-        endpoint(net, (px, py, 'm1'))
+    if not inner_rwl:
+        ax, ay, _ = rp_['A']; vx, vy, _ = rp_['VDD']
+        P.wire('VDD', 'm3', [(ax, ay), (ax, rpy + 1100), (vx, rpy + 1100)]); P.stack('VDD', vx, vy, 1, 3)
+        P.wire('VDD', 'm3', [(vx, rpy + 1100), (vx, vy)])
+        zx, zy, _ = rp_['Z']
+        rx_, ry_, _ = bp['RWL']
+        P.wire('RWL', 'm3', [(zx, zy), (zx, ry_), (rx_, ry_)])
+        endpoint('RWL_DRIVE', (zx, zy, 'm3'), 'RWL'); endpoint('RWL_DRIVE', (rx_, ry_, 'm3'), 'RWL')
+        bx, by, _ = rp_['B']
+        spine = tuple(bm['wl_en_spine_nm'])
+        bank_conductor(bank.cell, 'm5', *spine)
+        P.wire('wl_en', 'm3', [(bx, by), (bx, rpy + 385)]); P.stack('wl_en', bx, rpy + 385, 3, 4)
+        P.wire('wl_en', 'm4', [(bx, rpy + 385), (spine[0], rpy + 385)]); P.stack('wl_en', spine[0], rpy + 385, 4, 5)
+        P.wire('wl_en', 'm5', [(spine[0], rpy + 385), spine])
+        endpoint('wl_en', (bx, by, 'm3'))
+        for net, offset in (('VSS', 200.), ('VDD', 50.)):
+            rail_x = bm['decoder_bbox_nm'][0] + offset
+            px, py, _ = rp_[net]
+            P.wire(net, 'm1', [(px, py), (rail_x, py)]); P.stack(net, rail_x, py, 1, 2)
+            py_probe = (bm['decoder_bbox_nm'][1]) + 1300.
+            probe = pya.Box(u(rail_x) - 1, u(py_probe) - 1, u(rail_x) + 1, u(py_probe) + 1)
+            rail = pya.Region(bank.cell.begin_shapes_rec(ly.layer(13, 0))).merged().interacting(pya.Region(probe))
+            if rail.count() != 1: raise ValueError(f'No unique decoder {net} M2 rail')
+            ry1 = rail.bbox().top * ly.dbu * 1000
+            P.wire(net, 'm2', [(rail_x, ry1 - 35), (rail_x, py)])
+            endpoint(net, (px, py, 'm1'))
     qx, qy, _ = bp[f'SA_Q{groups - 1}']; dx, dy, _ = lp['D']     # qy: the slot's clear M4 window
     ex, ey, _ = lp['EN']; drop = dx - 300.; sy = bars['sen_far'][1]
     bank_conductor(bank.cell, 'm4', drop, sy)
@@ -662,10 +797,11 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
     physical.extend(dict(f, device='XBANK/' + f['device']) for f in bank_fingers)
     for name, v in auxiliaries.items():
         dx_, dy_ = positions[name]
-        terminals.update({name + '/' + n: (x + dx_, y + dy_, l) for n, (x, y, l) in v.device_pins.items()})
+        ty = (lambda y, o=dy_: o - y) if name in mirrored else (lambda y, o=dy_: o + y)
+        terminals.update({name + '/' + n: (x + dx_, ty(y), l) for n, (x, y, l) in v.device_pins.items()})
         for f in v.physical_fingers:
             f = dict(f, device=name + '/' + f['device'])
-            if 'gate_xy_nm' in f: f['gate_xy_nm'] = (f['gate_xy_nm'][0] + dx_, f['gate_xy_nm'][1] + dy_)
+            if 'gate_xy_nm' in f: f['gate_xy_nm'] = (f['gate_xy_nm'][0] + dx_, ty(f['gate_xy_nm'][1]))
             physical.append(f)
     box = b.cell.dbbox()
     v = CellView(component, b, box.width() * 1000, box.height() * 1000, pins, terminals, [], P.segments, [])
@@ -682,8 +818,10 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
         controller_decoder_lanes_nm=[[frame_x, y, frame_x + w, y + 1365.] for y, w, _ in lanes_abs[:used]],
         controller_placements=[dict(p, x_nm=p['x_nm'] + frame_x, y_nm=p['y_nm'] + y0) for p in ctrl.placements],
         register_band_nm=[cx, reg_y, cx + groups * SLOT_W, reg_y + rs.height],
+        register_gap_nm=max(0., -(reg_y + rs.height)), decoder_pad_nm=bm.get('decoder_pad_nm', 0.),
         controller_standard_cells=ctrl.standard_cell_inventory, passive_locations=ctrl.passive_locations,
         controller_links=links, auxiliary_positions_nm=positions,
+        auxiliary_mirrored_y=sorted(mirrored),
         array_origin_nm=bm['array_origin_nm'], decoder_bbox_nm=bm['decoder_bbox_nm'], core_geometry=bm['core_geometry'],
         bank_bbox_nm=[v_ * 1000 for v_ in (bank_box.left, bank_box.bottom, bank_box.right, bank_box.top)],
         source_devices=len(source.mos), source_passives=source.passives,
@@ -711,33 +849,93 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
 
 
 def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
+    """Bank plus controller with the smallest estimated macro area.
+
+    Candidates combine a register gap (REG_GAPS) with the decoder pad that
+    then fits the controller; the right channel only widens for the minimum
+    frame. Estimates use the unpadded bank's actual bounds and decoder rows.
+    """
     source = flatten(deck)
     if source.rows < 16:
         raise ValueError('The integrated controller needs at least 16 rows')
     output = Path(output); parts = output.with_name(output.name + '_parts')
     bank_dir = parts / 'bank'
     build_bank(deck, bank_dir, controller_channel=True)
-    # Use spare decoder rows before widening the central channel.
     bm = json.loads((bank_dir / 'layout.json').read_text())
     tc = read_component(deck, 'XTIME_CONTROL', allow_passives=True)
     _, _, rs = _register_slot(new_layout(), deck)
     width = snap(min(bm['control_trunks_nm'].values()) - TRUNK_GAP - bm['decoder_bbox_nm'][0] - FRAME_X)
-    band = (_register_origin(rs)[0], int((bm['array_origin_nm'][1] - 460. - TOP_GAP) // GRID) * GRID)
-    lane_layout = new_layout()
-    lanes = _column_lanes(_imported(lane_layout, bank_dir, bm), bm)
-    extra = 0.
-    if not _fits(tc, width, band, True, lanes):
-        lo, hi = width, 2 * width
-        while not _fits(tc, hi, band, True, lanes):
-            if hi > 1e6: raise ValueError('Controller gates do not fit a 1 mm block')
-            lo, hi = hi, 2 * hi
+    ceiling = int((bm['array_origin_nm'][1] - 460. - TOP_GAP) // GRID) * GRID
+    unpadded = _imported(new_layout(), bank_dir, bm)
+    rows = _band_rows(unpadded, bm)
+    box = unpadded.cell.dbbox()
+    bank_w, bank_top = box.width() * 1000, box.top * 1000
+    # Without room in the decoder's top band, the replica wordline driver
+    # sits above the decoder and raises the macro.
+    rwl = make_aux(new_layout(), read_component(deck, 'XRWL'), False, compact=True)
+    room = _rwl_room(unpadded, bm) - rwl.width_nm - 300.
+    raised = max(0., bm['upper_decoder_top_nm'] + rwl.height_nm - bank_top)
+
+    def smallest(fits, hi: Optional[float] = None) -> float:
+        lo = 0.
+        if hi is None or not fits(hi):
+            lo, hi = (hi or 0.), max(GRID, 2 * (hi or 0.))
+            while not fits(hi):
+                if hi > 1e6: raise ValueError('Controller gates do not fit a 1 mm decoder pad')
+                lo, hi = hi, 2 * hi
         while hi - lo > GRID:
             mid = snap((lo + hi) / 2)
-            lo, hi = (lo, mid) if _fits(tc, mid, band, True, lanes) else (mid, hi)
-        extra = hi - width + GRID
-    # Keep five routing-grid tracks beyond the placement minimum for escapes.
-    extra = max(extra + 5 * GRID, MIN_COLUMN_FRAME - width)
-    if extra:
+            lo, hi = (lo, mid) if fits(mid) else (mid, hi)
+        return hi
+
+    def pad_for(band: tuple[float, float], hi: Optional[float]) -> float:
+        """Use spare decoder rows before widening the channel. A decoder pad
+        widens the block and every spare row over the full array height;
+        lane gates route into the decoder, so they must save LANE_SAVING."""
+        if _fits(tc, width, band, True, _lanes(rows)):
+            return 0.
+        pad = smallest(lambda pad: _fits(tc, width + pad, band, True, _lanes(rows, pad)), hi) + GRID
+        if _fits(tc, width + pad + LANE_SAVING - GRID, band, True):
+            pad = smallest(lambda pad: _fits(tc, width + pad, band, True), pad + LANE_SAVING) + GRID
+        return pad
+
+    best, previous = None, None
+    for gap in REG_GAPS:
+        bottom = _register_origin(rs, gap)[0] - 140.
+        if best and bank_w * (bank_top - bottom) >= best[0]:
+            break
+        fit = pad_for((_register_origin(rs, gap)[0], ceiling), previous)
+        previous = fit
+        # Keep five routing-grid tracks beyond the placement minimum for escapes.
+        pads = [fit + 5 * GRID if fit else 0.]
+        if room + pads[0] < 0:
+            # A wider pad also gives the replica wordline driver its decoder row.
+            pads.append(max(ceil(-room / GRID) * GRID, fit + 5 * GRID))
+        for pad in pads:
+            extra = max(0. if pad else 5 * GRID, MIN_COLUMN_FRAME - width - pad)
+            if width + pad + extra <= MIN_COLUMN_FRAME and not _fits(tc, width + pad + extra - 5 * GRID,
+                                              (_register_origin(rs, gap)[0], ceiling - ROUTE_SLACK), True, _lanes(rows, pad)):
+                # A minimum-width frame is routing-limited: a band that only just
+                # holds its last controller row did not route at 32 rows.
+                print(f'MACRO candidate gap {gap:.0f} pad {pad:.0f} skipped: minimum frame without routing slack', flush=True)
+                continue
+            area = (bank_w + pad + extra) * (bank_top + (raised if room + pad < 0 else 0.) - bottom)
+            print(f'MACRO candidate gap {gap:.0f} pad {pad:.0f} extra {extra:.0f} '
+                  f'RWL {"in decoder" if room + pad >= 0 else "raised"} area {area / 1e6:.1f} um2', flush=True)
+            if best is None or area < best[0] - 1e-6:
+                best = (area, gap, pad, extra)
+    _, gap, pad, extra = best
+    band = (_register_origin(rs, gap)[0], ceiling)
+    while pad or extra:
         shutil.rmtree(bank_dir)
-        build_bank(deck, bank_dir, core_x=bm['array_origin_nm'][0] + extra, controller_channel=True)
-    return build(deck, output, bank_dir)
+        build_bank(deck, bank_dir, core_x=bm['array_origin_nm'][0] + pad + extra if extra else None,
+                   controller_channel=True, decoder_pad=pad)
+        if not pad:
+            break
+        # The pad estimate shifts the unpadded decoder rows; confirm the fit
+        # on the rebuilt metal.
+        padded = json.loads((bank_dir / 'layout.json').read_text())
+        if _fits(tc, width + pad + extra, band, True, _column_lanes(_imported(new_layout(), bank_dir, padded), padded)):
+            break
+        pad += GRID
+    return build(deck, output, bank_dir, gap)

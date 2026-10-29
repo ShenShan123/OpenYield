@@ -23,6 +23,17 @@ superseded raw layouts and campaigns were purged on 2026-10-26. No layout change
 operating-point or yield qualification beyond the native 8×8 and 32×32 checks
 in the scaling record.
 
+- 2026-10-28: shrink complete compact macros by 3.50/1.90/1.26/2.86/4.38%
+  at 32/64/128/256/512 rows with source W/L, sizing and timing frozen. A
+  decoder left pad widens the spare decoder rows instead of opening an empty
+  strip beside the decoder; generation picks the register gap and pad by
+  estimated macro area, abutting registers on the write band's VSS rail by
+  default and keeping routing slack in minimum-width frames. The replica
+  wordline driver moves into the decoder's top band, DIN accesses shorten by
+  230 nm and the RWL return stays inside the bank. Routes now bridge
+  same-net notches at bank conductors they own. The
+  [macro-density record](design/layout/MACRO_DENSITY_V2_2_8.md) reports
+  physical verification; no waveform qualification is added.
 - 2026-10-26: reduce compact write/read slot heights by 705/160 nm and abut
   their VSS rails, removing a further 425 nm gap. Full-width write fingers
   preserve every source MOS and total W/L. Check controller antenna-tap well

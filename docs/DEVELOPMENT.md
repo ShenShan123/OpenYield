@@ -2,9 +2,26 @@
 
 The [compact layout record](design/layout/COMPACT_CELL_V2_2_8.md) documents
 the default column-split bank and optional complete controller. The current
-physical evidence is `docs/data/PERIPHERY_HEIGHT_V2_2_8.json`; its tracked
-protocol is `tests/spice/v228_periphery_height_cases.json`. Sizing, timing
+physical evidence is `docs/data/MACRO_DENSITY_V2_2_8.json`; its tracked
+protocol is `tests/spice/v228_macro_density_cases.json`. Sizing, timing
 and simulation RC retain their existing scope.
+
+Local `dev/macro_density/` holds the decoder-pad estimator (`estimate_pad.py`),
+the floorplan dry run (`dry_generate.py`), native builds from frozen code
+snapshots (`snapshot.sh`, `build.py`), Calibre runners (`verify.py`,
+`verify_queue.py`, `drc.py`), the register/write abutment probe, the GDS figure
+and the evidence assembler (`report.py`). Outputs are under
+`outputs/layout/compact/macro_density/`; development attempts (pad-only 512,
+the 256 notch case and its bridged rebuild, the first XRWL via2 enclosure
+failures, the 32×32 lane and register-gap routing trials) remain there and
+are listed in the evidence. Builds ran from frozen copies of the generator
+(`snapshot.sh`); the final macros' generator hashes match the working tree. Local
+`tests/test_macro_density.py` checks the lane estimate, rigid decoder pad,
+XRWL rails and fallback, register abutment, DIN edge access and the
+floorplan choice.
+
+The preceding physical evidence is `docs/data/PERIPHERY_HEIGHT_V2_2_8.json`
+with protocol `tests/spice/v228_periphery_height_cases.json`.
 
 Local `dev/periphery_height/` holds the read/write compaction builds, fixed
 well-clearance checks and evidence assembler. Its outputs are under

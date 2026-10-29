@@ -41,9 +41,14 @@ the RWL driver and output latch. `SEL0`/`SEL1` are bank inputs.
 
 `--with-controller` includes those circuits and one data register per
 physical column. TIME_CONTROL sits below the decoder, aligned with the
-register-band bottoms. Large controllers use spare decoder rows before
-widening the central gap. Controller routing and input escapes reach M10;
-OUT/OUT_B leave right on M4 and supply trunks reach top/bottom on M6.
+register-band bottoms. Large controllers use spare decoder rows; generation
+widens them with a decoder left pad rather than a gap beside the decoder,
+and picks the register gap and pad with the smallest estimated macro area
+(registers abut the write band's VSS rail by default). The replica wordline
+driver uses the decoder's empty top-band row when it fits. Controller
+routing and input escapes reach M10; OUT/OUT_B leave right on M4 and supply
+trunks reach top/bottom on M6. See the
+[macro-density record](../../docs/design/layout/MACRO_DENSITY_V2_2_8.md).
 
 Compact decoder leaves abut like implants; wide WL NAND drivers use fewer,
 wider fingers at unchanged total W/L. Minimum decoder-to-array well clearance

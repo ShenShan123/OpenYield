@@ -221,6 +221,40 @@ def _neck_fill(have: pya.Region,pair: Any,minw: int,space: int) -> Optional[pya.
     return neck if (pya.Region(neck).sized(space)&(have-own)).is_empty() else None
 
 
+def _bridge_owned(b: Builder,router: ControlRouter,obstacles: list) -> None:
+    """Close same-net notches between routes and fixed conductors they own.
+
+    Owned bank conductors sit off the routing grid, and their owner may route
+    one grid row away without touching them: a gap below the layer spacing
+    that no other net can occupy. Fill each such gap, never within spacing of
+    foreign metal (the controller's other shapes or other bank conductors).
+    """
+    drawn=defaultdict(pya.Region)
+    for net,a,z in router.paths:
+        h=router.widths[a[2]]/2;layer=router.layers[a[2]]
+        drawn[net,layer].insert(pya.Box(u(min(a[0],z[0])*GRID-h),u(min(a[1],z[1])*GRID-h),
+                                        u(max(a[0],z[0])*GRID+h),u(max(a[1],z[1])*GRID+h)))
+    for net,gx,gy,upper in router.vias:
+        for k in (upper-1,upper):
+            h=router.widths[k]/2;drawn[net,router.layers[k]].insert(pya.Box(u(gx*GRID-h),u(gy*GRID-h),u(gx*GRID+h),u(gy*GRID+h)))
+    for layer in ('m4','m5','m6'):
+        boxes=[(owner,pya.Box(u(x0),u(y0),u(x1),u(y1))) for l,x0,y0,x1,y1,owner in obstacles if l==layer]
+        if not any(owner for owner,_ in boxes):continue
+        have=pya.Region(b.cell.begin_shapes_rec(b.li(layer))).merged()
+        for net in sorted({owner for owner,_ in boxes if owner}):
+            own=drawn.get((net,layer),pya.Region()).merged()
+            fixed=pya.Region([box for owner,box in boxes if owner==net]).merged()
+            if own.is_empty() or (own&fixed.sized(u(140.))).is_empty():continue
+            union=(own+fixed).merged()
+            fill=(union.sized(u(70.)).sized(-u(70.))-union)&fixed.sized(u(140.))
+            if fill.is_empty():continue
+            foreign=have.not_interacting(own)+pya.Region([box for owner,box in boxes if owner!=net])
+            if not (fill.sized(u(140.)-1)&foreign).is_empty():
+                raise ValueError(f'{net}: {layer} notch at a bank conductor crowds foreign metal')
+            b.cell.shapes(b.li(layer)).insert(fill.merged())
+            have=(have+fill).merged()
+
+
 def _antenna(path: str,m: dict) -> bool:
     return any(m[p] in ANTENNA_INPUTS for p in m if p not in ('VDD','VSS','Z')) or path=='Xpre_unbuf'
 
@@ -1052,6 +1086,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             print('Retrying with priority for',error.net,flush=True)
     else:raise ValueError('Controller routing did not converge after 32 deterministic retries')
     router.draw();pins.update(external)
+    if obstacles:_bridge_owned(b,router,obstacles)
     if corner:
         from .conductor_ownership import port_conductors
         check_points={str(i):point for i,(_,point) in enumerate(ownership)}

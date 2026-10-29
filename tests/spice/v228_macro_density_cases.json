@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "Denser complete compact macros: decoder left pad, area-aware register gap, replica wordline driver in the decoder; frozen source sizing and timing",
+  "complete_macros": [
+    [
+      32,
+      32
+    ],
+    [
+      64,
+      64
+    ],
+    [
+      128,
+      128
+    ],
+    [
+      256,
+      256
+    ],
+    [
+      512,
+      512
+    ]
+  ],
+  "source": {
+    "operation": "read&write",
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "column_mux": 2,
+    "sizing_lookup": "sram_compiler/sizing/layout_sizing_lookup.json",
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 25,
+    "diagnostic_period_ns": {
+      "32": 9,
+      "64": 10.5,
+      "128": 30,
+      "256": 26.25,
+      "512": 80
+    }
+  },
+  "baseline": {
+    "commit": "f302c76",
+    "layouts": "outputs/layout/compact/periphery_height/macroN_02",
+    "evidence": "docs/data/PERIPHERY_HEIGHT_V2_2_8.json"
+  },
+  "floorplan_choice": {
+    "register_gaps_nm": [
+      0,
+      300,
+      400,
+      500,
+      600,
+      700,
+      800,
+      900,
+      1000,
+      1100,
+      1200,
+      1300,
+      1400,
+      1500,
+      1600,
+      1700,
+      1800,
+      1900,
+      2000,
+      2100,
+      2200,
+      2300
+    ],
+    "lane_saving_nm": 1000,
+    "escape_tracks_nm": 500,
+    "minimum_frame_nm": 20600,
+    "rule": "For each register gap, the smallest decoder left pad that fits TIME_CONTROL by the production placement predicate; lanes are used only if they save at least 1 um over a lane-free pad; minimum estimated macro area wins"
+  },
+  "checks": [
+    "Keep every source MOS, terminal, model, total W and L; compare source deck/netlist hashes, gate count and gate area with the baseline",
+    "Unpadded decoder lanes equal the previous scan; shifted lane estimates equal lanes scanned from the rebuilt padded bank",
+    "A decoder pad moves every decoder gate, via and trunk rigidly; left supply spines stay fixed",
+    "Abut register and write bands only on one shared VSS rail with exact zero gap; Calibre DRC probe of the abutment",
+    "Place the replica wordline driver only in an empty decoder top-band upper row; its rails land on the decoder rails; otherwise keep the previous placement",
+    "Keep DIN register accesses at the macro bottom edge",
+    "Keep the replica wordline return M9 landing inside the bank outline",
+    "Bridge same-net notches between routes and owned off-grid bank conductors only when clear of foreign metal",
+    "Calibre DRC zero and strict LVS CORRECT for all five complete macros",
+    "Distributed R+C+CC extraction for 32/64/128 macros; no extraction claim for 256/512",
+    "Bind receipts to actual GDS, source deck, generator, tool and rule hashes"
+  ],
+  "waveform_validation": "not run; physical compaction is not electrical or yield qualification",
+  "local_python_runners_tracked": false
+}

@@ -119,12 +119,14 @@ def compact_contract(deck: Union[str, Path]) -> tuple[FullSource, str, dict[str,
 
 
 def build(deck: Union[str, Path], output: Union[str, Path], core_x: Optional[float] = None,
-          controller_channel: bool = False) -> dict:
+          controller_channel: bool = False, decoder_pad: float = 0.) -> dict:
     """Full-row half-arrays beside one shared decoder and muxed periphery.
 
     ``core_x`` widens the central channel for TIME_CONTROL. With
     ``controller_channel`` the central M4 bars cross on M6, leaving room
     for the controller and separate half-array supply feeds.
+    ``decoder_pad`` widens the decoder's empty left region instead, so the
+    spare lower decoder rows grow along with the channel.
     """
     source, core_name, specs, controls = compact_contract(deck)
     inst = source.instances
@@ -132,7 +134,7 @@ def build(deck: Union[str, Path], output: Union[str, Path], core_x: Optional[flo
     ly = new_layout()
     b = Builder(ly, f'COMPACT_BANK_{rows}X{cols}')
     row_specs = {n: specs[n] for n in ['XDECODER'] + [f'XWL_DRV_{r}' for r in range(rows)]}
-    decoder = make_decoder(ly, source, row_specs)
+    decoder = make_decoder(ly, source, row_specs, pad=decoder_pad)
     core = make_core(ly, source, specs, core_name, column_span=(cols // 2, cols))
     core_left = make_core(ly, source, specs, core_name, column_span=(0, cols // 2))
     wslot = make_write_slot(ly, 'CMP_WRITE_SLOT', {'L': specs['XWRITEDRIVER_0'], 'U': specs['XWRITEDRIVER_1']},
@@ -405,6 +407,7 @@ def build(deck: Union[str, Path], output: Union[str, Path], core_x: Optional[flo
                     array_origin_nm=[cx, cy + HS], decoder_bbox_nm=[dx, cy + HS, dx + decoder.width_nm, cy + HS + decoder.height_nm],
                     decoder_clearance_nm=dict(left=DECODER_GAP, right=cx-dx-dec_w,
                                               minimum=DECODER_GAP),
+                    decoder_pad_nm=decoder_pad,
                     periphery_bands_nm=dict(write=[0, wslot.height], sense=[sa_y, sa_y + sslot.height],
                                             precharge=[pc_y, pc_y + pslot.height], slot_pitch=SLOT_W, slots=pairs + 1),
                     core_geometry=dict(width_nm=core.width_nm, height_nm=core.height_nm,

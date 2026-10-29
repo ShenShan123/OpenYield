@@ -64,14 +64,16 @@ def _folded_latch(layout,component,area_ceiling):
     return v
 
 
-def make_aux(layout,component,area_ceiling=True,folded=False):
+def make_aux(layout,component,area_ceiling=True,folded=False,compact=False):
+    """compact=True builds a two-gate chain from the compact decoder's gates,
+    so it can share a decoder gate row, its rails and wells."""
     if folded:
         if component.name!='D_LATCH':raise ValueError('Only the output latch has a folded plan')
         return _folded_latch(layout,component,area_ceiling)
-    b=Builder(layout,'DENSE_AUX_'+component.identity[:12]);cache={};placed={};terminals={};fingers=[]
+    b=Builder(layout,('DENSE_AUX_C_' if compact else 'DENSE_AUX_')+component.identity[:12]);cache={};placed={};terminals={};fingers=[]
     x=0.
     for path,c,m in leaves(component):
-        if c.identity not in cache:cache[c.identity]=make_logic(layout,c,area_ceiling)
+        if c.identity not in cache:cache[c.identity]=make_logic(layout,c,area_ceiling,compact=compact)
         v=cache[c.identity];b.place(v.builder,x,0);placed[path]=(v,x,m)
         terminals.update({path+'/'+n:(x+px,py,l) for n,(px,py,l) in v.device_pins.items()})
         fingers.extend(dict(f,device=path+'/'+f['device'],gate_xy_nm=(x+f['gate_xy_nm'][0],f['gate_xy_nm'][1])) for f in v.physical_fingers)

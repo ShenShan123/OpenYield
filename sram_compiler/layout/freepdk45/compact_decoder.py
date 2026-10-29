@@ -15,7 +15,9 @@ wordlines (one line per band boundary serves both rows that face it);
 every WL leaves its driver on its own M4 line at its row's y.
 Trunks are M5 in each level's left region, where no wordline runs, and each
 level reserves only the slots it uses. A predecode slice spreads its chains
-over up to four bands of its span.
+over up to four bands of its span. An optional left pad keeps the supply
+spines, rails and wells at the left edge and shifts every gate and trunk
+right, widening the empty lower gate rows that host controller cells.
 """
 from collections import defaultdict
 from math import ceil
@@ -48,9 +50,15 @@ def spread(used):
     return cols, ceil(4 / cols)
 
 
-def make_decoder(layout: pya.Layout, source: FullSource, specs: dict[str, Component]) -> CellView:
-    """One source-owned decoder shared by both full-row column halves."""
+def make_decoder(layout: pya.Layout, source: FullSource, specs: dict[str, Component],
+                 pad: float = 0.) -> CellView:
+    """One source-owned decoder shared by both full-row column halves.
+
+    ``pad`` (nm, on the 5 nm grid) widens the decoder at its left edge.
+    """
     rows = source.rows
+    if pad < 0 or abs(pad / 5 - round(pad / 5)) > 1e-9:
+        raise ValueError('Decoder pad must be a non-negative multiple of 5 nm')
     if rows < 8 or rows % 8 or rows > 512:
         raise ValueError('Compact decoder supports 8 to 512 rows in multiples of 8')
     if LINE0 + LINE * (len(LINES) - 1) + 105. > BAND - CELL_M2[1]:
@@ -202,7 +210,7 @@ def make_decoder(layout: pya.Layout, source: FullSource, specs: dict[str, Compon
         return chain
 
     region = {}
-    x = 300.
+    x = 300. + pad
     for level in sorted(cols):
         sample = next(r for r in every_root if tier(r)[0] == level)
         slots = ['T0', 'T1', 'T2'] + (['TIE_VDD'] if ties[level] else [])
@@ -407,4 +415,5 @@ def make_decoder(layout: pya.Layout, source: FullSource, specs: dict[str, Compon
     v.wordlines = wordlines
     v.regions = region
     v.wlen_tracks = wlen_tracks
+    v.pad = pad
     return v

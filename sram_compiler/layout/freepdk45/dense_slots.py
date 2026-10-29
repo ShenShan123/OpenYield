@@ -249,8 +249,10 @@ def make_register_slot(layout: pya.Layout, name: str, dff: Component,
         t = table[role]
         for key in ('CLKB', 'z2', 'D_b', 'z1', 'z3', 'z4', 'z5', 'QB'):
             s.track(pre + key, t[key])
-        s.track(pre + 'D', t['D'], extra=(-300.,))
-        pins[pre + 'D'].append((t['D'], -300., 'm3'))
+        # D reaches just below the band: its landing defines the macro's
+        # bottom edge, so the data inputs stay accessible from outside.
+        s.track(pre + 'D', t['D'], extra=(-70.,))
+        pins[pre + 'D'].append((t['D'], -70., 'm3'))
         # Q climbs past the band top to overlap the write slot's input track.
         s.track(pre + 'Q', t['Q'], extra=(top + 370.,))
         pins[pre + 'Q'].append((t['Q'], top + 370., 'm3'))

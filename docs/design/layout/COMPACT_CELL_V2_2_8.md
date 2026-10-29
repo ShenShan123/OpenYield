@@ -56,8 +56,8 @@ automatic timing remains limited to 512 × 256.
 | Write | Two rows: buffers with input/enable inverters, then both BL/BLB tristates in isolated L/U islands. Tiling height 4.735 µm at 32 rows and 7.260 µm at 64–512 rows. |
 | Read/mux/sense | Select inverters sharing one output-bar level, isolated BL/BLB transmission-gate islands sharing one row, folded sense amplifier; 4.900 µm total height. |
 | Precharge | Two mirrored, isolated three-PMOS strips in one row; one 1080 nm finger per device, shared central PRE access; 1.4625 µm tiling height. The replica keeps the same U geometry. |
-| Data registers | One frozen-source DFF per physical column, folded into pair slots below its own write buffer. Q tracks remain aligned with their buffer inputs. |
-| TIME_CONTROL | Below the shared decoder, bottom-aligned with both register bands. Large controllers use unoccupied lower decoder rows before the planner widens the array gap. |
+| Data registers | One frozen-source DFF per physical column, folded into pair slots below its own write buffer. Q tracks remain aligned with their buffer inputs. The band abuts the write band on their shared VSS rail unless a taller controller band gives a smaller macro. |
+| TIME_CONTROL | Below the shared decoder, bottom-aligned with both register bands. Large controllers use unoccupied lower decoder rows; a decoder left pad widens those rows before the right channel widens. The replica wordline driver uses the decoder's top band when it fits. |
 
 ![Earlier decoder/read/write compaction beside its preceding baseline](COMPACT_REDESIGNED_COMPONENTS_V2_2_8.png)
 
@@ -157,7 +157,11 @@ now abut, removing another 425 nm gap. Each complete macro is 1.290 µm
 shorter; the controller fit can widen the macro, so area does not decrease
 at every organization. Crowded decoder antenna taps move to the other side
 of their pins to retain 225 nm opposite-well clearance. The linked record
-contains the current bounds, matched-scale GDS figure and physical evidence.
+contains the matched-scale GDS figure and its physical evidence. The
+[macro-density record](MACRO_DENSITY_V2_2_8.md) then chooses the register
+gap and decoder pad by estimated macro area, moves the replica wordline
+driver into the decoder and shortens the DIN accesses; it holds the current
+bounds.
 
 | Connection | Layers |
 | --- | --- |
@@ -182,8 +186,9 @@ fingers, terminals, bounds, split ownership, macro pins and provenance.
 
 ## Recorded physical results
 
-The default geometry's results are the [periphery-height evidence](../../data/PERIPHERY_HEIGHT_V2_2_8.json),
-with bounds and width/area tradeoffs in the [height-reduction record](PERIPHERY_HEIGHT_V2_2_8.md#physical-evidence).
+The default geometry's results are the [macro-density evidence](../../data/MACRO_DENSITY_V2_2_8.json),
+with bounds and the floorplan chosen per size in the [macro-density record](MACRO_DENSITY_V2_2_8.md).
+The preceding [periphery-height evidence](../../data/PERIPHERY_HEIGHT_V2_2_8.json) is its baseline.
 The table below preserves the preceding
 [controller baseline](../../data/COMPACT_CONTROLLER_V2_2_8.json). Both records
 bind complete macros to source, GDS, generator and tool/rule hashes. Bounds
@@ -232,7 +237,8 @@ The compiler's scoped simulation RC profiles do not describe this geometry.
 Further [macro-area experiments](MACRO_AREA_EXPLORATION_V2_2_8.md) compare
 controller height/width tradeoffs, group ordering and decoder trunk pitch.
 Those candidates do not change the production default or extend these
-physical receipts.
+physical receipts; the [macro-density record](MACRO_DENSITY_V2_2_8.md)
+implements their area-aware register-gap choice.
 The [larger-array follow-up](MACRO_AREA_LARGE_V2_2_8.md) records separate
 DRC/LVS receipts at 64–512 rows, scoped extraction, conditional data-register
 bridges and the explicitly repaired 256×256 candidate. No waveform or
