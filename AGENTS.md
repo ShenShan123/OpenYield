@@ -10,6 +10,12 @@ V2.2.8, have been removed with their artifacts. OpenRAM-pitch, legacy,
 data-path, unsplit, row-split and beside-controller bank implementations are also retired.
 Keep sizing frozen; physical receipts do not establish waveform correctness
 or release qualification. Simulation retains its scoped reference RC profiles.
+Complete macros end with a supply grid (M7–M9 straps, M3 controller-gap straps); worst-PVT post-layout access
+verification (local `dev/postlayout/`) is recorded in
+[docs/design/layout/POST_LAYOUT_V2_2_8.md](docs/design/layout/POST_LAYOUT_V2_2_8.md).
+The FreePDK45 xRC deck charges 88–102 Ω per minimum via1/via2/contact; recorded pass/fail results use it unchanged, and scaled-cut runs are sensitivity only.
+Compact-layout clocks come from `sram_compiler/sizing/layout_timing_lookup.json` (64-row 6T mux class 12 ns); the default `timing_lookup.json` keeps its schematic-screened periods. Post-layout runs feed every macro supply pin; the controller keeps each enable driver chain on its own rows (`time_control.ENABLE_CHAINS`), and the grid merges the decoder's band VSS rails and puts M2 buses on its edge rails.
+Open failure: each half-array feeds its bitcell VSS M3 rails from one end only, and a 128×128 FF 1.1 V −40 °C read flips far-end cells; the M4 array mesh is next-round work.
 
 ## Architecture
 

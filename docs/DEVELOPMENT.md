@@ -6,6 +6,38 @@ physical evidence is `docs/data/MACRO_DENSITY_V2_2_8.json`; its tracked
 protocol is `tests/spice/v228_macro_density_cases.json`. Sizing, timing
 and simulation RC retain their existing scope.
 
+Local `dev/postlayout/` runs the post-layout verification of the
+[post-layout record](design/layout/POST_LAYOUT_V2_2_8.md): `postsim.py`
+(compiler stimulus deck at the case PVT, identity checks against the layout's
+LVS source, DSPF network with its reduction options, probe mapping, start
+state pinned to the schematic operating point, Xyce run and scoring),
+`cases.py` (worst-PVT `seq`/`mixed` cases), `run_case.sh` / `queue.sh` /
+`run_schematic.sh`, `grid_offline.py` (no-grid macro build once, supply grid
+applied to it), `verify.sh` / `extract.sh` (Calibre), `supply_r.py`,
+`supply_hotspots.py`, `supply_whatif.py`, `supply_mutual.py` (DSPF supply
+resistance, bottlenecks by coordinate, what-if feeds, resistance shared by two
+blocks; `--pins` ties every macro supply pin), `exit_whatif.py` (what-if
+exits), `rail_probe.py` / `shunt_probe.py` / `bottom_probe.py` /
+`decoder_probe.py` / `grid_debug.py` (read-only grid-site feasibility),
+`edges.py`, `sense_slack.py`, `quiet.py`, `peaks.py` (quiet-line peaks per
+scorer window), `quiet_margins.py` (worst quiet-line levels per run),
+`bump_rescore.py` (rescore with sub-0.3 V quiet-line bumps removed: are all
+failures bounce?), `chain_rows.py` (enable chains per controller row),
+`sense_columns.py` / `sense_skew.py` (sense differential and wordline,
+isolation and 0.28 VDD bar times per column), `read_disturb.py` (storage-node
+peaks per probed cell in read cycles), `bitcell_row_vss.json` (read-row VSS
+transfer resistances, assembled into the evidence),
+`g12_pipeline.sh` / `g14_pipeline.sh` (no-grid build or grid, Calibre, then the case queue), `stop_run.sh` /
+`stop_pattern.sh` (stop runs without matching the calling shell),
+`summary.py`, `report.py` and `assemble.py` (evidence JSON). Layouts are under
+`outputs/layout/compact/postlayout/` (superseded grid revisions in its
+`superseded/`), runs under `outputs/postlayout/` (attempts in `attempts/`).
+Local `tests/test_power_grid.py` checks the grid on the 32×32 no-grid macro:
+unchanged boundary, a bridge and a right exit for every controller rail,
+extra decoder via1 cuts, supply pins on the macro edge, supply-only straps
+and the recorded receipt; `tests/test_enable_rows.py` checks that no
+controller row of the local macros holds two enable chains.
+
 Local `dev/macro_density/` holds the decoder-pad estimator (`estimate_pad.py`),
 the floorplan dry run (`dry_generate.py`), native builds from frozen code
 snapshots (`snapshot.sh`, `build.py`), Calibre runners (`verify.py`,

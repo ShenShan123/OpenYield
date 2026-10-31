@@ -25,6 +25,7 @@ from .lib import Builder, new_layout, pya, u
 from .time_control import make_control, units, centre_lanes_used
 from . import macro_control
 from .macro_control import Planner, bank_conductor, snap, GRID
+from .power_grid import add_grid
 
 INPUTS_EXTRA = ('SEL0', 'SEL1')     # bank inputs that are not TIME_CONTROL ports
 MIN_COLUMN_FRAME = 20600.          # smallest routed controller frame; larger sources use the fit search
@@ -772,6 +773,12 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
                  (ix0, cy + 460 + 3160, cx + (cols // 2 - 2) * 1125, cy + 460 + (rows - 8) * 395)]
                 if rows * cols > 4096 else None)
     port_conductors(b, check_ports, check_aliases, require_connected=True, exclude_bbox_nm=interior)
+    # 8b. Upper-metal supply grid after all routing (power_grid.py).
+    grid = add_grid(b, bm, bm['left_supply_trunks_nm'], trunks, (x_left, y_bottom, x_right, y_top),
+                    (frame_x, y0, frame_x + width, y0 + height))
+    if b.cell.dbbox() != extent: raise ValueError('Supply grid extends the macro boundary')
+    for pin in grid.get('pins', []):
+        macro_pins[pin['net']].append((pin['side'], pin['x_nm'], pin['y_nm'], pin['layer']))
 
     # 9. Macro ports and the complete source component.
     ports = tuple(ports) + INPUTS_EXTRA; pins = {}
@@ -834,6 +841,7 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
         macro_pin_sides={side: [r['port'] for r in pin_records if r['side'] == side]
                          for side in ('left', 'bottom', 'top', 'right', 'internal')},
         output_latch=dict(folded=True, origin_nm=[lpx, lpy], width_nm=latch_v.width_nm, height_nm=latch_v.height_nm),
+        power_grid=grid,
         waveform_validation='not run', defaults_promotable=False, external_pins=pins,
         compiler_provenance=bm.get('compiler_provenance'))
     metadata.update(register_band_nm=[0., reg_y, cx + cols // 2 * 1125., reg_y + rs.height],
@@ -844,7 +852,8 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
         [0., reg_y, cols // 2 * 1125., reg_y + rs.height],
         [cx, reg_y, cx + cols // 2 * 1125., reg_y + rs.height]],
         metal_policy=dict(bank_highest_routing_layer='m6', highest_routing_layer='m10',
-                          upper_metals_used=True, purpose='TIME_CONTROL routing, feedback and macro input escapes'))
+                          upper_metals_used=True, purpose='TIME_CONTROL routing, feedback, macro input escapes '
+                          'and the M7-M9 supply grid'))
     return write_view(v, output, deck, 'complete compact column-split bank with TIME_CONTROL, RWL driver and output latch', metadata)
 
 

@@ -1,0 +1,168 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.8",
+  "scope": "Post-layout transients of complete compact macros (Calibre R+C+CC DSPF of DRC/LVS-clean layouts) at the worst global PVT corners, nominal devices, no local mismatch; replica delay chain N = 3, layout g14 (supply grid with right controller exits, extra supply pins and low-resistance decoder band VSS rails; enable driver chains on separate controller rows)",
+  "complete_macros": [
+    [
+      32,
+      32
+    ],
+    [
+      64,
+      64
+    ],
+    [
+      128,
+      128
+    ],
+    [
+      256,
+      256
+    ],
+    [
+      512,
+      512
+    ]
+  ],
+  "source": {
+    "operation": "read&write",
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "column_mux": 2,
+    "sizing_lookup": "sram_compiler/sizing/layout_sizing_lookup.json",
+    "lookup_version": "v2.2.8-layout-candidate-3",
+    "replica": {
+      "K": 1,
+      "N": 3
+    },
+    "layout_source_corner": "TT",
+    "layout_source_vdd": 1.0,
+    "layout_source_temperature_c": 25,
+    "diagnostic_period_ns": {
+      "32": 9,
+      "64": 10.5,
+      "128": 30,
+      "256": 26.25,
+      "512": 80
+    },
+    "floorplan_nm": {
+      "32": {
+        "register_gap": 400,
+        "decoder_pad": 1700
+      },
+      "64": {
+        "register_gap": 0,
+        "decoder_pad": 0
+      },
+      "128": {
+        "register_gap": 0,
+        "decoder_pad": 0
+      },
+      "256": {
+        "register_gap": 0,
+        "decoder_pad": 4600
+      },
+      "512": {
+        "register_gap": 0,
+        "decoder_pad": 6000
+      }
+    }
+  },
+  "corners": {
+    "SS": {
+      "corner": "SS",
+      "vdd": 0.9,
+      "temperature_c": 125,
+      "mechanism": "timing"
+    },
+    "SFc": {
+      "corner": "SF",
+      "vdd": 0.9,
+      "temperature_c": -40,
+      "mechanism": "write ability"
+    },
+    "FSh": {
+      "corner": "FS",
+      "vdd": 0.9,
+      "temperature_c": 125,
+      "mechanism": "read stability"
+    },
+    "FFc": {
+      "corner": "FF",
+      "vdd": 1.1,
+      "temperature_c": -40,
+      "mechanism": "races"
+    },
+    "FFh": {
+      "corner": "FF",
+      "vdd": 1.1,
+      "temperature_c": 125,
+      "mechanism": "leakage"
+    }
+  },
+  "clock": "sram_compiler/sizing/layout_timing_lookup.json (v2.2.8-layout-timing-1, 6T mux variant) period for the array size: 32x32 9.5 ns, 64x64 12.0 ns, 128x128 21.25 ns; 64x64 at the shared timing_lookup.json 10.5 ns is recorded as the run that set the 12 ns class",
+  "patterns": {
+    "seq": "compiler W1/R1/W0/R0 x2 on the last row and column (mux input 1)",
+    "mixed": [
+      {
+        "op": "write",
+        "row": 31,
+        "data": "10101010101010101010101010101010"
+      },
+      {
+        "op": "write",
+        "row": 0,
+        "data": "01010101010101010101010101010101"
+      },
+      {
+        "op": "read",
+        "row": 31,
+        "data": "11111111111111111111111111111111"
+      },
+      {
+        "op": "read",
+        "row": 0,
+        "data": "00000000000000000000000000000000"
+      },
+      {
+        "op": "write",
+        "row": 31,
+        "data": "01010101010101010101010101010101"
+      },
+      {
+        "op": "read",
+        "row": 31,
+        "data": "11111111111111111111111111111111"
+      },
+      {
+        "op": "write",
+        "row": 0,
+        "data": "10101010101010101010101010101010"
+      },
+      {
+        "op": "read",
+        "row": 0,
+        "data": "00000000000000000000000000000000"
+      }
+    ],
+    "mixed_column_sequence": "last pair, inputs 1,0,0,1,1,0,0,1 (32x32 shown)"
+  },
+  "network_model": {
+    "reduction_ceiling_ohm": 20,
+    "short_ohm": 1,
+    "ground_coupling_af": 10,
+    "supply": "extracted VDD/VSS mesh; from g11 on every macro supply pin joins its port (postsim --tie-supply-pins); g10 runs fed each net at its DSPF port node",
+    "cut_resistance": "kit deck unchanged (88-102 ohm per minimum via1/via2/contact); signoff model (decision 2026-10-29)",
+    "frozen_cells": ">= 64 rows: cells outside probed rows and edge column pairs keep both access transistors, storage nets on background rails; one full-cell 8-access 64x64 SS reference",
+    "cycles": "8 accesses (32x32 and the 64x64 full-cell reference); 4 accesses (>= 64 with frozen cells)",
+    "start_state": "every extracted node held at the schematic .IC operating point (>= 64: stimulus-free UIC settle to 0.9 ns) for the DC solution, released for the transient"
+  },
+  "checks": "tests/spice/phased_waveforms.py unchanged; start-up state of printed .IC nodes (except OUT/OUT_B) within 0.1 VDD at 0.9 ns",
+  "sensitivity": {
+    "via_scale": 0.034,
+    "purpose": "cut resistance near 3 ohm: 32x32 SS ideal supply completed; 64x64 extracted-mesh runs stopped (about 50 h each) after the kit deck was kept for signoff"
+  },
+  "evidence": "docs/data/POST_LAYOUT_V2_2_8.json",
+  "local_python_runners_tracked": false,
+  "open_items": "128x128 FF 1.1 V -40 C seq fails: far-end cells of the read row (columns 0-11, 64-73) flip during the read. Each half-array joins its bitcell VSS M3 row rails to one M4 trunk at one end; the far columns' ground rises at least 0.35 V (0.19 V at SF -40 C, where their sense margin is 0.323 V against 0.252 V). Read-row transfer resistance far - near doubles per size (7.6/15.6/31.7/63.8 ohm at 32/64/128/256), so 256x256 and 512x512 reads are not expected to pass. Planned fix (next round, decision of 2026-10-31): vertical M4 VSS straps tying the array rails into a mesh; then rebuild, Calibre and the 32/64/128 matrix again"
+}

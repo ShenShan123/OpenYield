@@ -26,7 +26,7 @@ The compiler resolves critical driver widths and the clock **before** a cell can
 
 The sizing lookup has a historical 512-column entry, but the current timing envelope rejects arrays wider than 256 columns. `rules_only` is an unqualified continuous fallback and `auto` requires a context-matched qualified record or falls back to those rules. Neither mode extends the supported envelope.
 
-A class table may carry four optional fields (V2.2.8 layout candidate 2,
+A class table may carry four optional fields (V2.2.8 layout candidate 3,
 [`layout_sizing_lookup.json`](layout_sizing_lookup.json)): a row class may set
 `setup_stages`, the even length of TIME_CONTROL's wordline setup chain; a column
 class may set `guard_stages`, the even length of its precharge-off, isolation,
@@ -37,11 +37,21 @@ setup chain and 4/4/2/4-stage guards. The resolved counts travel in
 `DriverSizes` and are checked by `validate_for`, so a frozen record from a
 different table is rejected.
 
+Candidate 3 changes only the replica delay chain, `replica.N` 9 → 3: post-layout
+reads fired the sense amplifier after a complete bitline swing, and the shorter
+chain fires it 220 ps earlier at 64×64 SS. The extracted 64-row SS read still
+missed the shared 10.5 ns clock class by 153 ps, so the layout timing table
+below gives that class 12 ns (see the
+[post-layout record](../../docs/design/layout/POST_LAYOUT_V2_2_8.md)). The
+default `sizing_lookup.json` keeps `N = 9`.
+
 ## Clock classes
 
 [`timing_lookup.json`](timing_lookup.json) is the V2.2.4 table. It sets a 512-row by 256-column envelope and separate budgets for cell type and column mux. The current cycle captures a request on the rising edge, accesses during clock-high, and recovers and precharges during clock-low. Clock-high access and clock-low recovery each get a half-cycle budget.
 
 For an unseen array inside the envelope, the row and column counts round up to the next class. When both dimensions require time, the joint half-cycle budget is `max(row, column) + min(row_excess, column_excess)`, where each excess is above the first class of its ladder. Variants can add time, never reduce the shared-ladder clock. The default timing margin is 25%; `--period` is a diagnostic override, not qualification evidence. The 512-column class is outside the envelope and was removed from the timing table.
+
+[`layout_timing_lookup.json`](layout_timing_lookup.json) (`v2.2.8-layout-timing-1`, selected with `--timing-lookup`) is the clock for the compact FreePDK45 layout. It is the shared table except one budget: the 6T column-mux 64-row class rises from 4000 to 4300 ps, so 64×64 runs at 12.0 ns instead of 10.5 ns. Arrays of 33–64 rows with a column mux get the longer clock; every other class, including 32×32 (9.5 ns) and 128×128 (21.25 ns), is unchanged. Its evidence is the worst-PVT post-layout record, without local mismatch.
 
 ## Resolve once in Python
 

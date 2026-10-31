@@ -47,7 +47,7 @@ and picks the register gap and pad with the smallest estimated macro area
 (registers abut the write band's VSS rail by default). The replica wordline
 driver uses the decoder's empty top-band row when it fits. Controller
 routing and input escapes reach M10; OUT/OUT_B leave right on M4 and supply
-trunks reach top/bottom on M6. See the
+trunks reach top/bottom on M6, with extra supply pins from the grid (below). See the
 [macro-density record](../../docs/design/layout/MACRO_DENSITY_V2_2_8.md).
 
 Compact decoder leaves abut like implants; wide WL NAND drivers use fewer,
@@ -64,9 +64,11 @@ do not necessarily reduce macro width when the decoder sets that width.
 
 The [compact design record](../../docs/design/layout/COMPACT_CELL_V2_2_8.md)
 contains cell rules, module responsibilities, current area measurements,
-physical verification scope and limits. The latest five complete macros
-pass DRC 0/LVS CORRECT; the latest 256×256 and 512×512 geometries have no
-R+C+CC extraction. No compact waveform or operating point is qualified.
+physical verification scope and limits. The five complete macros with the
+supply grid pass DRC 0/LVS CORRECT with R+C+CC extraction at every size
+(32–512). The post-layout record covers worst-PVT access
+waveforms of the extracted macros without local mismatch; no operating point,
+yield or release qualification is claimed.
 The additional 16×4 controller routing screen did not complete; it has no
 DRC/LVS receipt. The five-size physical evidence does not qualify that case.
 
@@ -79,6 +81,37 @@ and area. Decoder antenna taps are checked for well clearance before routing.
 Alternative bank implementations and their CLI selectors have been removed:
 `--data-path-only`, `--legacy-pitch`, `--controller-floorplan`,
 `--controller-layout-dir`, and `layout controlled-bank`.
+
+## Supply grid and post-layout verification
+
+Complete macros end with an upper-metal supply grid
+(`freepdk45/power_grid.py`), added after all routing: VDD straps on M8, VSS
+straps on M9 (top VSS strap on M7) beside the right root trunks and the left
+trunks and across the top, stacked onto the M6 trunks and both cores' M4
+supply trunks; M3 ties from the decoder supply spines to the left core
+trunks; direct bridges from every controller row rail to the left trunks;
+extra via1/via2 cuts where decoder and controller rails meet their spines and
+edge trunks; and two 480 nm M3 straps in the gap between the controller and
+the right half, onto which every controller row rail exits through a via2
+array. Supply pins sit at the bottom of the gap straps (M3) and at both ends
+of the left straps (M8/M9). In the decoder, facing band VSS rails merge into
+270 nm M1 buses, and the single rails at its top and bottom edges widen
+under M2 buses joined to the VSS spine. Each shape is checked against existing metal and
+cuts; blocked sites are skipped and counted in `layout.json` (`power_grid`).
+The grid never moves the macro boundary. The controller keeps each enable
+driver chain (`w_en`, `s_en`, `sa_iso`, precharge, `wl_en`) on its own band
+rows, so no enable buffer shares a row rail with another.
+
+Post-layout transients of extracted macros at the worst global PVT corners
+are recorded in the [post-layout record](../../docs/design/layout/POST_LAYOUT_V2_2_8.md).
+The FreePDK45 xRC deck applies its via1/via2/contact resistance per cut area
+(88–102 Ω per minimum cut) and has no resistance temperature coefficients;
+that record states the resulting scope. Those runs use the layout clock
+table `sram_compiler/sizing/layout_timing_lookup.json` (`--timing-lookup`;
+64×64 at 12 ns) and feed every macro supply pin. 32×32 and 64×64 pass all
+ten worst-PVT cases. 128×128 passes nine of ten: at FF 1.1 V −40 °C a read
+flips far-end cells, because each half-array feeds its bitcell VSS rails
+from one end only (open; see the record).
 
 ## Small cells and component placement
 

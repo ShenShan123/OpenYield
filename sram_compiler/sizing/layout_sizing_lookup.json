@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "lookup_version": "v2.2.8-layout-candidate-2",
+  "lookup_version": "v2.2.8-layout-candidate-3",
   "row_classes": [
     {
       "max_rows": 32,
@@ -87,8 +87,9 @@
   ],
   "replica": {
     "K": 1,
-    "N": 9
+    "N": 3
   },
+  "replica_rule": "N: post-layout (Calibre R+C+CC) reads fire the sense amplifier after a complete bitline swing with N = 9; N = 3 keeps the 0.28 VDD sense bar at least 200 ps before isolation at every worst-PVT corner and shortens the self-timed read path (docs/design/layout/POST_LAYOUT_V2_2_8.md)",
   "qualification": "unqualified diagnostic candidate",
   "selection": "performance first: smallest class whose SS 0.9 V 125 C coupon edge is within 10 % of the frozen class half-period; 512-column wordline at the ladder knee",
   "evidence_sha256": "30b9ed03d233b4c5348dbcfbc465c944971fc3b37733729833ce0c57ca0d0883",

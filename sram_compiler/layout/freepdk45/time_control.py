@@ -136,6 +136,12 @@ WELL_SPACE=225.      # Well.2: lane well gap to a neighbouring row's decoder wel
 ACCESS_GAP=300.      # lane pin access (M4 landing, M5 above) or tap wire to a decoder conductor edge
 BAND_FILL=1.0        # cell area / band area above which optional gates move to the lanes
 CENTRE_TALL=False    # route centre frames below 80 um with the tall-frame order (long nets first)
+# Enable-line driver chains (gate and buffer) keep their own band rows. A held
+# enable output whose driver shares a row rail with another chain's buffer lifts
+# when that buffer switches: post-layout, s_en rose 0.205 V at 64x64 FF -40 C as
+# w_en fell (55 of its 73 ohm to the pins shared); from another row, 1.4 ohm.
+ENABLE_CHAINS={'Xw_en':'w_en','Xw_en_buf':'w_en','Xs_en':'s_en','Xs_en_buf':'s_en','Xsa_iso':'sa_iso',
+               'Xsa_iso_buf':'sa_iso','Xpre_unbuf':'pre','Xpre':'pre','Xwl_en':'wl_en'}
 HISTORY_COST=10      # centre routing: per-step cost for other nets on a blocked net's path
 ESCAPE_REACH=3000    # macro input escape stacks slide at most this far from their access
 ESCAPE_RADIUS=8000   # ... or stand alone, routed to the access, at most this far away
@@ -290,23 +296,38 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
               or entries[p][0][1].get('Z')=='wl_en'})
     first=[p for p in order if p.split('/')[0] in decoder and entries[p][0][0].standard_family not in ('DFF','TG')]
     def fill(order):
-        prepared=[];rows=[];state=dict(cursor=x0,y=y0,height=0.,vdd=0.,row=0)
+        prepared=[];rows=[];state=dict(cursor=x0,y=y0,height=0.,vdd=0.,row=0,chains=frozenset())
         done=0;budget=BAND_FILL*width*(y1-y0);used=0.
+        holes=[]  # row ends left by chain breaks: [y, height, row, x, x_max]
         for index,path in enumerate(order):
             saved=dict(state);mark=len(prepared);saved_rows=len(rows)
             area=sum(v.width_nm*v.height_nm for v,_ in entries[path])
             if path not in fixed and used+area>budget:break
+            chain=ENABLE_CHAINS.get(path.split('/')[0])
+            if chain is None and holes and len(entries[path])==1 and entries[path][0][0].standard_family!='DFF':
+                # A later single-row logic cell back-fills the end of a row that a
+                # chain break left open, so the separation costs no band rows.
+                v,m=entries[path][0];tap=500. if _antenna(path,m) else 0.
+                hole=next((h for h in holes if h[1]==v.height_nm and h[3]+v.width_nm+tap<=h[4]),None)
+                if hole is not None:
+                    prepared.append((path,v,m,hole[3],hole[0],hole[2],False))
+                    hole[3]+=v.width_nm+30+tap;used+=area;done=index+1
+                    continue
             used+=area
             fits=True
             for v,m in entries[path]:
                 tap=500. if _antenna(path,m) else 0.
                 dff=v.standard_family=='DFF'
                 family_break=prepared and (prepared[-1][1].standard_family=='DFF')!=dff
-                if (state['cursor']+v.width_nm+tap>width-300 and state['cursor']>x0) or family_break:
+                chain_break=chain is not None and state['cursor']>x0 and bool(state['chains']-{chain})
+                if (state['cursor']+v.width_nm+tap>width-300 and state['cursor']>x0) or family_break or chain_break:
+                    if chain_break and not family_break:
+                        holes.append([state['y'],state['height'],state['row'],state['cursor'],width-300])
                     rows.append((state['y'],state['height'],state['vdd']))
                     gap=((100 if dff else 25) if state['height']==1900 else
                          (100 if dff else 125) if state['height']==1800 else 125 if dff else 0)
-                    state.update(y=state['y']+state['height']+gap,cursor=x0,height=0.,vdd=0.,row=state['row']+1)
+                    state.update(y=state['y']+state['height']+gap,cursor=x0,height=0.,vdd=0.,row=state['row']+1,
+                                 chains=frozenset())
                 if state['y']+v.height_nm>y1-1000 or state['cursor']+v.width_nm+tap>width-300:
                     fits=False;break
                 x=state['cursor'];prepared.append((path,v,m,x,state['y'],state['row'],False))
@@ -314,6 +335,7 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
                 nxt=following is not None and following.standard_family=='DFF'
                 state['cursor']=x+v.width_nm+((190 if nxt else 290) if dff else 30)+tap
                 state['height']=max(state['height'],v.height_nm);state['vdd']=max(state['vdd'],v.pins['VDD'][1])
+                if chain is not None:state['chains']=state['chains']|{chain}
             if not fits:
                 if path in fixed:raise ValueError(f'{path} must sit in the band, which is full')
                 del prepared[mark:];del rows[saved_rows:];state=saved;break

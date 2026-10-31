@@ -8,8 +8,18 @@ wordline driver and the output latch. Alternative bank pitches, unsplit and
 row-split banks, and the beside-controller floorplan have been removed.
 
 Source topology, models, total transistor W/L, sizing and timing tables, and
-simulation RC profiles remain frozen. Selecting this physical default does
-not establish waveform correctness or release qualification.
+simulation RC profiles remain frozen, except the layout lookup's replica
+delay chain (N = 3, candidate 3). Complete macros end with a supply grid
+(M8/M9 straps, M3 straps with right controller exits, extra supply pins,
+merged decoder band VSS rails and M2 buses on the decoder's edge rails),
+and the controller keeps each enable driver chain on its own rows. These
+changes come from the
+[post-layout access verification](POST_LAYOUT_V2_2_8.md), which is the
+waveform evidence for this geometry; it is not a release qualification.
+32×32 and 64×64 (at the 12 ns clock of `layout_timing_lookup.json`) pass it.
+128×128 fails one case: at FF 1.1 V −40 °C a read flips far-end cells
+because each half-array joins its bitcell VSS M3 rails to a VSS trunk at
+one end only (open).
 
 ## Bitcell and array
 
@@ -57,7 +67,7 @@ automatic timing remains limited to 512 × 256.
 | Read/mux/sense | Select inverters sharing one output-bar level, isolated BL/BLB transmission-gate islands sharing one row, folded sense amplifier; 4.900 µm total height. |
 | Precharge | Two mirrored, isolated three-PMOS strips in one row; one 1080 nm finger per device, shared central PRE access; 1.4625 µm tiling height. The replica keeps the same U geometry. |
 | Data registers | One frozen-source DFF per physical column, folded into pair slots below its own write buffer. Q tracks remain aligned with their buffer inputs. The band abuts the write band on their shared VSS rail unless a taller controller band gives a smaller macro. |
-| TIME_CONTROL | Below the shared decoder, bottom-aligned with both register bands. Large controllers use unoccupied lower decoder rows; a decoder left pad widens those rows before the right channel widens. The replica wordline driver uses the decoder's top band when it fits. |
+| TIME_CONTROL | Below the shared decoder, bottom-aligned with both register bands. Large controllers use unoccupied lower decoder rows; a decoder left pad widens those rows before the right channel widens. Each enable driver chain (`w_en`, `s_en`, `sa_iso`, precharge, `wl_en`) keeps its own band rows; later logic cells back-fill the row ends. The replica wordline driver uses the decoder's top band when it fits. |
 
 ![Earlier decoder/read/write compaction beside its preceding baseline](COMPACT_REDESIGNED_COMPONENTS_V2_2_8.png)
 
@@ -171,6 +181,7 @@ bounds.
 | Local bitline drops and decoder address/enable trunks | M5 |
 | Wordlines across the centre decoder, control/supply trunks | M6 |
 | Integrated controller, feedback and macro input escapes | Through M10 |
+| Supply grid (after routing; `power_grid.py`) | VDD M8, VSS M9, top VSS strap M7; controller-side gap straps M3; decoder band rails M1 with edge buses on M2 |
 
 The external-control bank uses M1–M6 only. Controller integration lifts
 central bar crossings to M6 and feeds each half through its own supply
@@ -179,7 +190,9 @@ The placer reserves actual decoder polygons and SEL0/SEL1 via landings before
 routing, and searches against the same band ceiling used by final placement.
 
 Control and address inputs and SEL0/SEL1 reach macro edges on M10. OUT/OUT_B
-leave right on M4; VDD/VSS trunks reach the top and bottom on M6. Per-column
+leave right on M4; VDD/VSS trunks reach the top and bottom on M6, and the
+supply grid adds VDD/VSS pins at both ends of the left straps (M8/M9) and at
+the bottom of the controller-side gap straps (M3). Per-column
 DIN and sense outputs remain internal accesses. The output latch occupies
 the replica slot's register position. `layout.json` records source instances,
 fingers, terminals, bounds, split ownership, macro pins and provenance.
@@ -228,11 +241,13 @@ raw output campaigns have been purged. Latest selected builds, their parts,
 receipts and source decks remain under `outputs/layout/compact/`; the local
 cleanup inventory is `dev/cleanup/2026-10-26-default-compact-layout.json`.
 
-No waveform, extracted-timing, operating-point, yield, IR-drop or
-electromigration validation is claimed. Driver classes still derive from
+The [post-layout record](POST_LAYOUT_V2_2_8.md) simulates the extracted
+macros, including their supply networks, at the worst global PVT corners
+without local mismatch. No operating-point, yield, electromigration or
+release qualification is claimed. Driver classes still derive from
 OpenRAM-pitch loads; compact wordlines are longer per cell and bitlines
-shorter. Re-deriving driver classes requires new extracted waveform evidence.
-The compiler's scoped simulation RC profiles do not describe this geometry.
+shorter. The compiler's scoped simulation RC profiles do not describe this
+geometry.
 
 Further [macro-area experiments](MACRO_AREA_EXPLORATION_V2_2_8.md) compare
 controller height/width tradeoffs, group ordering and decoder trunk pitch.

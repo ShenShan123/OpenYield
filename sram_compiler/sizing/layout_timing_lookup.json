@@ -1,0 +1,180 @@
+{
+  "schema": 1,
+  "version": "V2.2.8",
+  "lookup_version": "v2.2.8-layout-timing-1",
+  "units": "integer picoseconds before margin",
+  "status": "Design budgets for the compact FreePDK45 layout; worst-PVT post-layout evidence, not local-mismatch or release qualification",
+  "supported_envelope": {
+    "max_rows": 512,
+    "max_cols": 256
+  },
+  "basis": "V2.2.8 layout timing: the shared table v2.2.3-timing-1 with one change. The 6T column-mux 64-row budget rises from 4000 to 4300 ps, so a 64x64 compact macro runs at 12.0 ns instead of 10.5 ns: its extracted SS read missed the 0.68 T deadline by 153 ps at 10.5 ns and passes at 12 ns (docs/design/layout/POST_LAYOUT_V2_2_8.md). Every other budget is unchanged. Shared-table basis: V2.2.0 separates clock-high access from clock-low recovery. Most budgets are twice V2.1.10. The 128-, 256-, and 512-row budgets are three times V2.1.10 to cover the decoder-settling guard. V2.2.3 declares the supported envelope as 512 rows by 256 columns and removes the 512-column class, which is outside it; the 8x512 cases of the V2.2.2 screen are historical evidence and are no longer resolvable from this table. No budget inside the envelope changed, so every array size screened in V2.2.2 within the envelope resolves to the identical period. See docs/design/timing/PHASED_CONTROL_V2_2_3.md for the executed screening and limits. V2.2.4 changes no budget: a variant ladder is floored at the shared ladder for every size (the floor V2.2.3 removed), so every V2.2.3 period is unchanged.",
+  "policy": "T = ceil_to_50ps(2 * half * (1 + margin)); default margin 0.25, where half = max(row.half_period_ps, column.half_period_ps) + min(row_excess, column_excess) and each excess is that ladder's budget minus the budget of its own first class. An array large in one dimension pays the larger single-dimension budget; an array large in both also pays the smaller excess, because bitline height and wordline width contribute separately. When either dimension sits in its first class the excess is zero and the rule is the V2.2.x maximum. Rows above max_rows or columns above max_cols of supported_envelope are rejected, not extrapolated. Round dimensions up to anchors. The shared classes apply to every architecture without a variant entry; a variant keyed by cell_type (and mux, when given) replaces both ladders for that architecture and may never fall below the shared budget, at its own first class too. Physical wiring still shares the classes; custom RC still requires waveform checks.",
+  "row_classes": [
+    {
+      "max_rows": 32,
+      "half_period_ps": 3600
+    },
+    {
+      "max_rows": 64,
+      "half_period_ps": 3800
+    },
+    {
+      "max_rows": 128,
+      "half_period_ps": 6600
+    },
+    {
+      "max_rows": 256,
+      "half_period_ps": 8100
+    },
+    {
+      "max_rows": 512,
+      "half_period_ps": 11100
+    }
+  ],
+  "column_classes": [
+    {
+      "max_cols": 4,
+      "half_period_ps": 3200
+    },
+    {
+      "max_cols": 8,
+      "half_period_ps": 3200
+    },
+    {
+      "max_cols": 16,
+      "half_period_ps": 3200
+    },
+    {
+      "max_cols": 32,
+      "half_period_ps": 3600
+    },
+    {
+      "max_cols": 64,
+      "half_period_ps": 4000
+    },
+    {
+      "max_cols": 128,
+      "half_period_ps": 4800
+    },
+    {
+      "max_cols": 256,
+      "half_period_ps": 5600
+    }
+  ],
+  "variants": [
+    {
+      "cell_type": "SRAM_10T_CELL",
+      "basis": "V2.2.0 high access and low recovery: twice the V2.1.10 budgets except for taller row classes. V2.2.3 removed the 512-column class, which is outside the supported envelope.",
+      "row_classes": [
+        {
+          "max_rows": 32,
+          "half_period_ps": 4000
+        },
+        {
+          "max_rows": 64,
+          "half_period_ps": 4400
+        },
+        {
+          "max_rows": 128,
+          "half_period_ps": 7200
+        },
+        {
+          "max_rows": 256,
+          "half_period_ps": 9600
+        },
+        {
+          "max_rows": 512,
+          "half_period_ps": 12900
+        }
+      ],
+      "column_classes": [
+        {
+          "max_cols": 4,
+          "half_period_ps": 3600
+        },
+        {
+          "max_cols": 8,
+          "half_period_ps": 3600
+        },
+        {
+          "max_cols": 16,
+          "half_period_ps": 3600
+        },
+        {
+          "max_cols": 32,
+          "half_period_ps": 4000
+        },
+        {
+          "max_cols": 64,
+          "half_period_ps": 4400
+        },
+        {
+          "max_cols": 128,
+          "half_period_ps": 5200
+        },
+        {
+          "max_cols": 256,
+          "half_period_ps": 6000
+        }
+      ]
+    },
+    {
+      "cell_type": "SRAM_6T_CELL",
+      "mux": true,
+      "basis": "V2.2.0 high access and low recovery: twice the V2.1.10 budgets except for taller row classes. V2.2.3 removed the 512-column class, which is outside the supported envelope.",
+      "row_classes": [
+        {
+          "max_rows": 32,
+          "half_period_ps": 3800
+        },
+        {
+          "max_rows": 64,
+          "half_period_ps": 4300
+        },
+        {
+          "max_rows": 128,
+          "half_period_ps": 6900
+        },
+        {
+          "max_rows": 256,
+          "half_period_ps": 8700
+        },
+        {
+          "max_rows": 512,
+          "half_period_ps": 12000
+        }
+      ],
+      "column_classes": [
+        {
+          "max_cols": 4,
+          "half_period_ps": 3200
+        },
+        {
+          "max_cols": 8,
+          "half_period_ps": 3200
+        },
+        {
+          "max_cols": 16,
+          "half_period_ps": 3200
+        },
+        {
+          "max_cols": 32,
+          "half_period_ps": 3600
+        },
+        {
+          "max_cols": 64,
+          "half_period_ps": 4000
+        },
+        {
+          "max_cols": 128,
+          "half_period_ps": 4800
+        },
+        {
+          "max_cols": 256,
+          "half_period_ps": 5600
+        }
+      ]
+    }
+  ]
+}

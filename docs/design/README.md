@@ -13,6 +13,7 @@ tracks release status and open work.
 The default physical flow and optional complete controller integration:
 
 - [Compact column-split SRAM layout — V2.2.8](layout/COMPACT_CELL_V2_2_8.md)
+- [Post-layout access verification, supply grid, enable rows and replica chain — V2.2.8](layout/POST_LAYOUT_V2_2_8.md)
 
 Superseded bank/controller plans and previews have been removed. Their
 [historical JSON evidence](../data/README.md#historical-layout-evidence)

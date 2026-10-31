@@ -35,6 +35,16 @@ decoder-width and precharge builds, parts, physical receipts and source decks re
 `outputs/layout/compact/`. The deletion inventory is local at
 `dev/cleanup/2026-10-26-default-compact-layout.json`.
 
+## Post-layout verification
+
+[`POST_LAYOUT_V2_2_8.json`](POST_LAYOUT_V2_2_8.json) records every post-layout
+transient of the [post-layout record](../design/layout/POST_LAYOUT_V2_2_8.md):
+layout, DSPF and source hashes, the network model options, solver and scorer
+hashes, start-up state, pass/fail with every failed check, and the phase
+margins; failed and superseded runs are listed, not dropped. It also records
+the supply-resistance tables (original, g10, g14), the bitcell read-row VSS
+transfer resistances (`bitcell_row_vss`) and the physical receipts of the g14 layouts.
+
 ## Simulation and characterization records
 
 [`V2_2_6_CONFIGURATION_REVIEW.json`](V2_2_6_CONFIGURATION_REVIEW.json) records

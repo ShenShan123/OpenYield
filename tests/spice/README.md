@@ -7,6 +7,11 @@ Current physical-layout protocols are `v228_component_cases.json`,
 See the [layout guide](../../sram_compiler/layout/README.md) for their scope.
 The older fixed/scaled/compact layout calibration protocols were removed.
 
+`v228_post_layout_cases.json` is the post-layout access protocol: extracted
+complete macros at the worst global PVT corners with the unchanged scorer
+(`phased_waveforms.py`). See the [post-layout record](../../docs/design/layout/POST_LAYOUT_V2_2_8.md);
+its local runner is `dev/postlayout/postsim.py`.
+
 `v226_review_cases.json` selects four existing cases for the V2.2.6
 configuration-fix diagnostic. See the [review record](../../docs/design/compiler/CONFIGURATION_REVIEW_V2_2_6.md)
 for results and limits; this subset is not the full release screen.

@@ -24,6 +24,42 @@ runs on 2026-10-28. No layout change in this release carries waveform,
 operating-point or yield qualification beyond the native 8×8 and 32×32 checks
 in the scaling record.
 
+- 2026-10-29: verify complete compact macros post-layout (Calibre R+C+CC,
+  extracted supply networks) at the worst global PVT corners without local
+  mismatch. The first pass found a 64×64 SS read 100 ps past the access
+  deadline and supply bounce from minimum-width, single-feed supply wiring
+  (150–950 Ω at 32×32; the kit deck charges 88–102 Ω per minimum cut). Fixes:
+  the layout lookup's replica delay chain N = 9 → 3 (candidate 3), and an
+  upper-metal supply grid added after routing (M8 VDD, M9 VSS straps,
+  trunk stacks, decoder spine ties, direct controller rail bridges and extra
+  rail cuts). All five macros pass DRC 0/LVS CORRECT with R+C+CC extraction;
+  boundaries are unchanged. 32×32 passes all ten worst-PVT cases on the
+  extracted mesh (SS read margin 277 ps). The 64×64 SS read missed the shared
+  10.5 ns class by 153 ps; the new `sizing/layout_timing_lookup.json`
+  (`v2.2.8-layout-timing-1`) raises only the 6T column-mux 64-row budget
+  (4000 → 4300 ps), so 64×64 runs at 12 ns and SS passes both patterns
+  (read margins 555/643 ps). The default timing table is unchanged. At
+  64×64 the quiet control lines then still bounced above 0.1 VDD: `s_en`
+  rose 0.099–0.205 V when `w_en` fell, through 54 Ω of controller ground
+  shared with the `w_en` buffer in the same row. The grid now also has M3
+  straps beside the controller with a right exit for every controller row
+  rail and six more macro supply pins, and the controller keeps each enable
+  driver chain on its own rows (`time_control.ENABLE_CHAINS`, row ends
+  back-filled; no area change). The shared paths drop to 1.3–5.4 Ω. In the
+  decoder, facing band VSS rails merge into 270 nm M1 buses and the single
+  rails at its top and bottom edges widen under M2 buses joined to the VSS
+  spine: the edge wordline-driver bands share 30–53 Ω instead of up to
+  172 Ω (128×128). With this layout (g14) 32×32 and 64×64 pass all ten
+  worst-PVT cases with the scorer unchanged (worst quiet line 0.096 V of
+  0.110 V). Postsim now feeds every macro supply pin. The kit cut resistance stays the signoff model. The
+  [post-layout record](design/layout/POST_LAYOUT_V2_2_8.md) has the results.
+  128×128 passes nine of ten cases; at FF 1.1 V −40 °C the `seq` read flips
+  far-end cells of the read row. Each half-array feeds its bitcell VSS M3
+  rails from one end only, so a read row's ground rises at least 0.35 V at
+  the far columns (0.19 V at SF −40 °C, where the sense margin there falls
+  to 0.323 V). This failure is open; the fix (an M4 mesh over the arrays) is
+  left for the next round. 256×256 and 512×512 are not simulated, and the
+  same feed projects read failures at both.
 - 2026-10-28: shrink complete compact macros by 3.50/1.90/1.26/2.86/4.38%
   at 32/64/128/256/512 rows with source W/L, sizing and timing frozen. A
   decoder left pad widens the spare decoder rows instead of opening an empty
