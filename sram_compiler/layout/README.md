@@ -96,7 +96,11 @@ the right half, onto which every controller row rail exits through a via2
 array. Supply pins sit at the bottom of the gap straps (M3) and at both ends
 of the left straps (M8/M9). In the decoder, facing band VSS rails merge into
 270 nm M1 buses, and the single rails at its top and bottom edges widen
-under M2 buses joined to the VSS spine. Each shape is checked against existing metal and
+under M2 buses joined to the VSS spine. Over each half-array an M4 VSS mesh
+(a 140 nm strap at every fourth column centre, with a via3 on every M3 VSS
+rail it crosses) ties the bitcell VSS rails together, which otherwise reach the
+M4 trunk only at one end of the half-array; the straps stack to the top M7
+VSS strap and, in the left half, to the left M9 VSS strap. Each shape is checked against existing metal and
 cuts; blocked sites are skipped and counted in `layout.json` (`power_grid`).
 The grid never moves the macro boundary. The controller keeps each enable
 driver chain (`w_en`, `s_en`, `sa_iso`, precharge, `wl_en`) on its own band
@@ -109,9 +113,8 @@ The FreePDK45 xRC deck applies its via1/via2/contact resistance per cut area
 that record states the resulting scope. Those runs use the layout clock
 table `sram_compiler/sizing/layout_timing_lookup.json` (`--timing-lookup`;
 64×64 at 12 ns) and feed every macro supply pin. 32×32 and 64×64 pass all
-ten worst-PVT cases. 128×128 passes nine of ten: at FF 1.1 V −40 °C a read
-flips far-end cells, because each half-array feeds its bitcell VSS rails
-from one end only (open; see the record).
+ten worst-PVT cases, and so does 128×128 with the array mesh; without it a
+128×128 read at FF 1.1 V −40 °C flipped far-end cells.
 
 ## Small cells and component placement
 

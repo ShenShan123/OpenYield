@@ -8,16 +8,17 @@ access checks. The first pass found a missed read deadline and supply
 bounce on quiet control lines. This record documents the fixes: a shorter
 replica delay chain, a 12 ns 64-row clock in the layout timing table, an
 upper-metal supply grid with right-side controller exits and extra supply
-pins, controller rows that keep each enable driver chain apart, and
-low-resistance decoder band rails. It also records an open failure: the
-bitcell VSS rails are fed from one end of each half-array.
+pins, controller rows that keep each enable driver chain apart,
+low-resistance decoder band rails, and an M4 mesh that ties the bitcell VSS
+rails of each half-array together, because a 128×128 read had flipped
+far-end cells when those rails were fed from one end only.
 
-Status (layout g14): 32×32 and 64×64 pass all ten worst-PVT cases with the
-scorer's limits unchanged (worst quiet line 0.096 V of 0.110 V). 128×128
-passes nine of ten; at FF 1.1 V −40 °C the `seq` read flips far-end cells
-of the read row because their ground rises about 0.35 V (open; the fix is
-left for the next round by decision of 2026-10-31). 256×256 and 512×512
-carry physical verification only. Evidence:
+Status (layout g15): 32×32, 64×64 and 128×128 each pass all ten worst-PVT
+cases with the scorer's limits unchanged (worst quiet line 0.067 V of
+0.090 V). With g14, 128×128 passed nine of ten: at FF 1.1 V −40 °C the
+`seq` read flipped far-end cells of the read row, whose ground rose about
+0.35 V; the g15 array mesh fixes it. 256×256 and 512×512 carry physical
+verification only. Evidence:
 [`POST_LAYOUT_V2_2_8.json`](../../data/POST_LAYOUT_V2_2_8.json).
 
 ## Method
@@ -129,11 +130,12 @@ Guard slack does not offer an alternative: the ordering guards keep only
 after a complete bitline swing: the 0.28 VDD sense bar is reached 315 ps
 (FF −40 °C) to 1470 ps (SS) before isolation. The first chain stage, the
 RBL observer, dominates the chain delay, so N = 3 keeps at least 200 ps of
-that lead at every corner for the target column at 32×32 and 64×64. At
-128×128 the far-end columns lead by only 159 ps at SF −40 °C, because of the
-bitcell VSS feed (open failure, below). The lookup's `replica_rule` text
-predates that result and is left unchanged: the lookup file's hash is part of
-every driver-sizes key. The schematic matrix passes all ten 32×32 cases
+that lead at every corner for the target column at 32×32 and 64×64. With
+g14 the 128×128 far-end columns led by only 159 ps at SF −40 °C, because of
+the one-sided bitcell VSS feed; with the g15 array mesh
+(below) every 128×128 column leads by at least 459 ps at every corner. The lookup's
+`replica_rule` text is left unchanged because the lookup file's hash is part
+of every driver-sizes key. The schematic matrix passes all ten 32×32 cases
 and the 64×64 SS and FF −40 °C cases with N = 3. Source decks change by the
 six removed chain inverters; the area changes at 64 and 128 rows only
 (5,143.1 → 5,118.5 and 13,996.8 → 13,959.6 µm²).
@@ -152,7 +154,9 @@ after all routing, so it never constrains the controller router:
 * a direct M2 bridge from every controller row rail to its left M6 trunk,
   with two via2 cuts where they fit, VSS rails first;
 * extra cuts where rails meet their spines and edge trunks: up to two via2
-  per controller rail and four via1 per decoder band VSS rail.
+  per controller rail and four via1 per decoder band VSS rail;
+* over each half-array, an M4 VSS mesh tying the bitcell VSS rails together
+  (g15, below).
 
 Every via, pad and strap is checked against all existing metal and cut
 shapes; a blocked site is skipped and counted in `layout.json`
@@ -171,7 +175,8 @@ locates each block's dominant resistors by coordinate):
 | g11 | M3 gap straps with a right exit for every controller rail; supply pins at the left strap ends and the gap | 64×64 FF −40 °C `s_en` still 0.119 V (limit 0.110 V) |
 | g12 | g11 plus enable driver chains on separate controller rows | none at 32×32 and 64×64; 128×128 top and bottom wordline drivers share 144/166 Ω of decoder VSS |
 | g13 | decoder band VSS rails merged; top band rail under an M2 bus | none at 32×32 and 64×64; 128×128 bottom band still 166 Ω |
-| g14 | the bottom band rail treated like the top one | none at 32×32 and 64×64; 128×128 FF −40 °C `seq`: far-end cells flip in the first read (bitcell VSS feed, open) |
+| g14 | the bottom band rail treated like the top one | none at 32×32 and 64×64; 128×128 FF −40 °C `seq`: far-end cells flip in the first read (one-sided bitcell VSS feed) |
+| g15 | M4 VSS mesh over each half-array | none at 32×32, 64×64 and 128×128 |
 
 **Right controller exits and supply pins (g11).** At 64×64 and above the
 `s_en` buffer and the `w_en` buffer's final stage shared one controller row
@@ -225,15 +230,72 @@ A bus that misses the spine only shunts the rail: g14's first build left the
 126.5 Ω through one 88 Ω via1. The grid now reports whether each bus reaches
 the spine.
 
+**Bitcell VSS mesh (g15; `power_grid.array_mesh`).** With g14, 128×128
+FF 1.1 V −40 °C `seq` failed 109 of 16,697 checks: cells of the read row 127
+at the far end of each half-array (columns 0–11 and 64–73) flipped
+5,985–6,055 ps into the first read, while the wordline was on and before
+isolation (6,445 ps), and the sense groups over them (0–5 and 32–36) read
+the reversed data. The failures were 60 read retention, 34 sense data and
+hold, 14 write-cycle retention of the flipped cells and the read output
+margin (−5 ps). The low storage node of the cells next to the feed peaked at
+0.20 V; far-end cells reached the 0.55 V reversal point. At SF 0.9 V −40 °C
+the far columns passed with a 0.323 V sense differential (limit
+0.28 VDD = 0.252 V) against 0.83 V at the target column, and reached the
+0.28 VDD bar 456 ps later than the near end (61 ps at 64×64, 8 ps at
+32×32).
+
+The bitcell has VSS on 70 nm M3 rails along both row edges, shared with the
+mirrored neighbour row (`compact_core.py`). Each half-array joins these
+rails to its M4 VSS trunk only in the empty column slot at one end
+(`compact_array.py`): the left array at its centre side, the right array at
+the macro's right edge. A read turns on every cell of one row, so the whole
+row's current flowed along that row's rails to one end. With uniform row
+data (`seq`) every cell pulls down on the same side, and one rail carries
+the row; a checkerboard (`mixed`) splits it over both rails, which is why
+the FF −40 °C `mixed` case held (0.144 V storage margin). Neither the
+wordline nor isolation caused the spread: the wordline reached 0.89 V at
+both ends by 6.2 ns at SF −40 °C, and isolation samples every column within
+7 ps.
+
+M4–M7 are empty over the data columns, so g15 adds, after the rest of the
+grid, a 140 nm M4 VSS strap at the centre of every fourth column of each
+half (columns 1, 5, 9, …) with a 70 nm via3 on every M3 VSS rail it crosses:
+both edges of every array row, the well-strap rails below and above the
+array, and both edges of the RWL load row. The straps stack to the top M7
+VSS strap where it crosses them, and left-half straps beside the left M9
+VSS strap join it. A read row's current then spreads over every rail of
+its half-array. The mesh leaves the rest of the grid, the boundaries and
+the areas unchanged.
+
+Read-row VSS transfer resistance, worst / best column of the row, g14 →
+g15 (`dev/postlayout/row_vss.py`: unit current shared by the read row's
+conducting pull-down sources, voltage at one cell's; every supply pin tied,
+kit cuts; evidence key `bitcell_row_vss`):
+
+| Macro (read row) | Uniform data (`seq`), one rail | Checkerboard (`mixed`), both rails |
+| --- | ---: | ---: |
+| 32×32 (31) | 37.8 / 11.0 → 14.6 / 7.6 Ω | 23.0 / 9.4 → 8.0 / 6.0 Ω |
+| 64×64 (63) | 53.5 / 8.1 → 8.1 / 3.9 Ω | 33.9 / 7.3 → 4.8 / 3.1 Ω |
+| 128×128 (127) | 83.1 / 6.8 → 5.1 / 2.0 Ω | 49.0 / 6.4 → 3.4 / 1.6 Ω |
+| 256×256 (255) | 148.3 / 6.6 → 3.8 / 1.1 Ω | 82.8 / 6.5 → 3.0 / 0.9 Ω |
+
+With g14 the worst value grew 1.4–1.8 times per size step while the row
+current doubled. With the mesh it falls with size, because a taller array
+puts more rails in parallel. The worst bitcell VSS terminal resistance from
+the supply port drops from 282/364/482 Ω to 216 Ω at 32/64/128 rows (best
+208 Ω), which is mostly the cell's own contact and via cuts at 88–102 Ω
+each.
+
 Supply resistance per block (kit cuts; body taps excluded; every macro
-supply pin tied), original → g10 → g14, worst source/drain terminal:
+supply pin tied), original → g10 → g14, worst source/drain terminal; the
+g15 mesh changes VSS only, given after the slash:
 
 | Block | 32×32 VDD | 32×32 VSS | 64×64 VDD | 64×64 VSS | 128×128 VDD | 128×128 VSS |
 | --- | --- | --- | --- | --- | --- | --- |
-| Wordline drivers | 264 → 88 → 81 | 348 → 111 → 42 | 350 → 112 → 101 | 432 → 129 → 57 | 508 → 143 → 117 | 627 → 192 → 67 |
-| RWL driver | 772 → 596 → 589 | 307 → 70 → 34 | 859 → 615 → 605 | 393 → 89 → 48 | 1037 → 672 → 640 | 564 → 113 → 50 |
-| Precharge / sense / write slots | 120–138 → 45–54 → 38–47 | 123–139 → 46–54 → 39–43 | 151–171 → 43–52 → 34–42 | 157–177 → 49–50 → 41–43 | 225–240 → 49–51 → 33–34 | 229–233 → 53–55 → 35 |
-| Bitcells (worst) | 406 → 336 → 282 | 360 → 293 → 282 | 510 → 406 → 348 | 477 → 376 → 364 | 704 → 530 → 463 | 677 → 511 → 482 |
+| Wordline drivers | 264 → 88 → 81 | 348 → 111 → 42 / 32 | 350 → 112 → 101 | 432 → 129 → 57 / 33 | 508 → 143 → 117 | 627 → 192 → 67 / 51 |
+| RWL driver | 772 → 596 → 589 | 307 → 70 → 34 / 23 | 859 → 615 → 605 | 393 → 89 → 48 / 23 | 1037 → 672 → 640 | 564 → 113 → 50 / 23 |
+| Precharge / sense / write slots | 120–138 → 45–54 → 38–47 | 123–139 → 46–54 → 39–43 / 39–43 | 151–171 → 43–52 → 34–42 | 157–177 → 49–50 → 41–43 / 36–40 | 225–240 → 49–51 → 33–34 | 229–233 → 53–55 → 35 / 34 |
+| Bitcells (worst) | 406 → 336 → 282 | 360 → 293 → 282 / 216 | 510 → 406 → 348 | 477 → 376 → 364 / 216 | 704 → 530 → 463 | 677 → 511 → 482 / 216 |
 
 The bounce depends on the resistance two blocks share, which the per-block
 table does not show (`dev/postlayout/supply_mutual.py`: unit current into
@@ -265,19 +327,23 @@ from the table equals the 12 ns diagnostic deck. The default
 
 ## Results after the fixes
 
-**Physical verification (g14).** Every complete macro with replica N = 3,
-the g12 controller placement and the g14 grid passes Calibre DRC with zero
-results and LVS `CORRECT`, followed by distributed R+C+CC extraction. The grid leaves every
+**Physical verification (g15).** Every complete macro with replica N = 3,
+the g12 controller placement and the g15 grid passes Calibre DRC with zero
+results and LVS `CORRECT`, followed by distributed R+C+CC extraction; so did
+g14, the same grid without the array mesh. The grid leaves every
 boundary unchanged; the areas differ from the macro-density baseline only
 where N = 3 changed the controller placement.
 
-| Macro | Bounds (µm) | Area (µm²) | Baseline area | Extracted nets | Grid stacks / skipped sites | Merged decoder M1 (µm) | Edge buses (µm) / via1 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 32×32 | 64.78 × 34.42 | 2,229.5 | 2,229.5 | 3,568 | 169 / 17 | 70.8 | 2 × 23.6 / 116 |
-| 64×64 | 104.08 × 49.18 | 5,118.5 | 5,143.1 | 10,952 | 251 / 29 | 188.4 | 2 × 26.9 / 132 |
-| 128×128 | 187.48 × 74.46 | 13,959.6 | 13,996.8 | 38,128 | 391 / 48 | 574.7 | 2 × 38.3 / 190 |
-| 256×256 | 351.12 × 125.02 | 43,896.7 | 43,896.7 | 141,718 | 731 / 88 | 1,796.6 | 58.0 + 57.9 / 288 |
-| 512×512 | 669.08 × 226.14 | 151,305.2 | 151,305.2 | 544,772 | 1,349 / 171 | 5,538.6 | 2 × 87.9 / 438 |
+| Macro | Bounds (µm) | Area (µm²) | Baseline area | Extracted nets | Grid stacks / skipped sites | Merged decoder M1 (µm) | Edge buses (µm) / via1 | Array mesh straps / via3 / M7 stacks / M9 joins |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 32×32 | 64.78 × 34.42 | 2,229.5 | 2,229.5 | 3,568 | 169 / 17 | 70.8 | 2 × 23.6 / 116 | 8 / 296 / 4 / 2 |
+| 64×64 | 104.08 × 49.18 | 5,118.5 | 5,143.1 | 10,952 | 251 / 29 | 188.4 | 2 × 26.9 / 132 | 16 / 1,104 / 8 / 6 |
+| 128×128 | 187.48 × 74.46 | 13,959.6 | 13,996.8 | 38,128 | 391 / 48 | 574.7 | 2 × 38.3 / 190 | 32 / 4,256 / 16 / 14 |
+| 256×256 | 351.12 × 125.02 | 43,896.7 | 43,896.7 | 141,718 | 731 / 88 | 1,796.6 | 58.0 + 57.9 / 288 | 64 / 16,704 / 32 / 30 |
+| 512×512 | 669.08 × 226.14 | 151,305.2 | 151,305.2 | 544,772 | 1,349 / 171 | 5,538.6 | 2 × 87.9 / 438 | 128 / 66,176 / 64 / 62 |
+
+The mesh skips no strap or via3 at any size; one M9 join site per macro is
+blocked.
 
 Each macro has six more supply pins than before and a right exit on every
 controller row rail (22–26 per macro). 32×32 uses the register gap and
@@ -285,20 +351,21 @@ decoder pad of the baseline (400 nm, 1.7 µm); the area-optimal N = 3
 candidate (no gap, 0.7 µm pad) routes only after about 150 controller
 rip-ups.
 
-**32×32 waveforms (g14)**, extracted VDD/VSS mesh, coupling ≥ 10 aF, kit cut
+**32×32 waveforms (g15)**, extracted VDD/VSS mesh, coupling ≥ 10 aF, kit cut
 resistance, every supply pin tied, 8 accesses: **10/10 pass, 228,020
 checks**.
 
 | Corner | Read output margin (ps) | Sense margin (V) | WL off → sense (ps) | Isolation → enable (ps) | Enables off → precharge (ps) | Driver on → WL (ps) | Restore → capture (ps) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| SS 0.9 V 125 °C | 302 | 0.882 | 690 | 653 | 735 | 632 | 1,739 |
-| FS 0.9 V 125 °C | 886 | 0.886 | 598 | 554 | 635 | 521 | 2,081 |
-| FF 1.1 V 125 °C | 1,882 | 1.027 | 406 | 393 | 430 | 364 | 2,754 |
-| SF 0.9 V −40 °C | 2,936 | 0.884 | 236 | 233 | 271 | 217 | 3,465 |
-| FF 1.1 V −40 °C | 3,277 | 1.051 | 181 | 179 | 204 | 154 | 3,686 |
+| SS 0.9 V 125 °C | 302 | 0.882 | 690 | 653 | 735 | 632 | 1,740 |
+| FS 0.9 V 125 °C | 886 | 0.887 | 598 | 554 | 635 | 521 | 2,081 |
+| FF 1.1 V 125 °C | 1,883 | 1.027 | 406 | 393 | 430 | 363 | 2,755 |
+| SF 0.9 V −40 °C | 2,935 | 0.891 | 236 | 233 | 271 | 217 | 3,466 |
+| FF 1.1 V −40 °C | 3,279 | 1.065 | 179 | 179 | 204 | 154 | 3,685 |
 
-Minimum of both patterns per corner. g12 and g13 also passed all ten
-32×32 cases (228,020 checks each); g12's margins are within 4 ps of these. With
+Minimum of both patterns per corner (`dev/postlayout/corner_table.py`).
+g12, g13 and g14 also passed all ten 32×32 cases (228,020 checks each);
+g14's margins are within 2 ps and 0.014 V of these, g12's within 4 ps. With
 g10 the matrix passed with an SS read margin of 277 ps and FF −40 °C quiet
 lines at 0.101 V (unselected wordlines) and 0.092 V (`s_en`) of the 0.110 V
 limit.
@@ -333,31 +400,36 @@ came when `w_en` fell at the end of each write, through 54 of the `s_en`
 buffer's 73 Ω to the pins shared with the `w_en` buffer; the precharge line
 drooped through 14 Ω of VDD shared with the `w_en` buffer.
 
-**64×64 waveforms (g14)** at the 12 ns layout clock: **10/10 pass, 86,410
-checks**. g12 and g13 also passed all ten cases.
+**64×64 waveforms (g15)** at the 12 ns layout clock: **10/10 pass, 86,410
+checks**. g12, g13 and g14 also passed all ten cases. The mesh raises the
+sense margins by 0.05–0.19 V over g14 (0.723–0.878 V); the phase margins
+move by at most 5 ps.
 
 | Corner | Read output margin (ps) | Sense margin (V) | WL off → sense (ps) | Isolation → enable (ps) | Enables off → precharge (ps) | Driver on → WL (ps) | Restore → capture (ps) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| SS 0.9 V 125 °C | 559 | 0.805 | 888 | 835 | 957 | 651 | 1,941 |
-| FS 0.9 V 125 °C | 1,265 | 0.798 | 773 | 720 | 815 | 511 | 2,363 |
-| FF 1.1 V 125 °C | 2,446 | 0.878 | 536 | 522 | 555 | 320 | 3,209 |
-| SF 0.9 V −40 °C | 3,671 | 0.723 | 315 | 331 | 329 | 156 | 4,084 |
-| FF 1.1 V −40 °C | 4,087 | 0.831 | 242 | 262 | 227 | 90 | 4,368 |
+| SS 0.9 V 125 °C | 563 | 0.854 | 887 | 835 | 958 | 651 | 1,944 |
+| FS 0.9 V 125 °C | 1,267 | 0.856 | 773 | 720 | 815 | 512 | 2,368 |
+| FF 1.1 V 125 °C | 2,448 | 0.977 | 536 | 522 | 555 | 318 | 3,213 |
+| SF 0.9 V −40 °C | 3,673 | 0.865 | 313 | 331 | 329 | 154 | 4,088 |
+| FF 1.1 V −40 °C | 4,089 | 1.019 | 242 | 262 | 227 | 88 | 4,367 |
 
-Worst quiet-line levels over all accesses with g14 (`dev/postlayout/quiet_margins.py`,
+Worst quiet-line levels over all accesses with g15 (`dev/postlayout/quiet_margins.py`,
 the scorer's cycle windows; limits 0.1 VDD and 0.9 VDD):
 
 | Corner | `s_en` in writes | `w_en` in reads | Unselected wordlines | Precharge while a WL or enable is active |
 | --- | ---: | ---: | ---: | ---: |
-| 32×32 SS / FS / FF 125 °C / SF / FF −40 °C | 0.067 / 0.064 / 0.082 / 0.057 / 0.071 V | 0.025 / 0.025 / 0.035 / 0.030 / 0.040 V | 0.035 / 0.035 / 0.045 / 0.037 / 0.064 V | 0.865 / 0.861 / 1.047 / 0.844 / 1.021 V |
-| 64×64 SS / FS / FF 125 °C / SF / FF −40 °C | 0.056 / 0.053 / 0.069 / 0.047 / 0.058 V | 0.029 / 0.033 / 0.040 / 0.037 / 0.046 V | 0.049 / 0.050 / 0.066 / 0.059 / 0.096 V | 0.856 / 0.852 / 1.036 / 0.841 / 1.018 V |
-| 128×128 SS / FS / FF 125 °C / SF / FF −40 °C | 0.049 / 0.047 / 0.057 / 0.040 / 0.045 V | 0.022 / 0.024 / 0.030 / 0.026 / 0.033 V | 0.042 / 0.041 / 0.054 / 0.055 / 0.089 V | 0.862 / 0.860 / 1.046 / 0.850 / 1.031 V |
+| 32×32 SS / FS / FF 125 °C / SF / FF −40 °C | 0.067 / 0.064 / 0.082 / 0.057 / 0.071 V | 0.025 / 0.025 / 0.035 / 0.030 / 0.039 V | 0.029 / 0.028 / 0.036 / 0.026 / 0.045 V | 0.866 / 0.861 / 1.048 / 0.844 / 1.021 V |
+| 64×64 SS / FS / FF 125 °C / SF / FF −40 °C | 0.056 / 0.053 / 0.068 / 0.047 / 0.058 V | 0.026 / 0.029 / 0.036 / 0.033 / 0.041 V | 0.020 / 0.019 / 0.025 / 0.023 / 0.040 V | 0.857 / 0.854 / 1.038 / 0.842 / 1.020 V |
+| 128×128 SS / FS / FF 125 °C / SF / FF −40 °C | 0.049 / 0.047 / 0.057 / 0.039 / 0.045 V | 0.023 / 0.025 / 0.034 / 0.030 / 0.038 V | 0.015 / 0.017 / 0.025 / 0.032 / 0.053 V | 0.865 / 0.864 / 1.050 / 0.855 / 1.036 V |
 
-The closest is the 64×64 FF −40 °C unselected wordline, 0.096 V of
-0.110 V (g12: 0.104 V; 32×32: 0.077 → 0.064 V). It lifts about 120 ps after
-the address register switches, while `wl_en` is still at 0.007 V, so it is
-not a decoder race; it comes from the decoder's own switching and coupling,
-which the band rails reduce only in part.
+The closest is now `s_en` in 32×32 writes: 0.067 V of 0.090 V at SS and
+0.082 V of 0.110 V at FF 125 °C. With g14 it was the 64×64 FF −40 °C
+unselected wordline, 0.096 V (g12: 0.104 V; 32×32: 0.064 V): WL45's own decoder output lifted about
+120 ps after the address register switched, while `wl_en` was still at
+0.007 V, so it was not a decoder race. The g15 mesh also lowers the
+wordline drivers' VSS (57 → 33 Ω at 64×64) and that lift falls to 0.040 V
+(128×128: 0.089 → 0.053 V); the probe map is identical. The `s_en` and
+precharge columns move by at most 0.005 V.
 
 **128×128 history.** With g10, the first write lifted `s_en`
 at every corner (0.119 V at SS to 0.247 V at FF −40 °C) and WL125 to
@@ -366,89 +438,45 @@ fell. Those runs stopped at postsim's 10 h limit; the g14 runs had 48 h
 and took 13.5–18 h. g14 lowers the `s_en` path (70.6 → 1.4 Ω) and the top
 and bottom wordline-driver bands (171.8 → 53.0 Ω and 165.5 → 37.2 Ω).
 
-**128×128 waveforms (g14)** at the 21.25 ns clock: **9/10 pass, 172,170
-checks; FF 1.1 V −40 °C `seq` fails** (109 of 16,697 checks, see the open
-failure below). Every quiet line stays inside its limit in all ten cases
-(table above), so the enable and decoder bounce fixes hold at this size. At
-SS the read data settle 2.9 ns before the 0.68 T deadline (`s_en` fires
-11.28 ns into the cycle).
+**128×128 waveforms (g15)** at the 21.25 ns clock: **10/10 pass, 172,170
+checks**, including FF 1.1 V −40 °C `seq`, which failed with g14 (above).
+Every quiet line stays inside its limit (table above). At SS the read data
+settle 2.9 ns before the 0.68 T deadline.
 
 | Corner | Read output margin (ps) | Sense margin (V) | WL off → sense (ps) | Isolation → enable (ps) | Enables off → precharge (ps) | Driver on → WL (ps) | Restore → capture (ps) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| SS 0.9 V 125 °C | 2,925 | 0.512 | 1,128 | 1,331 | 1,441 | 804 | 4,509 |
-| FS 0.9 V 125 °C | 3,848 | 0.484 | 981 | 1,151 | 1,215 | 613 | 5,058 |
-| FF 1.1 V 125 °C | 5,367 | 0.502 | 688 | 828 | 819 | 357 | 6,111 |
-| SF 0.9 V −40 °C | 6,868 | 0.323 | 410 | 531 | 533 | 187 | 7,218 |
-| FF 1.1 V −40 °C (`mixed` only) | 7,433 | 0.637 | 321 | 411 | 337 | 84 | 7,589 |
+| SS 0.9 V 125 °C | 2,933 | 0.826 | 1,126 | 1,332 | 1,440 | 811 | 4,486 |
+| FS 0.9 V 125 °C | 3,855 | 0.816 | 978 | 1,152 | 1,214 | 624 | 5,047 |
+| FF 1.1 V 125 °C | 5,374 | 0.928 | 687 | 829 | 818 | 357 | 6,111 |
+| SF 0.9 V −40 °C | 6,875 | 0.842 | 408 | 529 | 532 | 197 | 7,186 |
+| FF 1.1 V −40 °C | 7,427 | 0.997 | 316 | 412 | 337 | 78 | 7,562 |
 
-The sense margins fall from 0.88–1.07 V (32×32) and 0.72–0.93 V (64×64)
-to 0.32–0.72 V. The lowest are not at the target column: they come from the
-far-end columns of each half-array (open failure, below).
+With g14 the per-corner sense margins were 0.32–0.51 V (FF −40 °C
+including the failing `seq`), set by the far-end columns of each
+half-array; with g15 they are 0.82–1.00 V. The other phase margins
+move by at most 32 ps. Over every column of the read row, both reads and
+both patterns (`dev/postlayout/sense_lead.py`, `read_disturb.py`):
+
+| Corner | Sense lead before isolation, worst column (ps) | Bar spread across columns (ps) | Low storage node peak (V) |
+| --- | ---: | ---: | ---: |
+| SS 0.9 V 125 °C | 1,048 → 1,577 | 282–541 → 10–65 | 0.134–0.137 (g15) |
+| FS 0.9 V 125 °C | 652 → 1,253 | 289–605 → 10–58 | 0.147–0.151 (g15) |
+| FF 1.1 V 125 °C | 393 → 891 | 206–496 → 8–46 | 0.196–0.200 (g15) |
+| SF 0.9 V −40 °C | 158 → 601 | 211–463 → 7–22 | 0.318 far, 0.132 near → 0.112–0.122 |
+| FF 1.1 V −40 °C | 67 → 459 | 161–400 → 6–18 | 0.55 far (flipped), 0.20 near → 0.168–0.182 |
+
+g14 → g15; the lead is the isolation sample minus the time the sense-input
+differential reaches the 0.28 VDD bar. Every column now behaves like the
+column next to the feed did with g14. At 32×32 and 64×64 the worst column
+leads by 251 and 312 ps (FF −40 °C).
 
 **256×256 and 512×512** are not simulated. With frozen cells, the 256×256
 network still holds 1.20 M resistors, 1.31 M capacitors and 187,321 MOS
 (3.4 times 128×128), and its schematic start state alone ran for more than
 68 minutes; a transient would take about a week at the measured rates.
 512×512 is also outside the automatic timing envelope. Both sizes carry the
-physical verification above, the same grid construction and enable rows,
-and the bitcell VSS feed below projects read failures at both.
-
-## Open failure: bitcell VSS feed
-
-**Failure.** At 128×128 FF 1.1 V −40 °C `seq`, cells of the read row 127
-at the far end of each half-array (columns 0–11 and 64–73) flip 5,985–6,055 ps
-into the first read, while the wordline is on and before isolation
-(6,445 ps); more cells of the same columns flip in the second read. The
-sense groups over them (0–5 and 32–36) then read the reversed data. The 109
-failed checks are 60 read retention, 34 sense data and hold, 14 write-cycle
-retention of the flipped cells and the read output margin (−5 ps). The low storage node of well-fed cells (columns 62, 63, 126,
-127) peaks at 0.20 V; far-end cells reach the 0.55 V reversal point (column
-2 peaked at 0.549 V and held). The `mixed` pattern at the same corner passes
-with a 0.144 V storage margin; why it holds has not been analysed.
-
-At SF 0.9 V −40 °C `seq` the same columns pass with less margin: their
-sense differential at isolation is 0.323 V (limit 0.28 VDD = 0.252 V)
-against 0.83 V at the target column, and their low storage node peaks at
-0.318 V against 0.132 V next to the feed. The 0.28 VDD bar is reached
-456 ps later at column 0 than at column 63 (the left half's near end); the
-same spread is 61 ps at 64×64 (columns 0 and 31) and 8 ps at 32×32
-(columns 0 and 15).
-
-**Mechanism.** The bitcell has VSS on 70 nm M3 rails along both row edges,
-shared with the mirrored neighbour row (`compact_core.py`). Each half-array
-joins these rails only to the M4 VSS trunk in the empty column slot at one
-end (`compact_array.py`): the left array at its centre side (x ≈ 70 µm at
-128×128), the right array at the macro's right edge. Nothing ties the
-rails together inside the array, and M4–M7 are empty over both arrays. A
-read turns on all cells of one row, so the whole row's current flows along
-that row's two rails to one end. Neither the wordline nor isolation causes
-the spread: the wordline reaches 0.89 V at both ends by 6.2 ns at SF −40 °C,
-and isolation samples every column within 7 ps.
-
-Transfer resistance from the read row's cell VSS terminals (unit current
-shared by the row) to one cell's VSS, every supply pin tied, kit cuts
-(`dev/postlayout/supply_mutual.py`; evidence key `bitcell_row_vss`):
-
-| Macro (read row) | Left half far / near | Right half far / near | Far − near in each half |
-| --- | ---: | ---: | ---: |
-| 32×32 (31) | col 0: 21.5 Ω / col 15: 13.9 Ω | col 16: 17.0 Ω / col 31: 9.4 Ω | 7.6 Ω |
-| 64×64 (63) | col 0: 33.1 Ω / col 31: 17.5 Ω | col 32: 22.9 Ω / col 63: 7.3 Ω | 15.6 Ω |
-| 128×128 (127) | col 0: 48.6 Ω / col 63: 16.9 Ω | col 64: 38.1 Ω / col 127: 6.4 Ω | 31.7 Ω |
-| 256×256 (255) | col 0: 82.6 Ω / col 127: 18.8 Ω | col 128: 70.3 Ω / col 255: 6.5 Ω | 63.8 Ω |
-
-The far − near resistance doubles with each size and the row current
-doubles too, so the far-end ground rise grows about four times per size
-step. At 128×128 it is 0.19 V at SF −40 °C and at least 0.35 V at
-FF −40 °C. A linear estimate for 256×256 is four times that; the cell
-current falls as its ground rises, so the true rise is lower, but the
-128×128 FF −40 °C read already flips. 256×256 and 512×512 reads are
-therefore not expected to pass until the feed changes.
-
-**Planned fix (next round).** Vertical M4 VSS straps over each array at
-column boundaries, with a via3 on every row-edge M3 rail, would tie all
-rails into one mesh. A read row's current would then reach the trunk
-through every row's rails in parallel instead of its own two. A second trunk
-at the far end of each half-array is an alternative. Either change needs a
-rebuild, Calibre at every size and the 32/64/128 worst-PVT matrix again.
-Decision of 2026-10-31: record the failure and commit g14; the fix is left
-for the next round.
+physical verification above, the same grid construction, enable rows and
+array mesh. The worst 256×256 read-row VSS transfer resistance is 3.8 Ω
+(g14: 148 Ω; 128×128 with the mesh: 5.1 Ω), so for twice the row current
+the linear estimate of its ground rise is 1.5 times the 128×128 value,
+instead of four times; 512×512 was not computed.

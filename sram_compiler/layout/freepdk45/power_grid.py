@@ -19,7 +19,10 @@ constrains the controller router:
   pins at the bottom of that pair and at both ends of the left straps;
 * in the decoder, facing band VSS rails merged into 270 nm M1 buses and the
   top and bottom bands' single rails widened under M2 buses that join the
-  VSS spine.
+  VSS spine;
+* over each half-array, an M4 VSS mesh: a strap every fourth column with a
+  via3 on every row-edge M3 VSS rail, stacked to the top M7 VSS strap and,
+  in the left half, to the left M9 VSS strap.
 
 Every via, pad and strap is checked against all existing metal and cut
 shapes with the larger of the rule spacing and a margin; a blocked site is
@@ -44,6 +47,7 @@ STRAP = {8: 500., 9: 800.}
 TOP_STRAP = 500.
 STEP = 3200.                     # stack pitch per net along a trunk; the other net sits half way
 GAP_SPACE = 270.                 # M3 spacing of the 480 nm gap straps (wider than 0.27 um class)
+MESH_PITCH = 4                   # bitcell VSS mesh: one M4 strap per four columns
 
 
 @dataclass
@@ -203,7 +207,7 @@ class Grid:
 
         column(x_from, layer_from, jump)
         column(x_to, layer_to, jump)
-        half = {2: 35, 3: 35, 4: 70, 5: 72.5, 6: 72.5}[jump]
+        half = {2: 35, 3: 35, 4: 70, 5: 72.5, 6: 72.5, 9: 400.}[jump]
         shapes.append((f'm{jump}', self.box(min(x_from, x_to) - half, y - half, max(x_from, x_to) + half, y + half)))
         targets = {f'm{layer_from}': bases[x_from], f'm{layer_to}': bases[x_to]}
         merged = {}
@@ -604,4 +608,69 @@ def add_grid(b, bm: dict, left_trunks: dict, root: dict, macro_box: tuple, frame
         lx = left_trunks[net]
         join(net, lx, y_bottom + 300. + (STEP / 2 if net == 'VDD' else 0.), core_y0 - 300., 6, left[net][1],
              f'left trunk {net}')
+    report['array_mesh'] = array_mesh(g, bm, core_y0, top_y['VSS'], left['VSS'])
     return report
+
+
+def array_mesh(g: Grid, bm: dict, core_y0: float, top_vss_y: float, left_vss: tuple) -> dict:
+    """M4 VSS straps over both half-arrays, tying every row-edge M3 VSS rail together.
+
+    A cell row has VSS on 70 nm M3 rails along both row edges (compact_core),
+    and each half-array joins them to its M4 trunk in the empty column slot
+    at one end only (compact_array). A read sinks the whole row's current
+    along that row's two rails: at 128x128 FF 1.1 V -40 C the far-end cells'
+    ground rose about 0.35 V and the read flipped them. With a strap at every
+    fourth column centre and a via3 on each rail, the row current spreads
+    over every rail of the half-array. M4-M7 are otherwise empty over the
+    data columns; the bitline drop pads at the bottom sit 250 nm to either
+    side of a column centre. Straps also stack to the top M7 VSS strap where
+    it crosses them, and left-half straps beside the left M9 VSS strap join
+    it, because the left core's M4 trunk lies under the M6 wordline
+    crossings and has no stack of its own.
+    """
+    cx, array_y = bm['array_origin_nm']
+    rows, nc = bm['rows'], bm['cols'] // 2
+    W, H = bm['core_pitch_nm']['column'], bm['core_pitch_nm']['row']
+    yt = array_y + rows * H
+    # compact_array.make_core VSS M3 rails: each well-strap row's rail 165 nm below
+    # its top edge, every array row edge, and both edges of the RWL load row.
+    rails = ([core_y0 + 295.] + [array_y + k * H for k in range(rows + 1)]
+             + [yt + 295., yt + 460., yt + 460. + H])
+    out = dict(pitch_columns=MESH_PITCH, straps=0, via3=0, m7_stacks=0, m9_joins=0, skipped={})
+    counted = dict(g.report['stacks'])      # mesh stacks are reported under array_mesh only
+
+    def skip(what):
+        out['skipped'][what] = out['skipped'].get(what, 0) + 1
+
+    for side, x0 in (('left', 0.), ('right', cx)):
+        for c in range(1, nc, MESH_PITCH):
+            # Column centre on the 5 nm grid that stack() snaps to.
+            x = (x0 + c * W + W / 2) // 5 * 5.
+            strap = g.box(x - 70., rails[0] - 70., x + 70., rails[-1] + 70.)
+            if not g.clear('m4', strap, 'VSS'):
+                skip(f'{side} strap')
+                continue
+            g.draw('m4', strap, 'VSS')
+            out['straps'] += 1
+            for y in rails:
+                cut = g.box(x - 35., y - 35., x + 35., y + 35.)
+                if (cut - g.at('m3', x, y)).is_empty() and g.clear('v3', cut, 'VSS'):
+                    g.draw('v3', cut)
+                    out['via3'] += 1
+                else:
+                    skip('via3')
+            if not g.at('m7', x, top_vss_y).is_empty():
+                if g.stack('VSS', x, top_vss_y, 4, 7):
+                    out['m7_stacks'] += 1
+                else:
+                    skip('M7 stack')
+            if side == 'left' and left_vss[0] - 1200. <= x <= left_vss[1] + 1200.:
+                # M4-M9 stack whose M9 pad runs into the strap (checked as one piece).
+                for y in _ys(array_y + 300., yt - 300.):
+                    if any(g.bridge('VSS', x, y + dy, 4, sum(left_vss) / 2, 9, 9)
+                           for dy in (0., 200., -200., 400., -400.)):
+                        out['m9_joins'] += 1
+                    else:
+                        skip('M9 join')
+    g.report['stacks'] = counted
+    return out

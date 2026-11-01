@@ -42,8 +42,9 @@ transient of the [post-layout record](../design/layout/POST_LAYOUT_V2_2_8.md):
 layout, DSPF and source hashes, the network model options, solver and scorer
 hashes, start-up state, pass/fail with every failed check, and the phase
 margins; failed and superseded runs are listed, not dropped. It also records
-the supply-resistance tables (original, g10, g14), the bitcell read-row VSS
-transfer resistances (`bitcell_row_vss`) and the physical receipts of the g14 layouts.
+the supply-resistance tables (original, g10, g14, g15), the bitcell read-row VSS
+transfer resistances of g14 and g15 (`bitcell_row_vss`) and the physical receipts of the
+g15 layouts, each with its g14 receipt.
 
 ## Simulation and characterization records
 

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "compiler_version": "V2.2.8",
-  "scope": "Post-layout transients of complete compact macros (Calibre R+C+CC DSPF of DRC/LVS-clean layouts) at the worst global PVT corners, nominal devices, no local mismatch; replica delay chain N = 3, layout g14 (supply grid with right controller exits, extra supply pins and low-resistance decoder band VSS rails; enable driver chains on separate controller rows)",
+  "scope": "Post-layout transients of complete compact macros (Calibre R+C+CC DSPF of DRC/LVS-clean layouts) at the worst global PVT corners, nominal devices, no local mismatch; replica delay chain N = 3, layout g15 (supply grid with right controller exits, extra supply pins, low-resistance decoder band VSS rails and an M4 bitcell VSS mesh over each half-array; enable driver chains on separate controller rows)",
   "complete_macros": [
     [
       32,
@@ -164,5 +164,5 @@
   },
   "evidence": "docs/data/POST_LAYOUT_V2_2_8.json",
   "local_python_runners_tracked": false,
-  "open_items": "128x128 FF 1.1 V -40 C seq fails: far-end cells of the read row (columns 0-11, 64-73) flip during the read. Each half-array joins its bitcell VSS M3 row rails to one M4 trunk at one end; the far columns' ground rises at least 0.35 V (0.19 V at SF -40 C, where their sense margin is 0.323 V against 0.252 V). Read-row transfer resistance far - near doubles per size (7.6/15.6/31.7/63.8 ohm at 32/64/128/256), so 256x256 and 512x512 reads are not expected to pass. Planned fix (next round, decision of 2026-10-31): vertical M4 VSS straps tying the array rails into a mesh; then rebuild, Calibre and the 32/64/128 matrix again"
+  "open_items": "256x256 and 512x512 are not simulated (physical verification only). Fixed 2026-10-31 (g15): with g14, 128x128 FF 1.1 V -40 C seq failed because each half-array fed its bitcell VSS M3 row rails from one end and far-end cells of the read row flipped; the M4 array mesh (power_grid.array_mesh) passes 10/10 at 128x128 and keeps 32x32 and 64x64 at 10/10"
 }

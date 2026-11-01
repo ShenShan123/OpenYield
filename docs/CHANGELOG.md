@@ -24,6 +24,24 @@ runs on 2026-10-28. No layout change in this release carries waveform,
 operating-point or yield qualification beyond the native 8×8 and 32×32 checks
 in the scaling record.
 
+- 2026-10-31: fix the 128×128 post-layout read disturb. Each half-array fed
+  its bitcell VSS M3 row rails from one end only, so a read row's ground
+  rose at least 0.35 V at the far columns, and at FF 1.1 V −40 °C the `seq`
+  read flipped them (at SF −40 °C their sense differential fell to
+  0.323 V of the 0.252 V limit). The supply grid now ends with an M4 VSS mesh
+  over each half-array (`power_grid.array_mesh`: a 140 nm strap every fourth
+  column with a via3 on every M3 VSS rail, stacked to the top M7 and left M9
+  VSS straps). The worst read-row VSS transfer resistance falls from 83 to
+  5.1 Ω at 128 rows and from 148 to 3.8 Ω at 256 rows. Boundaries, areas
+  and the rest of the grid are unchanged, and all five macros (g15) pass
+  DRC 0/LVS CORRECT with R+C+CC extraction. 128×128 now passes all ten
+  worst-PVT cases (172,170 checks): its per-corner sense margins rise
+  from 0.32–0.51 V to 0.82–1.00 V, every column of the read row leads isolation
+  by at least 459 ps (g14: 67 ps), and the far-end low storage node peaks at
+  0.18 V instead of 0.55 V at FF −40 °C. 32×32 and 64×64 pass all ten again,
+  and the 64×64 FF −40 °C unselected-wordline lift falls from 0.096 to
+  0.040 V. 256×256 and 512×512 are still not simulated. See the
+  [post-layout record](design/layout/POST_LAYOUT_V2_2_8.md).
 - 2026-10-29: verify complete compact macros post-layout (Calibre R+C+CC,
   extracted supply networks) at the worst global PVT corners without local
   mismatch. The first pass found a 64×64 SS read 100 ps past the access
@@ -53,13 +71,8 @@ in the scaling record.
   worst-PVT cases with the scorer unchanged (worst quiet line 0.096 V of
   0.110 V). Postsim now feeds every macro supply pin. The kit cut resistance stays the signoff model. The
   [post-layout record](design/layout/POST_LAYOUT_V2_2_8.md) has the results.
-  128×128 passes nine of ten cases; at FF 1.1 V −40 °C the `seq` read flips
-  far-end cells of the read row. Each half-array feeds its bitcell VSS M3
-  rails from one end only, so a read row's ground rises at least 0.35 V at
-  the far columns (0.19 V at SF −40 °C, where the sense margin there falls
-  to 0.323 V). This failure is open; the fix (an M4 mesh over the arrays) is
-  left for the next round. 256×256 and 512×512 are not simulated, and the
-  same feed projects read failures at both.
+  128×128 passed nine of ten cases; at FF 1.1 V −40 °C the `seq` read
+  flipped far-end cells of the read row (fixed on 2026-10-31, above).
 - 2026-10-28: shrink complete compact macros by 3.50/1.90/1.26/2.86/4.38%
   at 32/64/128/256/512 rows with source W/L, sizing and timing frozen. A
   decoder left pad widens the spare decoder rows instead of opening an empty

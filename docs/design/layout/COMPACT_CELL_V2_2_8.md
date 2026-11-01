@@ -11,15 +11,15 @@ Source topology, models, total transistor W/L, sizing and timing tables, and
 simulation RC profiles remain frozen, except the layout lookup's replica
 delay chain (N = 3, candidate 3). Complete macros end with a supply grid
 (M8/M9 straps, M3 straps with right controller exits, extra supply pins,
-merged decoder band VSS rails and M2 buses on the decoder's edge rails),
-and the controller keeps each enable driver chain on its own rows. These
-changes come from the
+merged decoder band VSS rails, M2 buses on the decoder's edge rails and an
+M4 VSS mesh over each half-array), and the controller keeps each enable
+driver chain on its own rows. These changes come from the
 [post-layout access verification](POST_LAYOUT_V2_2_8.md), which is the
 waveform evidence for this geometry; it is not a release qualification.
-32×32 and 64×64 (at the 12 ns clock of `layout_timing_lookup.json`) pass it.
-128×128 fails one case: at FF 1.1 V −40 °C a read flips far-end cells
-because each half-array joins its bitcell VSS M3 rails to a VSS trunk at
-one end only (open).
+32×32, 64×64 (at the 12 ns clock of `layout_timing_lookup.json`) and
+128×128 pass it. Without the array mesh, a 128×128 read at FF 1.1 V −40 °C
+flipped far-end cells, because each half-array joins its bitcell VSS M3
+rails to a VSS trunk at one end only.
 
 ## Bitcell and array
 

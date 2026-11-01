@@ -143,10 +143,11 @@ odd, so `rbl_delay` rises once the replica bitline has discharged) ->
 `K` active replica cells and `N` stages set the sensing margin; `K = 1`,
 `N = 9` deliberately keeps margin at the cost of the 200 ps YAML access limit
 (`git show b4987df:docs/DRIVER_SIZING_PROPOSAL.md`). The V2.2.8 layout lookup
-(candidate 3) uses `N = 3`: at the target column of the 32×32 and 64×64
-macros, extracted reads still reach the 0.28 VDD sense bar 200–1500 ps before
-isolation at every worst-PVT corner (far-end columns of the 128×128 macro:
-159 ps at SF −40 °C, limited by its bitcell VSS feed), and the shorter chain
+(candidate 3) uses `N = 3`: in every column of the 32×32, 64×64 and
+128×128 macros with the bitcell VSS array mesh, extracted reads still reach
+the 0.28 VDD sense bar at least 250 ps before isolation at every worst-PVT
+corner (251/312/459 ps at FF −40 °C; before the mesh the 128×128 far-end
+columns led by only 159 ps at SF −40 °C), and the shorter chain
 fires the 64-row SS sense amplifier 220 ps earlier; that extracted read still
 missed the shared 10.5 ns clock class by 153 ps, and the layout timing table
 (`layout_timing_lookup.json`) gives it 12 ns

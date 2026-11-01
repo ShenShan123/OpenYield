@@ -25,17 +25,23 @@ scorer window), `quiet_margins.py` (worst quiet-line levels per run),
 failures bounce?), `chain_rows.py` (enable chains per controller row),
 `sense_columns.py` / `sense_skew.py` (sense differential and wordline,
 isolation and 0.28 VDD bar times per column), `read_disturb.py` (storage-node
-peaks per probed cell in read cycles), `bitcell_row_vss.json` (read-row VSS
+peaks per probed cell in read cycles), `sense_lead.py` (sense-bar lead before
+isolation and bar spread over every column of each read), `bitcell_row_vss.json` (read-row VSS
 transfer resistances, assembled into the evidence),
-`g12_pipeline.sh` / `g14_pipeline.sh` (no-grid build or grid, Calibre, then the case queue), `stop_run.sh` /
+`g12_pipeline.sh` / `g14_pipeline.sh` / `g15_pipeline.sh` (no-grid build or grid, Calibre, then the case queue),
+`mesh_model.py` (resistor model of the bitcell VSS rails with and without M4 straps), `row_vss.py` (read-row
+VSS transfer resistance at every column, one solve), `array_metal.py` (metal over each half-array),
+`mesh_debug.py` (why a mesh stack is skipped), `stop_run.sh` /
 `stop_pattern.sh` (stop runs without matching the calling shell),
-`summary.py`, `report.py` and `assemble.py` (evidence JSON). Layouts are under
+`summary.py`, `corner_table.py` (per-corner record tables), `report.py` and
+`assemble.py` (evidence JSON). Layouts are under
 `outputs/layout/compact/postlayout/` (superseded grid revisions in its
 `superseded/`), runs under `outputs/postlayout/` (attempts in `attempts/`).
 Local `tests/test_power_grid.py` checks the grid on the 32×32 no-grid macro:
 unchanged boundary, a bridge and a right exit for every controller rail,
-extra decoder via1 cuts, supply pins on the macro edge, supply-only straps
-and the recorded receipt; `tests/test_enable_rows.py` checks that no
+extra decoder via1 cuts, supply pins on the macro edge, supply-only straps,
+an array mesh strap and via3 on every bitcell VSS rail at every fourth
+column (with the rest of the grid unchanged by it) and the recorded receipt; `tests/test_enable_rows.py` checks that no
 controller row of the local macros holds two enable chains.
 
 Local `dev/macro_density/` holds the decoder-pad estimator (`estimate_pad.py`),
