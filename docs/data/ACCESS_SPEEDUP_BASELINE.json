@@ -1,0 +1,3055 @@
+{
+  "schema": 1,
+  "scope": "g15 baseline characterization; no speedup or release qualification",
+  "tool": "dev/access_speedup/segments.py",
+  "tool_sha256": "9a40fd6de3de85fb3ba4c6b80e340145fd491b4aaf9506e744a56060b9499022",
+  "timing_reference": "actual interpolated CLK rising 50% VDD crossing",
+  "limitations": [
+    "Selected SS read and write cycles; FF safety slacks reuse the completed original waveform scores; detector slacks are re-extracted.",
+    "64/128 arrays freeze unprobed cells as described in each run provenance.",
+    "Recorded timing table metadata may name schematic lookup; actual simulated periods are authoritative.",
+    "The tool does not independently repeat all historical retention/scorer checks."
+  ],
+  "ss_segments": [
+    {
+      "run": "outputs/postlayout/g15/c32/c32_SS_seq",
+      "metadata_sha256": "8e3da297efb8702f2789c09834fcdfd2004960c24e34c52c789420557083adb7",
+      "result_sha256": "068026802c902dca849eebb8d61cc23eb713f9371c2273ce242a80d199fec264",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "SS",
+      "vdd_v": 0.9,
+      "temperature_c": 125,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": null,
+      "layout_revision": "g15",
+      "layout_sha256": "a970617dd66f5586f3b014b03f5004a8eadc5133787a635ab1a03f97dfd06aed",
+      "source_sha256": "2b5260ec5649f8a924ae27d52994cfb4b0c99bbae8892b120951126daabc5749",
+      "dspf_sha256": "a4dba659035615d84a73c76ba8a3e5bcb326e1b1e09e69006228631355f4d3f9",
+      "extraction_receipt_sha256": "d2b0f3c7969a4da4653cb68fe86126d72d6b6443d2d383dfbd297c64a19c24da",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 9500.0,
+      "recorded_timing_table_version": "v2.2.3-timing-1",
+      "recorded_timing_table_sha256": "90b9b3ef71e20d9f6ab385e6bbf67fc9bf84d1248a9c314f146fe89bc9e27b79",
+      "driver_key": "9c289699ef3b0ebb310cea79c2cfc808d1acc1335592508f69739aaedd4ed9cb",
+      "sample_interval_ps": 5.0,
+      "waveform_sha256": "70e4b7aacf7fb17adf8c09e913938ede99a7b99eedbf288bb257824f67b8fa2f",
+      "waveform_end_s": 8.365e-08,
+      "existing_full_trace_metrics": {
+        "min_sense_margin_v": 0.8842502786645202,
+        "min_wl_off_before_capture_ps": 3634.1707464385063,
+        "min_driver_release_after_wl_ps": 775.17187937922,
+        "min_wl_off_before_sense_ps": 691.2918355001035,
+        "min_isolation_before_enable_ps": 653.2248931011283,
+        "min_driver_on_before_wl_ps": 634.1695558459645,
+        "min_enable_off_before_precharge_ps": 735.3715681140459,
+        "min_storage_polarity_margin_v": 0.31525406799999994,
+        "min_read_output_margin_ps": 303.428541593545,
+        "min_write_wl_after_flip_ps": 2748.6386262421934,
+        "min_restore_before_capture_ps": 1739.6238055177746,
+        "min_precharge_on_before_capture_ps": 1948.6064838214854
+      },
+      "recovery_from_nominal_fall_worst_ps": 3010.3761944822254,
+      "read": {
+        "cycle_zero_based": 1,
+        "events_from_clk_50_ps": {
+          "clk": 0.0,
+          "clk_fall": 4845.000000000001,
+          "pre_far_off": 664.9324684370192,
+          "access_request": 1151.289255021635,
+          "access_settled": 1329.4966919505362,
+          "wl_far_on": 1717.9317392077314,
+          "wl_far_off": 3169.676734449021,
+          "iso_far_on": 3032.570268160179,
+          "iso_ready": 3381.538029898832,
+          "wordline_busy_off": 3656.4386315381576,
+          "pre_far_on": 6554.837080409038,
+          "rbl_restored_half": 6623.007914761128,
+          "read_done": 2770.7480152737653,
+          "sen_far_on": 3999.750359973318,
+          "out": 4104.284627010457
+        },
+        "clk_50_s": 1.24475e-08,
+        "clk_50_after_nominal_pulse_start_ps": 47.49999999999761,
+        "all_control_pulses_50_ps": {
+          "CLK": {
+            "rising": [
+              0.0,
+              9499.999999999998
+            ],
+            "falling": [
+              4845.000000000001
+            ]
+          },
+          "CLK_BUF": {
+            "rising": [
+              206.12692904176313
+            ],
+            "falling": [
+              5054.973306899306
+            ]
+          },
+          "CS": {
+            "rising": [],
+            "falling": []
+          },
+          "WE": {
+            "rising": [],
+            "falling": [
+              389.40459618058384
+            ]
+          },
+          "WL_EN": {
+            "rising": [
+              1573.7950920278986
+            ],
+            "falling": [
+              3002.612797093985
+            ]
+          },
+          "RWL_FAR": {
+            "rising": [
+              1728.41770729026
+            ],
+            "falling": [
+              3185.9809315844245
+            ]
+          },
+          "RBL": {
+            "rising": [
+              6623.007914761128
+            ],
+            "falling": [
+              2180.291857405538
+            ]
+          },
+          "RBL_DELAY": {
+            "rising": [
+              2638.5753856462406
+            ],
+            "falling": [
+              7021.9415672155465
+            ]
+          },
+          "S_EN": {
+            "rising": [
+              3995.493231531624
+            ],
+            "falling": [
+              5635.902357735961
+            ]
+          },
+          "S_EN_LINE_FAR": {
+            "rising": [
+              3999.750359973318
+            ],
+            "falling": [
+              5641.6357075480855
+            ]
+          },
+          "W_EN": {
+            "rising": [],
+            "falling": []
+          },
+          "W_EN_LINE_FAR": {
+            "rising": [],
+            "falling": []
+          },
+          "PRE": {
+            "rising": [
+              644.3112959185675
+            ],
+            "falling": [
+              6539.228014746757
+            ]
+          },
+          "PRE_LINE_FAR": {
+            "rising": [
+              664.9324684370192
+            ],
+            "falling": [
+              6554.837080409038
+            ]
+          },
+          "SA_ISO": {
+            "rising": [
+              3027.0224161841247
+            ],
+            "falling": [
+              6407.337427873926
+            ]
+          },
+          "SA_ISO_LINE_FAR": {
+            "rising": [
+              3032.570268160179
+            ],
+            "falling": [
+              6412.895204180666
+            ]
+          },
+          "OUT": {
+            "rising": [
+              4104.284627010457
+            ],
+            "falling": []
+          },
+          "XTIME_CONTROL:ACCESS_REQUEST": {
+            "rising": [
+              1151.289255021635
+            ],
+            "falling": [
+              5316.250592549392
+            ]
+          },
+          "XTIME_CONTROL:ACCESS_SETTLED": {
+            "rising": [
+              1329.4966919505362
+            ],
+            "falling": [
+              5481.261385576024
+            ]
+          },
+          "XTIME_CONTROL:READ_DONE": {
+            "rising": [
+              2770.7480152737653
+            ],
+            "falling": [
+              5419.142377566226
+            ]
+          },
+          "XTIME_CONTROL:ISO_READY": {
+            "rising": [
+              3381.538029898832
+            ],
+            "falling": [
+              6661.550780764795
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_BUSY": {
+            "rising": [
+              1697.7714114879236
+            ],
+            "falling": [
+              3656.4386315381576
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_IDLE": {
+            "rising": [
+              3733.832933810862
+            ],
+            "falling": [
+              1801.3516248067547
+            ]
+          },
+          "XTIME_CONTROL:ENABLES_OFF": {
+            "rising": [
+              6221.788876931318
+            ],
+            "falling": [
+              4266.795434771002
+            ]
+          },
+          "XTIME_CONTROL:PRE_OFF_READY": {
+            "rising": [
+              1028.7802248480225
+            ],
+            "falling": [
+              6805.579548295686
+            ]
+          },
+          "XSRAM_6T_CORE_32X32:WL31_TAP31": {
+            "rising": [
+              1717.9317392077314
+            ],
+            "falling": [
+              3169.676734449021
+            ]
+          }
+        },
+        "segments": [
+          {
+            "from": "clk",
+            "to": "pre_far_off",
+            "delay_ps": 664.9324684370192
+          },
+          {
+            "from": "pre_far_off",
+            "to": "access_request",
+            "delay_ps": 486.35678658461586
+          },
+          {
+            "from": "access_request",
+            "to": "wl_far_on",
+            "delay_ps": 566.6424841860963
+          },
+          {
+            "from": "wl_far_on",
+            "to": "read_done",
+            "delay_ps": 1052.816276066034
+          },
+          {
+            "from": "read_done",
+            "to": "sen_far_on",
+            "delay_ps": 1229.0023446995529
+          },
+          {
+            "from": "sen_far_on",
+            "to": "out",
+            "delay_ps": 104.53426703713919
+          }
+        ]
+      },
+      "write": {
+        "cycle_zero_based": 0,
+        "events_from_clk_50_ps": {
+          "clk": 0.0,
+          "clk_fall": 4845.0,
+          "pre_far_off": 663.2179000835087,
+          "access_request": 1148.7543705091102,
+          "access_settled": 2569.22778186244,
+          "wl_far_on": 2960.469384373249,
+          "wl_far_off": 5728.206161606663,
+          "iso_far_on": 1470.5074891134257,
+          "iso_ready": 1823.8411927380562,
+          "wordline_busy_off": 6213.998159529282,
+          "pre_far_on": 7557.3262008758065,
+          "rbl_restored_half": 7624.8706447984105,
+          "wen_far_on": 2205.083298617736,
+          "wen_far_off": 6647.937137473414,
+          "enables_off": 7224.239908710106,
+          "wl_en_off": 5560.751575367151
+        },
+        "clk_50_s": 2.9475e-09,
+        "clk_50_after_nominal_pulse_start_ps": 47.49999999999968,
+        "all_control_pulses_50_ps": {
+          "CLK": {
+            "rising": [
+              0.0,
+              9499.999999999998
+            ],
+            "falling": [
+              4845.0
+            ]
+          },
+          "CLK_BUF": {
+            "rising": [
+              206.67760004052525
+            ],
+            "falling": [
+              5055.490753758861
+            ]
+          },
+          "CS": {
+            "rising": [
+              412.173504419313
+            ],
+            "falling": []
+          },
+          "WE": {
+            "rising": [
+              414.3014363553859
+            ],
+            "falling": []
+          },
+          "WL_EN": {
+            "rising": [
+              2814.0189281503017
+            ],
+            "falling": [
+              5560.751575367151
+            ]
+          },
+          "RWL_FAR": {
+            "rising": [
+              2969.2289206225273
+            ],
+            "falling": [
+              5742.774483553632
+            ]
+          },
+          "RBL": {
+            "rising": [
+              7624.8706447984105
+            ],
+            "falling": [
+              2339.445607876454
+            ]
+          },
+          "RBL_DELAY": {
+            "rising": [
+              2621.0800802485733
+            ],
+            "falling": [
+              7955.092677377658
+            ]
+          },
+          "S_EN": {
+            "rising": [],
+            "falling": []
+          },
+          "S_EN_LINE_FAR": {
+            "rising": [],
+            "falling": []
+          },
+          "W_EN": {
+            "rising": [
+              2193.1122382636
+            ],
+            "falling": [
+              6632.499226533894
+            ]
+          },
+          "W_EN_LINE_FAR": {
+            "rising": [
+              2205.083298617736
+            ],
+            "falling": [
+              6647.937137473414
+            ]
+          },
+          "PRE": {
+            "rising": [
+              642.712090612012
+            ],
+            "falling": [
+              7541.731633545489
+            ]
+          },
+          "PRE_LINE_FAR": {
+            "rising": [
+              663.2179000835087
+            ],
+            "falling": [
+              7557.3262008758065
+            ]
+          },
+          "SA_ISO": {
+            "rising": [
+              1464.1077851230086
+            ],
+            "falling": [
+              7410.827188752324
+            ]
+          },
+          "SA_ISO_LINE_FAR": {
+            "rising": [
+              1470.5074891134257
+            ],
+            "falling": [
+              7416.461680642154
+            ]
+          },
+          "OUT": {
+            "rising": [],
+            "falling": []
+          },
+          "XTIME_CONTROL:ACCESS_REQUEST": {
+            "rising": [
+              1148.7543705091102
+            ],
+            "falling": [
+              5318.2968752699635
+            ]
+          },
+          "XTIME_CONTROL:ACCESS_SETTLED": {
+            "rising": [
+              2569.22778186244
+            ],
+            "falling": [
+              5482.93033856962
+            ]
+          },
+          "XTIME_CONTROL:READ_DONE": {
+            "rising": [],
+            "falling": []
+          },
+          "XTIME_CONTROL:ISO_READY": {
+            "rising": [
+              1823.8411927380562
+            ],
+            "falling": [
+              7663.305244853799
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_BUSY": {
+            "rising": [
+              2937.6109269552535
+            ],
+            "falling": [
+              6213.998159529282
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_IDLE": {
+            "rising": [
+              6293.007991364742
+            ],
+            "falling": [
+              3041.717252899548
+            ]
+          },
+          "XTIME_CONTROL:ENABLES_OFF": {
+            "rising": [
+              7224.239908710106
+            ],
+            "falling": [
+              2433.5921762322887
+            ]
+          },
+          "XTIME_CONTROL:PRE_OFF_READY": {
+            "rising": [
+              1026.0432960323858
+            ],
+            "falling": [
+              7807.705549308984
+            ]
+          },
+          "XSRAM_6T_CORE_32X32:WL31_TAP31": {
+            "rising": [
+              2960.469384373249
+            ],
+            "falling": [
+              5728.206161606663
+            ]
+          }
+        }
+      },
+      "plan_table_comparison": {
+        "expected_segments_ns": [
+          0.67,
+          0.49,
+          0.57,
+          1.05,
+          1.23,
+          0.11
+        ],
+        "errors_ps": [
+          -5.067531562980776,
+          -3.643213415384139,
+          -3.3575158139036603,
+          2.8162760660341064,
+          -0.9976553004471498,
+          -5.4657329628608124
+        ],
+        "tolerance_ps": 20,
+        "passed": true,
+        "note": "Plan entries round ad hoc samples to 10 ps; tool interpolates exact threshold crossings."
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c64/c64_SS_seq",
+      "metadata_sha256": "17c07da8a52ada5f7646d9daa512c206f752b8ee1ac2a76c94bf91f7ffa75804",
+      "result_sha256": "3b5306f8e563671e5a43c856d812c6fbbcfe01fae5f23104cd12c031280bade8",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "SS",
+      "vdd_v": 0.9,
+      "temperature_c": 125,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          16,
+          32,
+          48,
+          62,
+          63
+        ],
+        "kept_cols": [
+          0,
+          1,
+          62,
+          63
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 6960
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "5a71234d02da83abe106df97dc06d676b34cf389b56917982826ef32df6a137d",
+      "source_sha256": "6fc2e852de51c1bc32fc166a013d9cc52dd93d5bd48d13c23917b47442899625",
+      "dspf_sha256": "bc3924535b9876f51a4c7bf0c94f996a1fd526b0b72a856199339b9f4fd7a9f2",
+      "extraction_receipt_sha256": "f1b4ded7d3174d8aa4554aa7c0ac62a90008709a779242e9e58257b64384fe68",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 12000.000000000002,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "51e2a2c25253108a13fe233eb358f4dcbbf98ceda29c966b96973d70466ad756",
+      "sample_interval_ps": 5.0,
+      "waveform_sha256": "751f6197c96f01024a41df85d6473effca942739feebbdd02048b9e7013c32ac",
+      "waveform_end_s": 5.08e-08,
+      "existing_full_trace_metrics": {
+        "min_sense_margin_v": 0.8544610894126855,
+        "min_wl_off_before_capture_ps": 4649.740898970333,
+        "min_driver_release_after_wl_ps": 1056.1115961681376,
+        "min_wl_off_before_sense_ps": 888.0349211278213,
+        "min_isolation_before_enable_ps": 835.85842113413,
+        "min_driver_on_before_wl_ps": 652.0824615280014,
+        "min_enable_off_before_precharge_ps": 957.7307678439406,
+        "min_storage_polarity_margin_v": 0.313275649,
+        "min_read_output_margin_ps": 562.8958574976152,
+        "min_write_wl_after_flip_ps": 3492.6515718654086,
+        "min_restore_before_capture_ps": 1943.730192036814,
+        "min_precharge_on_before_capture_ps": 2352.163802782069
+      },
+      "recovery_from_nominal_fall_worst_ps": 4056.269807963187,
+      "read": {
+        "cycle_zero_based": 3,
+        "events_from_clk_50_ps": {
+          "clk": 0.0,
+          "clk_fall": 6120.000000000005,
+          "pre_far_off": 867.2047930716968,
+          "access_request": 1481.5506986319297,
+          "access_settled": 1736.6134101945677,
+          "wl_far_on": 2159.917491143648,
+          "wl_far_off": 3902.2167785872257,
+          "iso_far_on": 3823.5184197177164,
+          "iso_ready": 4343.456269226571,
+          "wordline_busy_off": 4597.33060099948,
+          "pre_far_on": 8320.927818689695,
+          "rbl_restored_half": 8426.804527848344,
+          "read_done": 3528.3257693433875,
+          "sen_far_on": 4930.65195789185,
+          "out": 5094.524514270575
+        },
+        "clk_50_s": 3.946e-08,
+        "clk_50_after_nominal_pulse_start_ps": 59.999999999988624,
+        "all_control_pulses_50_ps": {
+          "CLK": {
+            "rising": [
+              0.0
+            ],
+            "falling": [
+              6120.000000000005
+            ]
+          },
+          "CLK_BUF": {
+            "rising": [
+              240.79397931064702
+            ],
+            "falling": [
+              6370.868276031794
+            ]
+          },
+          "CS": {
+            "rising": [],
+            "falling": []
+          },
+          "WE": {
+            "rising": [],
+            "falling": [
+              443.8784863252452
+            ]
+          },
+          "WL_EN": {
+            "rising": [
+              1996.094417038409
+            ],
+            "falling": [
+              3721.3477063062505
+            ]
+          },
+          "RWL_FAR": {
+            "rising": [
+              2167.865000387117
+            ],
+            "falling": [
+              3913.837844589597
+            ]
+          },
+          "RBL": {
+            "rising": [
+              8426.804527848344
+            ],
+            "falling": [
+              2854.16754305653
+            ]
+          },
+          "RBL_DELAY": {
+            "rising": [
+              3385.2569108627386
+            ],
+            "falling": [
+              8863.797086042141
+            ]
+          },
+          "S_EN": {
+            "rising": [
+              4923.410704125574
+            ],
+            "falling": [
+              7084.374060561889
+            ]
+          },
+          "S_EN_LINE_FAR": {
+            "rising": [
+              4930.65195789185
+            ],
+            "falling": [
+              7094.812405964102
+            ]
+          },
+          "W_EN": {
+            "rising": [],
+            "falling": []
+          },
+          "W_EN_LINE_FAR": {
+            "rising": [],
+            "falling": []
+          },
+          "PRE": {
+            "rising": [
+              825.400302995131
+            ],
+            "falling": [
+              8291.210294197537
+            ]
+          },
+          "PRE_LINE_FAR": {
+            "rising": [
+              867.2047930716968
+            ],
+            "falling": [
+              8320.927818689695
+            ]
+          },
+          "SA_ISO": {
+            "rising": [
+              3812.3533000585808
+            ],
+            "falling": [
+              8047.807544970386
+            ]
+          },
+          "SA_ISO_LINE_FAR": {
+            "rising": [
+              3823.5184197177164
+            ],
+            "falling": [
+              8058.219296699546
+            ]
+          },
+          "OUT": {
+            "rising": [],
+            "falling": [
+              5094.524514270575
+            ]
+          },
+          "XTIME_CONTROL:ACCESS_REQUEST": {
+            "rising": [
+              1481.5506986319297
+            ],
+            "falling": [
+              6745.454969816419
+            ]
+          },
+          "XTIME_CONTROL:ACCESS_SETTLED": {
+            "rising": [
+              1736.6134101945677
+            ],
+            "falling": [
+              6965.171097528136
+            ]
+          },
+          "XTIME_CONTROL:READ_DONE": {
+            "rising": [
+              3528.3257693433875
+            ],
+            "falling": [
+              6861.03657781266
+            ]
+          },
+          "XTIME_CONTROL:ISO_READY": {
+            "rising": [
+              4343.456269226571
+            ],
+            "falling": [
+              8350.992991028075
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_BUSY": {
+            "rising": [
+              2148.799653860526
+            ],
+            "falling": [
+              4597.33060099948
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_IDLE": {
+            "rising": [
+              4662.868310978298
+            ],
+            "falling": [
+              2238.671754159115
+            ]
+          },
+          "XTIME_CONTROL:ENABLES_OFF": {
+            "rising": [
+              7845.6449022336365
+            ],
+            "falling": [
+              5227.374018743943
+            ]
+          },
+          "XTIME_CONTROL:PRE_OFF_READY": {
+            "rising": [
+              1348.5795556275962
+            ],
+            "falling": [
+              8581.10175866702
+            ]
+          },
+          "XSRAM_6T_CORE_64X64:WL63_TAP63": {
+            "rising": [
+              2159.917491143648
+            ],
+            "falling": [
+              3902.2167785872257
+            ]
+          }
+        },
+        "segments": [
+          {
+            "from": "clk",
+            "to": "pre_far_off",
+            "delay_ps": 867.2047930716968
+          },
+          {
+            "from": "pre_far_off",
+            "to": "access_request",
+            "delay_ps": 614.3459055602328
+          },
+          {
+            "from": "access_request",
+            "to": "wl_far_on",
+            "delay_ps": 678.3667925117182
+          },
+          {
+            "from": "wl_far_on",
+            "to": "read_done",
+            "delay_ps": 1368.40827819974
+          },
+          {
+            "from": "read_done",
+            "to": "sen_far_on",
+            "delay_ps": 1402.3261885484617
+          },
+          {
+            "from": "sen_far_on",
+            "to": "out",
+            "delay_ps": 163.87255637872613
+          }
+        ]
+      },
+      "write": {
+        "cycle_zero_based": 2,
+        "events_from_clk_50_ps": {
+          "clk": 0.0,
+          "clk_fall": 6120.000000000001,
+          "pre_far_off": 867.0601425994522,
+          "access_request": 1481.4251121932543,
+          "access_settled": 3266.2544995742246,
+          "wl_far_on": 3691.9279849439013,
+          "wl_far_off": 7194.991942015228,
+          "iso_far_on": 1840.8877249860116,
+          "iso_ready": 2361.758900067702,
+          "wordline_busy_off": 7889.348208080599,
+          "pre_far_on": 9680.897666347611,
+          "rbl_restored_half": 9801.491881866523,
+          "wen_far_on": 2802.9509231466623,
+          "wen_far_off": 8439.235216104795,
+          "enables_off": 9205.596364812567,
+          "wl_en_off": 7013.381150162147
+        },
+        "clk_50_s": 2.746e-08,
+        "clk_50_after_nominal_pulse_start_ps": 59.99999999999525,
+        "all_control_pulses_50_ps": {
+          "CLK": {
+            "rising": [
+              0.0,
+              11999.999999999998
+            ],
+            "falling": [
+              6120.000000000001
+            ]
+          },
+          "CLK_BUF": {
+            "rising": [
+              240.78603041606632
+            ],
+            "falling": [
+              6370.715740421244
+            ]
+          },
+          "CS": {
+            "rising": [],
+            "falling": []
+          },
+          "WE": {
+            "rising": [
+              466.4446259195011
+            ],
+            "falling": []
+          },
+          "WL_EN": {
+            "rising": [
+              3525.2096243664155
+            ],
+            "falling": [
+              7013.381150162147
+            ]
+          },
+          "RWL_FAR": {
+            "rising": [
+              3697.305819935279
+            ],
+            "falling": [
+              7204.273031796191
+            ]
+          },
+          "RBL": {
+            "rising": [
+              9801.491881866523
+            ],
+            "falling": [
+              2963.2686545692945
+            ]
+          },
+          "RBL_DELAY": {
+            "rising": [
+              3283.688815897202
+            ],
+            "falling": [
+              10188.581278466514
+            ]
+          },
+          "S_EN": {
+            "rising": [],
+            "falling": []
+          },
+          "S_EN_LINE_FAR": {
+            "rising": [],
+            "falling": []
+          },
+          "W_EN": {
+            "rising": [
+              2761.943731832731
+            ],
+            "falling": [
+              8389.60021161023
+            ]
+          },
+          "W_EN_LINE_FAR": {
+            "rising": [
+              2802.9509231466623
+            ],
+            "falling": [
+              8439.235216104795
+            ]
+          },
+          "PRE": {
+            "rising": [
+              825.2580574506237
+            ],
+            "falling": [
+              9651.18558742192
+            ]
+          },
+          "PRE_LINE_FAR": {
+            "rising": [
+              867.0601425994522
+            ],
+            "falling": [
+              9680.897666347611
+            ]
+          },
+          "SA_ISO": {
+            "rising": [
+              1827.9965591347536
+            ],
+            "falling": [
+              9408.606294870644
+            ]
+          },
+          "SA_ISO_LINE_FAR": {
+            "rising": [
+              1840.8877249860116
+            ],
+            "falling": [
+              9419.141716262639
+            ]
+          },
+          "OUT": {
+            "rising": [],
+            "falling": []
+          },
+          "XTIME_CONTROL:ACCESS_REQUEST": {
+            "rising": [
+              1481.4251121932543
+            ],
+            "falling": [
+              6745.233946667328
+            ]
+          },
+          "XTIME_CONTROL:ACCESS_SETTLED": {
+            "rising": [
+              3266.2544995742246
+            ],
+            "falling": [
+              6962.685418683681
+            ]
+          },
+          "XTIME_CONTROL:READ_DONE": {
+            "rising": [],
+            "falling": []
+          },
+          "XTIME_CONTROL:ISO_READY": {
+            "rising": [
+              2361.758900067702
+            ],
+            "falling": [
+              9709.380858652661
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_BUSY": {
+            "rising": [
+              3678.0997179824153
+            ],
+            "falling": [
+              7889.348208080599
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_IDLE": {
+            "rising": [
+              7957.191847876583
+            ],
+            "falling": [
+              3768.3470870789533
+            ]
+          },
+          "XTIME_CONTROL:ENABLES_OFF": {
+            "rising": [
+              9205.596364812567
+            ],
+            "falling": [
+              3095.2026562445303
+            ]
+          },
+          "XTIME_CONTROL:PRE_OFF_READY": {
+            "rising": [
+              1348.4897592446264
+            ],
+            "falling": [
+              9941.105581151392
+            ]
+          },
+          "XSRAM_6T_CORE_64X64:WL63_TAP63": {
+            "rising": [
+              3691.9279849439013
+            ],
+            "falling": [
+              7194.991942015228
+            ]
+          }
+        }
+      },
+      "plan_table_comparison": {
+        "expected_segments_ns": [
+          0.87,
+          0.62,
+          0.69,
+          1.36,
+          1.4,
+          0.16
+        ],
+        "errors_ps": [
+          -2.7952069283031733,
+          -5.654094439767164,
+          -11.633207488281755,
+          8.408278199739925,
+          2.326188548461687,
+          3.872556378726131
+        ],
+        "tolerance_ps": 20,
+        "passed": true,
+        "note": "Plan entries round ad hoc samples to 10 ps; tool interpolates exact threshold crossings."
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c128/c128_SS_seq",
+      "metadata_sha256": "0d2c362eee5290cc56125fdddd3d88a8c6d683bb3dc7598f67835050dbd7355a",
+      "result_sha256": "3d3b63ac201ddbd7d849a519b314927678c02d9a2fddaa5461c596bae9cc74a4",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "SS",
+      "vdd_v": 0.9,
+      "temperature_c": 125,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          32,
+          64,
+          96,
+          126,
+          127
+        ],
+        "kept_cols": [
+          0,
+          1,
+          126,
+          127
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 30256
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "7f2da21dc61959a97f42a587928518214846948b479a02cb4b500608b9934952",
+      "source_sha256": "0e784a2f6b28c2f5b1907ae3b6e8b8b4caa5225734acd7fc3c1d0378cbc13f06",
+      "dspf_sha256": "a66c90b2ca80a5f888d6047f05550791e9284cbe02eaf1370ee24de69d9acc94",
+      "extraction_receipt_sha256": "088bb7c55e91ffcad5a63b933d8f6a48a1ad78355ac263574443a485f48672a4",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 21250.0,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "788738c770a565ba2abd6bc4f1d49985cbc8eede79391915f79ec85dfced6ffa",
+      "sample_interval_ps": 5.0,
+      "waveform_sha256": "19588309e9f4bb8267e8e1f2e54c29c5595bbc86f17abd12f04cd21f5cbc12ec",
+      "waveform_end_s": 8.919e-08,
+      "existing_full_trace_metrics": {
+        "min_sense_margin_v": 0.8258575420742617,
+        "min_wl_off_before_capture_ps": 8830.768816821615,
+        "min_driver_release_after_wl_ps": 1453.9309465184808,
+        "min_wl_off_before_sense_ps": 1126.1955984867648,
+        "min_isolation_before_enable_ps": 1335.5172348191268,
+        "min_driver_on_before_wl_ps": 822.5208402342101,
+        "min_enable_off_before_precharge_ps": 1441.1757979715208,
+        "min_storage_polarity_margin_v": 0.312737611,
+        "min_read_output_margin_ps": 2933.066795670767,
+        "min_write_wl_after_flip_ps": 6600.021950603381,
+        "min_restore_before_capture_ps": 4486.485760281378,
+        "min_precharge_on_before_capture_ps": 5405.87122115669
+      },
+      "recovery_from_nominal_fall_worst_ps": 6138.514239718622,
+      "read": {
+        "cycle_zero_based": 3,
+        "events_from_clk_50_ps": {
+          "clk": 0.0,
+          "clk_fall": 10837.499999881938,
+          "pre_far_off": 1322.980324410904,
+          "access_request": 2355.180074787121,
+          "access_settled": 2554.4060487437164,
+          "wl_far_on": 3188.720699302718,
+          "wl_far_off": 5665.144115448259,
+          "iso_far_on": 5486.770276799436,
+          "iso_ready": 6389.605331680384,
+          "wordline_busy_off": 6582.817711072273,
+          "pre_far_on": 13898.338985254475,
+          "rbl_restored_half": 14093.869411123529,
+          "read_done": 5085.658560167677,
+          "sen_far_on": 6949.70354730167,
+          "out": 7117.8113528460535
+        },
+        "clk_50_s": 6.910625000005903e-08,
+        "clk_50_after_nominal_pulse_start_ps": 106.25000005903559,
+        "all_control_pulses_50_ps": {
+          "CLK": {
+            "rising": [
+              0.0
+            ],
+            "falling": [
+              10837.499999881938
+            ]
+          },
+          "CLK_BUF": {
+            "rising": [
+              333.3856316415089
+            ],
+            "falling": [
+              11201.39927282382
+            ]
+          },
+          "CS": {
+            "rising": [],
+            "falling": []
+          },
+          "WE": {
+            "rising": [],
+            "falling": [
+              602.6966540863903
+            ]
+          },
+          "WL_EN": {
+            "rising": [
+              2937.5347645563565
+            ],
+            "falling": [
+              5402.947947255466
+            ]
+          },
+          "RWL_FAR": {
+            "rising": [
+              3198.4732745379715
+            ],
+            "falling": [
+              5675.860190120435
+            ]
+          },
+          "RBL": {
+            "rising": [
+              14093.869411123529
+            ],
+            "falling": [
+              4241.907812107039
+            ]
+          },
+          "RBL_DELAY": {
+            "rising": [
+              4898.757629481695
+            ],
+            "falling": [
+              14703.343072392687
+            ]
+          },
+          "S_EN": {
+            "rising": [
+              6931.365409309837
+            ],
+            "falling": [
+              11943.705172143147
+            ]
+          },
+          "S_EN_LINE_FAR": {
+            "rising": [
+              6949.70354730167
+            ],
+            "falling": [
+              11964.213303914898
+            ]
+          },
+          "W_EN": {
+            "rising": [],
+            "falling": []
+          },
+          "W_EN_LINE_FAR": {
+            "rising": [],
+            "falling": []
+          },
+          "PRE": {
+            "rising": [
+              1234.4190067083762
+            ],
+            "falling": [
+              13837.518698055157
+            ]
+          },
+          "PRE_LINE_FAR": {
+            "rising": [
+              1322.980324410904
+            ],
+            "falling": [
+              13898.338985254475
+            ]
+          },
+          "SA_ISO": {
+            "rising": [
+              5462.005517306557
+            ],
+            "falling": [
+              13358.420692473755
+            ]
+          },
+          "SA_ISO_LINE_FAR": {
+            "rising": [
+              5486.770276799436
+            ],
+            "falling": [
+              13380.324146645626
+            ]
+          },
+          "OUT": {
+            "rising": [],
+            "falling": [
+              7117.8113528460535
+            ]
+          },
+          "XTIME_CONTROL:ACCESS_REQUEST": {
+            "rising": [
+              2355.180074787121
+            ],
+            "falling": [
+              11530.178963444545
+            ]
+          },
+          "XTIME_CONTROL:ACCESS_SETTLED": {
+            "rising": [
+              2554.4060487437164
+            ],
+            "falling": [
+              11725.415764307478
+            ]
+          },
+          "XTIME_CONTROL:READ_DONE": {
+            "rising": [
+              5085.658560167677
+            ],
+            "falling": [
+              11688.414212626536
+            ]
+          },
+          "XTIME_CONTROL:ISO_READY": {
+            "rising": [
+              6389.605331680384
+            ],
+            "falling": [
+              13799.401091588497
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_BUSY": {
+            "rising": [
+              3222.169682275978
+            ],
+            "falling": [
+              6582.817711072273
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_IDLE": {
+            "rising": [
+              6658.687047058487
+            ],
+            "falling": [
+              3321.3136072572865
+            ]
+          },
+          "XTIME_CONTROL:ENABLES_OFF": {
+            "rising": [
+              13109.131644005092
+            ],
+            "falling": [
+              7262.017613509628
+            ]
+          },
+          "XTIME_CONTROL:PRE_OFF_READY": {
+            "rising": [
+              2213.5994952358224
+            ],
+            "falling": [
+              14287.24561726212
+            ]
+          },
+          "XSRAM_6T_CORE_128X128:WL127_TAP127": {
+            "rising": [
+              3188.720699302718
+            ],
+            "falling": [
+              5665.144115448259
+            ]
+          }
+        },
+        "segments": [
+          {
+            "from": "clk",
+            "to": "pre_far_off",
+            "delay_ps": 1322.980324410904
+          },
+          {
+            "from": "pre_far_off",
+            "to": "access_request",
+            "delay_ps": 1032.1997503762173
+          },
+          {
+            "from": "access_request",
+            "to": "wl_far_on",
+            "delay_ps": 833.5406245155971
+          },
+          {
+            "from": "wl_far_on",
+            "to": "read_done",
+            "delay_ps": 1896.937860864959
+          },
+          {
+            "from": "read_done",
+            "to": "sen_far_on",
+            "delay_ps": 1864.0449871339936
+          },
+          {
+            "from": "sen_far_on",
+            "to": "out",
+            "delay_ps": 168.10780554438307
+          }
+        ]
+      },
+      "write": {
+        "cycle_zero_based": 2,
+        "events_from_clk_50_ps": {
+          "clk": 0.0,
+          "clk_fall": 10837.499999881938,
+          "pre_far_off": 1318.7478161174777,
+          "access_request": 2351.2008723671834,
+          "access_settled": 4959.390746420531,
+          "wl_far_on": 5594.56755028123,
+          "wl_far_off": 12209.803506970826,
+          "iso_far_on": 2799.789803722903,
+          "iso_ready": 3706.5354856582007,
+          "wordline_busy_off": 13129.090145614242,
+          "pre_far_on": 15947.653222621802,
+          "rbl_restored_half": 16185.435207864286,
+          "wen_far_on": 4377.514617141712,
+          "wen_far_off": 13970.455692437154,
+          "enables_off": 15157.890876395239,
+          "wl_en_off": 11946.557187309128
+        },
+        "clk_50_s": 4.785625000005903e-08,
+        "clk_50_after_nominal_pulse_start_ps": 106.25000005902236,
+        "all_control_pulses_50_ps": {
+          "CLK": {
+            "rising": [
+              0.0,
+              21250.0
+            ],
+            "falling": [
+              10837.499999881938
+            ]
+          },
+          "CLK_BUF": {
+            "rising": [
+              333.36977039274007
+            ],
+            "falling": [
+              11201.38636229409
+            ]
+          },
+          "CS": {
+            "rising": [],
+            "falling": []
+          },
+          "WE": {
+            "rising": [
+              625.9601199478946
+            ],
+            "falling": []
+          },
+          "WL_EN": {
+            "rising": [
+              5342.124555260533
+            ],
+            "falling": [
+              11946.557187309128
+            ]
+          },
+          "RWL_FAR": {
+            "rising": [
+              5601.325159442464
+            ],
+            "falling": [
+              12219.219280151705
+            ]
+          },
+          "RBL": {
+            "rising": [
+              16185.435207864286
+            ],
+            "falling": [
+              4722.9119252531145
+            ]
+          },
+          "RBL_DELAY": {
+            "rising": [
+              5189.461578480078
+            ],
+            "falling": [
+              16729.42477392642
+            ]
+          },
+          "S_EN": {
+            "rising": [],
+            "falling": []
+          },
+          "S_EN_LINE_FAR": {
+            "rising": [],
+            "falling": []
+          },
+          "W_EN": {
+            "rising": [
+              4295.850902406429
+            ],
+            "falling": [
+              13874.479083254504
+            ]
+          },
+          "W_EN_LINE_FAR": {
+            "rising": [
+              4377.514617141712
+            ],
+            "falling": [
+              13970.455692437154
+            ]
+          },
+          "PRE": {
+            "rising": [
+              1230.1909048613882
+            ],
+            "falling": [
+              15887.017956990627
+            ]
+          },
+          "PRE_LINE_FAR": {
+            "rising": [
+              1318.7478161174777
+            ],
+            "falling": [
+              15947.653222621802
+            ]
+          },
+          "SA_ISO": {
+            "rising": [
+              2771.1860299562386
+            ],
+            "falling": [
+              15407.059856372169
+            ]
+          },
+          "SA_ISO_LINE_FAR": {
+            "rising": [
+              2799.789803722903
+            ],
+            "falling": [
+              15429.313589763487
+            ]
+          },
+          "OUT": {
+            "rising": [],
+            "falling": []
+          },
+          "XTIME_CONTROL:ACCESS_REQUEST": {
+            "rising": [
+              2351.2008723671834
+            ],
+            "falling": [
+              11529.942522987867
+            ]
+          },
+          "XTIME_CONTROL:ACCESS_SETTLED": {
+            "rising": [
+              4959.390746420531
+            ],
+            "falling": [
+              11724.105768776813
+            ]
+          },
+          "XTIME_CONTROL:READ_DONE": {
+            "rising": [],
+            "falling": []
+          },
+          "XTIME_CONTROL:ISO_READY": {
+            "rising": [
+              3706.5354856582007
+            ],
+            "falling": [
+              15844.22550051944
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_BUSY": {
+            "rising": [
+              5625.504535530163
+            ],
+            "falling": [
+              13129.090145614242
+            ]
+          },
+          "XTIME_CONTROL:WORDLINE_IDLE": {
+            "rising": [
+              13207.291798512342
+            ],
+            "falling": [
+              5725.033361240223
+            ]
+          },
+          "XTIME_CONTROL:ENABLES_OFF": {
+            "rising": [
+              15157.890876395239
+            ],
+            "falling": [
+              4714.804682666452
+            ]
+          },
+          "XTIME_CONTROL:PRE_OFF_READY": {
+            "rising": [
+              2209.6194684173847
+            ],
+            "falling": [
+              16336.145525286302
+            ]
+          },
+          "XSRAM_6T_CORE_128X128:WL127_TAP127": {
+            "rising": [
+              5594.56755028123
+            ],
+            "falling": [
+              12209.803506970826
+            ]
+          }
+        }
+      },
+      "plan_table_comparison": {
+        "expected_segments_ns": [
+          1.32,
+          1.03,
+          0.84,
+          1.89,
+          1.86,
+          0.17
+        ],
+        "errors_ps": [
+          2.980324410903904,
+          2.199750376217253,
+          -6.459375484402926,
+          6.9378608649590205,
+          4.044987133993573,
+          -1.8921944556169308
+        ],
+        "tolerance_ps": 20,
+        "passed": true,
+        "note": "Plan entries round ad hoc samples to 10 ps; tool interpolates exact threshold crossings."
+      }
+    }
+  ],
+  "fast_corner_guard_slack": [
+    {
+      "run": "outputs/postlayout/g15/c32/c32_FFc_seq",
+      "metadata_sha256": "3bab4671fab8f66a420ea91a860759890e1c5b72cbe54fe9ddd14e26e043f553",
+      "result_sha256": "f86aa664d378e347ab73f8e3eb90e6b9594071cf5e9a7c4b4e8e5d5ae4bb7b77",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": -40,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": null,
+      "layout_revision": "g15",
+      "layout_sha256": "a970617dd66f5586f3b014b03f5004a8eadc5133787a635ab1a03f97dfd06aed",
+      "source_sha256": "2b5260ec5649f8a924ae27d52994cfb4b0c99bbae8892b120951126daabc5749",
+      "dspf_sha256": "a4dba659035615d84a73c76ba8a3e5bcb326e1b1e09e69006228631355f4d3f9",
+      "extraction_receipt_sha256": "d2b0f3c7969a4da4653cb68fe86126d72d6b6443d2d383dfbd297c64a19c24da",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 9500.0,
+      "recorded_timing_table_version": "v2.2.3-timing-1",
+      "recorded_timing_table_sha256": "90b9b3ef71e20d9f6ab385e6bbf67fc9bf84d1248a9c314f146fe89bc9e27b79",
+      "driver_key": "9c289699ef3b0ebb310cea79c2cfc808d1acc1335592508f69739aaedd4ed9cb",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 215.05884504642097,
+        "min_wl_off_before_sense_ps": 179.98158892224475,
+        "min_isolation_before_enable_ps": 178.5194137687854,
+        "min_driver_on_before_wl_ps": 153.96593726351048,
+        "min_enable_off_before_precharge_ps": 203.88580641824626,
+        "min_restore_before_capture_ps": 3685.0045206356363,
+        "min_precharge_on_before_capture_ps": 3795.4650920884505
+      },
+      "waveform_sha256": "ed6de5411f8f7ca7992bbda08b160e6db7ff1e6c468899d3705628be76fc95f3",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          66.72084925774459,
+          66.99838280651927,
+          67.32988204313062,
+          67.04808671810018,
+          66.98656191445615,
+          67.00131445411957,
+          67.32988407472922,
+          67.04933354055989,
+          66.98656154774382
+        ],
+        "ISO_READY": [
+          86.94828597835294,
+          87.91603025458772,
+          87.22150441054242,
+          87.87274043189812,
+          86.8571603146802,
+          87.86427503307715,
+          87.22145563764417,
+          87.86553339090798,
+          86.85707160267631
+        ],
+        "WORDLINE_IDLE": [
+          113.97485685838903,
+          114.17762970781675,
+          114.68072565545718,
+          114.272962205722,
+          113.83249961600103,
+          114.07686770787136,
+          114.68668325118318,
+          114.3196530755737
+        ],
+        "ENABLES_OFF": [
+          112.29296188187992,
+          118.61195649770272,
+          111.95405634023089,
+          118.74049094057328,
+          112.31084609906779,
+          118.6105546297597,
+          112.14307552030337,
+          118.74510982417837
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 66.72084925774459,
+        "ISO_READY": 86.85707160267631,
+        "WORDLINE_IDLE": 113.83249961600103,
+        "ENABLES_OFF": 111.95405634023089
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c32/c32_FFc_mixed",
+      "metadata_sha256": "542bcca07d68cc3db063c1ef0ed77d1ddc1d1ca8262db04440b920bb77c68354",
+      "result_sha256": "74d6c7a518c1b7a90c07d388a63be4dbb840cf6e5775c50490f378f0dade8120",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": -40,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": null,
+      "layout_revision": "g15",
+      "layout_sha256": "a970617dd66f5586f3b014b03f5004a8eadc5133787a635ab1a03f97dfd06aed",
+      "source_sha256": "2b5260ec5649f8a924ae27d52994cfb4b0c99bbae8892b120951126daabc5749",
+      "dspf_sha256": "a4dba659035615d84a73c76ba8a3e5bcb326e1b1e09e69006228631355f4d3f9",
+      "extraction_receipt_sha256": "d2b0f3c7969a4da4653cb68fe86126d72d6b6443d2d383dfbd297c64a19c24da",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 9500.0,
+      "recorded_timing_table_version": "v2.2.3-timing-1",
+      "recorded_timing_table_sha256": "90b9b3ef71e20d9f6ab385e6bbf67fc9bf84d1248a9c314f146fe89bc9e27b79",
+      "driver_key": "9c289699ef3b0ebb310cea79c2cfc808d1acc1335592508f69739aaedd4ed9cb",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 215.65344877105574,
+        "min_wl_off_before_sense_ps": 179.45979534744868,
+        "min_isolation_before_enable_ps": 178.57398007226672,
+        "min_driver_on_before_wl_ps": 153.94613123561075,
+        "min_enable_off_before_precharge_ps": 203.74099751440153,
+        "min_restore_before_capture_ps": 3687.3920643790943,
+        "min_precharge_on_before_capture_ps": 3798.190112488516
+      },
+      "waveform_sha256": "b92bb8b035120617944424bde163fed354f281c757391b6426d6461aeee14360",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          66.7124532233773,
+          66.7526661110328,
+          67.11108880896816,
+          67.03324639280238,
+          67.31625520956258,
+          66.9731670415787,
+          66.83852662968984,
+          66.54497308612409,
+          66.91579536414186
+        ],
+        "ISO_READY": [
+          86.79075637385851,
+          86.96434227816684,
+          87.69193094369835,
+          87.6333433051991,
+          87.12234852141252,
+          88.14220968384598,
+          87.02042023616563,
+          87.91521623742966,
+          87.62930707493184
+        ],
+        "WORDLINE_IDLE": [
+          114.09630927279673,
+          114.30892575233386,
+          114.22657265902352,
+          114.31824918273887,
+          114.11092911989506,
+          114.14048242218402,
+          114.31940970001895,
+          114.45855536432913,
+          114.3936596910371
+        ],
+        "ENABLES_OFF": [
+          112.15743283052569,
+          111.9875098603558,
+          117.884368245606,
+          119.10624132775001,
+          112.16473715363033,
+          119.3262259261605,
+          111.87674193186314,
+          118.92107408389103
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 66.54497308612409,
+        "ISO_READY": 86.79075637385851,
+        "WORDLINE_IDLE": 114.09630927279673,
+        "ENABLES_OFF": 111.87674193186314
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c32/c32_FFh_seq",
+      "metadata_sha256": "946b9e91da24771231778491aa9a69551d194ead0cd5a8b05631ec5f47f699a9",
+      "result_sha256": "15996273e0f85fece6666fb86b2e691dc3d59a092fdd7e7606e5deea07fa25a4",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": 125,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": null,
+      "layout_revision": "g15",
+      "layout_sha256": "a970617dd66f5586f3b014b03f5004a8eadc5133787a635ab1a03f97dfd06aed",
+      "source_sha256": "2b5260ec5649f8a924ae27d52994cfb4b0c99bbae8892b120951126daabc5749",
+      "dspf_sha256": "a4dba659035615d84a73c76ba8a3e5bcb326e1b1e09e69006228631355f4d3f9",
+      "extraction_receipt_sha256": "d2b0f3c7969a4da4653cb68fe86126d72d6b6443d2d383dfbd297c64a19c24da",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 9500.0,
+      "recorded_timing_table_version": "v2.2.3-timing-1",
+      "recorded_timing_table_sha256": "90b9b3ef71e20d9f6ab385e6bbf67fc9bf84d1248a9c314f146fe89bc9e27b79",
+      "driver_key": "9c289699ef3b0ebb310cea79c2cfc808d1acc1335592508f69739aaedd4ed9cb",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 471.43493104916337,
+        "min_wl_off_before_sense_ps": 406.4708500314784,
+        "min_isolation_before_enable_ps": 393.2785368602617,
+        "min_driver_on_before_wl_ps": 364.8909535548793,
+        "min_enable_off_before_precharge_ps": 430.02091969732066,
+        "min_restore_before_capture_ps": 2754.619024586832,
+        "min_precharge_on_before_capture_ps": 2915.5739977695052
+      },
+      "waveform_sha256": "975be40a9df5799925a21aba91ab9fa32dc5976bc627da7b4ad0c09e672b53e2",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          165.45347362641402,
+          167.36727899783997,
+          167.30798804111208,
+          166.9953538450946,
+          165.99363726021264,
+          167.36726791902788,
+          167.30690607244304,
+          166.99536596868379,
+          165.9936370218258
+        ],
+        "ISO_READY": [
+          187.54136051622172,
+          190.16197484210642,
+          188.073369784285,
+          190.54672956572898,
+          187.70145715129377,
+          190.15185208421056,
+          188.06681000610894,
+          190.54512440891247,
+          187.70145613506597
+        ],
+        "WORDLINE_IDLE": [
+          253.70682074530032,
+          253.24746663538727,
+          254.29503760202084,
+          253.47682167440396,
+          253.74548123982174,
+          253.2689973422542,
+          254.30769952746545,
+          253.49399635451675
+        ],
+        "ENABLES_OFF": [
+          269.38830963102964,
+          254.91874389448498,
+          268.2623774766135,
+          254.49008214526268,
+          269.3866939404088,
+          255.44068288949555,
+          268.2922820325767,
+          254.49011044192693
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 165.45347362641402,
+        "ISO_READY": 187.54136051622172,
+        "WORDLINE_IDLE": 253.24746663538727,
+        "ENABLES_OFF": 254.49008214526268
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c32/c32_FFh_mixed",
+      "metadata_sha256": "58de8a1239391bede4c2e44a6959ec9dfaa2f527fceac12688692a2c4264313a",
+      "result_sha256": "306fdd99d641708f88080908cd875ee83c0ec843cb73a46feb929dddf0eb19b9",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": 125,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": null,
+      "layout_revision": "g15",
+      "layout_sha256": "a970617dd66f5586f3b014b03f5004a8eadc5133787a635ab1a03f97dfd06aed",
+      "source_sha256": "2b5260ec5649f8a924ae27d52994cfb4b0c99bbae8892b120951126daabc5749",
+      "dspf_sha256": "a4dba659035615d84a73c76ba8a3e5bcb326e1b1e09e69006228631355f4d3f9",
+      "extraction_receipt_sha256": "d2b0f3c7969a4da4653cb68fe86126d72d6b6443d2d383dfbd297c64a19c24da",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 9500.0,
+      "recorded_timing_table_version": "v2.2.3-timing-1",
+      "recorded_timing_table_sha256": "90b9b3ef71e20d9f6ab385e6bbf67fc9bf84d1248a9c314f146fe89bc9e27b79",
+      "driver_key": "9c289699ef3b0ebb310cea79c2cfc808d1acc1335592508f69739aaedd4ed9cb",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 472.38762871718666,
+        "min_wl_off_before_sense_ps": 406.4703444061785,
+        "min_isolation_before_enable_ps": 396.3943472903613,
+        "min_driver_on_before_wl_ps": 363.32204451677416,
+        "min_enable_off_before_precharge_ps": 429.6007030937825,
+        "min_restore_before_capture_ps": 2758.529587153548,
+        "min_precharge_on_before_capture_ps": 2916.7175395040085
+      },
+      "waveform_sha256": "7aae70fb1b1ad5938b3c4b201db28620722be65786f80443323ce882979c04f0",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          165.5056177514002,
+          166.1255480298799,
+          166.6603927808193,
+          165.88132347737087,
+          166.73446985415086,
+          165.8133636227338,
+          165.99065704307975,
+          166.508081415238,
+          167.5741829326155
+        ],
+        "ISO_READY": [
+          190.45057868075736,
+          190.07842497381077,
+          190.24140278197507,
+          190.64368416912504,
+          190.76960239183992,
+          191.6160174186595,
+          190.3372560949409,
+          190.40511543534785,
+          190.76079030459093
+        ],
+        "WORDLINE_IDLE": [
+          254.45689251813835,
+          254.26562337581188,
+          253.38168686586073,
+          253.82529278103172,
+          254.77928846995138,
+          253.70000978452143,
+          254.23657948188696,
+          253.92461797174548,
+          253.94883156884552
+        ],
+        "ENABLES_OFF": [
+          256.3304045452005,
+          269.2936606229238,
+          255.3081105331577,
+          255.15600544286306,
+          256.3503651459028,
+          254.74264748701486,
+          267.9405221075024,
+          254.8451702646254
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 165.5056177514002,
+        "ISO_READY": 190.07842497381077,
+        "WORDLINE_IDLE": 253.38168686586073,
+        "ENABLES_OFF": 254.74264748701486
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c64/c64_FFc_seq",
+      "metadata_sha256": "729f61410996c9f0df9aeedb6153d95e35e556f821bcf7def87ace2c62a07a99",
+      "result_sha256": "b3eaedd387fa2b344f294e1ff3d9b7ec71afe4ab0a96b56bbaf72f80af868ba0",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": -40,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          16,
+          32,
+          48,
+          62,
+          63
+        ],
+        "kept_cols": [
+          0,
+          1,
+          62,
+          63
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 6960
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "5a71234d02da83abe106df97dc06d676b34cf389b56917982826ef32df6a137d",
+      "source_sha256": "6fc2e852de51c1bc32fc166a013d9cc52dd93d5bd48d13c23917b47442899625",
+      "dspf_sha256": "bc3924535b9876f51a4c7bf0c94f996a1fd526b0b72a856199339b9f4fd7a9f2",
+      "extraction_receipt_sha256": "f1b4ded7d3174d8aa4554aa7c0ac62a90008709a779242e9e58257b64384fe68",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 12000.000000000002,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "51e2a2c25253108a13fe233eb358f4dcbbf98ceda29c966b96973d70466ad756",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 343.93270703310947,
+        "min_wl_off_before_sense_ps": 241.95125412152828,
+        "min_isolation_before_enable_ps": 263.02853950370627,
+        "min_driver_on_before_wl_ps": 88.47021901213992,
+        "min_enable_off_before_precharge_ps": 226.51718535002513,
+        "min_restore_before_capture_ps": 4367.420040265637,
+        "min_precharge_on_before_capture_ps": 4628.822288792393
+      },
+      "waveform_sha256": "fe856aca9bdc0a0dc40607adfe3719608bb3ce1647db89cb69d19e3e1108c2c5",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          45.737965546982096,
+          46.887874331529474,
+          47.081036584255976,
+          46.89090042421162
+        ],
+        "ISO_READY": [
+          136.11325657316019,
+          138.17974583590782,
+          136.67536396026242,
+          138.0890741896467
+        ],
+        "WORDLINE_IDLE": [
+          181.44639878886377,
+          179.09170626307304,
+          179.96443071118543,
+          179.25269330089978
+        ],
+        "ENABLES_OFF": [
+          94.05364200559595,
+          168.07647006832875,
+          94.26599335100259,
+          166.62757488702607
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 45.737965546982096,
+        "ISO_READY": 136.11325657316019,
+        "WORDLINE_IDLE": 179.09170626307304,
+        "ENABLES_OFF": 94.05364200559595
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c64/c64_FFc_mixed",
+      "metadata_sha256": "9deccc4986f3b05ee0b1da3c8dc86d18a5eb78c647fad56c27d8d457a663f2be",
+      "result_sha256": "4261ec3940fac0e274000e08cd6bc0341078439485aec683b8db5e5c757fe09d",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": -40,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          1,
+          16,
+          32,
+          48,
+          62,
+          63
+        ],
+        "kept_cols": [
+          0,
+          1,
+          62,
+          63
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 6840
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "5a71234d02da83abe106df97dc06d676b34cf389b56917982826ef32df6a137d",
+      "source_sha256": "6fc2e852de51c1bc32fc166a013d9cc52dd93d5bd48d13c23917b47442899625",
+      "dspf_sha256": "bc3924535b9876f51a4c7bf0c94f996a1fd526b0b72a856199339b9f4fd7a9f2",
+      "extraction_receipt_sha256": "f1b4ded7d3174d8aa4554aa7c0ac62a90008709a779242e9e58257b64384fe68",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 12000.000000000002,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "51e2a2c25253108a13fe233eb358f4dcbbf98ceda29c966b96973d70466ad756",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 343.562821669256,
+        "min_wl_off_before_sense_ps": 242.35126024708373,
+        "min_isolation_before_enable_ps": 261.52305257536426,
+        "min_driver_on_before_wl_ps": 87.84340863970569,
+        "min_enable_off_before_precharge_ps": 226.78222705872165,
+        "min_restore_before_capture_ps": 4373.048341957783,
+        "min_precharge_on_before_capture_ps": 4633.587034235497
+      },
+      "waveform_sha256": "b35f7c7fead5d95cd6a0f90234ed8776a2f624415365a06b7237d0642cd5fdea",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          45.90438155737894,
+          46.76175840176581,
+          46.929336761096884,
+          46.71726484474247
+        ],
+        "ISO_READY": [
+          136.47533854116924,
+          135.42916523123847,
+          138.54416558761469,
+          137.20400388057757
+        ],
+        "WORDLINE_IDLE": [
+          180.1490840119704,
+          182.31989216787906,
+          178.79538454831126,
+          179.1994650326405
+        ],
+        "ENABLES_OFF": [
+          94.36057067860773,
+          93.91161179473427,
+          167.77170702859362,
+          168.31065124800958
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 45.90438155737894,
+        "ISO_READY": 135.42916523123847,
+        "WORDLINE_IDLE": 178.79538454831126,
+        "ENABLES_OFF": 93.91161179473427
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c64/c64_FFh_seq",
+      "metadata_sha256": "e5ab2f7828b89ff5e18a5efffbc94420c3cfe636951ffa94f236c40bfac7542a",
+      "result_sha256": "4093922c0c0fe55c37ed01bbc6bf7bc4b486dfbc08dd84c495460ebad8a135a6",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": 125,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          16,
+          32,
+          48,
+          62,
+          63
+        ],
+        "kept_cols": [
+          0,
+          1,
+          62,
+          63
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 6960
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "5a71234d02da83abe106df97dc06d676b34cf389b56917982826ef32df6a137d",
+      "source_sha256": "6fc2e852de51c1bc32fc166a013d9cc52dd93d5bd48d13c23917b47442899625",
+      "dspf_sha256": "bc3924535b9876f51a4c7bf0c94f996a1fd526b0b72a856199339b9f4fd7a9f2",
+      "extraction_receipt_sha256": "f1b4ded7d3174d8aa4554aa7c0ac62a90008709a779242e9e58257b64384fe68",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 12000.000000000002,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "51e2a2c25253108a13fe233eb358f4dcbbf98ceda29c966b96973d70466ad756",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 672.2432753227729,
+        "min_wl_off_before_sense_ps": 535.9185694203862,
+        "min_isolation_before_enable_ps": 521.8729159884819,
+        "min_driver_on_before_wl_ps": 319.0239448023598,
+        "min_enable_off_before_precharge_ps": 555.6443562014757,
+        "min_restore_before_capture_ps": 3213.455609464761,
+        "min_precharge_on_before_capture_ps": 3553.5063933439505
+      },
+      "waveform_sha256": "62dc661956196419c8b2c98397cf16532e34ad838709e5023a252655a5c870a9",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          177.8934444745079,
+          179.07203514378836,
+          179.47581857339827,
+          179.42105290459563
+        ],
+        "ISO_READY": [
+          290.4998218260283,
+          294.51908730629236,
+          289.2447728967742,
+          295.47439713433135
+        ],
+        "WORDLINE_IDLE": [
+          391.7935320311678,
+          390.97232836264624,
+          393.81986509544373,
+          390.89090418430965
+        ],
+        "ENABLES_OFF": [
+          314.3203288147439,
+          365.4585176557525,
+          313.4970358129704,
+          365.0253809803137
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 177.8934444745079,
+        "ISO_READY": 289.2447728967742,
+        "WORDLINE_IDLE": 390.89090418430965,
+        "ENABLES_OFF": 313.4970358129704
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c64/c64_FFh_mixed",
+      "metadata_sha256": "77add6817c4d07dfd375a322f5b4c5d32158ecb6851747aa49a71a788c85521a",
+      "result_sha256": "9c321acd7ed8f848eed85e841042dce9f9070bffa3295d16cfd14cc5c68710f0",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": 125,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          1,
+          16,
+          32,
+          48,
+          62,
+          63
+        ],
+        "kept_cols": [
+          0,
+          1,
+          62,
+          63
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 6840
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "5a71234d02da83abe106df97dc06d676b34cf389b56917982826ef32df6a137d",
+      "source_sha256": "6fc2e852de51c1bc32fc166a013d9cc52dd93d5bd48d13c23917b47442899625",
+      "dspf_sha256": "bc3924535b9876f51a4c7bf0c94f996a1fd526b0b72a856199339b9f4fd7a9f2",
+      "extraction_receipt_sha256": "f1b4ded7d3174d8aa4554aa7c0ac62a90008709a779242e9e58257b64384fe68",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 12000.000000000002,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "51e2a2c25253108a13fe233eb358f4dcbbf98ceda29c966b96973d70466ad756",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 674.7246829635975,
+        "min_wl_off_before_sense_ps": 535.7384312742712,
+        "min_isolation_before_enable_ps": 524.416672445688,
+        "min_driver_on_before_wl_ps": 318.2618698909325,
+        "min_enable_off_before_precharge_ps": 555.1716068414214,
+        "min_restore_before_capture_ps": 3219.8273855732714,
+        "min_precharge_on_before_capture_ps": 3556.036031943805
+      },
+      "waveform_sha256": "c9d036fd471cecdc3044085afc37cb61882656d86e105b00d126b217dd38c088",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          178.1129253546744,
+          177.77127074278872,
+          178.3262279306614,
+          177.67863597855504
+        ],
+        "ISO_READY": [
+          293.26481290865115,
+          293.2051892032819,
+          294.436403411944,
+          294.5472899098986
+        ],
+        "WORDLINE_IDLE": [
+          394.10193948001324,
+          394.8520403875041,
+          390.7091249876687,
+          391.71483812917114
+        ],
+        "ENABLES_OFF": [
+          312.35758817832965,
+          313.3014764940278,
+          367.2254979829532,
+          364.8106731519883
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 177.67863597855504,
+        "ISO_READY": 293.2051892032819,
+        "WORDLINE_IDLE": 390.7091249876687,
+        "ENABLES_OFF": 312.35758817832965
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c128/c128_FFc_seq",
+      "metadata_sha256": "46cd435f140da3b005738f47850dafdbacbe6eb9138cd7388fc51e06605dbb71",
+      "result_sha256": "f6a0a49ab0cc79937c6ff6cadc43bd7ae615d477f3ea189552cbd54631e95023",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": -40,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          32,
+          64,
+          96,
+          126,
+          127
+        ],
+        "kept_cols": [
+          0,
+          1,
+          126,
+          127
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 30256
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "7f2da21dc61959a97f42a587928518214846948b479a02cb4b500608b9934952",
+      "source_sha256": "0e784a2f6b28c2f5b1907ae3b6e8b8b4caa5225734acd7fc3c1d0378cbc13f06",
+      "dspf_sha256": "a66c90b2ca80a5f888d6047f05550791e9284cbe02eaf1370ee24de69d9acc94",
+      "extraction_receipt_sha256": "088bb7c55e91ffcad5a63b933d8f6a48a1ad78355ac263574443a485f48672a4",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 21250.0,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "788738c770a565ba2abd6bc4f1d49985cbc8eede79391915f79ec85dfced6ffa",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 516.1048118367988,
+        "min_wl_off_before_sense_ps": 316.1529888742356,
+        "min_isolation_before_enable_ps": 411.7631534525729,
+        "min_driver_on_before_wl_ps": 89.37802700546978,
+        "min_enable_off_before_precharge_ps": 338.7379551100693,
+        "min_restore_before_capture_ps": 7562.859906999893,
+        "min_precharge_on_before_capture_ps": 8292.82893444621
+      },
+      "waveform_sha256": "edd680671114ddf3e108f9bdff15ae848c961b2dc5fe099bba7c341f0447beab",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          73.48971789444848,
+          73.85189732156135,
+          73.07453745894914,
+          73.12218918652523
+        ],
+        "ISO_READY": [
+          234.5317472848894,
+          236.94570431097912,
+          237.61634617254052,
+          238.77810070501275
+        ],
+        "WORDLINE_IDLE": [
+          248.8530441614364,
+          244.7657700954105,
+          248.34799247544407,
+          245.3855907943702
+        ],
+        "ENABLES_OFF": [
+          101.946889271859,
+          281.4606832783791,
+          105.68196754118027,
+          283.23711807794405
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 73.07453745894914,
+        "ISO_READY": 234.5317472848894,
+        "WORDLINE_IDLE": 244.7657700954105,
+        "ENABLES_OFF": 101.946889271859
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c128/c128_FFc_mixed",
+      "metadata_sha256": "d87b0bacbf494aada319cc36bbe957f67dd6e05c28295ffd9058a56c1ad741de",
+      "result_sha256": "301f423c800528fe25c1eab370723d9a85cb6344929eacae9f937b8b465f66cc",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": -40,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          1,
+          32,
+          64,
+          96,
+          126,
+          127
+        ],
+        "kept_cols": [
+          0,
+          1,
+          126,
+          127
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 30008
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "7f2da21dc61959a97f42a587928518214846948b479a02cb4b500608b9934952",
+      "source_sha256": "0e784a2f6b28c2f5b1907ae3b6e8b8b4caa5225734acd7fc3c1d0378cbc13f06",
+      "dspf_sha256": "a66c90b2ca80a5f888d6047f05550791e9284cbe02eaf1370ee24de69d9acc94",
+      "extraction_receipt_sha256": "088bb7c55e91ffcad5a63b933d8f6a48a1ad78355ac263574443a485f48672a4",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 21250.0,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "788738c770a565ba2abd6bc4f1d49985cbc8eede79391915f79ec85dfced6ffa",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 520.315999158422,
+        "min_wl_off_before_sense_ps": 320.4617011968597,
+        "min_isolation_before_enable_ps": 411.65367880957274,
+        "min_driver_on_before_wl_ps": 77.7980418251875,
+        "min_enable_off_before_precharge_ps": 336.9027757037405,
+        "min_restore_before_capture_ps": 7562.45035576197,
+        "min_precharge_on_before_capture_ps": 8291.730952996662
+      },
+      "waveform_sha256": "e2ff8a98fe93e93b29748982ac78c468df11ae8527cdb3b012b09e0f5f82baf4",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          72.9672546181183,
+          73.25912119095936,
+          73.64271066679984,
+          74.83850292038645
+        ],
+        "ISO_READY": [
+          239.3935891008278,
+          234.52164356142694,
+          240.77621162115318,
+          238.91659280166544
+        ],
+        "WORDLINE_IDLE": [
+          249.10593712790265,
+          253.09595380774627,
+          245.44507678349643,
+          247.0423111440625
+        ],
+        "ENABLES_OFF": [
+          102.3179658013842,
+          99.80758440218519,
+          282.20654619770977,
+          282.9342347673595
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 72.9672546181183,
+        "ISO_READY": 234.52164356142694,
+        "WORDLINE_IDLE": 245.44507678349643,
+        "ENABLES_OFF": 99.80758440218519
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c128/c128_FFh_seq",
+      "metadata_sha256": "2004f06bf22c8a6034d466f047234cfce6dcb03d9aea245561dbec42e01fade8",
+      "result_sha256": "16557e14b14ae8ed39d4ef83c4dbc0755a2bf72adfad6b34399220d30da08d74",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": 125,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          32,
+          64,
+          96,
+          126,
+          127
+        ],
+        "kept_cols": [
+          0,
+          1,
+          126,
+          127
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 30256
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "7f2da21dc61959a97f42a587928518214846948b479a02cb4b500608b9934952",
+      "source_sha256": "0e784a2f6b28c2f5b1907ae3b6e8b8b4caa5225734acd7fc3c1d0378cbc13f06",
+      "dspf_sha256": "a66c90b2ca80a5f888d6047f05550791e9284cbe02eaf1370ee24de69d9acc94",
+      "extraction_receipt_sha256": "088bb7c55e91ffcad5a63b933d8f6a48a1ad78355ac263574443a485f48672a4",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 21250.0,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "788738c770a565ba2abd6bc4f1d49985cbc8eede79391915f79ec85dfced6ffa",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 946.1300241231764,
+        "min_wl_off_before_sense_ps": 686.7626035646507,
+        "min_isolation_before_enable_ps": 831.9772758470787,
+        "min_driver_on_before_wl_ps": 364.9104257431344,
+        "min_enable_off_before_precharge_ps": 818.6876803865587,
+        "min_restore_before_capture_ps": 6111.2013425750565,
+        "min_precharge_on_before_capture_ps": 6964.029660927925
+      },
+      "waveform_sha256": "170c846d2fc901b7790ebc9b81896d06426e2dd1afe51de7f6b802b02c7de132",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          319.80006691924126,
+          319.8428072029747,
+          318.9852437593959,
+          319.08518667443644
+        ],
+        "ISO_READY": [
+          514.5802444485082,
+          518.4570808214438,
+          514.1741115937947,
+          518.5021619176531
+        ],
+        "WORDLINE_IDLE": [
+          536.5160488078067,
+          531.3156435445886,
+          535.82072166296,
+          531.2356522829851
+        ],
+        "ENABLES_OFF": [
+          442.5287620816517,
+          604.2331921840149,
+          442.07496281855475,
+          603.7288986004215
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 318.9852437593959,
+        "ISO_READY": 514.1741115937947,
+        "WORDLINE_IDLE": 531.2356522829851,
+        "ENABLES_OFF": 442.07496281855475
+      }
+    },
+    {
+      "run": "outputs/postlayout/g15/c128/c128_FFh_mixed",
+      "metadata_sha256": "907954173b4ab9b1a0d23e121a61fcbff9e1abb88fd80417739bbd603529d10a",
+      "result_sha256": "61ef70235eeeeab55938d37ff8d653bd83834e20f34064f6080dbe357d16783c",
+      "scorer_sha256": "640993c247ca98b550e055de855a64bfb8895774829a309844cfdd2dce59e5e3",
+      "existing_waveform_score_passed": true,
+      "solver": "This is version Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "linear_solver": "KLU",
+      "corner": "FF",
+      "vdd_v": 1.1,
+      "temperature_c": 125,
+      "models": [
+        "NMOS_VTG",
+        "PMOS_VTG"
+      ],
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "variation": {
+        "variation_mode": "nominal",
+        "calibrated_rc": {
+          "applied": false,
+          "reason": "outside validated reference scope",
+          "profile_sha256": "075ad2748c4079b6a27a753a0edc33d553e005b749c1a1f46c14281aab84396c",
+          "release_qualified": false
+        }
+      },
+      "seed": null,
+      "equivalent_mode": 0,
+      "frozen_cells": {
+        "kept_rows": [
+          0,
+          1,
+          32,
+          64,
+          96,
+          126,
+          127
+        ],
+        "kept_cols": [
+          0,
+          1,
+          126,
+          127
+        ],
+        "background": 0,
+        "storage_nets_on_rails": 30008
+      },
+      "layout_revision": "g15",
+      "layout_sha256": "7f2da21dc61959a97f42a587928518214846948b479a02cb4b500608b9934952",
+      "source_sha256": "0e784a2f6b28c2f5b1907ae3b6e8b8b4caa5225734acd7fc3c1d0378cbc13f06",
+      "dspf_sha256": "a66c90b2ca80a5f888d6047f05550791e9284cbe02eaf1370ee24de69d9acc94",
+      "extraction_receipt_sha256": "088bb7c55e91ffcad5a63b933d8f6a48a1ad78355ac263574443a485f48672a4",
+      "drc_violations": 0,
+      "lvs": "CORRECT",
+      "rc": {
+        "reduction_ceiling_ohm": 20.0,
+        "short_ohm": 1.0,
+        "ground_coupling_f": 1e-17,
+        "ideal_supply": false,
+        "supply_short_ohm": 0.0,
+        "via_scale": 1.0,
+        "supply_model": "extracted VDD/VSS mesh fed at every macro supply pin"
+      },
+      "period_ps": 21250.0,
+      "recorded_timing_table_version": "v2.2.8-layout-timing-1",
+      "recorded_timing_table_sha256": "dd531db78b30ddba71ccaed4309828153d7b98cbadbbb9e55c6f5cec2702db3b",
+      "driver_key": "788738c770a565ba2abd6bc4f1d49985cbc8eede79391915f79ec85dfced6ffa",
+      "sample_interval_ps": 5.0,
+      "measured_by": "existing full waveform scorer, every probed column/cycle",
+      "guard_slack_ps": {
+        "min_driver_release_after_wl_ps": 945.8796255890295,
+        "min_wl_off_before_sense_ps": 686.8242288604027,
+        "min_isolation_before_enable_ps": 829.4453700564259,
+        "min_driver_on_before_wl_ps": 357.2799898384545,
+        "min_enable_off_before_precharge_ps": 817.8047182315769,
+        "min_restore_before_capture_ps": 6111.864077458634,
+        "min_precharge_on_before_capture_ps": 6967.243642546548
+      },
+      "waveform_sha256": "caaf3d3204784a837f13d8b1ea69110c73b301f7cef192044ebe32dee20252cd",
+      "detector_slack_definition": "observer output at 50% minus latest relevant far input at 90% (rising) or 10% (falling), after first capture",
+      "detector_slack_ps": {
+        "PRE_OFF_READY": [
+          319.57515654218054,
+          319.8556764863993,
+          320.00069457532055,
+          319.6686480776058
+        ],
+        "ISO_READY": [
+          516.8960883613204,
+          517.26469941079,
+          518.678614592273,
+          517.8298202703128
+        ],
+        "WORDLINE_IDLE": [
+          536.3097406987686,
+          537.9047543007368,
+          530.8610829658965,
+          532.8467596147856
+        ],
+        "ENABLES_OFF": [
+          441.75010994024234,
+          442.9787545806699,
+          605.1379803479774,
+          604.77753200531
+        ]
+      },
+      "detector_min_slack_ps": {
+        "PRE_OFF_READY": 319.57515654218054,
+        "ISO_READY": 516.8960883613204,
+        "WORDLINE_IDLE": 530.8610829658965,
+        "ENABLES_OFF": 441.75010994024234
+      }
+    }
+  ]
+}

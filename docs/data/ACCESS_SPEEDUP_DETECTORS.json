@@ -1,0 +1,3645 @@
+{
+  "schema_version": 1,
+  "status": "no_candidate_selected",
+  "source_commit": "d90845251a1615d813fe3509e35c301c1f7aee49",
+  "solver": "Xyce DEVELOPMENT-202312200606 (Public Release 7.4.0-36), KLU",
+  "models": "FreePDK45 NMOS_VTG / PMOS_VTG; hashes per corner",
+  "variation": {
+    "parameters": [
+      "vth0",
+      "u0",
+      "voff"
+    ],
+    "distribution": "independent Gaussian",
+    "relative_sigma": 0.05,
+    "area_scaling": false,
+    "sampler": "numpy.default_rng; concrete per-device model cards",
+    "seeds": "20261105 through 20261110; per-corner records"
+  },
+  "equivalent_mode": 0,
+  "rc": "Schematic only, 0.1fF output load, no extracted parasitics",
+  "measured_threshold": "Input voltage at 50% output crossing during 1us linear ramps in both directions",
+  "requirements": {
+    "falling_fraction_max": 0.15,
+    "rising_fraction_min": 0.85
+  },
+  "scope": "Feasibility screen, not exhaustive detector synthesis or physical qualification",
+  "recommendation": "Retain existing observe-and-settle guards. None of these candidates supports the proposed replacement or a 0\u20132-stage residual guarantee.",
+  "limitations": [
+    "No candidate selected; residual 1.5x tail calibration and post-layout validation are not performed.",
+    "Extreme ratio 4096 is a feasibility bound, not a compact layout proposal: 368.64um NMOS or 1105.92um PMOS total width.",
+    "100 Monte Carlo samples per candidate/corner bound only this finite sample.",
+    "Earlier local nominal and nominal_pvt folders used ignored .TEMP and are explicitly invalidated; excluded here."
+  ],
+  "script": "dev/access_speedup/detectors.py",
+  "script_sha256": "036421dc853ad68bdacb5cb9799453774ab60809f17fa6066f6740e2e52fc9e8",
+  "suites": [
+    {
+      "name": "nominal_pvt_fixed",
+      "source": "outputs/access_speedup/detectors/nominal_pvt_fixed/summary.json",
+      "source_sha256": "ba249e84f90e8f79a75006fb6522de486444ecb5a5d4170afa77bbd60aaca99c",
+      "corners": [
+        {
+          "corner": "SS",
+          "vdd": 0.9,
+          "temperature_c": 125,
+          "seed": 20261105,
+          "samples_per_candidate": 0,
+          "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+          "deck_sha256": "2788829cbd271211f29b8abdf84a9bbba95daa817773b0348e3475c412128448",
+          "sampled_models_sha256": "4b6c5baeba8c2e6de7ce4b382e6b805cbd5ed485be88b9a49ac429ff5f33651d",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5367746757494748,
+                "falling_fraction": 0.5366960690287975,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.603318534891977,
+                "falling_fraction": 0.6032000114984316,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.6688351091716257,
+                "falling_fraction": 0.668568326457356,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7355187524692502,
+                "falling_fraction": 0.7347878987484939,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 256,
+              "nominal": {
+                "kind": "high",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.8036780807678597,
+                "falling_fraction": 0.8014835551915964,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.8741099471328179,
+                "falling_fraction": 0.8671738445667099,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9517337801774949,
+                "falling_fraction": 0.9290417730292974,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5367746757494748,
+                "falling_fraction": 0.5366960690287975,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.4669918316674693,
+                "falling_fraction": 0.46692965872352743,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.3998950991729494,
+                "falling_fraction": 0.3998053301569216,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.33304507456872195,
+                "falling_fraction": 0.33284537002433934,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 256,
+              "nominal": {
+                "kind": "low",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.2653408610751189,
+                "falling_fraction": 0.2647941435234054,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.19748214134571182,
+                "falling_fraction": 0.19583281840111896,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.13067038180178314,
+                "falling_fraction": 0.1254353760228717,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.6026199731134276,
+                "falling_fraction": 0.4204503398533004,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6714706677075253,
+                "falling_fraction": 0.3540177870194648,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 16,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.7199205279137453,
+                "falling_fraction": 0.30098789471535947,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 64,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7452101168758675,
+                "falling_fraction": 0.2622401779404511,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 256,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.7842188337660592,
+                "falling_fraction": 0.21063817994956996,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.853429311856087,
+                "falling_fraction": 0.12477696027399347,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9368253746486317,
+                "falling_fraction": 0.03051083133170019,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "SF",
+          "vdd": 0.9,
+          "temperature_c": -40,
+          "seed": 20261106,
+          "samples_per_candidate": 0,
+          "model_sha256": "6d98211e064cd92931321e73404e145cafcc47f5f75a417f239292504e579f0f",
+          "deck_sha256": "3ad79da355c7054e3fa5ac4b28359f951731120fac406472f94a59c4091aa81d",
+          "sampled_models_sha256": "9552b7a90fe053bbf6bfe9544a26400b82417f649f5a66f12afb2b01a4ed9031",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5611449172583637,
+                "falling_fraction": 0.5611191486634943,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6219499695055766,
+                "falling_fraction": 0.6219124861629199,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.6761672403773128,
+                "falling_fraction": 0.6760822001014253,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7264984870575927,
+                "falling_fraction": 0.7262600756438967,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 256,
+              "nominal": {
+                "kind": "high",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.7737960579867722,
+                "falling_fraction": 0.7730643499703923,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.8190806054441583,
+                "falling_fraction": 0.8167005611636066,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8648644280775224,
+                "falling_fraction": 0.8566990547055193,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5611449172583637,
+                "falling_fraction": 0.5611191486634943,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.494322276427953,
+                "falling_fraction": 0.49430070355353434,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.4323965839734539,
+                "falling_fraction": 0.43236447808263423,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.37712985548912825,
+                "falling_fraction": 0.3770575240326273,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 256,
+              "nominal": {
+                "kind": "low",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.3272176781898631,
+                "falling_fraction": 0.32701670789655446,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.2812753275515786,
+                "falling_fraction": 0.2806543347715359,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.23826018162731954,
+                "falling_fraction": 0.23621118322873064,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.6194598296230819,
+                "falling_fraction": 0.42409734751128764,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.7008198040900473,
+                "falling_fraction": 0.33943314202323693,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 16,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.7579856317227206,
+                "falling_fraction": 0.27803267055912545,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 64,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.794468071312109,
+                "falling_fraction": 0.2196655746883418,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 256,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.8150143133465089,
+                "falling_fraction": 0.15269073607298386,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.8384342283786574,
+                "falling_fraction": 0.07866606817452514,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "passed": false,
+                "error": "Expected one crossing, got 0"
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "FS",
+          "vdd": 0.9,
+          "temperature_c": 125,
+          "seed": 20261107,
+          "samples_per_candidate": 0,
+          "model_sha256": "a52b2628861d90234cbac3b3a563936b3b6a7ac7aa06c4c79d8b0d5572793817",
+          "deck_sha256": "2788829cbd271211f29b8abdf84a9bbba95daa817773b0348e3475c412128448",
+          "sampled_models_sha256": "32f33e73fa232e3526ce8d40216729f0d1d9e3b6676a8d69d3fdc33246171356",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5022979030473633,
+                "falling_fraction": 0.5022419845657912,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.5765865827293561,
+                "falling_fraction": 0.5765010487375488,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.6475380101291985,
+                "falling_fraction": 0.6473417839612352,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7178766219161621,
+                "falling_fraction": 0.7173245773698815,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 256,
+              "nominal": {
+                "kind": "high",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.7886073383493767,
+                "falling_fraction": 0.786907597528616,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.8605834778767859,
+                "falling_fraction": 0.855109071803523,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9378227498263146,
+                "falling_fraction": 0.9195759239499588,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5022979030473633,
+                "falling_fraction": 0.5022419845657912,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.42406951347872296,
+                "falling_fraction": 0.42402563823114253,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.35105644758752075,
+                "falling_fraction": 0.35099307140524566,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.28060279996860166,
+                "falling_fraction": 0.28045989399161786,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 256,
+              "nominal": {
+                "kind": "low",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.2109832439831673,
+                "falling_fraction": 0.21058110558424617,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.14226759175455073,
+                "falling_fraction": 0.14103043515885932,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.07507797390449171,
+                "falling_fraction": 0.07108021175598914,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5730327107788042,
+                "falling_fraction": 0.40336347698898944,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6542799119771275,
+                "falling_fraction": 0.3344163430990267,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 16,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.7102235077965399,
+                "falling_fraction": 0.28627025995968614,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 64,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7377833484430628,
+                "falling_fraction": 0.2653497640367743,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 256,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.7749941781106655,
+                "falling_fraction": 0.23499659468320536,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.8438120785747195,
+                "falling_fraction": 0.17029276151988318,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9287809438854919,
+                "falling_fraction": 0.10385505496057114,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "FF",
+          "vdd": 1.1,
+          "temperature_c": -40,
+          "seed": 20261108,
+          "samples_per_candidate": 0,
+          "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+          "deck_sha256": "b3e6873a15adf8714dcab2deb18464c848365ab3017f70038e85a21f77953142",
+          "sampled_models_sha256": "05b174f82084c66e86eceb1aa14183fe15b28cf090cf7a7aeab3644643e45ee6",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.558908035665725,
+                "falling_fraction": 0.5588918900833221,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6494949385784343,
+                "falling_fraction": 0.6494749318439151,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.7109543435467891,
+                "falling_fraction": 0.7109115656958892,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7602134322939009,
+                "falling_fraction": 0.760089882282355,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 256,
+              "nominal": {
+                "kind": "high",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.8038008906775757,
+                "falling_fraction": 0.8034027547236425,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.8439049673636346,
+                "falling_fraction": 0.8425559860274735,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8827427779361453,
+                "falling_fraction": 0.8779761186254816,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.558908035665725,
+                "falling_fraction": 0.5588918900833221,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.4410263013626164,
+                "falling_fraction": 0.44101313792741387,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.351176471616812,
+                "falling_fraction": 0.3511602008334366,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.2892043006779774,
+                "falling_fraction": 0.2891705519564647,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 256,
+              "nominal": {
+                "kind": "low",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.24008666075580157,
+                "falling_fraction": 0.2399927234807346,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.19792101639134294,
+                "falling_fraction": 0.19762650512934907,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.16004405312156447,
+                "falling_fraction": 0.15904985151156065,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5898979564919188,
+                "falling_fraction": 0.4309175372411481,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.7055905386865908,
+                "falling_fraction": 0.3053297799663782,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 16,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.7787443301448961,
+                "falling_fraction": 0.23253277942309497,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 64,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.8092060003999128,
+                "falling_fraction": 0.18924395860590199,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 256,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.8149199000205597,
+                "falling_fraction": 0.15723373211739997,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.820930654219491,
+                "falling_fraction": 0.12140988467632244,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8340543128554078,
+                "falling_fraction": 0.07978111052296698,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "FF",
+          "vdd": 1.1,
+          "temperature_c": 125,
+          "seed": 20261109,
+          "samples_per_candidate": 0,
+          "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+          "deck_sha256": "811478f1c0e98ffbbdf86317d0572175f137b341156abad4bdfa5045fb33bc67",
+          "sampled_models_sha256": "05b174f82084c66e86eceb1aa14183fe15b28cf090cf7a7aeab3644643e45ee6",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5591277498234813,
+                "falling_fraction": 0.5591007875393563,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6602525837654155,
+                "falling_fraction": 0.6602141993192622,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.7371417025032944,
+                "falling_fraction": 0.7370539058701195,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.8037496082161452,
+                "falling_fraction": 0.8034885889263478,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 256,
+              "nominal": {
+                "kind": "high",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.8666818077853491,
+                "falling_fraction": 0.8658211296861659,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.9283694353995234,
+                "falling_fraction": 0.9254273467680325,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9918459187648829,
+                "falling_fraction": 0.981517538906784,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5591277498234813,
+                "falling_fraction": 0.5591007875393563,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.43777416784760764,
+                "falling_fraction": 0.43775263242484375,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.34153395371649764,
+                "falling_fraction": 0.3415044690987616,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.2666534505122976,
+                "falling_fraction": 0.2665860381277441,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 256,
+              "nominal": {
+                "kind": "low",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.20028454446137278,
+                "falling_fraction": 0.2000839131753824,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.13779147024612995,
+                "falling_fraction": 0.13713256392765946,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.07817708273279614,
+                "falling_fraction": 0.07592820643803422,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5884010157274076,
+                "falling_fraction": 0.4486470174759807,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6896448127949164,
+                "falling_fraction": 0.33716328744175506,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 16,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.7475949080166271,
+                "falling_fraction": 0.26779680742406936,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 64,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7527726725896456,
+                "falling_fraction": 0.24432649769063491,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 256,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.7512424689955544,
+                "falling_fraction": 0.22600892596940816,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.7604219126111058,
+                "falling_fraction": 0.18038313664093272,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.7674452647371052,
+                "falling_fraction": 0.12412159235618349,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "TT",
+          "vdd": 1.0,
+          "temperature_c": 25,
+          "seed": 20261110,
+          "samples_per_candidate": 0,
+          "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+          "deck_sha256": "497b5fc8e585fccfe96d034f6b8c95c7f2f94fbbf30ee1fd974b177cb6ddfc0a",
+          "sampled_models_sha256": "cf8d8df3e5d3ea85a8c9dbe63f8d16fdd7a8e6a818d92b701c74e2f5d45b452a",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5419211053296651,
+                "falling_fraction": 0.5418945328237856,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6162927215169126,
+                "falling_fraction": 0.6162539585813632,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.6783212781892586,
+                "falling_fraction": 0.6782331292922604,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7340578458836224,
+                "falling_fraction": 0.7338031588754601,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 256,
+              "nominal": {
+                "kind": "high",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.7868103219504259,
+                "falling_fraction": 0.7859964286274174,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "high",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.8381387764055146,
+                "falling_fraction": 0.8354107454166158,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8906818918402999,
+                "falling_fraction": 0.8811876555818701,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5419211053296651,
+                "falling_fraction": 0.5418945328237856,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.458057755074288,
+                "falling_fraction": 0.45803659202340935,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.38566223908670105,
+                "falling_fraction": 0.3856325131868077,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.3244480576097278,
+                "falling_fraction": 0.32438092014401154,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 256,
+              "nominal": {
+                "kind": "low",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.2690554721118094,
+                "falling_fraction": 0.26886332477406955,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "low",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.21721919537774104,
+                "falling_fraction": 0.21660897076941668,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.16822454638282225,
+                "falling_fraction": 0.1661819449831409,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5950679474832847,
+                "falling_fraction": 0.4223214704345526,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6879319050933762,
+                "falling_fraction": 0.332149229163314,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 16,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.7494291163484279,
+                "falling_fraction": 0.26883446026445335,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 64,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7829836291189235,
+                "falling_fraction": 0.2225794978659064,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 256,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 256,
+                "sample": 0,
+                "rising_fraction": 0.8089234671939475,
+                "falling_fraction": 0.17515353696681532,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 1024,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 1024,
+                "sample": 0,
+                "rising_fraction": 0.8449006602786037,
+                "falling_fraction": 0.11118582243585343,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8923394641949477,
+                "falling_fraction": 0.038083028753704694,
+                "passed": true
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "stacked_pvt",
+      "source": "outputs/access_speedup/detectors/stacked_pvt/summary.json",
+      "source_sha256": "2309161bf02307ad7284b6c3d9a6515c86e59f2cdfa65ce1b633db7fc4f77afc",
+      "corners": [
+        {
+          "corner": "SS",
+          "vdd": 0.9,
+          "temperature_c": 125,
+          "seed": 20261105,
+          "samples_per_candidate": 0,
+          "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+          "deck_sha256": "4ad2b301daf716721a9f226efd3a449cf653304ca1c6b69572603a64124826ce",
+          "sampled_models_sha256": "95b56e4efd6a66e4c491241f7be5db4f9f23996a71132646c20cd7db521d6c59",
+          "candidates": [
+            {
+              "kind": "stacked_high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5367746466063009,
+                "falling_fraction": 0.5366960764444535,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6128075429203863,
+                "falling_fraction": 0.6125389471688469,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.6785903244011964,
+                "falling_fraction": 0.6777910796798818,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7435733254410029,
+                "falling_fraction": 0.7408353952768107,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5367746466063009,
+                "falling_fraction": 0.5366960764444535,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.4518367010630881,
+                "falling_fraction": 0.45147079559340914,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.3850664115131163,
+                "falling_fraction": 0.38385640057010745,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.3242967623899328,
+                "falling_fraction": 0.3181430133280568,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "SF",
+          "vdd": 0.9,
+          "temperature_c": -40,
+          "seed": 20261106,
+          "samples_per_candidate": 0,
+          "model_sha256": "6d98211e064cd92931321e73404e145cafcc47f5f75a417f239292504e579f0f",
+          "deck_sha256": "0542b9bb9c2b55bcb3081306413b08ba6323abd2670140ff1268335691eb6de2",
+          "sampled_models_sha256": "b7dd4e6a43ecbc4ca59b57b8fefad001b655971f025652ca2a554919ac7ee024",
+          "candidates": [
+            {
+              "kind": "stacked_high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5611449207695093,
+                "falling_fraction": 0.5611191656868298,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6103798396330069,
+                "falling_fraction": 0.610322252116723,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.6566079355438514,
+                "falling_fraction": 0.6564768219694889,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7030478890877371,
+                "falling_fraction": 0.702686312190434,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5611449207695093,
+                "falling_fraction": 0.5611191656868298,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.49028568541883416,
+                "falling_fraction": 0.4901786413090556,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.4361136076234825,
+                "falling_fraction": 0.435832698625865,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.38673107831140396,
+                "falling_fraction": 0.38585555618241907,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "FS",
+          "vdd": 0.9,
+          "temperature_c": 125,
+          "seed": 20261107,
+          "samples_per_candidate": 0,
+          "model_sha256": "a52b2628861d90234cbac3b3a563936b3b6a7ac7aa06c4c79d8b0d5572793817",
+          "deck_sha256": "4ad2b301daf716721a9f226efd3a449cf653304ca1c6b69572603a64124826ce",
+          "sampled_models_sha256": "fa077d45629d92ff9c12dc62fa3cb7e12caac752578c492197e7f7e46902e8e8",
+          "candidates": [
+            {
+              "kind": "stacked_high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5022978881825426,
+                "falling_fraction": 0.5022419981110644,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.5866123262137836,
+                "falling_fraction": 0.5864186754138823,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.6566784988315126,
+                "falling_fraction": 0.6560951638355882,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.724325620534783,
+                "falling_fraction": 0.7222959163267106,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5022978881825426,
+                "falling_fraction": 0.5022419981110644,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.4098505405543499,
+                "falling_fraction": 0.40961532939892825,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.33838160324099936,
+                "falling_fraction": 0.3376008122941823,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.27342269885934745,
+                "falling_fraction": 0.26957831961722883,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "FF",
+          "vdd": 1.1,
+          "temperature_c": -40,
+          "seed": 20261108,
+          "samples_per_candidate": 0,
+          "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+          "deck_sha256": "713f8395bfff5f5e5159d113dc02e75337361986d69ba1a5635d2a21fd274765",
+          "sampled_models_sha256": "9e5b31a7a65d1321fb117349a3212646a7433bfab6c70654c1d6541aa46b936b",
+          "candidates": [
+            {
+              "kind": "stacked_high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5589080219943731,
+                "falling_fraction": 0.5588918901841878,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.626551111224342,
+                "falling_fraction": 0.6265229825315491,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.6837023550258138,
+                "falling_fraction": 0.6836436795555878,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7326073739518998,
+                "falling_fraction": 0.7324484660128044,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5589080219943731,
+                "falling_fraction": 0.5588918901841878,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.45836541934548036,
+                "falling_fraction": 0.45831648176192913,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.3772105771630693,
+                "falling_fraction": 0.3771040718941744,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.3148007503607655,
+                "falling_fraction": 0.3144943306429623,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "FF",
+          "vdd": 1.1,
+          "temperature_c": 125,
+          "seed": 20261109,
+          "samples_per_candidate": 0,
+          "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+          "deck_sha256": "f6a9ae15bf56ea3f9bd072e0c98085a46c105a0a7a7ade208bc7a524194bb61a",
+          "sampled_models_sha256": "9e5b31a7a65d1321fb117349a3212646a7433bfab6c70654c1d6541aa46b936b",
+          "candidates": [
+            {
+              "kind": "stacked_high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.559127731776721,
+                "falling_fraction": 0.5591007605043278,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6614261854588148,
+                "falling_fraction": 0.6613541071756482,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.7358209610606391,
+                "falling_fraction": 0.735606376309876,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.8002520745346445,
+                "falling_fraction": 0.7992708494401441,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.559127731776721,
+                "falling_fraction": 0.5591007605043278,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.4284935366006892,
+                "falling_fraction": 0.42839158820438145,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.3390795509988049,
+                "falling_fraction": 0.33876381701766933,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.26891625496355487,
+                "falling_fraction": 0.2673684964911049,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        },
+        {
+          "corner": "TT",
+          "vdd": 1.0,
+          "temperature_c": 25,
+          "seed": 20261110,
+          "samples_per_candidate": 0,
+          "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+          "deck_sha256": "2ca47a1b66e4e346a236cc356b5c66eefc583112c4c41a89a612b3ea09109f92",
+          "sampled_models_sha256": "e38093d30a0ead353e5ccba430e1d7a20dc958956db56a55c51df6b7f5d8bbe0",
+          "candidates": [
+            {
+              "kind": "stacked_high",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5419211230829407,
+                "falling_fraction": 0.5418945394587781,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.6144709640722119,
+                "falling_fraction": 0.6144015539159764,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.6732799158130734,
+                "falling_fraction": 0.6730911390032424,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_high",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_high",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.7265455091415512,
+                "falling_fraction": 0.7259259290866016,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 1,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 1,
+                "sample": 0,
+                "rising_fraction": 0.5419211230829407,
+                "falling_fraction": 0.5418945394587781,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 4,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 4,
+                "sample": 0,
+                "rising_fraction": 0.4506917146953079,
+                "falling_fraction": 0.45059197320605177,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 16,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 16,
+                "sample": 0,
+                "rising_fraction": 0.3838704025061268,
+                "falling_fraction": 0.3835876432401281,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            },
+            {
+              "kind": "stacked_low",
+              "ratio": 64,
+              "nominal": {
+                "kind": "stacked_low",
+                "ratio": 64,
+                "sample": 0,
+                "rising_fraction": 0.3272963411578611,
+                "falling_fraction": 0.326266894829264,
+                "passed": false
+              },
+              "samples": 0,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": null,
+              "falling_fraction_range": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "extreme_mc",
+      "source": "outputs/access_speedup/detectors/extreme_mc/summary.json",
+      "source_sha256": "d40af3d9ff559db581dbabaaf891653d4cf2775a161ea59b10007d8eebe24b61",
+      "corners": [
+        {
+          "corner": "SS",
+          "vdd": 0.9,
+          "temperature_c": 125,
+          "seed": 20261105,
+          "samples_per_candidate": 100,
+          "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+          "deck_sha256": "a85aec613502f01c857927c8a995b80b7aa221868072416ca79be79e442b5f5a",
+          "sampled_models_sha256": "fe510569d45bc5b0b6fe29314c20f2a71a163de39b1527b103284f55ceb62514",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9517333335764959,
+                "falling_fraction": 0.9290419565677792,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 98,
+              "unresolved_samples": 2,
+              "rising_fraction_range": [
+                0.8817427186591797,
+                0.9990679983929899
+              ],
+              "falling_fraction_range": [
+                0.8555094388644157,
+                0.9809002764502116
+              ]
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.13066930676845237,
+                "falling_fraction": 0.12543470068083723,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 89,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.05824126606562164,
+                0.20554839641693984
+              ],
+              "falling_fraction_range": [
+                0.05390192535011146,
+                0.1984035147445584
+              ]
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9368338053715061,
+                "falling_fraction": 0.030500004394348447,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 75,
+              "unresolved_samples": 25,
+              "rising_fraction_range": [
+                0.8541588387127979,
+                0.9991045219912701
+              ],
+              "falling_fraction_range": [
+                0.0010632208910772495,
+                0.13420816671693175
+              ]
+            }
+          ]
+        },
+        {
+          "corner": "SF",
+          "vdd": 0.9,
+          "temperature_c": -40,
+          "seed": 20261106,
+          "samples_per_candidate": 100,
+          "model_sha256": "6d98211e064cd92931321e73404e145cafcc47f5f75a417f239292504e579f0f",
+          "deck_sha256": "334ad20838d2d50eb57ee8a045694dab92a59cb4b04b2fe08df49ddabce0dc98",
+          "sampled_models_sha256": "b943f4a07bfbfc23517f4cb2900a2937ef1c8e12c90610f3aa8f3b09e4178e7f",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8648643856905428,
+                "falling_fraction": 0.8566991129466732,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 79,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.8264053768820556,
+                0.90970461410275
+              ],
+              "falling_fraction_range": [
+                0.816889576860146,
+                0.9015785181410034
+              ]
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.23826009452097932,
+                "falling_fraction": 0.2362113296612048,
+                "passed": false
+              },
+              "samples": 100,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.16860648392762595,
+                0.27853060451684886
+              ],
+              "falling_fraction_range": [
+                0.166891474527454,
+                0.27616099632007046
+              ]
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "passed": false,
+                "error": "Expected one crossing, got 0"
+              },
+              "samples": 100,
+              "passed_samples": 41,
+              "unresolved_samples": 54,
+              "rising_fraction_range": [
+                0.8352057645548214,
+                0.9342250725297824
+              ],
+              "falling_fraction_range": [
+                0.0020203574869052288,
+                0.05910707324210248
+              ]
+            }
+          ]
+        },
+        {
+          "corner": "FS",
+          "vdd": 0.9,
+          "temperature_c": 125,
+          "seed": 20261107,
+          "samples_per_candidate": 100,
+          "model_sha256": "a52b2628861d90234cbac3b3a563936b3b6a7ac7aa06c4c79d8b0d5572793817",
+          "deck_sha256": "a85aec613502f01c857927c8a995b80b7aa221868072416ca79be79e442b5f5a",
+          "sampled_models_sha256": "c959074d91f0eecf53b95dcadd15e6dd3193ec3959d1adcebb83e376682122ab",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9378223043231451,
+                "falling_fraction": 0.9195761160947523,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 98,
+              "unresolved_samples": 2,
+              "rising_fraction_range": [
+                0.8919510171481777,
+                0.9878656154077056
+              ],
+              "falling_fraction_range": [
+                0.8725336678845851,
+                0.9699959002916494
+              ]
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.07507710575369449,
+                "falling_fraction": 0.07108009782159459,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 100,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.039731775530244616,
+                0.13176557761305133
+              ],
+              "falling_fraction_range": [
+                0.03628440763970327,
+                0.12684334774157016
+              ]
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9287874929399158,
+                "falling_fraction": 0.10384187316717332,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 85,
+              "unresolved_samples": 3,
+              "rising_fraction_range": [
+                0.8242123674624132,
+                0.9947581851567601
+              ],
+              "falling_fraction_range": [
+                0.0026378844201702467,
+                0.1949895026511376
+              ]
+            }
+          ]
+        },
+        {
+          "corner": "FF",
+          "vdd": 1.1,
+          "temperature_c": -40,
+          "seed": 20261108,
+          "samples_per_candidate": 100,
+          "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+          "deck_sha256": "548655d1cdaeb415db2003277751b155c541eb9bb2ea77995d160266a583e273",
+          "sampled_models_sha256": "8c701f98cc3a01a0ad7951371824a577a7f81a15d0c146a577251562388f68f4",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8827426523004236,
+                "falling_fraction": 0.8779761322043147,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 98,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.8232702909265438,
+                0.917428219631876
+              ],
+              "falling_fraction_range": [
+                0.81788908556495,
+                0.9129231019568188
+              ]
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.1600442257088195,
+                "falling_fraction": 0.15904973350933485,
+                "passed": false
+              },
+              "samples": 100,
+              "passed_samples": 30,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.13044242075457352,
+                0.19875567477074377
+              ],
+              "falling_fraction_range": [
+                0.12953056713522776,
+                0.1976678027606353
+              ]
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8340580411016267,
+                "falling_fraction": 0.07975674833766108,
+                "passed": false
+              },
+              "samples": 100,
+              "passed_samples": 17,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.7924214040231973,
+                0.8757531921919509
+              ],
+              "falling_fraction_range": [
+                0.043431695512674916,
+                0.14038599328966184
+              ]
+            }
+          ]
+        },
+        {
+          "corner": "FF",
+          "vdd": 1.1,
+          "temperature_c": 125,
+          "seed": 20261109,
+          "samples_per_candidate": 100,
+          "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+          "deck_sha256": "fafe22de9b816b9b79f8fd77fd7683a4062ec6a131f9aac56c37b4b39e8197d4",
+          "sampled_models_sha256": "f59b29105311bfd03e04819b771d4bde8577f66696b7afd5432b9011669e2d1a",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.9918457249569722,
+                "falling_fraction": 0.981517412074662,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 66,
+              "unresolved_samples": 34,
+              "rising_fraction_range": [
+                0.9510292717430082,
+                0.9996350753466169
+              ],
+              "falling_fraction_range": [
+                0.9397270427815874,
+                0.989714901543922
+              ]
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.07817715293636213,
+                "falling_fraction": 0.07592933579295137,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 100,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.044482937715269746,
+                0.11611021361064967
+              ],
+              "falling_fraction_range": [
+                0.04234792230498902,
+                0.11381862558723205
+              ]
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.767440378477327,
+                "falling_fraction": 0.12410794111941441,
+                "passed": false
+              },
+              "samples": 100,
+              "passed_samples": 0,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.7066887032396945,
+                0.8207863834449718
+              ],
+              "falling_fraction_range": [
+                0.03810061037138413,
+                0.18200284117193347
+              ]
+            }
+          ]
+        },
+        {
+          "corner": "TT",
+          "vdd": 1.0,
+          "temperature_c": 25,
+          "seed": 20261110,
+          "samples_per_candidate": 100,
+          "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+          "deck_sha256": "5e8689a409d89bc58d86619972f9adf82bd94a24ada1183defc78180adbe2857",
+          "sampled_models_sha256": "39803984122171182edc7025c9ad8472da23ac12c74ef3fe77a87036e0af27f8",
+          "candidates": [
+            {
+              "kind": "high",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "high",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8906818403936252,
+                "falling_fraction": 0.8811877690468797,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 97,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.8327268205264206,
+                0.9318151190295921
+              ],
+              "falling_fraction_range": [
+                0.8213649045913043,
+                0.9223515697911546
+              ]
+            },
+            {
+              "kind": "low",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "low",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.16822451099894503,
+                "falling_fraction": 0.16618207521816825,
+                "passed": false
+              },
+              "samples": 100,
+              "passed_samples": 23,
+              "unresolved_samples": 0,
+              "rising_fraction_range": [
+                0.10766712116486316,
+                0.2175935486022731
+              ],
+              "falling_fraction_range": [
+                0.10587284317358328,
+                0.21534829832304264
+              ]
+            },
+            {
+              "kind": "schmitt",
+              "ratio": 4096,
+              "nominal": {
+                "kind": "schmitt",
+                "ratio": 4096,
+                "sample": 0,
+                "rising_fraction": 0.8923542039889669,
+                "falling_fraction": 0.03806261909165292,
+                "passed": true
+              },
+              "samples": 100,
+              "passed_samples": 84,
+              "unresolved_samples": 10,
+              "rising_fraction_range": [
+                0.8210358034888603,
+                0.9580629580158919
+              ],
+              "falling_fraction_range": [
+                0.003198761313394866,
+                0.10710103736099365
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
