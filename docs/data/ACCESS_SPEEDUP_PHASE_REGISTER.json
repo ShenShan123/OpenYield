@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "scope": "Extracted asynchronous-clear phase register only; macro qualification pending",
+  "status": "component_verified",
+  "solver": "Xyce 7.4, KLU",
+  "seed": null,
+  "variation": "nominal",
+  "rc": "Complete Calibre R+C+CC, no reduction; supply sources at component pins",
+  "checks": [
+    "Reset both master and slave",
+    "No rearm after clear releases while CLK remains high",
+    "Second selected capture works",
+    "Unselected capture stays low",
+    "Stopped-high clock stays recovered"
+  ],
+  "extraction_receipt": "outputs/access_speedup/selftimed/phase_register_verify/receipt.json",
+  "receipt_sha256": "33fe734e0333f0b661921564a7ab707ea30861ed9437d59a657d87c0786fd925",
+  "layout_sha256": "53a29eac114068bfd7b5f4ef1a4874ad0be5e72286bb72b004121270996db08f",
+  "source_sha256": "4cbd554ae8c25b0c7850d51f79c7abab78fe22e3bcefd2ccf774330a0d4c23c8",
+  "dspf_sha256": "9f2158e72d6acf322286bb79ec26ec309228a8efa1d1a6f5070abae5694f561c",
+  "test_tool": "dev/access_speedup/phase_flop_extracted.py",
+  "test_tool_sha256": "44773b3876ddc662aeec8c4a396d307f02f8d94bd5943264ad5a4ee962afe5e0",
+  "corners": [
+    {
+      "corner": "SS",
+      "vdd": 0.9,
+      "temperature": 125,
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "passed": true,
+      "model_sha256": "c9bb0542f833901f64dee1e1f2eb38ccd5e14cbf6f7abe5e4d9d0dd7ebbf30ba",
+      "deck_sha256": "fdeeca661e943d7930df5d96d5119953a3cfabdcea43a50988045c3dbe635e9b",
+      "waveform_sha256": "8e34bfbc2de193143741664402556d7a445ab83fd5de2d5abfc1d1b90932b308",
+      "log_sha256": "452a770f8c368f4e9c003f285dea517125578f74b759c0d3a2361b2cadf95cfd"
+    },
+    {
+      "corner": "SF",
+      "vdd": 0.9,
+      "temperature": -40,
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "passed": true,
+      "model_sha256": "6d98211e064cd92931321e73404e145cafcc47f5f75a417f239292504e579f0f",
+      "deck_sha256": "acd164ace70407652b014feb19920f26c102dee5380e79c2df993c98ccb42f4d",
+      "waveform_sha256": "5ab600c95d7702f4f2635522f8e8286efd4c5d7d619dac12f33e11f88e230781",
+      "log_sha256": "4f5565ea32cda70015b608a2a07a6e910f468a8c19e5f53d1381c4006760605b"
+    },
+    {
+      "corner": "FS",
+      "vdd": 0.9,
+      "temperature": 125,
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "passed": true,
+      "model_sha256": "a52b2628861d90234cbac3b3a563936b3b6a7ac7aa06c4c79d8b0d5572793817",
+      "deck_sha256": "7f3f87ae2073b478514b74abf8786e3e29ae47913530cd712a7a34f5a87b5a3c",
+      "waveform_sha256": "d9dd7afa666a3f5aba0d5da76cd2acd82e8d611e43effe18ca987dec4c97fed8",
+      "log_sha256": "ec07c8eca0c89b2bec5912c0b6d9fdb9ceaa1cf9ec5cc9a26d01c1a347cf9399"
+    },
+    {
+      "corner": "FF",
+      "vdd": 1.1,
+      "temperature": -40,
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "passed": true,
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "deck_sha256": "90b6d116ddd91d592bcdc83654317d391395f284bc2a2ab6ad24c7a3ebe2958b",
+      "waveform_sha256": "e18592c6bc551829265d9966262a5b2fc0d52241fc6c90b37c24fcd570f0efc5",
+      "log_sha256": "9e77b4ab8163c8265e4725f9dd366e1cb791c5570143093663229ef972502ece"
+    },
+    {
+      "corner": "FF",
+      "vdd": 1.1,
+      "temperature": 125,
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "passed": true,
+      "model_sha256": "5056d79c94eb8d4c67829f942432fd1252f5560ab888ca8ba7c00b376712bc86",
+      "deck_sha256": "f8ff213f2b95359a1c782a58ef3838d9b59cee67fdfe37c7a882fd0e484fb0d1",
+      "waveform_sha256": "81c70f30b9ebb8682efdcd7f89e845d3a59e9963e2623690b323480f52bc5033",
+      "log_sha256": "f76626657acae974ebcd8f87c1206fec26bda2989cd3ca208a69844ddd04b41f"
+    },
+    {
+      "corner": "TT",
+      "vdd": 1.0,
+      "temperature": 25,
+      "checks": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "passed": true,
+      "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+      "deck_sha256": "6be7b467ef20cea17ce8f0ca83b3895bc219caa4686788b0ee8dfde44428462f",
+      "waveform_sha256": "1242f6815fc46b3bb2ca523f5d47f9012eb8658625476ce528cfb39c75e107fc",
+      "log_sha256": "988f7824be9eec1e184140301fcd9c43f00fa71eba90db65b3a3e3bc4049da98"
+    }
+  ],
+  "limitations": [
+    "No per-device mismatch in this component screen",
+    "Macro supply bounce and controller completion loops require separate verification"
+  ]
+}
