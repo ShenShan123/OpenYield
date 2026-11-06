@@ -71,6 +71,8 @@ an unsafe handoff.
 Joint entries can also raise `read_completion_stages` or
 `write_completion_stages` for one class pair. The larger row/column allowance
 and eight-stage minimum still apply, so a joint entry cannot shorten them.
+Likewise, `setup_stages` can raise one pair's decoder allowance while retaining
+the row-class minimum and the references of other shapes.
 
 An optional `self_timed_joint_sizing` list selects sizing overrides for an
 explicit pair of rounded `max_rows` / `max_cols` anchors. It applies only to

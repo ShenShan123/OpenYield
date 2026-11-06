@@ -376,7 +376,7 @@ def load_lookup(path=None):
         if not isinstance(references,list) or not references:
             raise ValueError('Self-timed joint references must be a nonempty list')
         for entry in references:
-            allowed={'max_rows','max_cols','guard_stages','enable_off_stages',*_GUARD_PATHS,*_COMPLETION_STAGES}
+            allowed={'max_rows','max_cols','setup_stages','guard_stages','enable_off_stages',*_GUARD_PATHS,*_COMPLETION_STAGES}
             if not isinstance(entry,dict) or entry.keys()-allowed:
                 raise ValueError('Unsupported self-timed joint timing reference')
             pair=(entry.get('max_rows'),entry.get('max_cols'))
@@ -384,7 +384,7 @@ def load_lookup(path=None):
                     or pair[1] not in col_bounds or pair in seen):
                 raise ValueError('Self-timed joint references require unique row/column anchors')
             seen.add(pair)
-            counts=[entry[name] for name in ('guard_stages','enable_off_stages',*_GUARD_PATHS,*_COMPLETION_STAGES) if name in entry]
+            counts=[entry[name] for name in ('setup_stages','guard_stages','enable_off_stages',*_GUARD_PATHS,*_COMPLETION_STAGES) if name in entry]
             if not counts or any(type(value) is not int or value<2 or value%2 for value in counts):
                 raise ValueError('Self-timed joint guard stages must be positive even integers')
             if any(entry.get(name,8)<8 for name in _COMPLETION_STAGES):
@@ -498,6 +498,7 @@ def _stage_policy(options: dict, rows: int, cols: int, access_speedup: bool = Fa
                   table['column_classes'][-1]['max_cols'] if col_class.get('extrapolated') else col_class['max_cols'])
             for reference in table.get('self_timed_joint_references',[]):
                 if (reference['max_rows'],reference['max_cols'])==pair:
+                    stages['setup_stages']=max(stages['setup_stages'],reference.get('setup_stages',2))
                     stages['guard_stages']=reference.get('guard_stages',stages['guard_stages'])
                     stages['enable_off_stages']=reference.get('enable_off_stages',
                         reference.get('guard_stages',stages['enable_off_stages']))
