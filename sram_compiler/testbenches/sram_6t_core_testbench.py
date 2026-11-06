@@ -154,6 +154,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             read_completion_stages=self.driver_sizes.read_completion_stages,
             write_completion_stages=self.driver_sizes.write_completion_stages,
             write_drive_guard_stages=self.driver_sizes.write_drive_guard_stages,
+            delay_driver_scale=self.driver_sizes.delay_driver_scale,
+            delay_loads_per_stage=self.driver_sizes.delay_loads_per_stage,
         ).create()
         circuit.subcircuit(time_control)   # Add to main circuit
         

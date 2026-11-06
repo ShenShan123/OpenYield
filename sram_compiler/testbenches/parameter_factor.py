@@ -1,4 +1,5 @@
 from PySpice.Unit import u_Ohm, u_pF
+from typing import Optional
 from sram_compiler.subcircuits.mux_and_sa import SenseAmp, ColumnMux
 from sram_compiler.subcircuits.precharge_and_write_driver import Precharge,WriteDriver
 from sram_compiler.subcircuits.wordline_driver import WordlineDriver
@@ -916,6 +917,8 @@ class TimeControlFactory:
                  read_completion_stages: int = 8,
                  write_completion_stages: int = 8,
                  write_drive_guard_stages=None,
+                 delay_driver_scale: Optional[float] = None,
+                 delay_loads_per_stage: Optional[int] = None,
                  ):
 
         self.interconnect = interconnect
@@ -956,6 +959,8 @@ class TimeControlFactory:
         self.read_completion_stages = read_completion_stages
         self.write_completion_stages = write_completion_stages
         self.write_drive_guard_stages = write_drive_guard_stages
+        self.delay_driver_scale = delay_driver_scale
+        self.delay_loads_per_stage = delay_loads_per_stage
     def create(self):
         return TIME_CONTROL(
             nmos_model=self.nmos_model,
@@ -995,6 +1000,8 @@ class TimeControlFactory:
             read_completion_stages=self.read_completion_stages,
             write_completion_stages=self.write_completion_stages,
             write_drive_guard_stages=self.write_drive_guard_stages,
+            delay_driver_scale=self.delay_driver_scale,
+            delay_loads_per_stage=self.delay_loads_per_stage,
         )
     
 class Sram10TCellFactory:

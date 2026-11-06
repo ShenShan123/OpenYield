@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.9",
+  "scope": "Area-constrained compact self-timed 6T sizing and control-routing characterization; this manifest is a protocol, not a pass record",
+  "baseline": {
+    "revision": "58bf5cb",
+    "layout": "V2.2.8 g15 complete macros",
+    "area_metric": "Actual complete GDS bounding-box area, including controller, registers, periphery and supply grid"
+  },
+  "required_shapes": [
+    {"rows": 32, "cols": 32, "area_ceiling_um2": 2229.47960625},
+    {"rows": 64, "cols": 64, "area_ceiling_um2": 5118.53145},
+    {"rows": 128, "cols": 128, "area_ceiling_um2": 13959.57465},
+    {"rows": 256, "cols": 256, "area_ceiling_um2": 43896.70985}
+  ],
+  "architecture": {
+    "cell": "SRAM_6T_CELL",
+    "column_mux": 2,
+    "control": "self-timed",
+    "stage_counts": "Retain existing setup, settling and completion references unless separately validated",
+    "legacy_scope": "No sizing override for legacy/10T or unlisted joint classes"
+  },
+  "candidates": {
+    "delay_cell": {"driver_scale": 2, "loads_per_stage": 1},
+    "peripheral_screen": "Compare original classes with PRE2, WD4/input1, and their combination",
+    "control_metal_screen": "Compare original bars, 270 nm M4 bars and 500 nm parallel M6 straps with matched terminal extraction",
+    "clock_credit": "Use joint electrical evidence; do not add independent sizing and metal savings on the same RC path"
+  },
+  "corners": [
+    {"corner": "SS", "vdd": 0.9, "temperature_c": 125},
+    {"corner": "FS", "vdd": 0.9, "temperature_c": 125},
+    {"corner": "FF", "vdd": 1.1, "temperature_c": 125},
+    {"corner": "SF", "vdd": 0.9, "temperature_c": -40},
+    {"corner": "FF", "vdd": 1.1, "temperature_c": -40}
+  ],
+  "verification": {
+    "physical": "Actual area ceiling, DRC 0, LVS CORRECT and distributed R+C+CC; preserve all supply pins, supply mesh and kit contact/via resistance",
+    "waveforms": "Read, write, hold, sense polarity/margin, nonoverlap and complete recovery before capture; inspect controller and physical far-end crossings",
+    "complete_restoration": "All bitlines within 2 percent of VDD, PRE fully on, enables and all latent completion/guard states reset",
+    "guard_launch": "Use 50 percent crossings for event-model changes; retain the independent 1.5-times settling and completion checks",
+    "mismatch": "Explicit per-device vth0/u0/voff samples with recorded seed and sigma; nominal coupons do not establish yield",
+    "larger_arrays": "Measured anchors plus explicitly labeled conditional timing estimates are authorized; physical receipts do not establish waveform qualification",
+    "clock_policy": "One 10 percent margin after the completed cycle/access budget; round upward to 50 ps"
+  },
+  "evidence_requirements": [
+    "source and effective sizing/configuration identity",
+    "solver and model hashes",
+    "nominal or per-device variation, seed and sigma",
+    "RC provenance, coupling treatment and any reduction",
+    "layout and receipt hashes",
+    "measured, modeled and unqualified scopes kept distinct",
+    "failed and excluded attempts preserved"
+  ],
+  "local_runner_note": "Python waveform and characterization runners live under ignored tests/ and dev/; a fresh clone does not include them."
+}

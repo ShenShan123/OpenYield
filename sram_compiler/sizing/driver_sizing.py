@@ -44,6 +44,7 @@ _STAGE_FIELDS = {"row_classes": "setup_stages", "column_classes": "guard_stages"
 # precharge and write-driver gates to one control bar, so a wide array's
 # restore and write completion is limited by the bar, not the bitline.
 _COLUMN_CAPS = {"pre_cap": "pre", "wd_cap": "wd_out"}
+_JOINT_SIZING_FIELDS = (*_ROW_SCALES, 'delay_driver_scale', 'delay_loads_per_stage')
 
 
 @dataclass(frozen=True)
@@ -116,6 +117,8 @@ class DriverSizes:
     lookup_sha256: str = ''
     sizing_policy_key: str = ''
     write_drive_guard_stages: int = 4
+    delay_driver_scale: float | None = None
+    delay_loads_per_stage: int | None = None
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -130,6 +133,16 @@ class DriverSizes:
             raise ValueError("Frozen driver sizes belong to a different control architecture")
         cfg = sram_config.global_config
         options = _mapping(getattr(cfg, 'sizing', {}))
+        if self.source == 'lookup':
+            lookup = load_lookup(options.get('lookup'))
+            if self.lookup_sha256 != lookup['sha256']:
+                raise ValueError('Frozen driver sizes require the current sizing lookup')
+            row, column = lookup_classes(lookup, self.rows, self.cols)
+            profile = _joint_sizing(lookup, row, column, self.access_speedup and self.compact_control)
+            scale = profile.get('delay_driver_scale')
+            if (self.delay_driver_scale != (float(scale) if scale is not None else None)
+                    or self.delay_loads_per_stage != profile.get('delay_loads_per_stage')):
+                raise ValueError('Frozen driver sizes require the current delay sizing profile')
         requested_speedup = _self_timed_control(options, cell_type, mux)
         if requested_speedup != self.access_speedup:
             raise ValueError('Frozen driver sizes belong to a different control architecture')
@@ -363,7 +376,7 @@ def load_lookup(path=None):
         if not isinstance(references,list) or not references:
             raise ValueError('Self-timed joint references must be a nonempty list')
         for entry in references:
-            allowed={'max_rows','max_cols','guard_stages','enable_off_stages',*_GUARD_PATHS}
+            allowed={'max_rows','max_cols','guard_stages','enable_off_stages',*_GUARD_PATHS,*_COMPLETION_STAGES}
             if not isinstance(entry,dict) or entry.keys()-allowed:
                 raise ValueError('Unsupported self-timed joint timing reference')
             pair=(entry.get('max_rows'),entry.get('max_cols'))
@@ -371,12 +384,51 @@ def load_lookup(path=None):
                     or pair[1] not in col_bounds or pair in seen):
                 raise ValueError('Self-timed joint references require unique row/column anchors')
             seen.add(pair)
-            counts=[entry[name] for name in ('guard_stages','enable_off_stages',*_GUARD_PATHS) if name in entry]
+            counts=[entry[name] for name in ('guard_stages','enable_off_stages',*_GUARD_PATHS,*_COMPLETION_STAGES) if name in entry]
             if not counts or any(type(value) is not int or value<2 or value%2 for value in counts):
                 raise ValueError('Self-timed joint guard stages must be positive even integers')
+            if any(entry.get(name,8)<8 for name in _COMPLETION_STAGES):
+                raise ValueError('Self-timed joint completion stages must be at least eight')
+    if 'self_timed_joint_sizing' in table:
+        profiles = table['self_timed_joint_sizing']
+        if not isinstance(profiles, list) or not profiles:
+            raise ValueError('Self-timed joint sizing must be a non-empty list')
+        row_bounds = {r['max_rows'] for r in table['row_classes']}
+        col_bounds = {c['max_cols'] for c in table['column_classes']}
+        seen = set()
+        for profile in profiles:
+            allowed = {'max_rows', 'max_cols', *_JOINT_SIZING_FIELDS}
+            if not isinstance(profile, dict) or profile.keys() - allowed:
+                raise ValueError('Unsupported self-timed joint sizing field')
+            pair = (profile.get('max_rows'), profile.get('max_cols'))
+            if (any(type(value) is not int for value in pair) or pair[0] not in row_bounds
+                    or pair[1] not in col_bounds or pair in seen):
+                raise ValueError('Self-timed joint sizing requires unique row/column anchors')
+            seen.add(pair)
+            if not any(name in profile for name in _JOINT_SIZING_FIELDS):
+                raise ValueError('Self-timed joint sizing needs a sizing override')
+            for name in (*_ROW_SCALES, 'delay_driver_scale'):
+                if name in profile:
+                    _positive(name, profile[name])
+            delay_fields = ('delay_driver_scale', 'delay_loads_per_stage')
+            if any(name in profile for name in delay_fields):
+                if not all(name in profile for name in delay_fields):
+                    raise ValueError('Delay sizing needs both driver scale and load count')
+                count = profile['delay_loads_per_stage']
+                if type(count) is not int or count < 1:
+                    raise ValueError('Delay load count must be a positive integer')
     table["path"] = str(path)
     table["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
     return table
+
+
+def _joint_sizing(lookup: dict | None, row_class: dict | None, col_class: dict | None,
+                  enabled: bool) -> dict:
+    if not enabled or lookup is None or row_class['extrapolated'] or col_class['extrapolated']:
+        return {}
+    pair = (row_class['max_rows'], col_class['max_cols'])
+    return next((profile for profile in lookup.get('self_timed_joint_sizing', [])
+                 if (profile['max_rows'], profile['max_cols']) == pair), {})
 
 
 def interpolate_class(classes, bound, names, size):
@@ -450,6 +502,8 @@ def _stage_policy(options: dict, rows: int, cols: int, access_speedup: bool = Fa
                     stages['enable_off_stages']=reference.get('enable_off_stages',
                         reference.get('guard_stages',stages['enable_off_stages']))
                     for field in _GUARD_PATHS:stages[field]=reference.get(field,stages['guard_stages'])
+                    for field in _COMPLETION_STAGES:
+                        stages[field]=max(stages[field],reference.get(field,8))
     for field in _GUARD_PATHS:stages.setdefault(field,stages['guard_stages'])
     return stages
 
@@ -544,8 +598,10 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         raise ValueError('Distributed wiring requires a matched replica and canonical read')
     if replica_k > cols:
         raise ValueError("Matched replica K must not exceed columns (wordline gate load)")
+    joint_sizing = _joint_sizing(lookup, row_class, col_class, access_speedup and compact_control)
     if mode == "lookup":
         scales = {name: float(row_class[name]) for name in ("pre", "wd_out", "wd_in")}
+        scales.update({name: float(joint_sizing[name]) for name in _ROW_SCALES if name in joint_sizing})
         scales.update({name: float(col_class[name]) for name in ("wl_inv", "wl_nand")})
         # Column caps on the bitline drivers (control-bar load); the write
         # input stage follows the capped output stage.
@@ -660,6 +716,9 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         path_options['access_speedup'] = True
         path_options.update({name:stages[name] for name in _COMPLETION_STAGES})
         path_options['write_drive_guard_stages']=stages['write_drive_stages']
+    if 'delay_driver_scale' in joint_sizing:
+        path_options.update(delay_driver_scale=float(joint_sizing['delay_driver_scale']),
+                            delay_loads_per_stage=joint_sizing['delay_loads_per_stage'])
     baseline = {
         "version": RULE_VERSION, "control_architecture": architecture, "cell_type": cell_type,
         "cell": _circuit_inputs(getattr(sram_config, cell_type.lower())),

@@ -940,7 +940,9 @@ class TIME_CONTROL(BaseSubcircuit):
                  access_speedup: bool = False,
                  read_completion_stages: int = 8,
                  write_completion_stages: int = 8,
-                 write_drive_guard_stages: Optional[int] = None) -> None:
+                 write_drive_guard_stages: Optional[int] = None,
+                 delay_driver_scale: Optional[float] = None,
+                 delay_loads_per_stage: Optional[int] = None) -> None:
         """
         num_sa:   number of sense amplifiers driven by s_en (num_cols / mux_in);
                   default num_cols.
@@ -978,6 +980,20 @@ class TIME_CONTROL(BaseSubcircuit):
         if type(access_speedup) is not bool:
             raise ValueError('access_speedup must be boolean')
         self.access_speedup = access_speedup
+        if delay_driver_scale is not None or delay_loads_per_stage is not None:
+            if not (compact_control and access_speedup):
+                raise ValueError('Joint delay sizing requires compact self-timed control')
+            if (isinstance(delay_driver_scale, bool) or not isinstance(delay_driver_scale, (int, float))
+                    or not isfinite(delay_driver_scale) or delay_driver_scale <= 0
+                    or type(delay_loads_per_stage) is not int or delay_loads_per_stage < 1):
+                raise ValueError('Delay sizing needs a positive driver scale and integer load count')
+            values = cfg.to_dict()
+            values['devices']['delay_driver'] = {
+                'nmos_width_m': cfg.devices.unit_inverter.nmos_width_m * delay_driver_scale,
+                'pmos_width_m': cfg.devices.unit_inverter.pmos_width_m * delay_driver_scale,
+            }
+            values['delays']['unit_loads_per_stage'] = delay_loads_per_stage
+            self.control_config = cfg = resolve_time_control_config(values)
         self.access_source = 'access_phase' if access_speedup else 'gated_clk_buf'
         num_rows = cfg.defaults.num_rows if num_rows is None else num_rows
         num_cols = cfg.defaults.num_cols if num_cols is None else num_cols

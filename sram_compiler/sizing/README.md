@@ -68,6 +68,21 @@ different frozen control-bar loads. A common guard count would needlessly
 delay light paths and can miss the heavy write-drive path. All references
 are part of frozen-object validation; changing the clock alone cannot repair
 an unsafe handoff.
+Joint entries can also raise `read_completion_stages` or
+`write_completion_stages` for one class pair. The larger row/column allowance
+and eight-stage minimum still apply, so a joint entry cannot shorten them.
+
+An optional `self_timed_joint_sizing` list selects sizing overrides for an
+explicit pair of rounded `max_rows` / `max_cols` anchors. It applies only to
+compact self-timed 6T control; legacy, schematic and unlisted or extrapolated
+classes retain their existing sizes. Entries may override `pre`, `wd_in` and
+`wd_out`; the existing column caps still apply afterward. The paired fields
+`delay_driver_scale` and `delay_loads_per_stage` set the unit-delay inverter
+widths relative to the configured unit inverter and its dummy-load count.
+They do not change any guard, setup or completion stage count. These choices
+enter the frozen sizing fingerprint, and a changed lookup invalidates a
+previously resolved record. A sizing entry is not timing or area qualification;
+characterize it at a fixed diagnostic clock before publishing new budgets.
 
 Both clock JSONs use schema 2. The `self_timed` block holds integer-ps budgets
 for capture-to-data (`access_ps`) and capture-to-full-recovery (`cycle_ps`).
