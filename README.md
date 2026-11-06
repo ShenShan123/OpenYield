@@ -1,4 +1,4 @@
-# OpenYield V2.2.8
+# OpenYield V2.2.9
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
 
@@ -13,7 +13,14 @@ contains current geometry, physical evidence and limits; its
 six MOS instances. Component and standalone controller tools remain available.
 Physical checks do not qualify autonomous bank operation.
 
-**Release status:** V2.2.6 fixes custom SNM construction, model-audit false rejections, sample-count validation, and single-cell coverage metadata. See the [configuration review](docs/design/compiler/CONFIGURATION_REVIEW_V2_2_6.md) for reproductions and validation. No full V2.2.6 screen has completed. The V2.2.5 campaign stopped incomplete; the [V2.2.5 simulation summary](docs/validation/V2_2_5_SIMULATION_SUMMARY.md) records it with the corrected-model diagnostics, which retain their original scope. The configured limit is 512 rows by 256 columns, and 256x256 still lacks a converged operating point. The completed [V2.2.2 screen](docs/design/timing/PHASED_CONTROL_V2_2_2.md) certifies only that earlier tree.
+**V2.2.9** adds self-timed access and recovery for 6T SRAMs with the standard
+2:1 column mux. The [timing record](docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md)
+reports the extracted 32×32 waveform screen, mismatch measurements and
+estimated larger-array clocks. Driver W/L classes stay frozen; 10T retains
+its earlier controller. The supported timing envelope is 512 rows by 256
+columns. Larger-class estimates do not establish full-macro waveform or
+yield qualification. Earlier incomplete release campaigns retain their
+[recorded scope](docs/validation/V2_2_5_SIMULATION_SUMMARY.md).
 
 ## Environment setup
 
@@ -112,7 +119,7 @@ This smoke check generates a deterministic full-transistor deck under
 `outputs/main_sram/`. It checks environment and netlist construction only;
 it does not simulate or validate waveforms.
 
-Edit the settings at the top of [`main_sram.py`](main_sram.py). Set `ARRAY = [8, 4, False]`, `OPERATION = "read"`, and `RUN_XYCE = False` to generate a full-transistor deck without a simulator:
+Edit the settings at the top of [`main_sram.py`](main_sram.py). Set `ARRAY = [8, 4, True]`, `OPERATION = "read"`, and `RUN_XYCE = False` to generate a full-transistor deck without a simulator:
 
 ```bash
 python main_sram.py
@@ -135,7 +142,7 @@ python main_sram.py layout --help
 
 `simulate` is optional when passing simulation flags directly. CLI options override
 the script settings. Per-device mismatch is the default; `--seed random` requests
-fresh draws. `--version` reports V2.2.8.
+fresh draws. `--version` reports V2.2.9.
 
 ## Configure an array
 
@@ -178,7 +185,7 @@ python -m compileall -q sram_compiler utils size_optimization yield_estimation
 python main_sram.py simulate --rows 2 --cols 2 --no-run-xyce
 ```
 
-The regression and waveform Python scripts are retained only in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the unfinished V2.2.5 screen; no V2.2.5 or V2.2.6 full screen has completed. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
+The regression and waveform Python scripts are retained only in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [V2.2.9 protocol](tests/spice/v229_access_speedup_cases.json) describes the access-speedup screen, and the [earlier manifests](tests/spice/README.md) retain their original scope. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
 
 ## Guides and project map
 

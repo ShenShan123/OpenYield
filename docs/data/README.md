@@ -1,5 +1,18 @@
 # Characterisation and diagnostic data
 
+## V2.2.9 self-timed access
+
+The [design record](../design/timing/ACCESS_SPEEDUP_V2_2_9.md) links the
+[controller screen](ACCESS_SPEEDUP_V2_2_9.json),
+[macro system margin](ACCESS_SPEEDUP_SYSTEM_MARGIN.json),
+[6,000-sample offset study](ACCESS_SPEEDUP_SENSE_OFFSET.json),
+[compact estimates](ACCESS_SPEEDUP_ESTIMATES.json) and
+[schematic estimates](ACCESS_SPEEDUP_SCHEMATIC_ESTIMATES.json).
+The [baseline](ACCESS_SPEEDUP_BASELINE.json),
+[detector feasibility](ACCESS_SPEEDUP_DETECTORS.json) and
+[extracted phase register](ACCESS_SPEEDUP_PHASE_REGISTER.json) retain their
+separate scopes. Larger estimated clocks do not qualify new macro waveforms.
+
 ## Historical layout evidence
 
 The [compact column-split record](../design/layout/COMPACT_CELL_V2_2_8.md)

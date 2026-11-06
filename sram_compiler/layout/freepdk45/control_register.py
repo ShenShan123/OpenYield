@@ -11,17 +11,24 @@ from .lib import Builder,pya
 
 def make_register(layout: pya.Layout,c: Component,low_metal: bool=False) -> CellView:
     names=['Xinv1_clk','Xinv2_D','Xtg1','Xinv3','Xinv4','Xtg2','Xinv5','Xtg3','Xinv6','Xinv7','Xtg4']
-    if c.passives or [i.name for i in c.children]!=names or c.ports!=('VDD','VSS','D','Q','CLK'):
+    clear = c.name == 'ACCESS_PHASE_DFF'
+    ports = ('VDD','VSS','D','Q','CLK') + (('CLR',) if clear else ())
+    if c.passives or [i.name for i in c.children]!=names or c.ports!=ports:
         raise ValueError('Unsupported DFF topology')
     signals=[('CLK','CLKB'),('D','D_b'),('D_b','z1','CLK','CLKB'),
              ('z1','z2'),('z2','z3'),('z3','z1','CLKB','CLK'),
              ('z2','z4'),('z4','z5','CLKB','CLK'),('z5','Q'),
              ('Q','QB'),('QB','z5','CLK','CLKB')]
+    if clear:
+        signals[3] = ('z1','CLR','z2')
+        signals[8] = ('z5','CLR','Q')
     for inst,nets in zip(c.children,signals):
         if inst.nodes!=('VDD','VSS',*nets):
             raise ValueError('Unsupported DFF connectivity')
         for device in inst.component.devices:
-            expected={'PMOS_VTG':500.,'NMOS_VTG':250.}.get(device.model)
+            sizes = ({'PMOS_VTG':270.,'NMOS_VTG':90.} if clear and inst.name in ('Xinv3','Xinv6')
+                     else {'PMOS_VTG':500.,'NMOS_VTG':250.})
+            expected=sizes.get(device.model)
             if expected is None or abs(device.width_m*1e9-expected)>1e-6:
                 raise ValueError('DFF view requires frozen 500/250 nm devices')
     b=Builder(layout,('CTRL_DFF_LOW_' if low_metal else 'CTRL_DFF_')+c.identity[:16]);x=0.;dy=100.;placed={};terminals={};physical=[];cache={}
@@ -104,6 +111,17 @@ def make_register(layout: pya.Layout,c: Component,low_metal: bool=False) -> Cell
         wire('m7',xx,dy+1200,xx,dy+1400,400);pins['CLK']=(xx,dy+1400,'m7')
     for net,phase in [('VSS',100),('VDD',1500)]:
         wire('m1',35,dy+phase,width-35,dy+phase);pins[net]=(100,dy+phase,'m1')
+    if clear:
+        # Reset both latches on one private M4 rail above the clocks. M5
+        # branches cross the existing M4 feedback tracks without joining.
+        reset_y = dy + 2000.
+        for inst in ('Xinv3','Xinv6'):
+            xx,yy,layer = point(inst,'B')
+            entry_y = dy + 400.
+            wire('m3',xx,yy,xx,entry_y);lift(xx,entry_y,3,5)
+            wire('m5',xx,entry_y,xx,reset_y,145);lift(xx,reset_y,4,5)
+        wire('m4',100,reset_y,width-100,reset_y,145)
+        pins['CLR'] = (width-400,reset_y,'m4')
     for n,(x,y,l) in pins.items():b.label(l,n,x,y)
-    v=CellView(c,b,width,1900 if low_metal else 1800,pins,terminals,[],[],[]);v.physical_fingers=physical;v.standard_family='DFF'
+    v=CellView(c,b,width,2300 if clear else (1900 if low_metal else 1800),pins,terminals,[],[],[]);v.physical_fingers=physical;v.standard_family='DFF'
     return v

@@ -9,6 +9,29 @@ were condensed after V2.2.6; the previous full text is at
 proposals and that circuit review were purged after V2.2.6; retrieve them with
 `git show b4987df:<path>`.
 
+## V2.2.9 — 2026-11-05 — self-timed 6T access and recovery
+
+[Design and verification record](design/timing/ACCESS_SPEEDUP_V2_2_9.md).
+
+- Standard 2:1-mux 6T macros start decoder setup and write isolation alongside
+  PRE release. Far isolation gates sensing; physical completion clears an
+  added phase register and starts recovery, including with CLK held high.
+  Write drive covers the WL tail. 10T keeps the earlier controller.
+- Measured offset, extracted macro noise and correct input polarity replace
+  the provisional fixed sense floor. Settling guards remain because the
+  proposed threshold detectors did not qualify.
+- Full decoders exposed unselected-WL first-read glitches. Verified setup
+  references fix those hazards; larger classes use explicit completion and
+  per-path settling references with recorded conditional bounds.
+- Schema-2 clocks budget capture through full recovery, including every
+  bitline and latent timer reset. Joint row/column budgets receive one 10%
+  margin and 50 ps rounding; read deadlines are absolute after capture.
+  Frozen policy, sizing, model and RC identities prevent stale budget reuse.
+- The extracted 32×32 anchor selects **7.40 ns**, previously 9.50 ns, with a
+  **4.20 ns** read deadline. Larger clocks are estimates. Peripheral/buffer
+  W/L classes remain frozen; added logic and routing increase the 32×32
+  footprint **11.27%**. The linked record states the finite verification scope.
+
 ## V2.2.8 — 2026-10-11 — component-based bank and controller layouts
 
 [Historical bank evidence](data/OPENRAM_PITCH_V2_2_8.json),

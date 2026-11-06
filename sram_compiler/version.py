@@ -1,3 +1,3 @@
 """Compiler version used by generated run metadata."""
 
-VERSION = "V2.2.8"
+VERSION = "V2.2.9"

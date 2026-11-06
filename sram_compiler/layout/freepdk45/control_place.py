@@ -320,7 +320,7 @@ class StandardLibrary:
             if c.identity not in self.views:self.views[c.identity]=make_logic(self.layout,c,self.row_height,compact=self.compact_registers)
             return self.views[c.identity]
         if c.identity not in self.views:
-            if c.name=='DFF':
+            if c.name in ('DFF', 'ACCESS_PHASE_DFF'):
                 from .control_register import make_register
                 v=make_register(self.layout,c,low_metal=self.compact_registers)
             elif c.name=='TRANSMISSION_GATE':v=make_transmission_gate(self.layout,c)

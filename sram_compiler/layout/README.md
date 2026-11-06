@@ -106,7 +106,7 @@ The grid never moves the macro boundary. The controller keeps each enable
 driver chain (`w_en`, `s_en`, `sa_iso`, precharge, `wl_en`) on its own band
 rows, so no enable buffer shares a row rail with another.
 
-Post-layout transients of extracted macros at the worst global PVT corners
+Historical V2.2.8 post-layout transients at the worst global PVT corners
 are recorded in the [post-layout record](../../docs/design/layout/POST_LAYOUT_V2_2_8.md).
 The FreePDK45 xRC deck applies its via1/via2/contact resistance per cut area
 (88–102 Ω per minimum cut) and has no resistance temperature coefficients;
@@ -114,7 +114,12 @@ that record states the resulting scope. Those runs use the layout clock
 table `sram_compiler/sizing/layout_timing_lookup.json` (`--timing-lookup`;
 64×64 at 12 ns) and feed every macro supply pin. 32×32 and 64×64 pass all
 ten worst-PVT cases, and so does 128×128 with the array mesh; without it a
-128×128 read at FF 1.1 V −40 °C flipped far-end cells.
+128×128 read at FF 1.1 V −40 °C flipped far-end cells. Those results apply to
+the earlier controller. V2.2.9 uses the same extracted supply and cut-resistance
+policy; its [self-timed access record](../../docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md)
+contains the new 32×32 macro's waveform screen and labels larger-class clocks
+as estimates. Its additional asynchronous-clear phase register is a physical
+component; completion timers and their logic occupy separate controller rows.
 
 ## Small cells and component placement
 
@@ -170,8 +175,11 @@ for current bank geometry and verification limits.
 ## Standalone TIME_CONTROL and analysis tools
 
 `layout time-control` generates the standalone source controller.
-`simulate --compact-control` selects the existing factored digital controller;
-its source devices and timing are independent of the bank CLI defaults.
+`simulate --compact-control` selects compact control and, for standard 2:1-mux
+6T sources, the matching layout sizing/timing lookups. Explicit lookup and
+fixed-period arguments take precedence. Direct component factories retain
+their legacy defaults; compiler-generated 6T decks select the versioned
+self-timed controller through the sizing lookup.
 
 `layout preview --layout-dir PATH` renders actual GDS routing, placement and
 TIME_CONTROL views. `--region=X0,Y0,X1,Y1` (µm) and `--name FILE.png` select a

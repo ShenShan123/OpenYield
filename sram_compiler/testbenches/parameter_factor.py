@@ -912,6 +912,10 @@ class TimeControlFactory:
                  wordline_setup_stages=None,
                  isolation_guard_stages=None,
                  enable_off_guard_stages=None,
+                 access_speedup: bool = False,
+                 read_completion_stages: int = 8,
+                 write_completion_stages: int = 8,
+                 write_drive_guard_stages=None,
                  ):
 
         self.interconnect = interconnect
@@ -948,6 +952,10 @@ class TimeControlFactory:
         self.wordline_setup_stages = wordline_setup_stages
         self.isolation_guard_stages = isolation_guard_stages
         self.enable_off_guard_stages = enable_off_guard_stages
+        self.access_speedup = access_speedup
+        self.read_completion_stages = read_completion_stages
+        self.write_completion_stages = write_completion_stages
+        self.write_drive_guard_stages = write_drive_guard_stages
     def create(self):
         return TIME_CONTROL(
             nmos_model=self.nmos_model,
@@ -983,6 +991,10 @@ class TimeControlFactory:
             wordline_setup_stages=self.wordline_setup_stages,
             isolation_guard_stages=self.isolation_guard_stages,
             enable_off_guard_stages=self.enable_off_guard_stages,
+            access_speedup=self.access_speedup,
+            read_completion_stages=self.read_completion_stages,
+            write_completion_stages=self.write_completion_stages,
+            write_drive_guard_stages=self.write_drive_guard_stages,
         )
     
 class Sram10TCellFactory:

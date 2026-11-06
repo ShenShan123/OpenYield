@@ -14,7 +14,7 @@ from .dense_views import write_view
 def units(component,mapping=None,path=''):
     mapping=dict(zip(component.ports,component.ports)) if mapping is None else mapping
     def net(n):return mapping.get(n,path+'/'+n if path else n)
-    if component.name=='DFF' or component.devices:
+    if component.name in ('DFF', 'ACCESS_PHASE_DFF') or component.devices:
         yield path,component,mapping
         return
     for i in component.children:
@@ -110,6 +110,15 @@ def _corner_inventory(library,component,width,exclude):
         v=library.build(c)
         limit=width-600
         inventory.extend([(p,v,m)] if v.width_nm<=limit else [(p,s,m) for s in _slices(library,c,limit)])
+    # A completion gate is emitted after both timers in the schematic. Keep
+    # it beside its own observer and delay in placement, so a chain does not
+    # start a second row group after the other timer has been placed.
+    for chain in ('read_completion','write_completion'):
+        selected=[item for item in inventory if ENABLE_CHAINS.get(item[0].split('/')[0])==chain]
+        if selected:
+            first=inventory.index(selected[0])
+            rest=[item for item in inventory if ENABLE_CHAINS.get(item[0].split('/')[0])!=chain]
+            inventory=rest[:first]+selected+rest[first:]
     return inventory
 
 
@@ -141,7 +150,9 @@ CENTRE_TALL=False    # route centre frames below 80 um with the tall-frame order
 # when that buffer switches: post-layout, s_en rose 0.205 V at 64x64 FF -40 C as
 # w_en fell (55 of its 73 ohm to the pins shared); from another row, 1.4 ohm.
 ENABLE_CHAINS={'Xw_en':'w_en','Xw_en_buf':'w_en','Xs_en':'s_en','Xs_en_buf':'s_en','Xsa_iso':'sa_iso',
-               'Xsa_iso_buf':'sa_iso','Xpre_unbuf':'pre','Xpre':'pre','Xwl_en':'wl_en'}
+               'Xsa_iso_buf':'sa_iso','Xpre_unbuf':'pre','Xpre':'pre','Xwl_en':'wl_en',
+               'Xread_observe':'read_completion','Xread_settle':'read_completion','Xread_complete':'read_completion',
+               'Xwrite_observe':'write_completion','Xwrite_settle':'write_completion','Xwrite_complete':'write_completion'}
 HISTORY_COST=10      # centre routing: per-step cost for other nets on a blocked net's path
 ESCAPE_REACH=3000    # macro input escape stacks slide at most this far from their access
 ESCAPE_RADIUS=8000   # ... or stand alone, routed to the access, at most this far away
@@ -286,8 +297,16 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
         try:lane_library.build(sources[path])
         except ValueError:return False
         return True
-    fixed=[p for p in order if entries[p][0][0].standard_family in ('DFF','TG') or _antenna(p,entries[p][0][1])
+    fixed=[p for p in order if entries[p][0][0].standard_family in ('DFF','TG')
+           or ENABLE_CHAINS.get(p.split('/')[0]) in ('read_completion','write_completion')
+           or _antenna(p,entries[p][0][1])
            or not lane_ready(p)]
+    address_bits=sum(path.startswith('Xdff_buf_addr/') and cell.name=='DFF' for path,cell in sources.items())
+    data_bits=sum(path.startswith('Xdff_buf_data/') and cell.name=='DFF' for path,cell in sources.items())
+    if 'Xaccess_phase' in sources and address_bits<=5 and 0<data_bits<=32:
+        # Keep the small self-timed feedback graph below the array instead
+        # of spreading its guard logic through the narrow decoder lanes.
+        fixed=list(order)
     # Groups driving decoder nets (address buffers, wl_en) take the bottom
     # rows, beside the block-edge pins of their outputs; the DFF rows above
     # them then carry no decoder net across. Members too wide for a lane
@@ -689,6 +708,12 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     lane_cells=sorted((y,x) for _,_,_,x,y,row,_ in prepared if row<0)
     lane_next={(ya,xa):xb for (ya,xa),(yb,xb) in zip(lane_cells,lane_cells[1:]) if ya==yb}
     lane_first={y:x for y,x in reversed(lane_cells)}
+    private_load_outputs=set()
+    if any(child.name=='Xaccess_phase' for child in component.children):
+        counts=Counter(net for _,_,mapping,_,_,_,_ in prepared for port,net in mapping.items()
+                       if port not in ('VDD','VSS'))
+        private_load_outputs={net for net,count in counts.items() if count==1
+                              and net not in component.ports and net not in (pin_plan or {})}
     for path,v,m,x,y,row,passive in prepared:
         b.place(v.builder,x,y)
         if v.standard_family=='DFF' and any(
@@ -726,6 +751,10 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         port_loads=_port_loads(v.component)
         for p,(px,yy,l) in v.pins.items():
             net=m[p];px+=x;yy+=y;tap=False
+            # An unused delay-load output already joins its two drains inside
+            # the standard cell. It needs no global M4 landing or route.
+            if p=='Z' and net in private_load_outputs:
+                continue
             if p in ('VDD','VSS'):
                 if row<0:continue  # the decoder's M1 rails supply lane gates
                 if passive:
@@ -849,7 +878,14 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         if net=='VSS':wire('m3',vss_x,min(ys),vss_x,max(ys))
         pins[net]=(*sites[0],'m3');supply_top[net]=sites[-1]
     base=band_span[0] if lanes is not None else 0.
-    wire('m3',vss_x,pins['VSS'][1],vss_x,base+200);lift(vss_x,base+200,3,4);wire('m4',100,base+200,vss_x,base+200,145)
+    wire('m3',vss_x,pins['VSS'][1],vss_x,base+200)
+    self_timed=any(child.name=='Xaccess_phase' for child in component.children)
+    if self_timed:
+        # The first register may occupy the bottom row. Keep its native M4
+        # clock rail clear by landing the VSS via at the public access point.
+        wire('m3',100,base+200,vss_x,base+200);lift(100,base+200,3,4)
+    else:
+        lift(vss_x,base+200,3,4);wire('m4',100,base+200,vss_x,base+200,145)
     pins['VSS']=(100,base+200,'m4')
     vdd_x,vdd_y=width-100.,height-(900. if corner else 200.)
     vdd_source_y=supply_top['VDD'][1]
@@ -1046,7 +1082,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     from .router import RoutingError
     fixed_blocked=set(router.blocked);fixed_clearance={p:set(n) for p,n in router.clearance.items()}
     # Route scarce top-edge address accesses before the interior fills up.
-    tall=height>80000. or (profile is not None and CENTRE_TALL)
+    tall=height>80000. or (profile is not None and (CENTRE_TALL or self_timed))
     priority=[n for n in nets if n.startswith('A_dff')] if tall else []
     if profile is not None and not tall:
         # Centre frames: nets with planned edge pins take straight paths

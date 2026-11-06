@@ -1,0 +1,236 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.9",
+  "scope": "Self-timed 6T SRAM with the standard 2:1 column mux; frozen peripheral/buffer W/L; full32x32 post-layout anchor; explicitly estimated larger classes",
+  "control_architecture": "v2.2.9-self-timed-completion-1",
+  "source": {
+    "operation": "read&write",
+    "variation_mode": "nominal",
+    "real_cell_mode": 0,
+    "column_mux": 2,
+    "sizing_lookup": "sram_compiler/sizing/layout_sizing_lookup.json",
+    "timing_lookup": "sram_compiler/sizing/layout_timing_lookup.json"
+  },
+  "postlayout_anchor": [
+    32,
+    32
+  ],
+  "corners": [
+    {
+      "corner": "SS",
+      "vdd": 0.9,
+      "temperature_c": 125,
+      "tag": "SS"
+    },
+    {
+      "corner": "FS",
+      "vdd": 0.9,
+      "temperature_c": 125,
+      "tag": "FSh"
+    },
+    {
+      "corner": "FF",
+      "vdd": 1.1,
+      "temperature_c": 125,
+      "tag": "FFh"
+    },
+    {
+      "corner": "SF",
+      "vdd": 0.9,
+      "temperature_c": -40,
+      "tag": "SFc"
+    },
+    {
+      "corner": "FF",
+      "vdd": 1.1,
+      "temperature_c": -40,
+      "tag": "FFc"
+    }
+  ],
+  "nominal_patterns": {
+    "seq": "Four accesses: write1/read1/write0/read0 on the last row; native data stimulus",
+    "mixed": "Four accesses from the retained eight-entry alternating-data, opposite-row pattern; both mux inputs",
+    "first_read": "First access reads background0 on the last row before any write, then toggles row/data/mux input",
+    "idle": "First read, deselected capture, write on opposite row, deselected capture; input toggles continue"
+  },
+  "network_model": {
+    "extraction": "Calibre distributed R+C+CC from DRC0/LVS CORRECT complete macro",
+    "reduction_ceiling_ohm": 20,
+    "short_ohm": 1,
+    "ground_coupling_af": 10,
+    "supply": "Extracted VDD/VSS mesh, every macro supply pin fed; kit contact/via resistance unchanged",
+    "all_macro_MOS_retained": true,
+    "initial_guess": "Schematic .IC operating point, released for transient; startup deviation checked"
+  },
+  "offset_study": {
+    "corners": "Five worst-PVT points above plus TT1V25C",
+    "samples_per_corner": 1000,
+    "bisections": 10,
+    "parasitics": "Full extracted compact mux/sense slot, no RC reduction",
+    "bar": "max(abs(mu)+6sigma+Vsys,0.10VDD); nominal1.5bar, per-deviceMC1bar, correct polarity and positive lead"
+  },
+  "mismatch": {
+    "mode": "per-device",
+    "relative_sigma": 0.05,
+    "parameters": [
+      "vth0",
+      "u0",
+      "voff"
+    ],
+    "seeds": [
+      20261105,
+      20261106,
+      20261107
+    ],
+    "scope": "Every retained logical cell, replica, controller and peripheral MOS; split physical fingers share a logical draw",
+    "compact_schematic_size": [
+      32,
+      32
+    ],
+    "schematic_reference_size": [
+      8,
+      8
+    ],
+    "schematic_reference_local_rc": [
+      false,
+      true
+    ],
+    "postlayout_spot": {
+      "size": [
+        32,
+        32
+      ],
+      "corner": "SS",
+      "vdd": 0.9,
+      "temperature_c": 125,
+      "seed": 20261105
+    }
+  },
+  "duty_and_stop": {
+    "duties": [
+      0.3,
+      0.5,
+      0.7
+    ],
+    "definition": "Fraction between external50% crossings; rise/fall1%T",
+    "corners": [
+      "SS",
+      "FFc"
+    ],
+    "stopped_after_captures": [
+      2,
+      3
+    ],
+    "stopped_tail_periods": 3
+  },
+  "recovered_state": {
+    "low": [
+      "all_WL",
+      "w_en",
+      "s_en",
+      "sa_iso",
+      "rbl_delay",
+      "access_phase",
+      "access_done",
+      "read_complete",
+      "write_complete",
+      "read_resolved",
+      "write_resolved",
+      "read_completion_ready",
+      "write_completion_ready"
+    ],
+    "high": [
+      "all_bitlines_at98percent",
+      "PRE_on",
+      "wordline_idle",
+      "enables_off",
+      "all_guard_pre_on_delayed"
+    ],
+    "source_contract": "SELF_TIMED_RECOVERY_LOW/HIGH in sram_6t_core_MC_testbench.py"
+  },
+  "clock_policy": "ceil_to50ps(capture_to_full_recovery*(1+0.10)); separate absolute read deadline from capture50%; budgets contain sampled mismatch; larger-model uncertainty explicit",
+  "required_checks": [
+    "One phase per selected capture and no rearm with CLK held high",
+    "No PRE overlap with WL/write/sense; no simultaneous write/sense; far ISO90 before enable10",
+    "Write drivers cover physical WL tail; read ISO release waits WL off",
+    "All decoder outputs settled before WL admission; first-read regression includes unselected rows",
+    "SA rails valid at completion/through active footer; output and cell data retained through deadline and next capture",
+    "Read/write completion allowance at least1.5 measured data-resolution interval",
+    "Full recovered state including latent guards/timers before capture",
+    "A shorter positive-period screen and an intentional too-short negative control"
+  ],
+  "large_array_method": {
+    "rows": [
+      64,
+      128,
+      256,
+      512
+    ],
+    "columns": [
+      64,
+      128,
+      256
+    ],
+    "joint_shapes": [
+      [
+        512,
+        32
+      ],
+      [
+        32,
+        256
+      ],
+      [
+        128,
+        256
+      ],
+      [
+        512,
+        128
+      ]
+    ],
+    "scope": "Estimates/extrapolation authorized by user; historical g15 segments, actual frozen loads, measured decoder coupons and conditional cell/timer bounds; not new large-macro post-layout qualification"
+  },
+  "evidence": [
+    "docs/data/ACCESS_SPEEDUP_BASELINE.json",
+    "docs/data/ACCESS_SPEEDUP_DETECTORS.json",
+    "docs/data/ACCESS_SPEEDUP_PHASE_REGISTER.json",
+    "docs/data/ACCESS_SPEEDUP_SENSE_OFFSET.json",
+    "docs/data/ACCESS_SPEEDUP_SYSTEM_MARGIN.json",
+    "docs/data/ACCESS_SPEEDUP_ESTIMATES.json",
+    "docs/data/ACCESS_SPEEDUP_V2_2_9.json"
+  ],
+  "local_python_runners_tracked": false,
+  "single_operation_runtime": {
+    "operations": [
+      "read",
+      "write"
+    ],
+    "selected_captures": 2,
+    "self_timed_tail_periods": 2.15,
+    "check": "Both access-validity and distributed-precharge scalar gates cover the final capture and its complete recovery; checked against actual Xyce measures as well as waveforms",
+    "cases": "SS8x8, localRC off/on at5.65ns/3.50ns; case cycles2 is accepted only for the native two-access C1 operations",
+    "state_measure": "VRECOVERY_ERROR_<cycle> repeats the complete pre-capture boundary vector at the clamped recovery endpoint, with0.1VDD control-state tolerance; VRESTORE_ERROR retains its separate0.02VDD bitline tolerance",
+    "negative_fidelity_cases": [
+      "Hold read_resolved or write_resolved high after the final access while data and bitlines remain correct",
+      "Hold a guard pre_on_delayed low after the final access; both runtime and waveform gates must reject it"
+    ]
+  },
+  "clock_reference": {
+    "compact32": {
+      "cycle_budget_ps": 6693,
+      "access_budget_ps": 3784,
+      "period_ps": 7400,
+      "read_deadline_ps": 4200,
+      "basis": "Measured extracted nominal + matched per-corner MC ratio, raised by physicalSSspot"
+    },
+    "schematic32": {
+      "cycle_budget_ps": 5107,
+      "access_budget_ps": 3143,
+      "period_ps": 5650,
+      "read_deadline_ps": 3500,
+      "basis": "Actual32SS anchors, all-corner8 reference/mismatch and explicit conditional reserve"
+    }
+  },
+  "clock_baseline_binding": "Immutable sizing lookup and normalized buffer/decoder policy, periphery, PDK content, actual physical context and current replica/guard/completion refs; cell candidates retain the frozen baseline"
+}

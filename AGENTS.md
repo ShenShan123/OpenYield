@@ -1,8 +1,8 @@
 # OpenYield working conventions
 
-OpenYield is an open-source SRAM compiler for transistor-level 6T and 10T arrays, DC/transient analysis, sizing optimization, and yield research. The compiler version is **V2.2.8**. The [root tutorial](README.md) and subdirectory READMEs explain usage, and [docs/CHANGELOG.md](docs/CHANGELOG.md) carries release details.
+OpenYield is an open-source SRAM compiler for transistor-level 6T and 10T arrays, DC/transient analysis, sizing optimization, and yield research. The compiler version is **V2.2.9**. The [root tutorial](README.md) and subdirectory READMEs explain usage, and [docs/CHANGELOG.md](docs/CHANGELOG.md) carries release details.
 
-The working tree is **V2.2.8**. The [FreePDK45 workflow](sram_compiler/layout/README.md)
+The working tree is **V2.2.9**. The supported SRAM architecture includes a standard 2:1 column mux. The [FreePDK45 workflow](sram_compiler/layout/README.md)
 covers component layouts, TIME_CONTROL and the default compact-cell,
 column-split bank (`layout bank`; `--with-controller` adds the complete macro). The older fixed and scaled
 macro generators, and the unrelated "compact macro" floorplans of early
@@ -11,11 +11,11 @@ data-path, unsplit, row-split and beside-controller bank implementations are als
 Keep sizing frozen; physical receipts do not establish waveform correctness
 or release qualification. Simulation retains its scoped reference RC profiles.
 Complete macros end with a supply grid (M7–M9 straps, M3 controller-gap straps, an M4 bitcell VSS mesh over each half-array); worst-PVT post-layout access
-verification (local `dev/postlayout/`) is recorded in
+verification of the V2.2.8 controller (local `dev/postlayout/`) is recorded in
 [docs/design/layout/POST_LAYOUT_V2_2_8.md](docs/design/layout/POST_LAYOUT_V2_2_8.md).
 The FreePDK45 xRC deck charges 88–102 Ω per minimum via1/via2/contact; recorded pass/fail results use it unchanged, and scaled-cut runs are sensitivity only.
-Compact-layout clocks come from `sram_compiler/sizing/layout_timing_lookup.json` (64-row 6T mux class 12 ns); the default `timing_lookup.json` keeps its schematic-screened periods. Post-layout runs feed every macro supply pin; the controller keeps each enable driver chain on its own rows (`time_control.ENABLE_CHAINS`), and the grid merges the decoder's band VSS rails and puts M2 buses on its edge rails.
-The M4 array mesh (`power_grid.array_mesh`) ties each half-array's bitcell VSS M3 rails together; without it, rails fed from one end only let a 128×128 FF 1.1 V −40 °C read flip far-end cells. 32×32, 64×64 and 128×128 pass all ten worst-PVT post-layout cases.
+Compact-layout clocks come from `sram_compiler/sizing/layout_timing_lookup.json`; `timing_lookup.json` describes the schematic driver profile. V2.2.9 6T clocks budget capture through complete recovery, with one 10% margin and separate absolute read deadlines. The [V2.2.9 record](docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md) separates the extracted 32×32 anchor, schematic checks and larger-array estimates. 10T retains the legacy controller and clocks. Post-layout runs feed every macro supply pin; the controller keeps each enable driver chain on its own rows (`time_control.ENABLE_CHAINS`), and the grid merges the decoder's band VSS rails and puts M2 buses on its edge rails.
+The M4 array mesh (`power_grid.array_mesh`) ties each half-array's bitcell VSS M3 rails together; without it, rails fed from one end only let a V2.2.8 128×128 FF 1.1 V −40 °C read flip far-end cells. The ten-case passes at 32×32, 64×64 and 128×128 in that historical record qualify its controller only.
 
 ## Architecture
 

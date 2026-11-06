@@ -1,9 +1,79 @@
 # Access speed-up plan from the V2.2.8 baseline: earlier sensing, a self-timed cycle and measured clocks
 
-**Plan, not implemented. Nothing in this document is release evidence.**
+**Implementation plan. Nothing in this document is release evidence.**
 Baseline: branch `fix/postlayout-timing-pdn` at `58bf5cb`, compact macros with
 layout g15 ([post-layout record](../layout/POST_LAYOUT_V2_2_8.md)). The
-release number of the implementation is not assigned.
+implementation release is **V2.2.9**, as assigned by the user on 2026-11-05.
+
+Implementation and verification are recorded in the
+[V2.2.9 result](ACCESS_SPEEDUP_V2_2_9.md). A1, the permitted A2 fallback,
+B1, C1 and D are implemented; A3 detector replacement is deferred on the
+measured feasibility evidence below. The result's scope and conditional
+larger-array bounds take precedence over the original estimates in this plan.
+
+## Execution amendments (2026-11-05)
+
+- The supported architecture has a **2:1 column mux as a standard component**,
+  as confirmed by the user. Mux-free layouts and timing tables are outside this
+  implementation. The existing compact generator requires a 2:1-mux deck.
+- The g15 segment measurements are now reproducible; see
+  [baseline evidence](../../data/ACCESS_SPEEDUP_BASELINE.json). Actual CLK
+  50% crossings and the old scorer's nominal falling-edge recovery convention
+  are recorded separately. Historical metadata naming a schematic timing
+  table is preserved rather than relabeled as a layout-table run.
+- Retain the existing settling guards. None of the 29 screened detector
+  candidates qualified across six corners, and 1,800 mismatch samples of
+  extreme candidates did not establish the proposed trip bounds; see
+  [detector feasibility](../../data/ACCESS_SPEEDUP_DETECTORS.json). This is a
+  finite feasibility screen, not proof that every possible detector fails.
+  Threshold-detector replacement is deferred until a viable cell is measured.
+- Use the permitted sense-enable fallback: far `iso_ready` remains the
+  interlock, while wordline release no longer gates sense assertion. Keep a
+  settled far-write observation for the parallel preamble. Driver classes
+  and physical supply/via models remain frozen.
+- Self-timed read completion also waits for `wordline_off`. This permits
+  sensing during the wordline tail while preventing the earlier completion
+  from releasing ISO before the cell is disconnected. The asynchronous clear
+  resets both master and slave so releasing clear during clock-high cannot
+  launch another access.
+- A self-timed sense amplifier must be checked at completion and while its
+  footer remains enabled; it may already be precharged at the external read
+  deadline. The output latch and stored data still have to retain the correct
+  value through that deadline and to the next capture. Isolation release is
+  checked at its falling 90% crossings, avoiding floating-point artifacts
+  from starting an overlap window at an interpolated rising crossing.
+- Larger-array verification may use estimation and extrapolation, as the
+  user authorized. The new full-macro post-layout anchor is 32×32; larger
+  controller classes, including 64 and 128, must be labeled extrapolated
+  unless a new-controller post-layout transient is actually completed.
+  Historical V2.2.8 traces supply scaling evidence, not new-controller
+  waveform qualification. Decoder setup is checked against every output,
+  including unselected rows; its revised stage counts replace the original
+  two-stage assumption.
+- Completion timing references can grow with both row and column class.
+  Each read/write timer uses the larger of its row and column stage counts;
+  the measured 32×32 circuit keeps eight stages. A longer clock cannot
+  correct a timer that ends an access before its data has settled.
+- The new recovery check is at the next capture, rather than the legacy
+  0.1-period early check. Keeping that early reserve would stack another
+  margin on D's single 10%. Cropped diagnostic traces must already be fully
+  recovered at their end; single-operation traces extend to observe their
+  final recovery before another capture.
+- Use explicit joint row/column budgets for the new controller. The retained
+  separable excess rule double-counts shared paths in the conservative event
+  model: a large shape can receive about 43.6 ns from that rule against
+  about 30.1 ns from the complete joint path estimate. The full class grid
+  stores the bounded joint result and its evidence status; dimensions still
+  round up. Legacy-controller tables keep their original rule.
+- Resolve settling guards separately for each physical control path in the
+  schematic profile. Large frozen write/precharge bars need longer references
+  than isolation or wordline release. Their row/column references and reset
+  costs belong in the joint budget. Preserve the measured 32×32 circuit's
+  references; use actual bar coupons and explicit bounds for larger classes.
+
+These amendments alone do not qualify the controller or shorter default
+clocks. The linked implementation record supplies the waveform, mismatch and
+completion-budget evidence used for promotion.
 
 The V2.2.x controller makes every ordering a chain: drive a line, observe its
 far terminal, wait a fixed number of settling stages, then start the next
@@ -32,7 +102,7 @@ turns those measurements into the default periods and read deadlines.
 
 ## Scope and invariants
 
-- **Cells.** 6T cells with and without the column mux, in the compact layout.
+- **Cells.** 6T cells with the standard 2:1 column mux, in the compact layout.
   TIME_CONTROL is shared with 10T. An appended optional controller argument
   selects the V2.2.8 controller or the new one; the compiler selects the new
   one for 6T, and 10T keeps the V2.2.8 controller until it has its own
@@ -422,7 +492,7 @@ its access. Today it parks with floating bitlines and open sense pass gates
   was measured against local mismatch.
 
 **Change.**
-- **Table form.** For the 6T variants, with and without the mux, each row and
+- **Table form.** For the supported 2:1-mux 6T architecture, each row and
   column class stores two budgets: `access_ps` (capture edge to OUT valid)
   and `cycle_ps` (capture edge to the recovered state, the longer of read
   and write). The schema version rises. 10T entries keep today's form and
@@ -431,9 +501,10 @@ its access. Today it parks with floating bitlines and open sense pass gates
   `t_acc = ceil_to_50ps(access × (1 + m))` after the capture edge.
   - *One deadline:* `t_acc` serves both the checker and the runtime
     measures, so the 0.02 T reserve between them goes.
-  - *Joint-dimension rule:* the larger single-dimension budget plus the
-    smaller excess keeps its form. If a measured shape exceeds it, the rule
-    changes, not the margin.
+  - *Joint dimensions:* explicit joint class budgets cover both dimensions;
+    they include each shared controller path once. Single-dimension anchors
+    remain in the table, and legacy control keeps the larger budget plus
+    smaller-excess rule.
   - *Rounding:* dimensions still round up to the next class anchor, because
     evidence exists only at the anchors.
 - **Budgets.** Under C1, internal timing does not depend on the period once
@@ -446,7 +517,7 @@ its access. Today it parks with floating bitlines and open sense pass gates
   covers what the screen does not sample: the tail beyond the Monte Carlo
   sample count, model and extraction error, and supply noise beyond the
   extracted mesh.
-- **Evidence per class.**
+- **Original planned coverage (superseded by the execution amendments).**
   - *32, 64 and 128 rows and columns:* post-layout nominal worst-PVT
     completion times, multiplied by the Monte Carlo worst-to-nominal ratio
     measured in schematic at the same size and corner. A 32×32 post-layout
@@ -478,12 +549,18 @@ its access. Today it parks with floating bitlines and open sense pass gates
 controller, which would take it from 21.25 ns to about 19 ns using today's
 margins. C1 replaces the contract that the trim would be computed for.
 
-**Confirmation.** Every class is re-screened at its new period with the
+**Original planned confirmation (superseded by the execution amendments).** Every class is re-screened at its new period with the
 common gate, including 128×128 post-layout and per-device Monte Carlo at the
 derived period. The period sweep must show the first failing period below
 `T / (1 + m)`.
 
 ## Order and gates
+
+The original rollout below is retained as planning history. The execution
+amendments and [V2.2.9 result](ACCESS_SPEEDUP_V2_2_9.md) define the completed
+verification scope: a new 32×32 extracted anchor and explicitly conditional
+larger-class estimates, as authorized by the user. They replace the original
+requirements for new larger-macro physical receipts and transients below.
 
 Each step has the same exit gate:
 

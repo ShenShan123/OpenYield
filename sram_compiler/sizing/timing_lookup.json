@@ -1,7 +1,7 @@
 {
-  "schema": 1,
+  "schema": 2,
   "version": "V2.2.4",
-  "lookup_version": "v2.2.3-timing-1",
+  "lookup_version": "v2.2.9-schematic-timing-1",
   "units": "integer picoseconds before margin",
   "status": "Design budgets; not full PVT/local-mismatch qualification",
   "supported_envelope": {
@@ -176,5 +176,357 @@
         }
       ]
     }
-  ]
+  ],
+  "self_timed": {
+    "cell_type": "SRAM_6T_CELL",
+    "mux": true,
+    "compact_control": false,
+    "control_architecture": "v2.2.9-self-timed-completion-1",
+    "margin": 0.1,
+    "policy": "Round dimensions up, select explicit joint class; ceil each budget*(1+margin) to50ps. Legacy entries retain their original phase policy.",
+    "baseline": {
+      "sizing_lookup_sha256": "a3bd1bfc760b7e74a1f206658b0e1df815aacf7c960e3082c90cccaca211d37e",
+      "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+      "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+      "physical_keys": [
+        "0431ed4e9d16e9bb08dabfbdda628c0b7013a0617d882c6baa9a06583c9b9c82",
+        "0d3e813206d19f46af39a2a7f1b3b6e41375d4338180f233f7a5a927708f0ae2",
+        "150ce28ffa4e8110376b0ed3fb58757173562d2f4cabc8b8a8dda2d6813cfece",
+        "6e4d56d4c94f70f69546a9fbc9b9c204764ca140400ac3e33bcd445159eb05da",
+        "7a4d9ff3fd2250fb08d15bc3761ada54292b4f86e2f92584e30920b773b9f143",
+        "7d198d69973b499750671a32cedaa05d2bec39f2f918ae6d25a99ba2de7933d1",
+        "84742cf98b06f5a5fc3543236c6642e954a8416c9bb949616e8bbf47cb1fbfb8",
+        "cabb0bd9b10dd4cbcdaa1c9ebfbe5842392071b9cfd536696406317033cfde0c",
+        "cb6bf03d811c508ae8713585cf5f1170baa91902ff7e53eb368e83c9ce7c28a5",
+        "da162acce5e4572349b21ca5d0e28bfe20286d132ce18ac93056f08f7b7f906c"
+      ],
+      "sizing_policy_key": "9d58a6eab76bee7fa342b5cee20d804f3791d504c7732c96446ed63dd66e31e4"
+    },
+    "physical_scope": "Stock illustrative distributed geometry/local stubs; equivalent1-4 share reference clocks but remain approximations. Compact post-layout claims refer to the recorded extracted macro only.",
+    "estimation_source": "docs/data/ACCESS_SPEEDUP_SCHEMATIC_ESTIMATES.json",
+    "estimation_sha256": "911a84215e193842a784e7d197bd5f1cbc0138fc6ce5cfe96d0e004c6f389b4b",
+    "joint_classes": [
+      {
+        "max_rows": 32,
+        "max_cols": 4,
+        "access_ps": 3143,
+        "cycle_ps": 5107,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 8,
+        "access_ps": 3143,
+        "cycle_ps": 5107,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 16,
+        "access_ps": 3143,
+        "cycle_ps": 5107,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 32,
+        "access_ps": 3143,
+        "cycle_ps": 5107,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 64,
+        "access_ps": 3189,
+        "cycle_ps": 5158,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 128,
+        "access_ps": 3256,
+        "cycle_ps": 5242,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 256,
+        "access_ps": 3735,
+        "cycle_ps": 6845,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 4,
+        "access_ps": 3780,
+        "cycle_ps": 6093,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 8,
+        "access_ps": 3780,
+        "cycle_ps": 6093,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 16,
+        "access_ps": 3781,
+        "cycle_ps": 6094,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 32,
+        "access_ps": 3789,
+        "cycle_ps": 6102,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 64,
+        "access_ps": 3843,
+        "cycle_ps": 6155,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 128,
+        "access_ps": 3934,
+        "cycle_ps": 6248,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 256,
+        "access_ps": 4463,
+        "cycle_ps": 7991,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 4,
+        "access_ps": 4853,
+        "cycle_ps": 7998,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 8,
+        "access_ps": 4853,
+        "cycle_ps": 7998,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 16,
+        "access_ps": 4874,
+        "cycle_ps": 8019,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 32,
+        "access_ps": 4892,
+        "cycle_ps": 8038,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 64,
+        "access_ps": 4974,
+        "cycle_ps": 8119,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 128,
+        "access_ps": 5112,
+        "cycle_ps": 8259,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 256,
+        "access_ps": 5740,
+        "cycle_ps": 11152,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 4,
+        "access_ps": 5636,
+        "cycle_ps": 9059,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 8,
+        "access_ps": 5636,
+        "cycle_ps": 9059,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 16,
+        "access_ps": 5689,
+        "cycle_ps": 9112,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 32,
+        "access_ps": 5746,
+        "cycle_ps": 9169,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 64,
+        "access_ps": 5881,
+        "cycle_ps": 9305,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 128,
+        "access_ps": 6148,
+        "cycle_ps": 9573,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 256,
+        "access_ps": 7219,
+        "cycle_ps": 17983,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 4,
+        "access_ps": 7735,
+        "cycle_ps": 11999,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 8,
+        "access_ps": 7735,
+        "cycle_ps": 11999,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 16,
+        "access_ps": 7881,
+        "cycle_ps": 12145,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 32,
+        "access_ps": 8033,
+        "cycle_ps": 12401,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 64,
+        "access_ps": 8369,
+        "cycle_ps": 12964,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 128,
+        "access_ps": 9008,
+        "cycle_ps": 14046,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 256,
+        "access_ps": 12584,
+        "cycle_ps": 33184,
+        "evidence_status": "extrapolated"
+      }
+    ],
+    "row_classes": [
+      {
+        "max_rows": 32,
+        "access_ps": 3143,
+        "cycle_ps": 5107,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "access_ps": 3780,
+        "cycle_ps": 6093,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "access_ps": 4853,
+        "cycle_ps": 7998,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "access_ps": 5636,
+        "cycle_ps": 9059,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "access_ps": 7735,
+        "cycle_ps": 11999,
+        "evidence_status": "extrapolated"
+      }
+    ],
+    "column_classes": [
+      {
+        "max_cols": 4,
+        "access_ps": 3143,
+        "cycle_ps": 5107,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_cols": 8,
+        "access_ps": 3143,
+        "cycle_ps": 5107,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_cols": 16,
+        "access_ps": 3143,
+        "cycle_ps": 5107,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_cols": 32,
+        "access_ps": 3143,
+        "cycle_ps": 5107,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_cols": 64,
+        "access_ps": 3189,
+        "cycle_ps": 5158,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_cols": 128,
+        "access_ps": 3256,
+        "cycle_ps": 5242,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_cols": 256,
+        "access_ps": 3735,
+        "cycle_ps": 6845,
+        "evidence_status": "extrapolated"
+      }
+    ]
+  }
 }

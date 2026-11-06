@@ -1,5 +1,12 @@
 # Phased SRAM access integration checks
 
+[`v229_access_speedup_cases.json`](v229_access_speedup_cases.json) specifies
+the V2.2.9 self-timed 6T screen with the standard 2:1 mux. Its
+[design record](../../docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md) distinguishes
+the extracted 32×32 checks, schematic reference and larger-array estimates.
+Recorded source/deck hashes and actual duty crossings identify each campaign;
+earlier controller results below keep their original scope.
+
 Current physical-layout protocols are `v228_component_cases.json`,
 `v228_bank_cases.json`, `v228_bank_integration_cases.json`,
 `v228_bank_row_pitch_cases.json`, `v228_openram_pitch_cases.json`,

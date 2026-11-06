@@ -289,6 +289,15 @@ def generate_deck(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
                                           mode='lookup', lookup=str(args.sizing_lookup))
     if getattr(args, 'compact_control', False):
         config.global_config.sizing = dict(config.global_config.sizing, compact_control=True)
+        if (config.global_config.sram_cell_type == 'SRAM_6T_CELL'
+                and config.global_config.choose_columnmux
+                and config.global_config.sizing.get('mode', 'lookup') == 'lookup'):
+            config.global_config.sizing.setdefault(
+                'lookup', 'sram_compiler/sizing/layout_sizing_lookup.json')
+            if config.global_config.timing.get('mode', 'lookup') == 'lookup':
+                config.global_config.timing = dict(config.global_config.timing)
+                config.global_config.timing.setdefault(
+                    'lookup', 'sram_compiler/sizing/layout_timing_lookup.json')
     interconnect = resolve_interconnect(config.global_config.interconnect)
     # None keeps the global.yaml `equivalent` block; the option overrides it.
     equivalent = resolve_equivalent(config.global_config.equivalent
@@ -424,7 +433,7 @@ def parse_args(argv: Optional[Sequence[str]] = None, *, defaults=None) -> argpar
                         help="positive integer for repeatable draws, or random")
     parser.add_argument('--sizing-lookup', type=Path, help='explicit diagnostic driver class JSON')
     parser.add_argument('--compact-control', action='store_true',
-                        help='use the simplified controller and remove obsolete load allowances')
+                        help='use compact control and its reference lookups unless explicitly overridden')
     timing = parser.add_mutually_exclusive_group()
     timing.add_argument("--period", type=float, help="fixed diagnostic clock period in seconds")
     timing.add_argument("--timing-lookup", type=Path, help="alternative timing class JSON table")

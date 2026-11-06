@@ -29,7 +29,6 @@ sizing:
 # timing: {mode: fixed, t_period: 1.0e-8}
 timing:
   mode: lookup
-  margin: 0.25
 # Equivalent array model (sram_compiler/equivalent_modeling/README.md).
 # 0 = full transistor array, the reference and the only mode whose per-device
 # mismatch covers every cell; 1 = cross (target row and column real), 2 = target

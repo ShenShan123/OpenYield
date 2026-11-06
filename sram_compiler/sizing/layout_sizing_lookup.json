@@ -1,41 +1,81 @@
 {
   "schema": 1,
-  "lookup_version": "v2.2.8-layout-candidate-3",
+  "lookup_version": "v2.2.9-layout-self-timed-2",
   "row_classes": [
     {
       "max_rows": 32,
       "pre": 4,
       "wd_out": 4,
       "wd_in": 1.0,
-      "setup_stages": 2
+      "setup_stages": 2,
+      "self_timed": {
+        "setup_stages": 2,
+        "replica": {
+          "K": 2,
+          "N": 1
+        },
+        "write_completion_stages": 8
+      }
     },
     {
       "max_rows": 64,
       "pre": 4,
       "wd_out": 8,
       "wd_in": 2.0,
-      "setup_stages": 2
+      "setup_stages": 2,
+      "self_timed": {
+        "setup_stages": 26,
+        "replica": {
+          "K": 1,
+          "N": 1
+        },
+        "write_completion_stages": 8
+      }
     },
     {
       "max_rows": 128,
       "pre": 4,
       "wd_out": 8,
       "wd_in": 2.0,
-      "setup_stages": 2
+      "setup_stages": 2,
+      "self_timed": {
+        "setup_stages": 56,
+        "replica": {
+          "K": 1,
+          "N": 1
+        },
+        "write_completion_stages": 8
+      }
     },
     {
       "max_rows": 256,
       "pre": 8,
       "wd_out": 8,
       "wd_in": 2.0,
-      "setup_stages": 2
+      "setup_stages": 2,
+      "self_timed": {
+        "setup_stages": 74,
+        "replica": {
+          "K": 1,
+          "N": 1
+        },
+        "write_completion_stages": 18
+      }
     },
     {
       "max_rows": 512,
       "pre": 16,
       "wd_out": 16,
       "wd_in": 4.0,
-      "setup_stages": 2
+      "setup_stages": 2,
+      "self_timed": {
+        "setup_stages": 118,
+        "replica": {
+          "K": 1,
+          "N": 1
+        },
+        "write_completion_stages": 42
+      }
     }
   ],
   "column_classes": [
@@ -73,7 +113,10 @@
       "dec_inv": 2,
       "guard_stages": 44,
       "pre_cap": 4,
-      "wd_cap": 8
+      "wd_cap": 8,
+      "self_timed": {
+        "write_completion_stages": 10
+      }
     },
     {
       "max_cols": 512,
@@ -82,7 +125,10 @@
       "dec_inv": 2,
       "guard_stages": 64,
       "pre_cap": 4,
-      "wd_cap": 8
+      "wd_cap": 8,
+      "self_timed": {
+        "write_completion_stages": 10
+      }
     }
   ],
   "replica": {
@@ -99,5 +145,7 @@
     "control_line_coupons": "0628dea33d95ea33b568f0afaf3c4de3c13cb7a413e150824781ebbef175223e",
     "line_sweep": "d622913662d7bbdf9a70a2a20856dd12f12dbbbe2cba76a82afb58dee4d83a96"
   },
-  "controller_path_coupons": "outputs/layout_scaling/control_path_02 (SS table in docs/data/LAYOUT_PERFORMANCE_V2_2_8.json when complete)"
+  "controller_path_coupons": "outputs/layout_scaling/control_path_02 (SS table in docs/data/LAYOUT_PERFORMANCE_V2_2_8.json when complete)",
+  "self_timed_completion_rule": "max(row, column) completion stage reference, minimum 8; 32x32 retains 8/8. Larger references conservatively estimated from extracted g15 waveform segments and fixed-driver 6T-cell response; final evidence in ACCESS_SPEEDUP_ESTIMATES.json.",
+  "self_timed_control_architecture": "v2.2.9-self-timed-completion-1"
 }

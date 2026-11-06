@@ -32,6 +32,7 @@ Compiler organization, configuration reviews and experiment entry.
 
 Clock budgets, control-path changes and version-scoped waveform screens.
 
+- [V2.2.9: self-timed 6T access, measured completion clocks and larger-class estimates](timing/ACCESS_SPEEDUP_V2_2_9.md)
 - [V2.1.8: no enable overlaps: the read wordline ends at the sense trigger, the clock-high enables wait for the previous access](timing/ENABLE_OVERLAP_V2_1_8.md)
 - [V2.2.1: capture, access, and recovery in separate phases](timing/PHASED_CONTROL_V2_2_1.md)
 - [V2.2.2: production review of the phased controller](timing/PHASED_CONTROL_V2_2_2.md)
@@ -39,7 +40,7 @@ Clock budgets, control-path changes and version-scoped waveform screens.
 - [V2.2.4: replica load cells that do not leak, and the V2.2.3 review fixes](timing/PHASED_CONTROL_V2_2_4.md)
 - [V2.1.7: the select gate of the clock-high enables, and the TIME_CONTROL rename](timing/SELECT_GATE_V2_1_7.md)
 - [TIME_CONTROL control path: signals, stages and their history](timing/TIME_CONTROL_PATH.md)
-- [Plan: access speed-up from the V2.2.8 baseline: earlier sensing, a self-timed cycle and measured clocks](timing/ACCESS_SPEEDUP_PLAN_V2_2_8.md) (not implemented)
+- [Implementation plan and amendments: access speed-up from the V2.2.8 baseline](timing/ACCESS_SPEEDUP_PLAN_V2_2_8.md)
 - [V2.1.3 timing budget for 10T cells: evidence run and ten-seed pilot](timing/TIMING_10T_BUDGET_V2_1_3.md)
 - [V2.1.5 10T round: read-path resize, 512-row class and the re-run boundary matrix](timing/TIMING_10T_BUDGET_V2_1_5.md)
 - [V2.1.4 6T timing: write-request hold latch, 6T ladders and evidence run](timing/TIMING_6T_BUDGET_V2_1_4.md)

@@ -21,6 +21,7 @@ _RULES = json.loads(Path(__file__).with_name('sizing_rules.json').read_text())
 RULE_VERSION = _RULES['rule_version']
 CONTROL_ARCHITECTURE = 'v2.2.8-digital-guards-high-access'
 COMPACT_CONTROL_ARCHITECTURE = 'v2.2.8-compact-digital-guards-high-access'
+SELF_TIMED_CONTROL_ARCHITECTURE = 'v2.2.9-self-timed-completion-1'
 DEFAULT_LOOKUP = Path(__file__).with_name('sizing_lookup.json')
 _MODES = ("lookup", "rules_only", "auto")
 _PERIPHERALS = (
@@ -34,7 +35,10 @@ PRECHARGE_OFF_GUARD_STAGES = 4
 # settling guards (column class, `guard_stages`: precharge-off, isolation,
 # replica-wordline-off and, when a table sets it, the enables-off guard; the
 # fixed default keeps the enables-off guard at its two stages).
-DEFAULT_STAGES = dict(setup_stages=8, guard_stages=PRECHARGE_OFF_GUARD_STAGES, enable_off_stages=2)
+DEFAULT_STAGES = dict(setup_stages=8, guard_stages=PRECHARGE_OFF_GUARD_STAGES, enable_off_stages=2,
+                      read_completion_stages=8, write_completion_stages=8)
+_COMPLETION_STAGES = ('read_completion_stages', 'write_completion_stages')
+_GUARD_PATHS = ('precharge_off_stages','isolation_stages','wordline_off_stages','write_drive_stages')
 _STAGE_FIELDS = {"row_classes": "setup_stages", "column_classes": "guard_stages"}
 # A column class may cap the bitline-driver classes: every column adds its
 # precharge and write-driver gates to one control bar, so a wide array's
@@ -106,6 +110,12 @@ class DriverSizes:
     wordline_setup_stages: int = DEFAULT_STAGES['setup_stages']
     isolation_guard_stages: int = DEFAULT_STAGES['guard_stages']
     enable_off_guard_stages: int = DEFAULT_STAGES['enable_off_stages']
+    access_speedup: bool = False
+    read_completion_stages: int = 8
+    write_completion_stages: int = 8
+    lookup_sha256: str = ''
+    sizing_policy_key: str = ''
+    write_drive_guard_stages: int = 4
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -114,11 +124,17 @@ class DriverSizes:
     def validate_for(self, sram_config, cell_type, mux, context=None):
         """Allow cell candidates, but reject changed geometry or periphery."""
         architecture = COMPACT_CONTROL_ARCHITECTURE if self.compact_control else CONTROL_ARCHITECTURE
+        if self.access_speedup:
+            architecture = SELF_TIMED_CONTROL_ARCHITECTURE + (':compact' if self.compact_control else ':schematic')
         if self.control_architecture != architecture:
             raise ValueError("Frozen driver sizes belong to a different control architecture")
         cfg = sram_config.global_config
-        if isinstance(cfg.sizing, dict) and 'compact_control' in cfg.sizing:
-            if cfg.sizing['compact_control'] != self.compact_control:
+        options = _mapping(getattr(cfg, 'sizing', {}))
+        requested_speedup = _self_timed_control(options, cell_type, mux)
+        if requested_speedup != self.access_speedup:
+            raise ValueError('Frozen driver sizes belong to a different control architecture')
+        if 'compact_control' in options:
+            if options['compact_control'] != self.compact_control:
                 raise ValueError('Frozen driver sizes belong to a different control architecture')
         if (cfg.num_rows, cfg.num_cols, cell_type, mux) != (
             self.rows, self.cols, self.cell_type, self.mux
@@ -131,12 +147,16 @@ class DriverSizes:
         # Archived snapshots can still be read, but the current topology must
         # not silently add an observer or common gate to an older load budget.
         expected_access = 1.25 * max(1, ceil(self.loads.wl_load / (24.0 if self.effort_buffers else 32.0))) + 2.5
-        stages = _stage_policy(_mapping(getattr(cfg, "sizing", {})), cfg.num_rows, cfg.num_cols)
+        stages = _stage_policy(options, cfg.num_rows, cfg.num_cols, self.access_speedup)
+        if self.access_speedup and any(getattr(self,name) != stages[name] for name in _COMPLETION_STAGES):
+            raise ValueError('Frozen driver sizes require the current completion timing references')
         if (self.precharge_off_guard is not True
                 or self.replica_precharge_guard is not True
                 or type(self.precharge_off_guard_stages) is not int
-                or self.precharge_off_guard_stages != stages['guard_stages']
-                or self.isolation_guard_stages != stages['guard_stages']
+                or self.precharge_off_guard_stages != stages['precharge_off_stages']
+                or self.isolation_guard_stages != stages['isolation_stages']
+                or self.precharge_guard_stages != options.get('precharge_guard_stages',stages['wordline_off_stages'])
+                or (self.access_speedup and self.write_drive_guard_stages != stages['write_drive_stages'])
                 or self.enable_off_guard_stages != stages['enable_off_stages']
                 or self.wordline_setup_stages != stages['setup_stages']
                 or not isfinite(self.precharge_off_tau) or self.precharge_off_tau <= 0
@@ -265,6 +285,26 @@ def _class_scale(entry, name, where):
     return float(value)
 
 
+def _replica_reference(value: object, where: str) -> dict:
+    if not isinstance(value, dict) or value.keys() - {'K', 'N'}:
+        raise ValueError(f'{where} replica accepts only K and N')
+    for name, count in value.items():
+        if type(count) is not int or count < 1 or (name == 'N' and count % 2 == 0):
+            raise ValueError(f'{where} replica needs positive integer K and positive odd N')
+    return value
+
+
+def _self_timed_control(options: dict, cell_type: str, mux: bool, table: dict | None = None) -> bool:
+    if 'access_speedup' in options:
+        if type(options['access_speedup']) is not bool:
+            raise ValueError('access_speedup must be boolean')
+        return options['access_speedup']
+    if cell_type != 'SRAM_6T_CELL' or not mux or options.get('mode', 'lookup') != 'lookup':
+        return False
+    table = load_lookup(options.get('lookup')) if table is None else table
+    return table.get('self_timed_control_architecture') == SELF_TIMED_CONTROL_ARCHITECTURE
+
+
 def load_lookup(path=None):
     """Read and validate the driver size-class table (project-relative paths allowed)."""
     path = DEFAULT_LOOKUP if path is None else Path(path)
@@ -273,6 +313,9 @@ def load_lookup(path=None):
     table = json.loads(path.read_text())
     if table.get("schema") != 1:
         raise ValueError(f"Unsupported driver size lookup schema: {path}")
+    architecture = table.get('self_timed_control_architecture')
+    if architecture is not None and architecture != SELF_TIMED_CONTROL_ARCHITECTURE:
+        raise ValueError('Driver lookup belongs to a different self-timed control architecture')
     for group, bound, names in (("row_classes", "max_rows", _ROW_SCALES),
                                 ("column_classes", "max_cols", _COLUMN_SCALES)):
         classes = table.get(group)
@@ -284,8 +327,25 @@ def load_lookup(path=None):
             if isinstance(limit, bool) or not isinstance(limit, int) or limit <= previous:
                 raise ValueError(f"{group} of {path} must have strictly increasing positive {bound}")
             previous = limit
+            if architecture and group == 'row_classes' and 'self_timed' not in entry:
+                raise ValueError('Default self-timed control needs references for every row class')
             for name in names:
                 _class_scale(entry, name, f"{group} {bound}={limit} of {path}")
+            if 'self_timed' in entry:
+                policy=entry['self_timed']
+                allowed=set(_COMPLETION_STAGES) | ({'replica','setup_stages'} if group=='row_classes' else {'guard_stages'})
+                if not isinstance(policy,dict) or policy.keys()-allowed:
+                    raise ValueError('Unsupported self-timed timing reference')
+                if group=='row_classes':
+                    reference=_replica_reference(policy.get('replica',{}), f'{group} {bound}={limit}')
+                    if reference.get('K',1)>limit:
+                        raise ValueError('Replica K must not exceed its row-class bound')
+                for name in ('setup_stages','guard_stages',*_COMPLETION_STAGES):
+                    if name in policy:
+                        count=policy[name]
+                        minimum=8 if name in _COMPLETION_STAGES else 2
+                        if type(count) is not int or count<minimum or count%2:
+                            raise ValueError(f'Self-timed {name} must be an even integer of at least {minimum}')
             stage_name = _STAGE_FIELDS[group]
             if stage_name in entry:
                 stages = entry[stage_name]
@@ -295,9 +355,25 @@ def load_lookup(path=None):
                 for cap in _COLUMN_CAPS:
                     if cap in entry:
                         _class_scale(entry, cap, f"{group} {bound}={limit} of {path}")
-    replica = table.get("replica", {})
-    if replica.keys() - {"K", "N"}:
-        raise ValueError(f"Driver size lookup {path} replica accepts only K and N")
+    _replica_reference(table.get('replica', {}), str(path))
+    if 'self_timed_joint_references' in table:
+        references=table['self_timed_joint_references'];seen=set()
+        row_bounds={row['max_rows'] for row in table['row_classes']}
+        col_bounds={col['max_cols'] for col in table['column_classes']}
+        if not isinstance(references,list) or not references:
+            raise ValueError('Self-timed joint references must be a nonempty list')
+        for entry in references:
+            allowed={'max_rows','max_cols','guard_stages','enable_off_stages',*_GUARD_PATHS}
+            if not isinstance(entry,dict) or entry.keys()-allowed:
+                raise ValueError('Unsupported self-timed joint timing reference')
+            pair=(entry.get('max_rows'),entry.get('max_cols'))
+            if (any(type(value) is not int for value in pair) or pair[0] not in row_bounds
+                    or pair[1] not in col_bounds or pair in seen):
+                raise ValueError('Self-timed joint references require unique row/column anchors')
+            seen.add(pair)
+            counts=[entry[name] for name in ('guard_stages','enable_off_stages',*_GUARD_PATHS) if name in entry]
+            if not counts or any(type(value) is not int or value<2 or value%2 for value in counts):
+                raise ValueError('Self-timed joint guard stages must be positive even integers')
     table["path"] = str(path)
     table["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
     return table
@@ -339,11 +415,12 @@ def lookup_classes(table, rows, cols):
             interpolate_class(table["column_classes"], "max_cols", _COLUMN_SCALES, cols))
 
 
-def _stage_policy(options, rows, cols):
+def _stage_policy(options: dict, rows: int, cols: int, access_speedup: bool = False) -> dict:
     """TIME_CONTROL fixed-delay stage counts for an array: the class table's
     `setup_stages` (row class) and `guard_stages` (column class) when the
-    lookup sets them, otherwise the fixed defaults. An extrapolated class
-    keeps the last anchor's counts."""
+    lookup sets them, otherwise the fixed defaults. Self-timed completion
+    takes the larger row/column allowance, with the screened eight-stage
+    floor. An extrapolated class keeps the last anchor's counts."""
     stages = dict(DEFAULT_STAGES)
     if options.get("mode", "lookup") == "lookup":
         table = load_lookup(options.get("lookup"))
@@ -355,6 +432,25 @@ def _stage_policy(options, rows, cols):
                 stages[name] = int(source[name])
                 if name == "guard_stages":
                     stages["enable_off_stages"] = int(source[name])
+            if name=='setup_stages' and access_speedup:
+                stages[name]=source.get('self_timed',{}).get(name,stages[name])
+            if name=='guard_stages' and access_speedup and name in source.get('self_timed',{}):
+                stages[name]=source['self_timed'][name]
+                stages['enable_off_stages']=stages[name]
+            if access_speedup:
+                for field in _COMPLETION_STAGES:
+                    stages[field]=max(stages[field],source.get('self_timed',{}).get(field,8))
+        for field in _GUARD_PATHS:stages[field]=stages['guard_stages']
+        if access_speedup:
+            pair=(table['row_classes'][-1]['max_rows'] if row_class.get('extrapolated') else row_class['max_rows'],
+                  table['column_classes'][-1]['max_cols'] if col_class.get('extrapolated') else col_class['max_cols'])
+            for reference in table.get('self_timed_joint_references',[]):
+                if (reference['max_rows'],reference['max_cols'])==pair:
+                    stages['guard_stages']=reference.get('guard_stages',stages['guard_stages'])
+                    stages['enable_off_stages']=reference.get('enable_off_stages',
+                        reference.get('guard_stages',stages['enable_off_stages']))
+                    for field in _GUARD_PATHS:stages[field]=reference.get(field,stages['guard_stages'])
+    for field in _GUARD_PATHS:stages.setdefault(field,stages['guard_stages'])
     return stages
 
 
@@ -392,7 +488,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     unknown = options.keys() - {
         "mode", "parasitic_factor", "wd_floor_margin", "k_w", "pre_min",
         "replica", "scale_decoder", "effort_buffers", "canonical_read",
-        "table", "lookup", "precharge_guard_stages", "compact_control",
+        "table", "lookup", "precharge_guard_stages", "compact_control", "access_speedup",
     }
     if unknown:
         raise ValueError(f"Unsupported sizing options: {sorted(unknown)}")
@@ -411,11 +507,18 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     margin = _positive("wd_floor_margin", options.get("wd_floor_margin", _RULES['wd_floor_margin']))
     k_w = _positive("k_w", options.get("k_w", _RULES['k_w']))
     pre_min = _positive("pre_min", options.get("pre_min", _RULES['pre_min']))
+    access_speedup = _self_timed_control(options, cell_type, mux, lookup)
     replica = dict(_mapping(options.get("replica", {})))
     if replica.keys() - {"K", "N", "matched"}:
         raise ValueError("replica accepts only K, N and matched")
-    replica_default = lookup.get("replica", {}) if lookup is not None else {}
-    replica_k = replica.get("K", replica_default.get("K", 1))
+    replica_default = dict(lookup.get('replica', {})) if lookup is not None else {}
+    if row_class is not None and access_speedup is True:
+        reference = lookup['row_classes'][-1] if row_class.get('extrapolated') else row_class
+        replica_default.update(reference.get('self_timed', {}).get('replica', {}))
+    default_k = replica_default.get('K', 1)
+    if access_speedup is True:
+        default_k = min(default_k, rows, cols)
+    replica_k = replica.get("K", default_k)
     dc_stages = replica.get("N", replica_default.get("N", 9))
     for name, value in (("replica.K", replica_k), ("replica.N", dc_stages)):
         if isinstance(value, bool) or not isinstance(value, int) or value < 1:
@@ -428,8 +531,15 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     canonical_read = options.get("canonical_read", True)
     compact_control = options.get('compact_control', False)
     if any(not isinstance(value, bool) for value in
-           (replica_matched, scale_decoder, effort_buffers, canonical_read, compact_control)):
+           (replica_matched, scale_decoder, effort_buffers, canonical_read, compact_control, access_speedup)):
         raise ValueError("replica.matched and circuit feature switches must be boolean")
+    if access_speedup and cell_type != 'SRAM_6T_CELL':
+        raise ValueError('Parallel access has not been screened for 10T cells')
+    if access_speedup and not mux:
+        raise ValueError('Self-timed access requires the standard 2:1 column mux')
+    architecture = COMPACT_CONTROL_ARCHITECTURE if compact_control else CONTROL_ARCHITECTURE
+    if access_speedup:
+        architecture = SELF_TIMED_CONTROL_ARCHITECTURE + (':compact' if compact_control else ':schematic')
     if not replica_matched or not canonical_read:
         raise ValueError('Distributed wiring requires a matched replica and canonical read')
     if replica_k > cols:
@@ -465,8 +575,8 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     nand_units = round(nand_gate / 0.45e-6, 12)
     rc_input_units = (_positive('pi_cap', context.get('pi_cap', _RULES['peripheral_rc_cap_f'])) / _RULES['unit_inverter_cap_f']
                       if context.get('w_rc', False) else 0.0)
-    stages = _stage_policy(options, rows, cols)
-    guard_stages = options.get('precharge_guard_stages', stages['guard_stages'])
+    stages = _stage_policy(options, rows, cols, access_speedup)
+    guard_stages = options.get('precharge_guard_stages', stages['wordline_off_stages'])
     if type(guard_stages) is not int or guard_stages < 0 or guard_stages % 2:
         raise ValueError('precharge_guard_stages must be a nonnegative even integer')
     # Wordline-driver A/B and sense-amplifier EN/ISO each have two RC sections;
@@ -533,9 +643,9 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         'effort_buffers': effort_buffers, 'canonical_read': canonical_read,
         'replica_precharge_guard': True,
         'precharge_guard_stages': guard_stages,
-        'precharge_off_guard': True, 'precharge_off_guard_stages': stages['guard_stages'],
+        'precharge_off_guard': True, 'precharge_off_guard_stages': stages['precharge_off_stages'],
         'wordline_setup_stages': stages['setup_stages'],
-        'isolation_guard_stages': stages['guard_stages'], 'enable_off_guard_stages': stages['enable_off_stages'],
+        'isolation_guard_stages': stages['isolation_stages'], 'enable_off_guard_stages': stages['enable_off_stages'],
         'precharge_off_tau': _precharge_off_tau(cols, loads.pre_load, context),
         'enable_off_tau': _enable_off_tau(cols, loads, context),
         'isolation_tau': _control_settling_tau(cols, loads.iso_load + observer_units, context, 'isolation_control'),
@@ -546,8 +656,12 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     }
     if compact_control:
         path_options['compact_control'] = True
+    if access_speedup:
+        path_options['access_speedup'] = True
+        path_options.update({name:stages[name] for name in _COMPLETION_STAGES})
+        path_options['write_drive_guard_stages']=stages['write_drive_stages']
     baseline = {
-        "version": RULE_VERSION, "control_architecture": COMPACT_CONTROL_ARCHITECTURE if compact_control else CONTROL_ARCHITECTURE, "cell_type": cell_type,
+        "version": RULE_VERSION, "control_architecture": architecture, "cell_type": cell_type,
         "cell": _circuit_inputs(getattr(sram_config, cell_type.lower())),
         "periphery": periphery, "pdk": pdk, "rows": rows, "cols": cols, "mux": mux,
         "mode": mode, "parasitic_factor": p, "wd_floor_margin": margin,
@@ -567,11 +681,17 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
                               "row_class": row_class, "column_class": col_class}
     result = DriverSizes(
         rows=rows, cols=cols, cell_type=cell_type, mux=mux, **scales, loads=loads,
-        control_architecture=COMPACT_CONTROL_ARCHITECTURE if compact_control else CONTROL_ARCHITECTURE,
+        control_architecture=architecture,
         source="lookup" if mode == "lookup" else "rule",
         size_class=size_class, extrapolated=extrapolated,
         key=_digest(baseline), peripheral_key=_digest(periphery), pdk_key=_digest(pdk),
         physical_key=_digest(context),
+        lookup_sha256=lookup['sha256'] if lookup is not None else '',
+        sizing_policy_key=_digest({'mode':mode,'parasitic_factor':p,'wd_floor_margin':margin,
+            'k_w':k_w,'pre_min':pre_min,'scale_decoder':scale_decoder,'effort_buffers':effort_buffers,
+            'canonical_read':canonical_read,'replica_matched':replica_matched,
+            'compact_control':compact_control,'access_speedup':access_speedup,
+            'precharge_guard_override':options.get('precharge_guard_stages')}),
         area_precharge_width=pre_width,
         area_wordline_width=max(
             _positive('WL NAND NMOS width', wl.nmos_width.value[0]) * scales['wl_nand'],

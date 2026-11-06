@@ -556,7 +556,13 @@ def add_grid(b, bm: dict, left_trunks: dict, root: dict, macro_box: tuple, frame
     nm = g.b.ly.dbu * 1000
     if trunks3:
         t = max(trunks3, key=lambda q: q.height())
-        xc = (t.left + t.right) / 2 * nm
+        # A native supply access can jog out of the vertical trunk at its
+        # bottom. Find the trunk centre through its middle, not its full bbox.
+        mid_y = (t.top + t.bottom) / 2 * nm
+        section = g.local('m3', t.left * nm, mid_y - 5., t.right * nm, mid_y + 5.)
+        section &= g.box(t.left * nm, mid_y - 5., t.right * nm, mid_y + 5.)
+        cross = section.bbox()
+        xc = (cross.left + cross.right) / 2 * nm
         # VDD rails sit at fixed heights: bridge them first; VSS can tie
         # anywhere along its M3 trunk and fills the remaining gaps.
         rails = g.local('m2', xc - 100., fy0, xc + 2000., fy1) & g.box(xc - 100., fy0, xc + 2000., fy1)

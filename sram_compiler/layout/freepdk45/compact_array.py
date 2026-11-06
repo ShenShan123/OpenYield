@@ -19,6 +19,17 @@ VDD_TRUNK = 800.
 RWL_RISER = 300.      # past the replica column's right edge
 
 
+def active_replica_rows(source: FullSource) -> tuple[int, ...]:
+    """Use the source's contiguous active tail, preserving passive load cells."""
+    pins = source.instances[f'Xsram_{source.rows}x1_replica_column']['pins']
+    active = tuple(r for r in range(source.rows) if pins[f'WL{r}'] == 'RWL')
+    if (not active or len(active) > source.cols
+            or active != tuple(range(source.rows - len(active), source.rows))
+            or any(pins[f'WL{r}'] != ('RWL' if r in active else 'VSS') for r in range(source.rows))):
+        raise ValueError('Replica requires a contiguous active tail and grounded passive rows')
+    return active
+
+
 def make_core(layout: pya.Layout, source: FullSource, specs: dict[str, Component], core_name: str,
               column_span: tuple[int, int]) -> CellView:
     """Build one full-row column half; only the right owns the replica.
@@ -35,7 +46,8 @@ def make_core(layout: pya.Layout, source: FullSource, specs: dict[str, Component
     if rows < 8 or rows % 8:
         raise ValueError('Compact core needs full eight-row decoder bands')
     replica = f'Xsram_{rows}x1_replica_column'
-    loads = [f'XRWL_LOAD_{c}' for c in range(c0, min(c1, cols - 1))]
+    active = active_replica_rows(source)
+    loads = [f'XRWL_LOAD_{c}' for c in range(c0, min(c1, cols - len(active)))]
     names = [core_name] + ([replica] if has_replica else []) + loads
     suffix = f'_C{c0}_{c1}'
     component = Component(
@@ -49,6 +61,7 @@ def make_core(layout: pya.Layout, source: FullSource, specs: dict[str, Component
     yt = ya + n * H               # top strap
     yd = yt + HS                  # RWL load row above each half-array
     top = yd + H
+    load_edge = min(nc - 1, len(loads)) * W
     rx = (nc + 1) * W           # replica column (odd slot: mirrored)
     xe = (nc + (2 if has_replica else 1)) * W
     cache, terminals, placements, fingers = {}, {}, [], []
@@ -79,7 +92,7 @@ def make_core(layout: pya.Layout, source: FullSource, specs: dict[str, Component
     if has_replica:
         for r, (path, c, m) in enumerate(leaves(specs[replica], path=replica)):
             if 0 <= r < rows:
-                put(path, c, 'replica' if r == rows - 1 else 'passive', nc + 1, row_y(r), bool(r % 2))
+                put(path, c, 'replica' if r in active else 'passive', nc + 1, row_y(r), bool(r % 2))
     for col, name in enumerate(loads):
         put(name, specs[name], 'dummy', col, yd, False)
 
@@ -103,7 +116,7 @@ def make_core(layout: pya.Layout, source: FullSource, specs: dict[str, Component
     vss = [y + HS - 165 for y in (0., yt)] + edges
     for y in vss:
         # From the last load column, so the RWL load row's rails reach too.
-        b.rect('m3', (nc - 1) * W, y - 35, (nc + 1) * W, y + 35)
+        b.rect('m3', load_edge, y - 35, (nc + 1) * W, y + 35)
     vx, dx = nc * W + VSS_TRUNK, nc * W + VDD_TRUNK
     b.rect('m4', vx - 70, 0, vx + 70, top + 70)
     b.rect('m4', dx - 70, 0, dx + 70, top + 70)
@@ -120,18 +133,20 @@ def make_core(layout: pya.Layout, source: FullSource, specs: dict[str, Component
     # Passive replica wordlines join the VSS trunk; the active one rises to RWL.
     for r in range(rows) if has_replica else ():
         y = row_y(r) + Y_WL
-        if r < rows - 1:
+        if r not in active:
             b.rect('m3', vx - 70, y - 35, rx, y + 35)
             b.sq('v3', vx, y, 65)
     if has_replica:
-        yr, yl, wx = row_y(rows - 1) + Y_WL, yd + Y_WL, xe + RWL_RISER
-        b.rect('m3', xe, yr - 35, wx + 70, yr + 35)
-        b.rect('m3', (nc - 1) * W, yl - 35, wx + 70, yl + 35)
-        for y in (yr, yl):
+        yr, yl, wx = row_y(active[0]) + Y_WL, yd + Y_WL, xe + RWL_RISER
+        for row in active:
+            y = row_y(row) + Y_WL
+            b.rect('m3', xe, y - 35, wx + 70, y + 35)
             b.sq('v3', wx, y, 65)
+        b.rect('m3', load_edge, yl - 35, wx + 70, yl + 35)
+        b.sq('v3', wx, yl, 65)
         b.rect('m4', wx - 70, yr - 70, wx + 70, yl + 70)
     else:
-        b.rect('m3', (nc - 1) * W, yd + Y_WL - 35, xe + 70, yd + Y_WL + 35)
+        b.rect('m3', load_edge, yd + Y_WL - 35, xe + 70, yd + Y_WL + 35)
 
     # Bitlines and supplies face the periphery below each array.
     edge = 0.

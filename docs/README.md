@@ -1,4 +1,4 @@
-# OpenYield V2.2.8 documentation
+# OpenYield V2.2.9 documentation
 
 Design records are grouped by topic under `design/`; simulation reports live
 under `validation/`. Evidence and qualification data retain their existing
@@ -19,14 +19,17 @@ describes the default bank and its verification limits. Alternative physical
 bank plans have been retired; their JSON evidence remains in `data/`.
 The [organization record](design/compiler/ORGANIZATION_V2_2_7.md) documents the unified
 experiment entrance and integrated per-device variation. The compiler version
-is V2.2.8; no full V2.2.8 screen is complete.
+is V2.2.9. The [self-timed access record](design/timing/ACCESS_SPEEDUP_V2_2_9.md)
+reports the new extracted 32×32 controller screen, schematic reference and
+conditional larger-array estimates. Earlier campaigns retain their own scope.
 
 ## Open items
 
 The [compact layout record](design/layout/COMPACT_CELL_V2_2_8.md) covers
 512×512 diagnostic generation and optional TIME_CONTROL integration. Source
-sizing and timing remain frozen; compact waveform and operating-point
-qualification is pending. Latest 256×256 and 512×512 geometries also lack
+sizing classes remain frozen. V2.2.9 has a finite 32×32 extracted waveform
+screen; broader operating-point, PVT and mismatch qualification remains open.
+Latest 256×256 and 512×512 geometries also lack
 R+C+CC extraction.
 
 The carried Phase 6 scope. The working plans that defined it
@@ -70,19 +73,16 @@ The carried Phase 6 scope. The working plans that defined it
   mux `SEL` input at a DC level. Four post-release V2.2.4 runner cases switch
   the external selects between accesses and check the resulting reads; decoder
   logic and address hazards remain open.
-- **A stopped or gated clock.** Precharge is a clock-low function
-  (`PRE = !(clk_bar & wordline_off & enables_off)`), so a clock stopped high
-  parks the array with floating bitlines and open sense pass gates and a clock
-  stopped low parks it precharged. The contract assumes a free-running 50 %
-  duty cycle and says nothing about the clock stopping. Needed: a defined idle
-  state, a guard that reaches it however the clock stops, and multi-cycle stall
-  cases in both states.
-- **Sense amplifier offset.** The screen's sense bar is 0.28 of VDD, a
-  screening floor rather than a measured quantity: the amplifier's own input
-  offset under local mismatch is not measured anywhere. The 512-row sense
-  margin of 0.467 V against that bar is the end of a steep trend
-  (0.90 / 0.86 / 0.80 / 0.67 / 0.47 V at 32 / 64 / 128 / 256 / 512 rows), which
-  the 512-row envelope bounds rather than relieves.
+- **Stopped/gated clocks beyond the measured scope.** The V2.2.9 6T
+  controller reaches its recovered state with CLK held high and is checked
+  at 30/50/70% duty in the recorded 32×32 scope. Broader macros and arbitrary
+  asynchronous clock interruption still need dedicated evidence. 10T retains
+  its earlier clock-high access and clock-low recovery contract.
+- **Broader sense-margin characterization.** V2.2.9 measures 1,000 local
+  offset samples at each of six PVT points and measures system margin on
+  the extracted 32×32 macro. Larger-array noise, changed sense circuits and
+  array yield need further characterization; the isolated slot and finite
+  macro screen do not establish those bounds.
 - **Yield estimators.** `yield_estimation/model_lib/{MC,MNIS,AIS,ACS,HSCS}.py`
   are not usable as shipped: machine-local paths,
   dependencies absent from `environment.yml` (`torch`, `gpytorch`, `mpmath`,

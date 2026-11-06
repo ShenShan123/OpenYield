@@ -11,7 +11,7 @@ from typing import Optional, Union
 
 from .cell_flow import leaves
 from .components import Component, Instance, CellView, read_component
-from .compact_array import make_core
+from .compact_array import make_core, active_replica_rows
 from .compact_core import W, H, HS, bitline_x
 from .compact_decoder import make_decoder
 from .compact_slots import WIDTH as SLOT_W, make_sense_slot, make_write_slot, make_precharge_slot
@@ -28,8 +28,9 @@ def replica_contract(source: FullSource, specs: dict[str, Component], rows: int,
     name = f'Xsram_{rows}x1_replica_column'
     column = specs[name]
     pins = source.instances[name]['pins']
+    active = active_replica_rows(source)
     expected_pins = dict(VDD='VDD',VSS='VSS',RBL='RBL',RBLB='RBLB',
-                         **{f'WL{r}': 'RWL' if r==rows-1 else 'VSS' for r in range(rows)})
+                         **{f'WL{r}': 'RWL' if r in active else 'VSS' for r in range(rows)})
     if pins != expected_pins:
         raise ValueError('Unsupported replica-column boundary mapping')
     widths = {'MPGL':135,'MPGR':135,'MPDL':205,'MPDR':205,'MPUL':90,'MPUR':90}
@@ -53,13 +54,13 @@ def replica_contract(source: FullSource, specs: dict[str, Component], rows: int,
     if len(children)!=rows:
         raise ValueError('Replica column must retain every source cell')
     for r,(path,cell,mapping) in enumerate(children):
-        kind='replica' if r==rows-1 else 'passive'
+        kind='replica' if r in active else 'passive'
         expected_name='Replica_CELL' if kind=='replica' else 'Replica_CELL_PASSIVE'
         if (path!=f'XReplica_CELL_{r}' or cell.name!=expected_name or
                 mapping!=dict(VDD='VDD',VSS='VSS',RBL='RBL',RBLB='RBLB',WL=f'WL{r}')):
             raise ValueError('Replica cell placement differs from dense view')
         check(cell,kind)
-    for c in range(cols-1):
+    for c in range(cols-len(active)):
         name=f'XRWL_LOAD_{c}'
         if source.instances[name]['pins']!=dict(VDD='VDD',VSS='VSS',BL='VDD',BLB='VDD',WL='RWL'):
             raise ValueError('Dummy load boundary differs from dense view')
@@ -75,7 +76,7 @@ def compact_contract(deck: Union[str, Path]) -> tuple[FullSource, str, dict[str,
     inst = source.instances
     groups = cols // 2
     core = f'XSRAM_6T_CORE_{rows}x{cols}'
-    names = [core, f'Xsram_{rows}x1_replica_column'] + [f'XRWL_LOAD_{c}' for c in range(cols - 1)]
+    names = [core, f'Xsram_{rows}x1_replica_column'] + [f'XRWL_LOAD_{c}' for c in range(cols - len(active_replica_rows(source)))]
     names += ['XDECODER'] + [f'XWL_DRV_{r}' for r in range(rows)]
     names += [f'{p}_{c}' for c in range(cols) for p in ('XPRECHARGE', 'XWRITEDRIVER', 'XDIN_BUF')]
     names += [f'{p}_{g}' for g in range(groups) for p in ('XCOLUMNMUX2', 'XSENSEAMP')]

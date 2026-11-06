@@ -1,4 +1,4 @@
-# SRAM compiler tutorial — V2.2.8
+# SRAM compiler tutorial — V2.2.9
 
 The compiler builds 6T or 10T transistor-level SRAM arrays with distributed wordline and bitline RC, a replica column, address and control logic, and column periphery. Generate SRAM macros through [`main_sram.py`](../main_sram.py). Run commands from the repository root.
 
@@ -52,7 +52,7 @@ Xyce is required for simulation and for extracting equivalent cells in modes 1�
 
 ## 2. Generate and run a small array
 
-At the top of `main_sram.py`, set `ARRAY = [8, 4, False]`, `TARGET = (7, 3)`, `OPERATION = "read"`, and `RUN_XYCE = False`. Then run:
+At the top of `main_sram.py`, set `ARRAY = [8, 4, True]`, `TARGET = (7, 3)`, `OPERATION = "read"`, and `RUN_XYCE = False`. The standard architecture has a 2:1 column mux. Then run:
 
 ```bash
 python main_sram.py
@@ -108,6 +108,10 @@ frozen sizing contexts; keep them fixed across candidate comparisons.
 
 ## 5. Read the results
 
-The main entrance records configuration, timing and sizing identities, model hash, seed, and variation metadata in `summary.json` for every run. It also records solver path and run status for simulations and retains failed attempts separately. Simulation results and logs are saved beside the deck. Inspect the `.prn` data for `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, and `sa_iso` first when an access fails. Clock-high is access; clock-low is recovery and precharge, including after writes.
+The main entrance records configuration, timing and sizing identities, model hash, seed, and variation metadata in `summary.json` for every run. It also records solver path and run status for simulations and retains failed attempts separately. Simulation results and logs are saved beside the deck. Inspect the `.prn` data for `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, and `sa_iso` first when an access fails. V2.2.9 6T control also exposes `access_phase` and `access_done`: physical completion ends access and starts recovery, independently of CLK falling. 10T retains clock-high access and clock-low recovery.
 
-The configured V2.2.5 envelope is not fully qualified: its waveform screen has not completed and 256x256 has no working operating point. The [release record](../docs/design/compiler/COMPILER_ENTRY_V2_2_5.md) explains the current limits. The [root guide](../README.md) links the sizing, optimization, and yield workflows.
+The [V2.2.9 timing record](../docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md)
+separates the measured extracted 32×32 anchor, schematic reference and
+conditional larger-array clocks. The earlier V2.2.5 full screen remains
+incomplete in its [original record](../docs/design/compiler/COMPILER_ENTRY_V2_2_5.md).
+The [root guide](../README.md) links sizing, optimization and yield workflows.

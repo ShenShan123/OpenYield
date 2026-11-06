@@ -29,9 +29,13 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                  q_init_val: int = 0, sim_path: str = '', next_row: int = None,
                  driver_sizes=None, timing_config=None, temperature=None, interconnect=None,
                  select_every: int = 1,
+                 clock_duty: float = 0.5,
                  ):
         # 保存配置对象引用
         self.sram_config = sram_config  #包含所有子电路参数
+        if isinstance(clock_duty, bool) or not 0 < clock_duty < 1:
+            raise ValueError('clock_duty must be between zero and one')
+        self.clock_duty = clock_duty
         global_cfg = sram_config.global_config
         self.temperature = global_cfg.temperature if temperature is None else temperature
         self.interconnect = resolve_interconnect(
@@ -106,6 +110,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
                              fixed_diagnostic=options.get('mode') == 'fixed')
         if hasattr(self.timing_config, 'validate_for'):
             self.timing_config.validate_for(sram_config, self.driver_sizes)
+        if self.timing_config.cycle_budget and not self.driver_sizes.access_speedup:
+            raise ValueError('Self-timed cycle budgets require the self-timed controller')
         self.timing_config.apply(self)
         #self.set_vdd(5)
 
@@ -144,6 +150,10 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             wordline_setup_stages=self.driver_sizes.wordline_setup_stages,
             isolation_guard_stages=self.driver_sizes.isolation_guard_stages,
             enable_off_guard_stages=self.driver_sizes.enable_off_guard_stages,
+            access_speedup=self.driver_sizes.access_speedup,
+            read_completion_stages=self.driver_sizes.read_completion_stages,
+            write_completion_stages=self.driver_sizes.write_completion_stages,
+            write_drive_guard_stages=self.driver_sizes.write_drive_guard_stages,
         ).create()
         circuit.subcircuit(time_control)   # Add to main circuit
         
@@ -1233,7 +1243,7 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             initial_value=0 @ u_V, pulsed_value=self.vdd @ u_V,
             delay_time=1.0 @ u_ns+0.2 * self.t_period,
             rise_time=self.t_rise, fall_time=self.t_fall,
-            pulse_width=0.5 * self.t_period,
+            pulse_width=self.t_pulse,
             period=self.t_period
         )
 

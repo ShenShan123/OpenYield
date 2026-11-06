@@ -3,6 +3,42 @@
 This is the preserved V2.1.10 architecture. V2.2.1 replaces its cross-cycle
 hold/slot logic with [separate access and recovery phases](PHASED_CONTROL_V2_2_1.md).
 
+V2.2.9 adds the following internal signal contract for 6T with the standard
+2:1 column mux (`access_speedup=True`). The remaining numbered sections
+preserve the earlier architecture and its history.
+
+| Internal node | Current role |
+|---|---|
+| `phase_select` | Inverted external `csb`, sampled by `ACCESS_PHASE_DFF` on rising `clk_buf` |
+| `access_phase`, `access_phase_bar` | One access window per selected capture; asynchronous completion clears both master and slave |
+| `access_request`, `pre_off_ready` | Phase admitted after the physical far PRE is observed off and settled |
+| `access_settled` | Decoder setup delay from the raw phase, in parallel with PRE release |
+| `write_drive_ready` | Settled far write enable; an independent WL-start interlock |
+| `read_done` | Replica completion starts input isolation and releases the read WL |
+| `iso_ready` | Settled far isolation; together with `read_done`, asserts `s_en` |
+| `pre_ready` | Physical replica WL observed off through the retained settling guard |
+| `read_completion_ready`, `read_resolved` | Far sense enable observed high, then the fixed resolution allowance |
+| `write_completion_ready`, `write_resolved` | Far replica WL observed high, then the fixed write allowance |
+| `read_complete` | `read_resolved & pre_ready & we_bar` |
+| `write_complete` | `write_resolved & we & access_phase` |
+| `access_done` | OR of read/write completion, asynchronous phase clear |
+
+PRE starts recovery only after phase release, physical WL release and both
+far enables off. The write window holds its drivers through the WL tail.
+Read sensing may overlap that tail; isolation remains asserted until the
+read is complete and the physical WL is off. The public ports are unchanged.
+
+Recovery includes the reset of both completion timers and the access,
+isolation, write-drive, read-observe and write-observe guards. Checking only
+PRE and the bitline voltages can miss a stale internal timer before the next
+capture. The waveform probe contract is `SELF_TIMED_RECOVERY_LOW/HIGH` in
+`sram_6t_core_MC_testbench.py`.
+
+The testbench's duty fraction is measured between external 50% clock
+crossings. Rise/fall each take 1% of the period; the new controller's plateau
+is adjusted accordingly. A stopped-high clock must finish its access and
+park in the same recovered state.
+
 
 Reference for the `TIME_CONTROL` block in
 `sram_compiler/subcircuits/time_generate.py` (V2.1.10; the block was called

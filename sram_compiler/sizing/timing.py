@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from decimal import Decimal, ROUND_CEILING
 from math import ceil, isfinite, log2
 import hashlib
 import json
 from pathlib import Path
+from typing import Any, Sequence
 
 
 @dataclass(frozen=True)
 class TimingConfig:
     """Phase budgets, retaining the historical JSON field names.
 
-    In V2.2.0 low_read/low_write describe read/write ACCESS (clock-high),
-    and high describes RECOVERY (clock-low). The period covers both halves.
+    Legacy low_read/low_write describe clock-high access and high describes
+    clock-low recovery. For self-timed control, cycle_budget is capture to
+    the recovered state before margin; access_time is the rounded absolute
+    data deadline after the capture crossing, including margin.
     """
     t_period: float
     low_read: float
@@ -22,14 +26,21 @@ class TimingConfig:
     high: float
     margin: float = 0.25
     source: str = "calibrated"
+    cycle_budget: float = 0.0
+    access_time: float = 0.0
 
     def __post_init__(self):
         if not isfinite(self.t_period) or self.t_period <= 0:
             raise ValueError('Clock period must be finite and positive')
         if any(not isfinite(value) or value < 0 for value in
-               (self.low_read, self.low_write, self.high, self.margin)):
+               (self.low_read, self.low_write, self.high, self.margin, self.cycle_budget, self.access_time)):
             raise ValueError('Timing phases and margin must be finite and nonnegative')
-        minimum = 2 * max(self.low_read, self.low_write, self.high) * (1 + self.margin)
+        if self.cycle_budget and not self.access_time:
+            raise ValueError('A self-timed cycle needs an absolute access deadline')
+        if self.access_time > self.t_period:
+            raise ValueError('Access deadline exceeds the clock period')
+        minimum = ((self.cycle_budget if self.cycle_budget else
+                    2 * max(self.low_read, self.low_write, self.high)) * (1 + self.margin))
         if self.t_period + 1e-18 < minimum:
             raise ValueError('Clock period does not cover its declared phase margin')
 
@@ -41,8 +52,14 @@ class TimingConfig:
             u_ns,  # pyright: ignore[reportAttributeAccessIssue] -- generated unit export
         )
         period = (self.t_period / 1e-9) @ u_ns
+        duty = getattr(testbench, 'clock_duty', 0.5)
+        self_timed = getattr(getattr(testbench, 'driver_sizes', None), 'access_speedup', False)
+        if self_timed and not .01 < duty < .99:
+            raise ValueError('Clock duty must leave room for the 1% rising and falling edges')
+        pulse = (duty - .01 if self_timed else duty) * period
         testbench.set_timing_parameters(
-            t_rise=0.01 * period, t_fall=0.01 * period, t_pulse=0.5 * period,
+            t_rise=0.01 * period, t_fall=0.01 * period,
+            t_pulse=pulse,
             t_period=period, t_delay=1 @ u_ns,
         )
         testbench.timing_config = self
@@ -101,7 +118,7 @@ def load_timing_lookup(path=None):
         path = Path(__file__).resolve().parents[2] / path
     raw = path.read_bytes()
     table = json.loads(raw)
-    if not isinstance(table, dict) or table.get('schema') != 1:
+    if not isinstance(table, dict) or table.get('schema') not in (1, 2):
         raise ValueError('Unsupported timing lookup schema')
     _validate_ladders(table)
     variants = table.get('variants', [])
@@ -125,6 +142,8 @@ def load_timing_lookup(path=None):
                     or any(entry[bound] != base[bound] or entry['half_period_ps'] < base['half_period_ps']
                            for entry, base in zip(variant[group], shared))):
                 raise ValueError('Timing lookup variants must keep the shared anchors and never relax a budget')
+    if table['schema'] == 2:
+        _validate_completion_ladders(table.get('self_timed'))
     _validate_envelope(table)
     table['sha256'] = hashlib.sha256(raw).hexdigest()
     return table
@@ -132,6 +151,65 @@ def load_timing_lookup(path=None):
 
 _CELL_TYPES = ('SRAM_6T_CELL', 'SRAM_10T_CELL')
 _BOUNDS = {'row_classes': 'max_rows', 'column_classes': 'max_cols'}
+
+
+def _completion_time(budget_ps: float | Decimal, margin: float) -> float:
+    """Round decimal budgets upward without adding a tick at a binary boundary."""
+    ticks = (Decimal(str(budget_ps)) * (1 + Decimal(str(margin))) / 50).to_integral_value(
+        rounding=ROUND_CEILING)
+    return int(ticks) * 50e-12
+
+
+def _validate_completion_ladders(block: object) -> None:
+    if (not isinstance(block, dict) or block.get('cell_type') != 'SRAM_6T_CELL'
+            or block.get('mux') is not True or type(block.get('compact_control')) is not bool
+            or not isinstance(block.get('control_architecture'), str) or not block['control_architecture']):
+        raise ValueError('Self-timed budgets need a 2:1-mux 6T control architecture')
+    margin = block.get('margin', .10)
+    if isinstance(margin, bool) or not isinstance(margin, (int, float)) or not isfinite(margin) or margin < 0:
+        raise ValueError('Self-timed margin must be finite and nonnegative')
+    for group, bound in _BOUNDS.items():
+        entries = block.get(group)
+        if not isinstance(entries, list) or not entries:
+            raise ValueError(f'Self-timed budgets need {group}')
+        previous = (0, 0, 0)
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError(f'Invalid self-timed {group} entry')
+            values = tuple(entry.get(name) for name in (bound, 'access_ps', 'cycle_ps'))
+            if (any(type(value) is not int or value <= 0 for value in values)
+                    or values[0] <= previous[0] or values[1] < previous[1] or values[2] < previous[2]
+                    or values[1] > values[2]
+                    or entry.get('evidence_status') not in ('postlayout', 'schematic', 'extrapolated')):
+                raise ValueError('Self-timed bounds must increase and completion budgets must be positive and monotonic')
+            previous = values
+    grid = block.get('joint_classes')
+    if grid is not None:
+        rows=[entry['max_rows'] for entry in block['row_classes']]
+        cols=[entry['max_cols'] for entry in block['column_classes']]
+        if not isinstance(grid,list) or len(grid)!=len(rows)*len(cols):
+            raise ValueError('Self-timed joint classes must cover the full row/column grid')
+        expected={(r,c) for r in rows for c in cols}
+        entries={}
+        for entry in grid:
+            if not isinstance(entry,dict):raise ValueError('Invalid self-timed joint class')
+            key=(entry.get('max_rows'),entry.get('max_cols'))
+            if (any(type(value) is not int for value in key) or key not in expected or key in entries
+                    or any(type(entry.get(name)) is not int or entry[name]<=0 for name in ('access_ps','cycle_ps'))
+                    or entry['access_ps']>entry['cycle_ps']
+                    or entry.get('evidence_status') not in ('postlayout','schematic','extrapolated')):
+                raise ValueError('Invalid or duplicate self-timed joint class')
+            entries[key]=entry
+        for i,r in enumerate(rows):
+            for j,c in enumerate(cols):
+                earlier=([(rows[i-1],c)] if i else [])+([(r,cols[j-1])] if j else [])
+                if any(entries[r,c][name]<entries[key][name] for key in earlier for name in ('access_ps','cycle_ps')):
+                    raise ValueError('Self-timed joint budgets must not decrease with dimension')
+        for group,bound,other in (('row_classes','max_rows',cols[0]),('column_classes','max_cols',rows[0])):
+            for entry in block[group]:
+                key=(entry[bound],other) if group=='row_classes' else (other,entry[bound])
+                if any(entry[name]!=entries[key][name] for name in ('access_ps','cycle_ps')):
+                    raise ValueError('Self-timed joint grid must match its single-dimension anchors')
 
 
 def _validate_ladders(table):
@@ -166,7 +244,10 @@ def _validate_envelope(table):
         limit = envelope[bound]
         if type(limit) is not int or limit <= 0:
             raise ValueError('Supported envelope bounds must be positive integers')
-        for ladders in [table] + table.get('variants', []):
+        ladders_to_check = [table] + table.get('variants', [])
+        if table.get('schema') == 2:
+            ladders_to_check.append(table['self_timed'])
+        for ladders in ladders_to_check:
             if ladders[group][-1][bound] != limit:
                 raise ValueError(f'The last {group} anchor must equal the supported envelope')
 
@@ -192,11 +273,11 @@ def require_envelope(rows, cols, table=None, *, fixed_diagnostic: bool = False):
             f"of {envelope['max_rows']} rows by {envelope['max_cols']} columns")
 
 
-def _half_period_ps(ladders, rows, cols):
-    """Joint half-period of one ladder set (V2.2.3 rule), in integer ps, and its classes."""
+def _half_period_ps(ladders: dict, rows: int, cols: int,
+                    budget_field: str = 'half_period_ps') -> tuple[int, dict, dict]:
     from .driver_sizing import interpolate_class
-    row = interpolate_class(ladders['row_classes'], 'max_rows', ('half_period_ps',), rows)
-    col = interpolate_class(ladders['column_classes'], 'max_cols', ('half_period_ps',), cols)
+    row = interpolate_class(ladders['row_classes'], 'max_rows', (budget_field,), rows)
+    col = interpolate_class(ladders['column_classes'], 'max_cols', (budget_field,), cols)
     # V2.2.3: bitline height and wordline width cost time separately, so an
     # array large in both dimensions pays for both. A dimension's excess is its
     # budget above the budget of its own first class, which is what the
@@ -204,9 +285,36 @@ def _half_period_ps(ladders, rows, cols):
     # budgets carries that base once and the smaller excess is added on top.
     # A dimension inside its first class has no excess, so every size screened
     # before V2.2.3 keeps exactly the maximum-rule period it was screened at.
-    joint_ps = min(row['half_period_ps'] - ladders['row_classes'][0]['half_period_ps'],
-                   col['half_period_ps'] - ladders['column_classes'][0]['half_period_ps'])
-    return max(row['half_period_ps'], col['half_period_ps']) + joint_ps, row, col
+    joint_ps = min(row[budget_field] - ladders['row_classes'][0][budget_field],
+                   col[budget_field] - ladders['column_classes'][0][budget_field])
+    return max(row[budget_field], col[budget_field]) + joint_ps, row, col
+
+
+def _validate_completion_baseline(block: dict, config: Any, sizes: Any) -> None:
+    baseline = block.get('baseline')
+    if baseline is None:
+        return
+    from .driver_sizing import load_lookup, lookup_classes
+    options = config.global_config.sizing
+    options = options if isinstance(options, dict) else vars(options)
+    if (sizes.source != 'lookup' or options.keys() -
+            {'mode', 'lookup', 'compact_control', 'access_speedup', 'replica'}):
+        raise ValueError('Self-timed budgets require the frozen lookup driver baseline; use fixed diagnostic timing')
+    lookup = load_lookup(options.get('lookup'))
+    if (lookup['sha256'] != baseline.get('sizing_lookup_sha256')
+            or sizes.lookup_sha256 != baseline.get('sizing_lookup_sha256')):
+        raise ValueError('Self-timed budgets belong to a different sizing lookup')
+    if sizes.sizing_policy_key != baseline.get('sizing_policy_key'):
+        raise ValueError('Self-timed budgets require the frozen buffer and decoder sizing policy')
+    if (sizes.peripheral_key != baseline.get('peripheral_key')
+            or sizes.pdk_key != baseline.get('pdk_key')):
+        raise ValueError('Self-timed budgets require the baseline peripheral configuration and PDK')
+    if sizes.physical_key not in baseline.get('physical_keys', []):
+        raise ValueError('Self-timed budgets require the baseline physical RC profile')
+    row, _ = lookup_classes(lookup, sizes.rows, sizes.cols)
+    reference = row['self_timed']['replica']
+    if (sizes.replica_k, sizes.dc_stages) != (min(reference['K'], sizes.rows, sizes.cols), reference['N']):
+        raise ValueError('Self-timed budgets require the measured replica timing reference')
 
 
 def resolve_timing(config, driver_sizes, context=None):
@@ -244,9 +352,35 @@ def resolve_timing(config, driver_sizes, context=None):
         if timing is None:
             raise ValueError('Qualified timing record is stale or unavailable for this physical context')
         return timing
-    margin = options.get('margin', .25)
+    completion = table.get('self_timed') if driver_sizes.access_speedup and table['schema'] == 2 else None
+    if driver_sizes.access_speedup and completion is None:
+        raise ValueError('Self-timed automatic clocks require a completion-budget table; use fixed diagnostic timing')
+    margin = options.get('margin', completion.get('margin', .10) if completion else .25)
     if isinstance(margin, bool) or not isinstance(margin, (float, int)) or not isfinite(margin) or margin < 0:
         raise ValueError('Timing margin must be finite and nonnegative')
+    if completion:
+        if (driver_sizes.control_architecture.split(':')[0] != completion['control_architecture']
+                or driver_sizes.compact_control != completion['compact_control']):
+            raise ValueError('Self-timed budgets belong to a different control architecture')
+        _validate_completion_baseline(completion, config, driver_sizes)
+        access_ps, row, col = _half_period_ps(completion, driver_sizes.rows, driver_sizes.cols, 'access_ps')
+        cycle_ps = _half_period_ps(completion, driver_sizes.rows, driver_sizes.cols, 'cycle_ps')[0]
+        joint=next((entry for entry in completion.get('joint_classes',[]) if
+                    (entry['max_rows'],entry['max_cols'])==(row['max_rows'],col['max_cols'])),None)
+        if joint is not None:
+            access_ps,cycle_ps=joint['access_ps'],joint['cycle_ps']
+        if access_ps > cycle_ps:
+            raise ValueError('Joint access budget exceeds the joint cycle budget')
+        period = _completion_time(cycle_ps, margin)
+        access_time = _completion_time(access_ps, margin)
+        return ArrayTiming(period, 0, 0, 0, margin=margin, source='lookup',
+                           cycle_budget=cycle_ps * 1e-12, access_time=access_time,
+                           driver_key=driver_sizes.key, options_key=_options_key(options),
+                           table_sha256=table['sha256'], table_version=table.get('lookup_version', ''),
+                           size_class=f"rows<={row['max_rows']}/cols<={col['max_cols']}",
+                           extrapolated=any(entry.get('evidence_status') == 'extrapolated' for entry in
+                                            ((joint,) if joint is not None else (row,col))),
+                           budget='6T-self-timed')
     ladders, budget = _budget_ladders(table, driver_sizes.cell_type, driver_sizes.mux)
     half_ps, row, col = _half_period_ps(ladders, driver_sizes.rows, driver_sizes.cols)
     if ladders is not table:
@@ -264,7 +398,8 @@ def resolve_timing(config, driver_sizes, context=None):
                        extrapolated=row['extrapolated'] or col['extrapolated'], budget=budget)
 
 
-def timing_from_measurements(read, writes, *, margin=0.25):
+def timing_from_measurements(read: dict, writes: Sequence[dict], *,
+                             margin: float | None = None, self_timed: bool = False) -> TimingConfig:
     """Use SS read and both SS/SF writes; never recalibrate from MC candidates."""
     def positive(metrics, key):
         try:
@@ -275,8 +410,19 @@ def timing_from_measurements(read, writes, *, margin=0.25):
             raise ValueError(f"Invalid timing calibration measurement {key}: {value}")
         return value
 
+    margin = (.10 if self_timed else .25) if margin is None else margin
     if not isfinite(margin) or margin < 0:
         raise ValueError("Timing margin must be finite and nonnegative")
+    if self_timed:
+        if not writes:
+            raise ValueError('Self-timed calibration requires write completion measurements')
+        access = positive(read, 'TACCESS')
+        cycle = max(positive(metrics, 'TCYCLE') for metrics in [read, *writes])
+        if access <= 0 or cycle < access:
+            raise ValueError('Invalid self-timed completion measurements')
+        return TimingConfig(_completion_time(Decimal(str(cycle)) * Decimal('1e12'), margin),
+                            0, 0, 0, margin, source='measured-self-timed', cycle_budget=cycle,
+                            access_time=_completion_time(Decimal(str(access)) * Decimal('1e12'), margin))
     if len(writes) != 2:
         raise ValueError("Timing calibration requires SS and SF write phases")
     low_read = positive(read, 'TCLK_WLEN') + positive(read, 'TREAD_TOTAL')

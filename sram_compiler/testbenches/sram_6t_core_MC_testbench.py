@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import hashlib
 import json
@@ -21,11 +23,29 @@ from PySpice.Spice.Netlist import Circuit, SubCircuitFactory
 from math import ceil, isfinite, log2
 from numbers import Integral
 
-# Fraction of the period by which a read's data must be on its rail and a
-# written cell settled, counted from the capture edge of that cycle. The
-# independent waveform screen (tests/spice/phased_waveforms.py) uses the same
-# number, so a runtime pass and a screen pass mean the same thing.
+# Legacy deadline from the nominal cycle origin. Self-timed tables supply
+# an absolute access_time after the 50% capture crossing instead.
 ACCESS_DEADLINE = 0.68
+
+SELF_TIMED_RECOVERY_LOW = tuple('XTIME_CONTROL:' + node for node in (
+    'access_phase', 'access_done', 'read_complete', 'write_complete',
+    'read_resolved', 'write_resolved', 'read_completion_ready', 'write_completion_ready'))
+SELF_TIMED_RECOVERY_HIGH = tuple('XTIME_CONTROL:' + node + ':pre_on_delayed' for node in (
+    'Xaccess_guard', 'Xisolation_guard', 'Xwrite_drive_guard', 'Xread_observe', 'Xwrite_observe'))
+
+
+def access_deadline_time(period: float, cycle: int, access_time: float = 0.,
+                         rise_time: float | None = None) -> float:
+    """Absolute deadline from the clock's 50% capture crossing, in seconds."""
+    if access_time:
+        rise_time = .01 * period if rise_time is None else rise_time
+        return 1e-9 + (cycle + .2) * period + .5 * rise_time + access_time
+    return 1e-9 + (cycle + ACCESS_DEADLINE) * period
+
+
+def recovery_check_time(period: float, cycle: int, self_timed: bool = False) -> float:
+    """Recover before the next rising edge; retain the legacy early check."""
+    return 1e-9 + (cycle + (1.2 if self_timed else 1.1)) * period
 
 # Operations that simulate the assembled array. SNM operations build one cell.
 TRANSIENT_OPERATIONS = ('read', 'write', 'read&write')
@@ -74,7 +94,7 @@ def cycle_plan(operation, select_every=1, cycles=None):
     return span, plan
 
 
-def access_cycles(operation, select_every=1, cycles=None):
+def access_cycles(operation, select_every=1, cycles=None, self_timed: bool = False):
     """(cycle, kind, data, next_cycle, next_kind, next_data) per checked access.
 
     Check accesses with their complete recovery phase inside the transient
@@ -82,9 +102,11 @@ def access_cycles(operation, select_every=1, cycles=None):
     fields identify a following selected access inside the simulated span.
     """
     span, plan = cycle_plan(operation, select_every, cycles)
+    single_tail=self_timed and operation in ('read','write')
+    if single_tail:span+=.15
     entries = []
     for cycle, (kind, data) in enumerate(plan):
-        if kind == 'idle' or cycle + 1.2 > span + 1e-9:
+        if kind == 'idle' or cycle + (1.15 if single_tail else 1.2) > span + 1e-9:
             continue
         following = next(((j, jk, jd) for j, (jk, jd) in enumerate(plan)
                           if j > cycle and jk != 'idle'), None)
@@ -104,7 +126,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                  q_init_val=0, sim_path='sim', enable_waveform=True,
                  mc_seed=None, xyce_options=None, t_max_step=None, next_row=None,
                  driver_sizes=None, timing_config=None, variation_mode=None, temperature=None,
-                 interconnect=None, select_every=1):
+                 interconnect=None, select_every=1, clock_duty: float = 0.5):
         """
                蒙特卡洛测试平台初始化
                参数:
@@ -149,6 +171,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             temperature=temperature,
             interconnect=interconnect,
             select_every=select_every,
+            clock_duty=clock_duty,
         )
         self.sram_cell_type=sram_cell_type
         # enable_mc is an alias for mc (backward compatibility with experiment.py)
@@ -595,6 +618,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         V2.1.4) ended some traces with the final time printed twice.
         """
         cycles = cycle_plan(operation, self.select_every)[0]
+        if self.driver_sizes.access_speedup and operation in ('read','write'):
+            # Include the last access's full recovered state before another
+            # capture; a short self-timed clock can use most of the period.
+            cycles += .15
         step = float(self.t_step)
         return ceil((1e-9 + cycles * float(self.t_period)) / step - 1e-6) * step
 
@@ -619,27 +646,28 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         bitlines = [f'{self.arr_inst_prefix}:BL{self.target_col}_far',
                     f'{self.arr_inst_prefix}:BLB{self.target_col}_far',
                     f'{self.replica_inst_prefix}:RBL_far']
-        for cycle, kind, expected, following, next_kind, next_data in access_cycles(operation, self.select_every):
+        for cycle, kind, expected, following, next_kind, next_data in access_cycles(
+                operation,self.select_every,self_timed=self.driver_sizes.access_speedup):
             error = f'MAX(ABS(V({q})-{expected * vdd:.12g}),ABS(V({qb})-{(1-expected) * vdd:.12g}))'
             if kind == 'read':
                 error = f'MAX({error},ABS(V(OUT)-{expected * vdd:.12g}))'
-            # V2.2.3: the data deadline is the waveform checker's k + 0.68 T,
-            # not the looser k + 0.7 T these cards used through V2.2.2. The
-            # 0.02 T difference is 180 ps at a 9 ns clock and 555 ps at
-            # 27.75 ns, and it is the gap that let a V2.2.1 8x512 read pass
-            # these measures while still on the wrong rail at the checker's
-            # deadline. Runtime and screen now accept exactly the same traces.
+            deadline = access_deadline_time(period, cycle, self.timing_config.access_time,
+                                             float(self.t_rise))
             simulator.measure('TRAN', f'VACCESS_ERROR_{cycle}',
-                              f'FIND {{{error}}} AT={1e-9 + (cycle + ACCESS_DEADLINE) * period:.12g}')
+                              f'FIND {{{error}}} AT={deadline:.12g}')
             simulator.measure('TRAN', f'VHOLD_ERROR_{cycle}',
-                              f'MAX {{{error}}} FROM={1e-9 + (cycle + ACCESS_DEADLINE) * period:.12g} '
+                              f'MAX {{{error}}} FROM={deadline:.12g} '
                               f'TO={1e-9 + (cycle + 1.2) * period:.12g}')
             # PRE is active low. A correct final datum does not excuse opening
             # the cell or write driver before local precharge has released.
             pre_error = f'ABS(V({pre})-{vdd:.12g})'
+            pre_access = (f'MAX(IF(V({wl})>{.1*vdd:.12g},{pre_error},0),'
+                          f'IF(V({enable})>{.5*vdd:.12g},{pre_error},0))')
+            if self.driver_sizes.access_speedup:
+                pre_access = (f'IF(MAX(ABS(V({wl})),MAX(V({enable}),V({sense})))>'
+                              f'{.1*vdd:.12g},{pre_error},0)')
             simulator.measure('TRAN', f'VPRE_ACCESS_ERROR_{cycle}',
-                              f'MAX {{MAX(IF(V({wl})>{.1*vdd:.12g},{pre_error},0),'
-                              f'IF(V({enable})>{.5*vdd:.12g},{pre_error},0))}} '
+                              f'MAX {{{pre_access}}} '
                               f'FROM={1e-9 + (cycle + .2) * period:.12g} '
                               f'TO={1e-9 + (cycle + 1.2) * period:.12g}')
             if kind == 'write':
@@ -652,6 +680,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                                   f'FROM={1e-9 + (cycle + .2) * period:.12g} '
                                   f'TO={1e-9 + (cycle + 1.2) * period:.12g}')
             roles = f'MAX(IF(V({sense})>{.1*vdd:.12g},ABS(V({wl})),0),IF(V({enable})>{.1*vdd:.12g},ABS(V({sense})),0))'
+            if self.driver_sizes.access_speedup:
+                roles = (f'MAX(IF(V({enable})>{.1*vdd:.12g},ABS(V({sense})),0),'
+                         f'IF(V(XTIME_CONTROL:access_phase)<{.1*vdd:.12g},'
+                         f'IF(V({wl})>{.1*vdd:.12g},ABS(V({isolation})-{vdd:.12g}),0),0))')
             iso_error = f'IF(MAX(V({sense}),V({enable}))>{.1*vdd:.12g},ABS(V({isolation})-{vdd:.12g}),0)'
             for phase, expression in (('ROLE', roles), ('ISO', iso_error)):
                 simulator.measure('TRAN', f'V{phase}_ERROR_{cycle}',
@@ -663,10 +695,20 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                          'XTIME_CONTROL:read_done', 'rbl_delay'):
                 boundary = f'MAX({boundary},ABS(V({node})))'
             boundary = f'MAX({boundary},ABS(V(XTIME_CONTROL:enables_off)-{vdd:.12g}))'
+            if self.driver_sizes.access_speedup:
+                for node in SELF_TIMED_RECOVERY_LOW:
+                    boundary = f'MAX({boundary},ABS(V({node})))'
+                for node in SELF_TIMED_RECOVERY_HIGH:
+                    boundary = f'MAX({boundary},ABS(V({node})-{vdd:.12g}))'
             simulator.measure('TRAN', f'VBOUNDARY_ERROR_{cycle}',
                               f'FIND {{{boundary}}} AT={1e-9 + (cycle + .2) * period:.12g}')
-            if following is None:
+            if following is None and not self.driver_sizes.access_speedup:
                 continue
+            recovery_time = min(recovery_check_time(period,cycle,self.driver_sizes.access_speedup),
+                                self._analysis_stop(operation))
+            if self.driver_sizes.access_speedup:
+                simulator.measure('TRAN', f'VRECOVERY_ERROR_{cycle}',
+                                  f'FIND {{{boundary}}} AT={recovery_time:.12g}')
             # End of this cycle's recovery: every bitline is precharged,
             # including after a write. Check before the next capture edge.
             targets = [vdd, vdd, vdd]
@@ -674,18 +716,21 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             for node, target in zip(bitlines[1:], targets[1:]):
                 restore_error = f'MAX({restore_error},ABS(V({node})-{target:.12g}))'
             simulator.measure('TRAN', f'VRESTORE_ERROR_{cycle}',
-                              f'FIND {{{restore_error}}} AT={1e-9 + (cycle + 1.1) * period:.12g}')
+                              f'FIND {{{restore_error}}} AT={recovery_time:.12g}')
 
     @staticmethod
-    def access_validity(measurements, operation, vdd, select_every=1, cycles=None):
-        entries = access_cycles(operation, select_every, cycles)
+    def access_validity(measurements, operation, vdd, select_every=1, cycles=None, self_timed: bool = False):
+        entries = access_cycles(operation, select_every, cycles,self_timed)
+        phases = ('ACCESS', 'HOLD', 'PRE_ACCESS', 'BOUNDARY', 'ROLE', 'ISO')
+        if self_timed:
+            phases += ('RECOVERY',)
         names = [f'V{phase}_ERROR_{cycle}' for cycle, *_ in entries
-                 for phase in ('ACCESS', 'HOLD', 'PRE_ACCESS', 'BOUNDARY', 'ROLE', 'ISO')]
+                 for phase in phases]
         # V2.1.9: a write's drivers stay on while its wordline is on.
         names += [f'VWEN_ACCESS_ERROR_{cycle}' for cycle, kind, *_ in entries if kind == 'write']
         limits = [.1 * vdd] * len(names)
         restore = [f'VRESTORE_ERROR_{cycle}' for cycle, kind, data, following, *_ in entries
-                   if following is not None]
+                   if following is not None or self_timed]
         names += restore
         limits += [.02 * vdd] * len(restore)
         values = measurements.reindex(columns=names).to_numpy(dtype=float)
@@ -712,10 +757,11 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         probes = {'FAR': f'{self.arr_inst_prefix}:WL{self.target_row}_far',
                   'LOCAL': self.cell_probe('WL')}
         peak = f'MAX(ABS(V({probes["FAR"]})),ABS(V({probes["LOCAL"]})))'
-        for cycle, kind, data, following, next_kind, next_data in access_cycles(operation, self.select_every):
-            if following is None:
+        for cycle, kind, data, following, next_kind, next_data in access_cycles(
+                operation,self.select_every,self_timed=sizes.access_speedup):
+            if following is None and not sizes.access_speedup:
                 continue
-            start = 1e-9 + (cycle + .7) * period
+            start = 1e-9 + (cycle + (.2 if sizes.access_speedup else .7)) * period
             # Never claim a rebound interval beyond the simulated transient.
             stop = min(1e-9 + (cycle + 1.2) * period, analysis_stop)
             name, event, active = 'PRE', f'V(PRE)={.9 * vdd:.12g} FALL=1', f'V(PRE)<{.9 * vdd:.12g}'
@@ -729,15 +775,15 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
     def _check_distributed_precharge(self, measurements, operation):
         self.validate_distributed_precharge(measurements, operation, float(self.vdd),
-                                            select_every=self.select_every)
+                                            select_every=self.select_every,self_timed=self.driver_sizes.access_speedup)
 
     @staticmethod
-    def validate_distributed_precharge(measurements, operation, vdd, select_every=1, cycles=None):
+    def validate_distributed_precharge(measurements, operation, vdd, select_every=1, cycles=None, self_timed: bool = False):
         """Refuse unsafe/incomplete samples while preserving their raw measures."""
         names = [f'VWL_PRE_{location}_{cycle}'
                  for cycle, kind, data, following, next_kind, next_data
-                 in access_cycles(operation, select_every, cycles)
-                 if following is not None
+                 in access_cycles(operation, select_every, cycles,self_timed)
+                 if following is not None or self_timed
                  for location in ('FAR', 'LOCAL', 'PEAK')]
         values = measurements.reindex(columns=names).to_numpy(dtype=float)
         valid = np.isfinite(values).all(axis=1) & (np.abs(values) <= .1 * vdd).all(axis=1)
@@ -759,6 +805,8 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                    'XTIME_CONTROL:read_done', 'XTIME_CONTROL:iso_ready',
                    'XTIME_CONTROL:local_enables_off', 'XTIME_CONTROL:far_enables_off',
                    'XTIME_CONTROL:far_enables_ready']
+        if self.driver_sizes.access_speedup:
+            probes += list(SELF_TIMED_RECOVERY_LOW + SELF_TIMED_RECOVERY_HIGH)
         if not self.driver_sizes.compact_control:
             probes.append('XTIME_CONTROL:s_en_bar')
         probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
@@ -827,6 +875,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def _init_control_path(self, init_cond):
         """Deterministic start-up state of the control path (shared by read / write)."""
         n_bits = ceil(log2(self.num_rows)) if self.num_rows > 1 else 1
+        if self.driver_sizes.access_speedup:
+            init_cond['XTIME_CONTROL:access_phase'] = 0 @ u_V
+            prefix = 'XTIME_CONTROL:Xaccess_phase'
+            init_cond[f'{prefix}:z2'] = 0 @ u_V
+            for node in ('D_b', 'z1', 'z3', 'z4', 'z5', 'QB'):
+                init_cond[f'{prefix}:{node}'] = self.vdd @ u_V
         for bit in range(n_bits):
             # address register output (inside TIME_CONTROL) and the held / buffered copy
             init_cond[f'XTIME_CONTROL:A_reg{bit}'] = 0 @ u_V
@@ -859,7 +913,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         return init_cond
 
     def _print_min_period(self, stats_csv_path, operation):
-        """Diagnostic 50%-duty estimate from access/decode and recovery.
+        """Diagnostic estimate from full self-timed recovery or legacy phases.
 
         This measured estimate is not the lookup qualification rule. It uses
         mean + one standard deviation and 10% margin, and excludes access tail
@@ -882,6 +936,15 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # Every operation restores in clock-low, including writes.
         t_restore = worst('TRESTORE')
         t_dec = worst('TCLK_DEC')
+        if self.driver_sizes.access_speedup:
+            cycle = worst('TCYCLE')
+            if cycle is None:
+                print('[INFO] self-timed CLK(min) requires full-recovery waveform TCYCLE; '
+                      'TRESTORE measures only one bitline at 90%')
+                return None
+            t_min = cycle * 1.1
+            print(f'[INFO] self-timed full recovered cycle (+10 %): {t_min:.3e} s')
+            return t_min
         if access is None or t_wlen is None or t_restore is None:
             print("[WARNING] minimum-period estimate skipped: TCLK_WLEN / TRESTORE / "
                   "access delay missing in the statistics")
@@ -919,10 +982,18 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # Recovery always precharges, after reads and writes alike.
         # BL is low after reading 0; BLB is low after the first write of 1.
         restore_node = node if operation == 'read' else f'{self.arr_inst_prefix}:BLB{self.target_col}_far'
-        td = 1e-9 + .65 * float(self.t_period)
+        if self.driver_sizes.access_speedup:
+            td = 1e-9 + .2 * float(self.t_period)
+            trigger = f'TRIG V(XTIME_CONTROL:access_done)={self.half_vdd} RISE=1 TD={td:.4e} '
+            simulator.measure('TRAN', 'TACCESS_DONE',
+                              f'TRIG V(clk)={self.half_vdd} RISE=1 '
+                              f'TARG V(XTIME_CONTROL:access_done)={self.half_vdd} RISE=1')
+        else:
+            td = 1e-9 + .65 * float(self.t_period)
+            trigger = f'TRIG V(clk)={self.half_vdd} FALL=1 TD={td:.4e} '
         simulator.measure(
             'TRAN', 'TRESTORE',
-            f'TRIG V(clk)={self.half_vdd} FALL=1 TD={td:.4e} ' +
+            trigger +
             f'TARG V({restore_node})={0.9 * vdd:.3f} RISE=1 TD={td:.4e}')
         if operation == 'write':
             td = t_edge - 1e-10
@@ -947,18 +1018,18 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
     def _add_static_power_measures(self, simulator):
         """PSTC over a quiescent window and PDYN = PAVG - PSTC.
 
-        The window 1 ns + [1.1, 1.15]*t_period is at the end of clock-low
-        recovery, before the next capture at 1 ns + 1.2*T. Startup
-        precharge is outside this window even for the short lookup clocks.
+        Self-timed lookup clocks leave a quiet window after their complete
+        recovery budget; legacy clocks retain their clock-low window.
         """
         t_period = float(self.t_period)
         t0 = float(1.0 @ u_ns)
+        start,stop=(1.15,1.19) if self.driver_sizes.access_speedup else (1.1,1.15)
         # Use the end of the restore phase after the first access. This is
         # inside the same full cycle as PAVG and excludes startup charging.
         simulator.measure(
             'TRAN', 'PSTC',
-            f'AVG {{-V(VDD)*I(VVDD)}} FROM={t0 + 1.1 * t_period} ' +
-            f'TO={t0 + 1.15 * t_period}'
+            f'AVG {{-V(VDD)*I(VVDD)}} FROM={t0 + start * t_period} ' +
+            f'TO={t0 + stop * t_period}'
         )
         simulator.measure(
             'TRAN', 'PDYN',
@@ -1478,7 +1549,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 mc_df.to_csv(tb_path.replace('.sp', '.data.csv'))
                 self._check_distributed_precharge(mc_df, operation)
                 valid = self.access_validity(mc_df, operation, float(self.vdd),
-                                             select_every=self.select_every)
+                                             select_every=self.select_every,self_timed=self.driver_sizes.access_speedup)
                 # Preserve the raw CSV above. Failed samples remain in the
                 # returned ensemble, as NaN, so optimizers/yield count them.
                 delay_name = {'read': 'TREAD_TOTAL', 'write': 'TWRITE_TOTAL',

@@ -1,7 +1,7 @@
 {
-  "schema": 1,
+  "schema": 2,
   "version": "V2.2.8",
-  "lookup_version": "v2.2.8-layout-timing-1",
+  "lookup_version": "v2.2.9-layout-timing-1",
   "units": "integer picoseconds before margin",
   "status": "Design budgets for the compact FreePDK45 layout; worst-PVT post-layout evidence, not local-mismatch or release qualification",
   "supported_envelope": {
@@ -176,5 +176,236 @@
         }
       ]
     }
-  ]
+  ],
+  "self_timed": {
+    "cell_type": "SRAM_6T_CELL",
+    "mux": true,
+    "compact_control": true,
+    "control_architecture": "v2.2.9-self-timed-completion-1",
+    "margin": 0.1,
+    "policy": "Round dimensions up, select explicit joint class; ceil each budget*(1+margin) to50ps. Legacy entries retain their original phase policy.",
+    "baseline": {
+      "sizing_lookup_sha256": "a1cc64b6552732d3876fe6c3408e0420a52d0715c3ef280044e6a6cc85ae9326",
+      "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+      "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+      "physical_keys": [
+        "0431ed4e9d16e9bb08dabfbdda628c0b7013a0617d882c6baa9a06583c9b9c82",
+        "0d3e813206d19f46af39a2a7f1b3b6e41375d4338180f233f7a5a927708f0ae2",
+        "150ce28ffa4e8110376b0ed3fb58757173562d2f4cabc8b8a8dda2d6813cfece",
+        "6e4d56d4c94f70f69546a9fbc9b9c204764ca140400ac3e33bcd445159eb05da",
+        "7a4d9ff3fd2250fb08d15bc3761ada54292b4f86e2f92584e30920b773b9f143",
+        "7d198d69973b499750671a32cedaa05d2bec39f2f918ae6d25a99ba2de7933d1",
+        "84742cf98b06f5a5fc3543236c6642e954a8416c9bb949616e8bbf47cb1fbfb8",
+        "cabb0bd9b10dd4cbcdaa1c9ebfbe5842392071b9cfd536696406317033cfde0c",
+        "cb6bf03d811c508ae8713585cf5f1170baa91902ff7e53eb368e83c9ce7c28a5",
+        "da162acce5e4572349b21ca5d0e28bfe20286d132ce18ac93056f08f7b7f906c"
+      ],
+      "sizing_policy_key": "d05341fdfcd40e94dadd37985981679eb61cd8ca62383394ec641435f8d4a5d0"
+    },
+    "physical_scope": "Stock illustrative distributed geometry/local stubs; equivalent1-4 share reference clocks but remain approximations. Compact post-layout claims refer to the recorded extracted macro only.",
+    "estimation_source": "docs/data/ACCESS_SPEEDUP_ESTIMATES.json",
+    "estimation_sha256": "2587c6d0422a8e712ffa535a7c771184d8edb4dc7e39cad40ddbb16a7172c351",
+    "joint_classes": [
+      {
+        "max_rows": 32,
+        "max_cols": 32,
+        "access_ps": 3784,
+        "cycle_ps": 6693,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 64,
+        "access_ps": 4957,
+        "cycle_ps": 9624,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 128,
+        "access_ps": 6718,
+        "cycle_ps": 14029,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 256,
+        "access_ps": 10991,
+        "cycle_ps": 23785,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 32,
+        "access_ps": 5011,
+        "cycle_ps": 8641,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 64,
+        "access_ps": 5305,
+        "cycle_ps": 9713,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 128,
+        "access_ps": 7066,
+        "cycle_ps": 14087,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 256,
+        "access_ps": 11338,
+        "cycle_ps": 23844,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 32,
+        "access_ps": 7107,
+        "cycle_ps": 11550,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 64,
+        "access_ps": 7369,
+        "cycle_ps": 11906,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 128,
+        "access_ps": 8169,
+        "cycle_ps": 14324,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 256,
+        "access_ps": 11920,
+        "cycle_ps": 23973,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 32,
+        "access_ps": 9549,
+        "cycle_ps": 15099,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 64,
+        "access_ps": 9811,
+        "cycle_ps": 15361,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 128,
+        "access_ps": 10611,
+        "cycle_ps": 17023,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 256,
+        "access_ps": 13308,
+        "cycle_ps": 24608,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 32,
+        "access_ps": 14808,
+        "cycle_ps": 22949,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 64,
+        "access_ps": 15070,
+        "cycle_ps": 23211,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 128,
+        "access_ps": 15870,
+        "cycle_ps": 24011,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 256,
+        "access_ps": 17419,
+        "cycle_ps": 27330,
+        "evidence_status": "extrapolated"
+      }
+    ],
+    "row_classes": [
+      {
+        "max_rows": 32,
+        "access_ps": 3784,
+        "cycle_ps": 6693,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 64,
+        "access_ps": 5011,
+        "cycle_ps": 8641,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 128,
+        "access_ps": 7107,
+        "cycle_ps": 11550,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 256,
+        "access_ps": 9549,
+        "cycle_ps": 15099,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_rows": 512,
+        "access_ps": 14808,
+        "cycle_ps": 22949,
+        "evidence_status": "extrapolated"
+      }
+    ],
+    "column_classes": [
+      {
+        "max_cols": 32,
+        "access_ps": 3784,
+        "cycle_ps": 6693,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_cols": 64,
+        "access_ps": 4957,
+        "cycle_ps": 9624,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_cols": 128,
+        "access_ps": 6718,
+        "cycle_ps": 14029,
+        "evidence_status": "extrapolated"
+      },
+      {
+        "max_cols": 256,
+        "access_ps": 10991,
+        "cycle_ps": 23785,
+        "evidence_status": "extrapolated"
+      }
+    ],
+    "measured_anchor_source": "outputs/access_speedup/v229/final_fixed/measured_anchor.json",
+    "measured_anchor_sha256": "70ff6e5b9142b72ba6a1cc7fc97b5e6d2e42d24ca690af3796a27ac1b5f9cbae"
+  }
 }

@@ -1,4 +1,4 @@
-# Unified experiments — V2.2.8
+# Unified experiments — V2.2.9
 
 Use [`main_sram.py`](../../main_sram.py) for all supported experiments. Simulation uses the script settings as defaults; explicit command-line options override them. From the repository root, generate a full-transistor deck without Xyce:
 
@@ -37,6 +37,13 @@ On the CLI, `--seed random` (or in the Python API, `mc_seed=None`) makes even a 
 
 The runner supports `read`, `write`, `read&write`, `hold_snm`, `read_snm`, and `write_snm`. `--target-row` and `--target-col` select the accessed cell. An omitted target defaults to the last row and column. Per-device mode cannot be combined with legacy `.STEP` geometry sweeps.
 
+Standard 2:1-mux 6T sources use self-timed access/recovery and a separate
+absolute read deadline. `--compact-control` selects the matching compact
+sizing and clock lookups; explicit `--sizing-lookup`, `--timing-lookup` and
+`--period` requests take precedence. 10T retains its earlier controller.
+The [timing record](../../docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md) states
+which clocks have measured anchors and which use larger-array estimates.
+
 SNM operations construct a single cell, even when larger array dimensions are
 configured. Their metadata reports `full_device_coverage=false`; use transient
 mode 0 arrays for full-array mismatch coverage.
@@ -50,7 +57,7 @@ from sram_compiler.testbenches.sram_6t_core_MC_testbench import Sram6TCoreMcTest
 config = load_config(8, 4, "TT")
 testbench = Sram6TCoreMcTestbench(
     config, corner="TT", mc_seed=3,
-    choose_columnmux=False, real_cell_mode=0,
+    choose_columnmux=True, real_cell_mode=0,
     sim_path="outputs/python_example",
 )
 circuit = testbench.create_testbench("read", 7, 3)
@@ -58,7 +65,7 @@ circuit = testbench.create_testbench("read", 7, 3)
 
 `experiments/simulation.py` implements the shared deck/result workflow. `config_yaml/loader.py` loads configuration in memory; `variation/netlist.py` specializes model cards and audits connectivity. Local waveform and MPI sampling scripts can live in ignored `tests/` and `dev/` workspaces; they are not needed to generate a deck.
 
-A generated deck, passing measures, or one Monte Carlo draw does not establish read/write correctness or yield. Inspect waveforms and the reported margins. The [V2.2.5 record](../../docs/design/compiler/COMPILER_ENTRY_V2_2_5.md) describes the pending screen and the unresolved 256x256 operating point; [the compiler tutorial](../README.md) explains the full flow.
+A generated deck, passing measures, or one Monte Carlo draw does not establish read/write correctness or yield. Inspect waveforms and the reported margins. The [V2.2.9 record](../../docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md) gives the current finite screen and limits; [the compiler tutorial](../README.md) explains the full flow.
 
 ## Experiment commands
 

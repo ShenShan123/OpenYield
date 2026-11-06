@@ -909,11 +909,18 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
         return pad
 
     best, previous = None, None
-    for gap in REG_GAPS:
+    self_timed = any(child.name == 'Xaccess_phase' for child in tc.children)
+    gaps = REG_GAPS + tuple(2800. + 500. * k for k in range(20)) if self_timed else REG_GAPS
+    for gap in gaps:
         bottom = _register_origin(rs, gap)[0] - 140.
         if best and bank_w * (bank_top - bottom) >= best[0]:
             break
-        fit = pad_for((_register_origin(rs, gap)[0], ceiling), previous)
+        band = (_register_origin(rs, gap)[0], ceiling)
+        # Separate completion chains impose a minimum band height. Widening
+        # cannot remove those row boundaries; try a taller register gap.
+        if self_timed and not _fits(tc, width + 100000., band, True, _lanes(rows, 100000.)):
+            continue
+        fit = pad_for(band, previous)
         previous = fit
         # Keep five routing-grid tracks beyond the placement minimum for escapes.
         pads = [fit + 5 * GRID if fit else 0.]
@@ -933,6 +940,8 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
                   f'RWL {"in decoder" if room + pad >= 0 else "raised"} area {area / 1e6:.1f} um2', flush=True)
             if best is None or area < best[0] - 1e-6:
                 best = (area, gap, pad, extra)
+    if best is None:
+        raise ValueError('Controller does not fit the supported frame candidates')
     _, gap, pad, extra = best
     band = (_register_origin(rs, gap)[0], ceiling)
     while pad or extra:

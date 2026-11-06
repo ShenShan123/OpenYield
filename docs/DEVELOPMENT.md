@@ -1,4 +1,27 @@
-# OpenYield V2.2.8 development tools
+# OpenYield V2.2.9 development tools
+
+The [V2.2.9 timing record](design/timing/ACCESS_SPEEDUP_V2_2_9.md) and
+[case protocol](../tests/spice/v229_access_speedup_cases.json) cover the new
+6T controller. Local `dev/access_speedup/` contains baseline segment
+measurement, detector screening, the extracted phase-register test, the
+6,000-sample extracted-slot offset study, decoder/load coupons, frozen-source
+snapshots, post-layout supply probes, completion extraction and class-budget
+models. `completion.py` measures every bitline and latent guard/timer reset;
+`system_margin.py` combines local sense-rail compression with coupled/quiet
+input sensitivity. `clock_table.py` prepares reviewable table candidates;
+it does not promote them.
+
+`rescore_post.py` records the exact scorer and offset/noise basis. An explicit
+observer-only read deadline is recorded separately from the electrical deck's
+original deadline. `resume_campaign.py` preserves interrupted attempts and
+runs unchanged prepared decks under a persistent manager, preserving native
+sampling seeds and previously solved initial-state guesses. Its completion
+status distinguishes a finished transient from a runner that ended early.
+Outputs and numerical attempts remain under ignored `outputs/access_speedup/`.
+These Python tools and regression runners stay local; the case manifest and
+JSON evidence remain tracked, as required by the project conventions.
+
+The following sections preserve V2.2.8 layout tools and their original scope.
 
 The [compact layout record](design/layout/COMPACT_CELL_V2_2_8.md) documents
 the default column-split bank and optional complete controller. The current
