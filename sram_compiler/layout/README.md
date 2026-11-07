@@ -3,8 +3,8 @@
 `layout bank` defaults to the compact **1125 nm column / 395 nm row** 6T
 cell, with two full-row column halves beside one shared decoder and a 2:1
 column mux. `--compact-cell --split-columns` remain accepted compatibility
-flags. This is the only bank floorplan. Source sizing, timing and simulation
-RC profiles remain frozen; physical checks do not establish waveform
+flags. This is the only bank floorplan. The validated sizing, timing and simulation
+RC profiles remain fixed across comparisons; physical checks do not establish waveform
 correctness or release qualification.
 
 ## Compact column-split bank
@@ -116,10 +116,14 @@ table `sram_compiler/sizing/layout_timing_lookup.json` (`--timing-lookup`;
 ten worst-PVT cases, and so does 128×128 with the array mesh; without it a
 128×128 read at FF 1.1 V −40 °C flipped far-end cells. Those results apply to
 the earlier controller. V2.2.9 uses the same extracted supply and cut-resistance
-policy; its [self-timed access record](../../docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md)
+policy; its [area-constrained access record](../../docs/design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md)
 contains the new 32×32 macro's waveform screen and labels larger-class clocks
 as estimates. Its additional asynchronous-clear phase register is a physical
-component; completion timers and their logic occupy separate controller rows.
+component; the five high-current groups retain separate rows. The characterized 32/64
+controllers share low-current completion rows, and the 64×64 controller uses
+locally wired M3/M4 delay chains with unchanged source devices. Identity-bound
+frame recipes reproduce the four validated area envelopes; a changed controller
+falls back to the general placement search.
 
 ## Small cells and component placement
 

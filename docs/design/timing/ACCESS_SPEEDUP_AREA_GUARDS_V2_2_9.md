@@ -1,5 +1,8 @@
 # V2.2.9 area-candidate guard characterization
 
+The [completed area revision](ACCESS_SPEEDUP_AREA_V2_2_9.md) records the final
+macros and native 64×64 coupons. This pilot record retains its original scope.
+
 The normalized-delay **pilot** layouts pass 16 isolated ISO/replica-wordline
 checks and five all-row wordline-release checks. The
 [evidence record](../../data/ACCESS_SPEEDUP_AREA_GUARDS_V2_2_9.json) binds the

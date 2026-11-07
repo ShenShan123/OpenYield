@@ -1,5 +1,7 @@
 # Characterisation and diagnostic data
 
+The current [V2.2.9 area/timing evidence](ACCESS_SPEEDUP_AREA_V2_2_9.json) and [design record](../design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md) supersede compact default clocks and sizing in the initial V2.2.9 screen below. Original evidence remains unchanged.
+
 ## V2.2.9 self-timed access
 
 The [design record](../design/timing/ACCESS_SPEEDUP_V2_2_9.md) links the

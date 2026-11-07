@@ -14,9 +14,10 @@ six MOS instances. Component and standalone controller tools remain available.
 Physical checks do not qualify autonomous bank operation.
 
 **V2.2.9** adds self-timed access and recovery for 6T SRAMs with the standard
-2:1 column mux. The [timing record](docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md)
-reports the extracted 32×32 waveform screen, mismatch measurements and
-estimated larger-array clocks. Driver W/L classes stay frozen; 10T retains
+2:1 column mux. The [area and timing record](docs/design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md)
+reports a measured 6.90 ns period at 32×32 and conditional 10.60 / 15.85 /
+27.00 ns estimates at 64×64 / 128×128 / 256×256. All four routed macros fit
+within their V2.2.8 areas. Scoped delay/peripheral resizing is included; 10T retains
 its earlier controller. The supported timing envelope is 512 rows by 256
 columns. Larger-class estimates do not establish full-macro waveform or
 yield qualification. Earlier incomplete release campaigns retain their

@@ -1,5 +1,7 @@
 # OpenYield V2.2.9 development tools
 
+The [V2.2.9 area revision](design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md) uses ignored `dev/area_speedup/` helpers and `tests/test_area_*.py`. These cover source-scoped sizing, decoder/completion floors, placement, native delay geometry, routing retries and stale-baseline rejection. `integration_collect.py` binds the four physical receipts, final system-margin rescoring, selected-period confirmations and conditional event model before emitting draft tables. `archive_final_evidence.py` writes the tracked [final evidence](data/ACCESS_SPEEDUP_AREA_V2_2_9.json). Raw decks, waveforms and failed alternatives remain under ignored `outputs/area_speedup/`; a fresh clone does not contain these Python runners or raw artifacts.
+
 The [V2.2.9 timing record](design/timing/ACCESS_SPEEDUP_V2_2_9.md) and
 [case protocol](../tests/spice/v229_access_speedup_cases.json) cover the new
 6T controller. Local `dev/access_speedup/` contains baseline segment
@@ -20,6 +22,14 @@ status distinguishes a finished transient from a runner that ended early.
 Outputs and numerical attempts remain under ignored `outputs/access_speedup/`.
 These Python tools and regression runners stay local; the case manifest and
 JSON evidence remain tracked, as required by the project conventions.
+
+The final area revision passes 28 focused regressions and the production
+source/grid/legacy audit. The broader 89-case screen has 88 passes plus one
+obsolete CLI expectation; the updated four-case CLI recheck passes. No
+selected checks are skipped. All four macro recompositions preserve source
+and all-layer polygon geometry, and a fresh 64×64 route independently does
+the same. These checks and their exact limits are archived in the final
+evidence record above.
 
 The following sections preserve V2.2.8 layout tools and their original scope.
 

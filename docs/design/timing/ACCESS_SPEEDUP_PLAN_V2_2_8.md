@@ -1,5 +1,7 @@
 # Access speed-up plan from the V2.2.8 baseline: earlier sensing, a self-timed cycle and measured clocks
 
+**V2.2.9 continuation:** the user authorized driver resizing under a hard V2.2.8 area ceiling, with 32×32 / 64×64 / 128×128 / 256×256 verification and measured anchors plus labeled larger-array estimates. The completed [area/timing record](ACCESS_SPEEDUP_AREA_V2_2_9.md) documents this round; the plan below remains historical.
+
 **Implementation plan. Nothing in this document is release evidence.**
 Baseline: branch `fix/postlayout-timing-pdn` at `58bf5cb`, compact macros with
 layout g15 ([post-layout record](../layout/POST_LAYOUT_V2_2_8.md)). The

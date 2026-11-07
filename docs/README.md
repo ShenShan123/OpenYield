@@ -1,5 +1,7 @@
 # OpenYield V2.2.9 documentation
 
+The current [V2.2.9 area/timing revision](design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md) contains the four routed area checks, measured 32×32 clock and conditional larger-array estimates. Its [machine-readable evidence](data/ACCESS_SPEEDUP_AREA_V2_2_9.json) preserves source, solver, model, seed and RC identities.
+
 Design records are grouped by topic under `design/`; simulation reports live
 under `validation/`. Evidence and qualification data retain their existing
 contents and version labels. Usage guides live beside the code they describe.
@@ -19,18 +21,18 @@ describes the default bank and its verification limits. Alternative physical
 bank plans have been retired; their JSON evidence remains in `data/`.
 The [organization record](design/compiler/ORGANIZATION_V2_2_7.md) documents the unified
 experiment entrance and integrated per-device variation. The compiler version
-is V2.2.9. The [self-timed access record](design/timing/ACCESS_SPEEDUP_V2_2_9.md)
+is V2.2.9. The [area-constrained access record](design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md)
 reports the new extracted 32×32 controller screen, schematic reference and
 conditional larger-array estimates. Earlier campaigns retain their own scope.
 
 ## Open items
 
 The [compact layout record](design/layout/COMPACT_CELL_V2_2_8.md) covers
-512×512 diagnostic generation and optional TIME_CONTROL integration. Source
-sizing classes remain frozen. V2.2.9 has a finite 32×32 extracted waveform
+512×512 diagnostic generation and optional TIME_CONTROL integration. Validated sizing classes remain fixed across comparisons. V2.2.9 has a finite 32×32 extracted waveform
 screen; broader operating-point, PVT and mismatch qualification remains open.
-Latest 256×256 and 512×512 geometries also lack
-R+C+CC extraction.
+The final V2.2.9 32×32 / 64×64 / 128×128 / 256×256 macros have R+C+CC
+extraction. The 512×512 diagnostic remains outside the timing envelope and
+lacks that extraction.
 
 The carried Phase 6 scope. The working plans that defined it
 (`V2_1_1_TIMING_FOLLOWUP.md`, `V2_1_2_QUALIFICATION_SCOPE.md`,

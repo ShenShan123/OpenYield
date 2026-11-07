@@ -1,4 +1,6 @@
-# Local checks for V2.2.8 and preserved V2.2.4 manifests
+# Local checks for V2.2.9 and preserved earlier manifests
+
+The [V2.2.9 area protocol](spice/v229_area_speedup_cases.json) covers 32×32 / 64×64 / 128×128 / 256×256. The [final record](../docs/design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md) separates physical checks, measured 32×32 waveforms, native 64×64 conditional coupons and larger-array timing estimates.
 
 `test_physical_cells.py`, `test_bank_layout.py`, `test_integrated_bank.py`,
 `test_openram_pitch.py` and `test_time_control_layout.py` cover the retained

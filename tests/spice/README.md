@@ -1,5 +1,7 @@
 # Phased SRAM access integration checks
 
+[`v229_area_speedup_cases.json`](v229_area_speedup_cases.json) specifies the area-constrained V2.2.9 continuation, including all four required sizes. The [final evidence](../../docs/data/ACCESS_SPEEDUP_AREA_V2_2_9.json) and [design record](../../docs/design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md) record results; the manifest itself is a protocol, not a pass receipt.
+
 [`v229_access_speedup_cases.json`](v229_access_speedup_cases.json) specifies
 the V2.2.9 self-timed 6T screen with the standard 2:1 mux. Its
 [design record](../../docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md) distinguishes

@@ -22,7 +22,7 @@ from .dense_slots import make_register_slot
 from .compact_slots import GEOMETRY, WIDTH as SLOT_W
 from .compact_bank import build as build_bank
 from .lib import Builder, new_layout, pya, u
-from .time_control import make_control, units, centre_lanes_used
+from .time_control import make_control, units, centre_lanes_used, _centre_policy, _area_frame
 from . import macro_control
 from .macro_control import Planner, bank_conductor, snap, GRID
 from .power_grid import add_grid
@@ -143,9 +143,10 @@ def _column_lanes(bank: Builder, bm: dict) -> list[tuple]:
 
 
 def _fits(tc: Component, width: float, band: tuple[float, float], compact_registers: bool = False,
-          lanes: Sequence[tuple] = ()) -> bool:
+          lanes: Sequence[tuple] = (), share_completion: bool = False, completion_source_order: bool = False) -> bool:
     try:
-        used, _ = centre_lanes_used(tc, width, ('Xdff_buf_data/',), band, lanes, compact_registers)
+        used, _ = centre_lanes_used(tc, width, ('Xdff_buf_data/',), band, lanes, compact_registers,
+                                    share_completion, completion_source_order)
         return used <= len(lanes)
     except ValueError:              # gates overflow the band and available decoder lanes
         return False
@@ -257,6 +258,7 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
 
     # 1. Data registers folded into their column slots below the write band.
     tc, registers, rs = _register_slot(ly, deck)
+    share_completion, completion_source_order, short_self_timed = _centre_policy(tc, rows, cols)
     by_q = {m['Q']: (p, c, m) for p, c, m in registers}
     if len(registers) != cols or any(c.identity != registers[0][1].identity for _, c, _ in registers):
         raise ValueError('Every data column needs one identical source register')
@@ -394,7 +396,8 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
     # after peripheral compaction and needlessly widens large macros.
     band_hi = band_top - cell_drop
     lanes_abs = _column_lanes(bank, bm)
-    used, _ = centre_lanes_used(tc, width, ('Xdff_buf_data/',), (band_lo, band_hi), lanes_abs, True)
+    used, _ = centre_lanes_used(tc, width, ('Xdff_buf_data/',), (band_lo, band_hi), lanes_abs, True,
+                                share_completion, completion_source_order)
     if used > len(lanes_abs):
         raise ValueError('Controller gates exceed the block below the shared decoder')
     y0 = reg_y - cell_drop
@@ -506,7 +509,9 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
         raise ValueError('Macro inputs must be TIME_CONTROL ports of the same name')
     ctrl = make_control(ly, tc, width, exclude=('Xdff_buf_data/',), pin_plan=plan, corner=True,
                         min_height=height, band_span=(local(band_lo), local(band_hi)), lanes=lanes,
-                        profile=profile, obstacles=obstacles, escapes=tuple(inputs), compact_registers=True)
+                        profile=profile, obstacles=obstacles, escapes=tuple(inputs), compact_registers=True,
+                        share_completion=share_completion, completion_source_order=completion_source_order,
+                        short_self_timed=short_self_timed)
     if any(not 0 <= p['y_nm'] <= ctrl.height_nm - p['height_nm'] for p in ctrl.placements):
         raise ValueError('Controller gates were placed outside the routed frame')
     b.place(ctrl.builder, frame_x, y0)
@@ -657,18 +662,6 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
     qx, qy, _ = bp[f'SA_Q{groups - 1}']; dx, dy, _ = lp['D']     # qy: the slot's clear M4 window
     ex, ey, _ = lp['EN']; drop = dx - 300.; sy = bars['sen_far'][1]
     bank_conductor(bank.cell, 'm4', drop, sy)
-    # The data drop crosses the replica slot on M5: clear of the RBL_MUX
-    # landing, the enable drop and the replica bitlines (140 nm M5 spacing).
-    m5 = pya.Region(bank.cell.begin_shapes_rec(ly.layer(19, 0))).merged()
-    def clear(x):
-        box = pya.Box(u(x - 212.5), u(min(dy, qy) - 212.5), u(x + 212.5), u(max(dy, qy) + 212.5))
-        return (m5 & pya.Region(box)).is_empty() and all(abs(x - a) >= 285. for a in (mx, drop))
-    data_x = next((x for x in (dx + 50. * k for k in range(60)) if clear(x)), None)
-    if data_x is None: raise ValueError('No M5 column for the latch data drop')
-    P.stack('LATCH_DATA', qx, qy, 3, 4); P.wire('LATCH_DATA', 'm4', [(qx, qy), (data_x, qy)], 140.)
-    P.stack('LATCH_DATA', data_x, qy, 4, 5)
-    P.wire('LATCH_DATA', 'm5', [(data_x, qy), (data_x, dy)] + ([(dx, dy)] if data_x != dx else []))
-    P.stack('LATCH_DATA', dx, dy, 4, 5)
     P.stack('LATCH_ENABLE', drop, sy, 4, 5); P.wire('LATCH_ENABLE', 'm5', [(drop, sy), (drop, ey)])
     P.stack('LATCH_ENABLE', drop, ey, 4, 5); P.wire('LATCH_ENABLE', 'm4', [(drop, ey), (ex, ey)], 140.)
     endpoint('LATCH_DATA', (qx, qy, 'm3'), latch['D']); endpoint('LATCH_DATA', (dx, dy, 'm4'), latch['D'])
@@ -678,6 +671,42 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
         if net == 'VDD': P.stack(net, px, py, 1, 4)
         else: P.wire(net, 'm1', [(px, py), (trunks[net], py)]); P.stack(net, trunks[net], py, 1, 6)
         endpoint(net, (px, py, 'm1'))
+
+    # Supplies and enable are already present; check every data-path segment.
+    m5 = pya.Region(b.cell.begin_shapes_rec(ly.layer(19, 0))).merged()
+    def clear_data_path(points: list[tuple[float, float]]) -> bool:
+        for (ax, ay), (bx, by) in zip(points, points[1:]):
+            box = pya.Box(u(min(ax, bx) - 212.5), u(min(ay, by) - 212.5),
+                          u(max(ax, bx) + 212.5), u(max(ay, by) + 212.5))
+            if not (m5 & pya.Region(box)).is_empty():
+                return False
+        return True
+    data_path = None
+    offsets = (0.,) + tuple(sign * distance for distance in range(200, 2001, 100)
+                            for sign in (1., -1.))
+    for offset in offsets:
+        turn_y = dy + offset
+        if not reg_y + 212.5 <= turn_y <= qy:
+            continue
+        for candidate_x in (dx + 50. * k for k in range(60)):
+            if any(abs(candidate_x - column) < 285. for column in (mx, drop)):
+                continue
+            points = []
+            for point in ((candidate_x, qy), (candidate_x, turn_y), (dx, turn_y), (dx, dy)):
+                if not points or point != points[-1]:
+                    points.append(point)
+            if clear_data_path(points):
+                data_x, data_path = candidate_x, points
+                break
+        if data_path is not None:
+            break
+    if data_path is None:
+        raise ValueError('No clear M5 latch-data path around assembled supplies and enable')
+    P.stack('LATCH_DATA', qx, qy, 3, 4)
+    P.wire('LATCH_DATA', 'm4', [(qx, qy), (data_x, qy)], 140.)
+    P.stack('LATCH_DATA', data_x, qy, 4, 5)
+    P.wire('LATCH_DATA', 'm5', data_path)
+    P.stack('LATCH_DATA', dx, dy, 4, 5)
 
     # 9a. Macro edge pins: controller inputs and SEL0/SEL1 escape on M10 to
     #     the left, bottom or top edge; latch outputs leave right on M4; the
@@ -822,6 +851,9 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
         split=split, controller_frame_nm=[frame_x, y0, frame_x + width, y0 + ctrl.height_nm],
         controller_block_nm=block, controller_block_area_um2=width * (band_top - y0) / 1e6,
         controller_cell_drop_nm=cell_drop,
+        controller_layout_policy=dict(share_completion=share_completion, completion_source_order=completion_source_order,
+                                      short_self_timed=short_self_timed, routing_order=ctrl.routing_policy,
+                                      dff_row_grid='upward relative to band origin'),
         controller_decoder_lanes_nm=[[frame_x, y, frame_x + w, y + 1365.] for y, w, _ in lanes_abs[:used]],
         controller_placements=[dict(p, x_nm=p['x_nm'] + frame_x, y_nm=p['y_nm'] + y0) for p in ctrl.placements],
         register_band_nm=[cx, reg_y, cx + groups * SLOT_W, reg_y + rs.height],
@@ -872,6 +904,15 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
     build_bank(deck, bank_dir, controller_channel=True)
     bm = json.loads((bank_dir / 'layout.json').read_text())
     tc = read_component(deck, 'XTIME_CONTROL', allow_passives=True)
+    share_completion, completion_source_order, _ = _centre_policy(tc, source.rows, source.cols)
+    recipe = _area_frame(tc, source.rows, source.cols)
+    if recipe is not None:
+        pad, gap, extra = recipe
+        if pad or extra:
+            shutil.rmtree(bank_dir)
+            build_bank(deck, bank_dir, core_x=bm['array_origin_nm'][0]+pad+extra if extra else None,
+                       controller_channel=True, decoder_pad=pad)
+        return build(deck, output, bank_dir, gap)
     _, _, rs = _register_slot(new_layout(), deck)
     width = snap(min(bm['control_trunks_nm'].values()) - TRUNK_GAP - bm['decoder_bbox_nm'][0] - FRAME_X)
     ceiling = int((bm['array_origin_nm'][1] - 460. - TOP_GAP) // GRID) * GRID
@@ -901,11 +942,11 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
         """Use spare decoder rows before widening the channel. A decoder pad
         widens the block and every spare row over the full array height;
         lane gates route into the decoder, so they must save LANE_SAVING."""
-        if _fits(tc, width, band, True, _lanes(rows)):
+        if _fits(tc, width, band, True, _lanes(rows), share_completion=share_completion, completion_source_order=completion_source_order):
             return 0.
-        pad = smallest(lambda pad: _fits(tc, width + pad, band, True, _lanes(rows, pad)), hi) + GRID
-        if _fits(tc, width + pad + LANE_SAVING - GRID, band, True):
-            pad = smallest(lambda pad: _fits(tc, width + pad, band, True), pad + LANE_SAVING) + GRID
+        pad = smallest(lambda pad: _fits(tc, width + pad, band, True, _lanes(rows, pad), share_completion=share_completion, completion_source_order=completion_source_order), hi) + GRID
+        if _fits(tc, width + pad + LANE_SAVING - GRID, band, True, share_completion=share_completion, completion_source_order=completion_source_order):
+            pad = smallest(lambda pad: _fits(tc, width + pad, band, True, share_completion=share_completion, completion_source_order=completion_source_order), pad + LANE_SAVING) + GRID
         return pad
 
     best, previous = None, None
@@ -918,7 +959,7 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
         band = (_register_origin(rs, gap)[0], ceiling)
         # Separate completion chains impose a minimum band height. Widening
         # cannot remove those row boundaries; try a taller register gap.
-        if self_timed and not _fits(tc, width + 100000., band, True, _lanes(rows, 100000.)):
+        if self_timed and not _fits(tc, width + 100000., band, True, _lanes(rows, 100000.), share_completion=share_completion, completion_source_order=completion_source_order):
             continue
         fit = pad_for(band, previous)
         previous = fit
@@ -930,7 +971,7 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
         for pad in pads:
             extra = max(0. if pad else 5 * GRID, MIN_COLUMN_FRAME - width - pad)
             if width + pad + extra <= MIN_COLUMN_FRAME and not _fits(tc, width + pad + extra - 5 * GRID,
-                                              (_register_origin(rs, gap)[0], ceiling - ROUTE_SLACK), True, _lanes(rows, pad)):
+                                              (_register_origin(rs, gap)[0], ceiling - ROUTE_SLACK), True, _lanes(rows, pad), share_completion=share_completion, completion_source_order=completion_source_order):
                 # A minimum-width frame is routing-limited: a band that only just
                 # holds its last controller row did not route at 32 rows.
                 print(f'MACRO candidate gap {gap:.0f} pad {pad:.0f} skipped: minimum frame without routing slack', flush=True)
@@ -953,7 +994,7 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
         # The pad estimate shifts the unpadded decoder rows; confirm the fit
         # on the rebuilt metal.
         padded = json.loads((bank_dir / 'layout.json').read_text())
-        if _fits(tc, width + pad + extra, band, True, _column_lanes(_imported(new_layout(), bank_dir, padded), padded)):
+        if _fits(tc, width + pad + extra, band, True, _column_lanes(_imported(new_layout(), bank_dir, padded), padded), share_completion=share_completion, completion_source_order=completion_source_order):
             break
         pad += GRID
     return build(deck, output, bank_dir, gap)

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "lookup_version": "v2.2.9-layout-self-timed-2",
+  "lookup_version": "v2.2.9-area-speedup-candidate-1",
   "row_classes": [
     {
       "max_rows": 32,
@@ -147,5 +147,63 @@
   },
   "controller_path_coupons": "outputs/layout_scaling/control_path_02 (SS table in docs/data/LAYOUT_PERFORMANCE_V2_2_8.json when complete)",
   "self_timed_completion_rule": "max(row, column) completion stage reference, minimum 8; 32x32 retains 8/8. Larger references conservatively estimated from extracted g15 waveform segments and fixed-driver 6T-cell response; final evidence in ACCESS_SPEEDUP_ESTIMATES.json.",
-  "self_timed_control_architecture": "v2.2.9-self-timed-completion-1"
+  "self_timed_control_architecture": "v2.2.9-self-timed-completion-1",
+  "self_timed_joint_sizing": [
+    {
+      "max_rows": 32,
+      "max_cols": 32,
+      "delay_driver_scale": 2.0,
+      "delay_loads_per_stage": 1
+    },
+    {
+      "max_rows": 64,
+      "max_cols": 64,
+      "delay_driver_scale": 2.0,
+      "delay_loads_per_stage": 1,
+      "pre": 2.0,
+      "wd_out": 4.0,
+      "wd_in": 1.0
+    },
+    {
+      "max_rows": 128,
+      "max_cols": 128,
+      "delay_driver_scale": 2.0,
+      "delay_loads_per_stage": 1,
+      "pre": 2.0,
+      "wd_out": 4.0,
+      "wd_in": 1.0
+    },
+    {
+      "max_rows": 256,
+      "max_cols": 256,
+      "delay_driver_scale": 2.0,
+      "delay_loads_per_stage": 1,
+      "pre": 2.0,
+      "wd_out": 4.0,
+      "wd_in": 1.0
+    }
+  ],
+  "self_timed_joint_references": [
+    {
+      "max_rows": 32,
+      "max_cols": 32,
+      "precharge_off_stages": 6
+    },
+    {
+      "max_rows": 64,
+      "max_cols": 64,
+      "setup_stages": 28
+    },
+    {
+      "max_rows": 128,
+      "max_cols": 128,
+      "setup_stages": 60,
+      "write_completion_stages": 14
+    },
+    {
+      "max_rows": 256,
+      "max_cols": 256,
+      "write_completion_stages": 54
+    }
+  ]
 }

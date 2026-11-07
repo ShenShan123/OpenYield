@@ -7,18 +7,21 @@ from typing import Any, Optional
 from .components import Component,CellView,read_component
 from .lib import Builder,new_layout,pya,u
 from .control_place import StandardLibrary,ControlRouter,GRID
+from .native_delay import delay_stage_count
 from .control_passives import make_filter,make_cap
 from .dense_views import write_view
 
 
-def units(component,mapping=None,path=''):
+def units(component,mapping=None,path='',native_delays: Optional[bool]=None):
+    if native_delays is None:native_delays=_uses_native_delays(component)
     mapping=dict(zip(component.ports,component.ports)) if mapping is None else mapping
     def net(n):return mapping.get(n,path+'/'+n if path else n)
-    if component.name in ('DFF', 'ACCESS_PHASE_DFF') or component.devices:
+    if (component.name in ('DFF', 'ACCESS_PHASE_DFF') or component.devices
+            or (native_delays and delay_stage_count(component) is not None)):
         yield path,component,mapping
         return
     for i in component.children:
-        yield from units(i.component,dict(zip(i.component.ports,(net(n) for n in i.nodes))),path+'/'+i.name if path else i.name)
+        yield from units(i.component,dict(zip(i.component.ports,(net(n) for n in i.nodes))),path+'/'+i.name if path else i.name,native_delays)
 
 
 def filters(component,mapping=None,path=''):
@@ -103,13 +106,14 @@ def _slices(library,component,limit):
     return result
 
 
-def _corner_inventory(library,component,width,exclude):
+def _corner_inventory(library,component,width,exclude,completion_source_order: bool=False):
     inventory=[]
     for p,c,m in units(component):
         if p.startswith(tuple(exclude)):continue
         v=library.build(c)
         limit=width-600
         inventory.extend([(p,v,m)] if v.width_nm<=limit else [(p,s,m) for s in _slices(library,c,limit)])
+    if completion_source_order:return inventory
     # A completion gate is emitted after both timers in the schematic. Keep
     # it beside its own observer and delay in placement, so a chain does not
     # start a second row group after the other timer has been placed.
@@ -123,14 +127,16 @@ def _corner_inventory(library,component,width,exclude):
 
 
 def centre_lanes_used(component: Component,width: float,exclude: tuple[str,...],
-                      band_span: tuple[float,float],lanes: list[tuple],compact_registers: bool=False) -> tuple[int,int]:
+                      band_span: tuple[float,float],lanes: list[tuple],compact_registers: bool=False,
+                      share_completion: bool=False,completion_source_order: bool=False) -> tuple[int,int]:
     """Lane rows a centre frame fills and the unsliced decoder drivers it
     leaves outside the band, from a placement in a scratch layout."""
-    layout=new_layout();library=StandardLibrary(layout,compact_registers=compact_registers)
-    inventory=_corner_inventory(library,component,width,exclude)
+    layout=new_layout();library=StandardLibrary(layout,compact_registers=compact_registers,
+                                                   native_delays=_uses_native_delays(component))
+    inventory=_corner_inventory(library,component,width,exclude,completion_source_order)
     inventory.sort(key=lambda item:item[1].standard_family!='DFF')
     prepared,_,_=_place_centre(layout,inventory,{p:c for p,c,_ in units(component)},width,band_span,lanes,300.,
-                              local_logic=compact_registers)
+                              local_logic=compact_registers,share_completion=share_completion)
     ys=[lane[0] for lane in lanes]
     used=max((ys.index(y)+1 for _,_,_,_,y,row,_ in prepared if row<0),default=0)
     lane=[p for p,_,_,_,_,row,_ in prepared if row<0]
@@ -153,6 +159,85 @@ ENABLE_CHAINS={'Xw_en':'w_en','Xw_en_buf':'w_en','Xs_en':'s_en','Xs_en_buf':'s_e
                'Xsa_iso_buf':'sa_iso','Xpre_unbuf':'pre','Xpre':'pre','Xwl_en':'wl_en',
                'Xread_observe':'read_completion','Xread_settle':'read_completion','Xread_complete':'read_completion',
                'Xwrite_observe':'write_completion','Xwrite_settle':'write_completion','Xwrite_complete':'write_completion'}
+
+
+def _small_compact_delays(component: Component) -> bool:
+    """Recognize the measured compact phase/observer and 2-unit/1-load source."""
+    children={child.name:child for child in component.children}
+    expected={
+        'Xaccess_phase':('ACCESS_PHASE_DFF',('VDD','VSS','phase_select','access_phase','clk_buf','access_done')),
+        'Xread_observe':('READ_COMPLETION_GUARD',('VDD','VSS','VDD','sen_far','read_observed','read_completion_ready')),
+        'Xwrite_observe':('WRITE_COMPLETION_GUARD',('VDD','VSS','VDD','rwl','write_observed','write_completion_ready')),
+        'Xread_settle':('READ_COMPLETION_DELAY',('VDD','VSS','read_completion_ready','read_resolved')),
+        'Xwrite_settle':('WRITE_COMPLETION_DELAY',('VDD','VSS','write_completion_ready','write_resolved')),
+        'Xread_complete':('COMPLETION_AND',('VDD','VSS','read_resolved','pre_ready','we_bar','read_complete')),
+        'Xwrite_complete':('COMPLETION_AND',('VDD','VSS','write_resolved','we','access_phase','write_complete')),
+    }
+    if 'Xinv_s_en_bar' in children or any(name not in children or
+            (children[name].component.name,children[name].nodes)!=value for name,value in expected.items()):
+        return False
+
+    def inverter(cell: Component,units: int) -> bool:
+        if cell.children or cell.passives or cell.ports!=('VDD','VSS','A','Z') or len(cell.devices)!=2:
+            return False
+        wanted={('NMOS_VTG',('Z','A','VSS','VSS')):90e-9*units,
+                ('PMOS_VTG',('Z','A','VDD','VDD')):270e-9*units}
+        actual={(d.model,d.nodes):d for d in cell.devices}
+        return actual.keys()==wanted.keys() and all(
+            abs(actual[key].width_m-width)<1e-15 and abs(actual[key].length_m-50e-9)<1e-15
+            and actual[key].fingers==1 for key,width in wanted.items())
+
+    chains=set()
+    def walk(cell: Component,path: str) -> bool:
+        stages=[child for child in cell.children if child.name.startswith('Xwinv')]
+        loads=[child for child in cell.children if child.name.startswith('Xwload_')]
+        if stages or loads:
+            parts={child.name:child for child in cell.children}
+            names={f'Xwinv{k}' for k in range(len(stages))}|{f'Xwload_{k}_0' for k in range(len(stages))}
+            if not stages or cell.devices or cell.passives or set(parts)!=names or len(parts)!=len(cell.children):
+                return False
+            for k in range(len(stages)):
+                driver,load=parts[f'Xwinv{k}'],parts[f'Xwload_{k}_0']
+                if not inverter(driver.component,2) or not inverter(load.component,1):return False
+                if (len(driver.nodes)!=4 or driver.nodes[:2]!=('VDD','VSS') or
+                        len(load.nodes)!=4 or load.nodes[:3]!=('VDD','VSS',driver.nodes[3])):
+                    return False
+            chains.add(path)
+        return all(walk(child.component,path+'/'+child.name if path else child.name) for child in cell.children)
+    # Only the groups sharing row rails define this policy; setup and other
+    # guards may change independently without altering completion placement.
+    grouped=('Xread_observe','Xwrite_observe','Xread_settle','Xwrite_settle')
+    return (all(walk(children[name].component,name) for name in grouped)
+            and {'Xread_settle','Xwrite_settle'}<=chains
+            and all(sum(c.name.startswith('Xwinv') for c in children[name].component.children)==8
+                    for name in ('Xread_settle','Xwrite_settle')))
+
+
+def _centre_policy(component: Component,rows: int,cols: int) -> tuple[bool,bool,bool]:
+    """Shared rows, source order, short routing for the measured source/shape."""
+    eligible=rows==cols and rows in (32,64) and _small_compact_delays(component)
+    short=eligible and rows==64 or (rows==cols==128 and _area_frame(component,rows,cols) is not None)
+    return eligible,eligible and rows==32,short
+
+
+# Characterized controller identities select their routed area-constrained
+# frames. A changed circuit falls back to the general placement search.
+_AREA_FRAMES = {
+    (32,32,'12df9bd6d4d9b008d355f4c546ed7f5bab3acc5c5ff58bd91b89bdf07803641a'):(200.,600.,0.),
+    (64,64,'4d898ed926de436dde9f96f827f0e185d7e177547419b5fdef531092fcd23a37'):(0.,2800.,0.),
+    (128,128,'3fd691d07e00824bb3ed0645fb0c8b11c7c5ffb72cf3c57c7769986a2e1355a0'):(0.,2000.,0.),
+    (256,256,'9b94196439c710a22fb52bf9457d4743c51591e77cc726b98324b2e7cbb34506'):(0.,4500.,0.),
+}
+
+
+def _area_frame(component: Component,rows: int,cols: int) -> Optional[tuple[float,float,float]]:
+    return _AREA_FRAMES.get((rows,cols,component.identity))
+
+
+def _uses_native_delays(component: Component) -> bool:
+    return any(rows==cols==64 and identity==component.identity for rows,cols,identity in _AREA_FRAMES)
+
+
 HISTORY_COST=10      # centre routing: per-step cost for other nets on a blocked net's path
 ESCAPE_REACH=3000    # macro input escape stacks slide at most this far from their access
 ESCAPE_RADIUS=8000   # ... or stand alone, routed to the access, at most this far away
@@ -276,7 +361,8 @@ def _antenna(path: str,m: dict) -> bool:
     return any(m[p] in ANTENNA_INPUTS for p in m if p not in ('VDD','VSS','Z')) or path=='Xpre_unbuf'
 
 
-def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic: bool=False):
+def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic: bool=False,
+                  share_completion: bool=False):
     """Fill the full-width band, then decoder lanes, keeping source order.
 
     Band rows use the controller's 1500/1800 nm rows; DFFs, transmission
@@ -323,6 +409,7 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
             area=sum(v.width_nm*v.height_nm for v,_ in entries[path])
             if path not in fixed and used+area>budget:break
             chain=ENABLE_CHAINS.get(path.split('/')[0])
+            if share_completion and chain in ('read_completion','write_completion'):chain='completion'
             if chain is None and holes and len(entries[path])==1 and entries[path][0][0].standard_family!='DFF':
                 # A later single-row logic cell back-fills the end of a row that a
                 # chain break left open, so the separation costs no band rows.
@@ -347,6 +434,8 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
                          (100 if dff else 125) if state['height']==1800 else 125 if dff else 0)
                     state.update(y=state['y']+state['height']+gap,cursor=x0,height=0.,vdd=0.,row=state['row']+1,
                                  chains=frozenset())
+                if dff and state['cursor']==x0:
+                    state['y']=y0+ceil((state['y']-y0)/GRID)*GRID
                 if state['y']+v.height_nm>y1-1000 or state['cursor']+v.width_nm+tap>width-300:
                     fits=False;break
                 x=state['cursor'];prepared.append((path,v,m,x,state['y'],state['row'],False))
@@ -468,7 +557,8 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
 
 
 def _route_centre(router: ControlRouter,order: list[str],routed: dict,priority: list[str],local: list[str],
-                  tall: bool,clock_state: Any,history: dict,attempt: int,total: int,loads: dict) -> None:
+                  tall: bool,clock_state: Any,history: dict,attempt: int,total: int,loads: dict,
+                  ripup_limit: int=RIPUP_LIMIT) -> None:
     """Route a centre frame in order with local rip-up and reroute.
 
     A net that cannot connect is cut off by nets routed before it: the
@@ -505,7 +595,7 @@ def _route_centre(router: ControlRouter,order: list[str],routed: dict,priority: 
                 router.connect(net,ps[0],ps[1:])
             except RoutingError as error:
                 router.search_limit=limit
-                if base is None or state['ripups']>=RIPUP_LIMIT:raise
+                if base is None or state['ripups']>=ripup_limit:raise
                 started=time.time()
                 culprits,path=router.culprits(net,ps[0],error.target,*base,ripped=ripped)
                 culprits&=done
@@ -563,7 +653,9 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                  band_span: Optional[tuple[float,float]]=None,lanes: Optional[list[tuple]]=None,
                  profile: Optional[list[tuple[float,float,float]]]=None,
                  obstacles: Optional[list[tuple[str,float,float,float,float,Optional[str]]]]=None,
-                 escapes: tuple[str,...]=(),compact_registers: bool=False) -> CellView:
+                 escapes: tuple[str,...]=(),compact_registers: bool=False,
+                 share_completion: bool=False,completion_source_order: bool=False,
+                 short_self_timed: bool=False) -> CellView:
     """Place and route TIME_CONTROL from its frozen source units.
 
     exclude lists unit-path prefixes that another physical block places, such
@@ -594,10 +686,11 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     """
     if lanes is not None and (not corner or band_span is None or profile is None):
         raise ValueError('Decoder lanes require a corner-style band frame and a routing profile')
-    library=StandardLibrary(layout,compact_registers=compact_registers)
+    native_delays=_uses_native_delays(component)
+    library=StandardLibrary(layout,compact_registers=compact_registers,native_delays=native_delays)
     b=Builder(layout,('TIME_CONTROL_CORNER_' if corner else 'TIME_CONTROL_LOGIC_' if exclude else 'TIME_CONTROL_STD_')+component.identity[:12])
     if corner:
-        inventory=_corner_inventory(library,component,width,exclude)
+        inventory=_corner_inventory(library,component,width,exclude,completion_source_order)
     else:
         inventory=[(p,library.build(c),m) for p,c,m in units(component) if not p.startswith(tuple(exclude))]
     inventory.sort(key=lambda item:item[1].standard_family!='DFF')
@@ -632,7 +725,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     if lanes is not None:
         sources={p:c for p,c,_ in units(component)}
         prepared,rows,lane_taps=_place_centre(layout,inventory,sources,width,band_span,lanes,x0,
-                                            local_logic=compact_registers)
+                                            local_logic=compact_registers,share_completion=share_completion)
         inventory=[]
         y=rows[-1][0];row_height=rows[-1][1]
     for index,(path,v,m) in enumerate(inventory):
@@ -944,7 +1037,9 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                         return (pin_nwell & probe).is_empty()
                     if lanes is not None and not tap_clear(dy):
                         dy=point[1]+(350. if below else -350.)
-                        if not tap_clear(dy):raise ValueError(f'No legal antenna-tap well clearance at {net} {point}')
+                        if not tap_clear(dy):
+                            dy=next((y for y in (band_span[1]-500.,band_span[1]-400.) if tap_clear(y)),None)
+                            if dy is None:raise ValueError(f'No legal antenna-tap well clearance at {net} {point}')
                     b.rect('pwell',px-130,dy-130,px+130,dy+130);b.rect('nplus',px-105,dy-105,px+105,dy+105)
                     b.rect('active',px-75,dy-75,px+75,dy+75);b.cont(px,dy);b.rect('m1',px-35,dy-70,px+35,dy+70)
                     lift(px,dy,1,5);wire('m5',px,dy,px,point[1],145)
@@ -1082,7 +1177,8 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     from .router import RoutingError
     fixed_blocked=set(router.blocked);fixed_clearance={p:set(n) for p,n in router.clearance.items()}
     # Route scarce top-edge address accesses before the interior fills up.
-    tall=height>80000. or (profile is not None and (CENTRE_TALL or self_timed))
+    tall=height>80000. or (profile is not None and (CENTRE_TALL or (self_timed and not short_self_timed)))
+    if profile is not None:print('ROUTING_POLICY', 'tall' if tall else 'short', flush=True)
     priority=[n for n in nets if n.startswith('A_dff')] if tall else []
     if profile is not None and not tall:
         # Centre frames: nets with planned edge pins take straight paths
@@ -1094,7 +1190,9 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
         router.clearance={p:set(n) for p,n in fixed_clearance.items()}
         for net,pt in access:
             q=router.point(*pt);router.reserve(q,net)
-            if q[2]==0:router.reserve((q[0],q[1],1),net)
+            above=(q[0],q[1],1)
+            if q[2]==0 and (not native_delays or (above not in router.blocked and not (router.clearance.get(above,set())-{net}))):
+                router.reserve(above,net)
         for net,pt in access:
             q=router.point(*pt)
             if router.clearance.get(q,set())-{net}:raise ValueError(f'Conflicting fixed access: {net} {q} {router.clearance[q]}')
@@ -1114,7 +1212,8 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             order.extend(n for n in nets if n!='clk_buf' and n not in priority and n in local)
         try:
             if profile is not None:
-                _route_centre(router,order,routed,priority,local,tall,clock_state,history,attempt,len(nets),loads)
+                _route_centre(router,order,routed,priority,local,tall,clock_state,history,attempt,len(nets),loads,
+                              ripup_limit=5 if native_delays else RIPUP_LIMIT)
                 break
             for i,net in enumerate(order):
                 if net=='clk_buf' and clock_state is not None:continue
@@ -1128,7 +1227,8 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                 if i%100==0:print('TIME_CONTROL routing attempt',attempt,'net',i,'/',len(nets),flush=True)
             break
         except RoutingError as error:
-            if error.net=='clk_buf' or (priority and priority[0]==error.net):raise
+            # A centre-frame priority net may fail after another net ripped it.
+            if error.net=='clk_buf' or (profile is None and priority and priority[0]==error.net):raise
             if error.net in priority:priority.remove(error.net)
             priority.insert(0,error.net)
             if profile is not None:
@@ -1209,6 +1309,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     v.physical_fingers=physical;v.placements=placed;v.passive_locations=passive_locations
     v.standard_cell_inventory=dict(Counter(p['family'] for p in placed));v.standard_family='TIME_CONTROL'
     v.escapes=escape_points;v.escape_modes=escape_modes
+    v.routing_policy='tall' if tall else 'short'
     return v
 
 

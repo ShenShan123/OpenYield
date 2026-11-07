@@ -1,5 +1,7 @@
 # V2.2.9: self-timed 6T access and recovery
 
+**Historical initial V2.2.9 implementation.** The [area-constrained revision](ACCESS_SPEEDUP_AREA_V2_2_9.md) supersedes its compact default sizing, clocks and area. Measurements below retain their original source and scope.
+
 The extracted 32×32 clock changes from **9.50 ns to 7.40 ns**, a **22.1%**
 reduction. Its absolute read deadline is **4.20 ns** after external CLK50.
 The [controller evidence](../../data/ACCESS_SPEEDUP_V2_2_9.json) records the

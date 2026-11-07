@@ -1,9 +1,9 @@
 {
   "schema": 2,
-  "version": "V2.2.8",
-  "lookup_version": "v2.2.9-layout-timing-1",
+  "version": "V2.2.9",
+  "lookup_version": "v2.2.9-layout-area-self-timed-1",
   "units": "integer picoseconds before margin",
-  "status": "Design budgets for the compact FreePDK45 layout; worst-PVT post-layout evidence, not local-mismatch or release qualification",
+  "status": "V2.2.9 area-constrained finite screen: measured32 anchor and conditional larger-array estimates; not release qualification",
   "supported_envelope": {
     "max_rows": 512,
     "max_cols": 256
@@ -185,7 +185,7 @@
     "margin": 0.1,
     "policy": "Round dimensions up, select explicit joint class; ceil each budget*(1+margin) to50ps. Legacy entries retain their original phase policy.",
     "baseline": {
-      "sizing_lookup_sha256": "a1cc64b6552732d3876fe6c3408e0420a52d0715c3ef280044e6a6cc85ae9326",
+      "sizing_lookup_sha256": "792454146c1c9910c36993d827a14255b02772db20a045fabae9cc8131c8f00f",
       "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
       "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
       "physical_keys": [
@@ -203,14 +203,14 @@
       "sizing_policy_key": "d05341fdfcd40e94dadd37985981679eb61cd8ca62383394ec641435f8d4a5d0"
     },
     "physical_scope": "Stock illustrative distributed geometry/local stubs; equivalent1-4 share reference clocks but remain approximations. Compact post-layout claims refer to the recorded extracted macro only.",
-    "estimation_source": "docs/data/ACCESS_SPEEDUP_ESTIMATES.json",
-    "estimation_sha256": "2587c6d0422a8e712ffa535a7c771184d8edb4dc7e39cad40ddbb16a7172c351",
+    "estimation_source": "outputs/area_speedup/final_retiming_model.json",
+    "estimation_sha256": "ccc7a067254fa5c4d10d0e32b69e636c0074ec74d686249d60963e148aa5ae93",
     "joint_classes": [
       {
         "max_rows": 32,
         "max_cols": 32,
-        "access_ps": 3784,
-        "cycle_ps": 6693,
+        "access_ps": 3693,
+        "cycle_ps": 6232,
         "evidence_status": "postlayout"
       },
       {
@@ -244,8 +244,8 @@
       {
         "max_rows": 64,
         "max_cols": 64,
-        "access_ps": 5305,
-        "cycle_ps": 9713,
+        "access_ps": 5454,
+        "cycle_ps": 9624,
         "evidence_status": "extrapolated"
       },
       {
@@ -279,8 +279,8 @@
       {
         "max_rows": 128,
         "max_cols": 128,
-        "access_ps": 8169,
-        "cycle_ps": 14324,
+        "access_ps": 8459,
+        "cycle_ps": 14392,
         "evidence_status": "extrapolated"
       },
       {
@@ -314,8 +314,8 @@
       {
         "max_rows": 256,
         "max_cols": 256,
-        "access_ps": 13308,
-        "cycle_ps": 24608,
+        "access_ps": 13437,
+        "cycle_ps": 24522,
         "evidence_status": "extrapolated"
       },
       {
@@ -350,8 +350,8 @@
     "row_classes": [
       {
         "max_rows": 32,
-        "access_ps": 3784,
-        "cycle_ps": 6693,
+        "access_ps": 3693,
+        "cycle_ps": 6232,
         "evidence_status": "postlayout"
       },
       {
@@ -382,8 +382,8 @@
     "column_classes": [
       {
         "max_cols": 32,
-        "access_ps": 3784,
-        "cycle_ps": 6693,
+        "access_ps": 3693,
+        "cycle_ps": 6232,
         "evidence_status": "postlayout"
       },
       {
@@ -405,7 +405,39 @@
         "evidence_status": "extrapolated"
       }
     ],
-    "measured_anchor_source": "outputs/access_speedup/v229/final_fixed/measured_anchor.json",
-    "measured_anchor_sha256": "70ff6e5b9142b72ba6a1cc7fc97b5e6d2e42d24ca690af3796a27ac1b5f9cbae"
+    "measured_anchor_source": "outputs/area_speedup/physical32_v4_report.json",
+    "measured_anchor_sha256": "dc457e09b6ac91a00dc9e5ce92ee28cc08d6c73742907135acae60bf1a4f3da8"
+  },
+  "integration_evidence": {
+    "assumptions": [
+      "Setup26\u219228 and56\u219260 are charged before read admission; write setup costs can remain hidden behind unchanged longer WEN/ISO guards. Raised setup-reset floors are recomputed against recovery, never silently omitted.",
+      "The class-sized enable-off affine correction repairs an earlier short-default overhead assumption; it is reported separately from v4 changes.",
+      "Read/write completion margins use the prior explicit1.5,25%/40% uncertainty,1.10 timing mismatch and20% lower-delay assumptions; no lower-bound improvement is claimed from later setup.",
+      "All predecessor floors use unchanged rectangular classes and already-updated square predecessors. No unlisted budget is changed; upper-neighbor violations are reported, not silently repaired.",
+      "Peripheral conditional assumptions remain unchanged. The separately bounded PRE credit assumes the old additive PRE-tail model, not proven parallel PRE dominance. No independent metal strap gain is used.",
+      "The measured32 budget includes the final PRE-off6 circuit. Its finite-sample adjustment is separate from the larger-array1.10 mismatch reserve.",
+      "All thirteen final nominal32 traces and fourteen updated-bar scores bind the lower/upper completion transfer. Larger-array geometry, supply noise and actual data differential remain conditional; no direct large-array transient qualification."
+    ],
+    "family": "common_wen_and_separable_pre",
+    "measured32": {
+      "budget_ps": {
+        "access_ps": 3693,
+        "cycle_ps": 6232
+      },
+      "deadline_ps": 4100,
+      "finite_sample": "One physical 5% per-device SS seed 20261106; ratios are observed finite-sample factors, not statistical yield bounds.",
+      "margin": "A single 10% clock/deadline margin and upward 50ps rounding; larger-array 1.10 mismatch reserve is separate.",
+      "matched_mc_ratios": {
+        "access_ps": 1.017274528986872,
+        "cycle_ps": 1.017642401583597
+      },
+      "nominal_maxima_ps": {
+        "access_ps": 3629.882251081512,
+        "cycle_ps": 6123.1681828843575
+      },
+      "period_ps": 6900,
+      "vsys_v": 0.057213321617768584
+    },
+    "model_sha256": "ccc7a067254fa5c4d10d0e32b69e636c0074ec74d686249d60963e148aa5ae93"
   }
 }

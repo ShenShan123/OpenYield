@@ -110,7 +110,7 @@ frozen sizing contexts; keep them fixed across candidate comparisons.
 
 The main entrance records configuration, timing and sizing identities, model hash, seed, and variation metadata in `summary.json` for every run. It also records solver path and run status for simulations and retains failed attempts separately. Simulation results and logs are saved beside the deck. Inspect the `.prn` data for `clk`, `clk_buf`, `cs`, `we`, `wl_en`, `rbl`, `rbl_delay`, `s_en`, `w_en`, `PRE`, and `sa_iso` first when an access fails. V2.2.9 6T control also exposes `access_phase` and `access_done`: physical completion ends access and starts recovery, independently of CLK falling. 10T retains clock-high access and clock-low recovery.
 
-The [V2.2.9 timing record](../docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md)
+The [V2.2.9 area/timing record](../docs/design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md)
 separates the measured extracted 32×32 anchor, schematic reference and
 conditional larger-array clocks. The earlier V2.2.5 full screen remains
 incomplete in its [original record](../docs/design/compiler/COMPILER_ENTRY_V2_2_5.md).

@@ -56,7 +56,10 @@ A row class's `self_timed` block sets `setup_stages`, `replica.K/N` and optional
 `read_completion_stages` / `write_completion_stages`. A column class can set
 completion stage floors. Each completion chain uses the larger row/column
 reference, with at least eight stages. These are timing references; the
-peripheral, decoder and buffer W/L classes remain frozen. A one-row schematic
+decoder classes and buffer-sizing policy remain fixed; physical buffer
+sizes follow the resolved loads. The four
+compact square anchor classes use the separately validated delay/peripheral
+overrides below. A one-row schematic
 uses one active replica cell; explicit invalid replica counts are rejected.
 The shared `setup_stages`, `guard_stages` and global `replica` fields continue
 to describe the legacy path.
@@ -83,7 +86,12 @@ classes retain their existing sizes. Entries may override `pre`, `wd_in` and
 widths relative to the configured unit inverter and its dummy-load count.
 They do not change any guard, setup or completion stage count. These choices
 enter the frozen sizing fingerprint, and a changed lookup invalidates a
-previously resolved record. A sizing entry is not timing or area qualification;
+previously resolved record. The shipped 32/64/128/256 square anchor overrides
+use two-unit delay drivers and one dummy per stage; 64/128/256 also use PRE2
+and write-driver input1/output4. Their periods are 6.90 / 10.60 / 15.85 /
+27.00 ns and deadlines 4.10 / 6.00 / 9.35 / 14.80 ns. Only the 32×32 clock
+has a full extracted waveform anchor; larger values are conditional estimates.
+A sizing entry is not timing or area qualification;
 characterize it at a fixed diagnostic clock before publishing new budgets.
 
 Both clock JSONs use schema 2. The `self_timed` block holds integer-ps budgets
@@ -100,7 +108,7 @@ grid retain the separable excess rule. Dimensions round up to the next class
 inside the 512-row by 256-column envelope. `evidence_status` refers
 to the anchor; sharing its budget does not establish a smaller macro's
 waveform qualification. Larger classes are explicitly marked extrapolated.
-The [V2.2.9 record](../../docs/design/timing/ACCESS_SPEEDUP_V2_2_9.md) separates
+The [V2.2.9 area/timing record](../../docs/design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md) separates
 the measured compact macro, schematic reference and larger-array estimates.
 
 `layout_timing_lookup.json` belongs to the compact physical driver profile;

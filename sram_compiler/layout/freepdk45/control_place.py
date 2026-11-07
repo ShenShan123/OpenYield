@@ -6,6 +6,7 @@ from .components import CellView
 from .lib import Builder,pya,u
 from .router import Router,VIA4_HALO
 from .control_cells import HEIGHT,make_logic,make_transmission_gate
+from .native_delay import delay_stage_count,build_native_delay
 
 GRID=100.
 
@@ -313,9 +314,12 @@ class StandardLibrary:
     compact_registers selects the centre frame's low-metal DFFs and tighter
     logic-cell edges, including the inverters inside those DFFs.
     """
-    def __init__(self,layout,row_height=None,compact_registers: bool=False):
+    def __init__(self,layout,row_height=None,compact_registers: bool=False,native_delays: bool=False):
         self.layout=layout;self.views={};self.row_height=row_height;self.compact_registers=compact_registers
+        self.native_delays=native_delays
     def build(self,c):
+        if self.native_delays and delay_stage_count(c) is not None:
+            return build_native_delay(self,c)
         if self.row_height is not None:
             if c.identity not in self.views:self.views[c.identity]=make_logic(self.layout,c,self.row_height,compact=self.compact_registers)
             return self.views[c.identity]

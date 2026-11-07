@@ -9,9 +9,10 @@ were condensed after V2.2.6; the previous full text is at
 proposals and that circuit review were purged after V2.2.6; retrieve them with
 `git show b4987df:<path>`.
 
-## V2.2.9 — 2026-11-05 — self-timed 6T access and recovery
+## V2.2.9 — 2026-11-06 — self-timed 6T access within the V2.2.8 area
 
-[Design and verification record](design/timing/ACCESS_SPEEDUP_V2_2_9.md).
+[Area and verification record](design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md);
+[initial controller record](design/timing/ACCESS_SPEEDUP_V2_2_9.md) remains historical.
 
 - Standard 2:1-mux 6T macros start decoder setup and write isolation alongside
   PRE release. Far isolation gates sensing; physical completion clears an
@@ -27,10 +28,16 @@ proposals and that circuit review were purged after V2.2.6; retrieve them with
   bitline and latent timer reset. Joint row/column budgets receive one 10%
   margin and 50 ps rounding; read deadlines are absolute after capture.
   Frozen policy, sizing, model and RC identities prevent stale budget reuse.
-- The extracted 32×32 anchor selects **7.40 ns**, previously 9.50 ns, with a
-  **4.20 ns** read deadline. Larger clocks are estimates. Peripheral/buffer
-  W/L classes remain frozen; added logic and routing increase the 32×32
-  footprint **11.27%**. The linked record states the finite verification scope.
+- The area revision selects **6.90 ns** at 32×32 with a **4.10 ns** deadline,
+  confirmed by five extracted cases. Scoped delay/peripheral resizing and
+  controller placement reduce all four 32/64/128/256 routed macros below
+  their V2.2.8 area ceilings; all pass DRC/LVS and RC extraction.
+- Larger clocks are conditional estimates: **10.60 / 15.85 / 27.00 ns**.
+  The 128×128 estimate is 0.05 ns slower than the initial V2.2.9 clock;
+  256×256 requires the documented separable PRE-tail assumption. Native
+  64×64 completion/guard coupons pass but do not qualify full-array waveforms.
+  Legacy/10T, schematic profiles and unlisted joint sizing classes retain
+  their earlier policy. Finite samples do not establish yield qualification.
 
 ## V2.2.8 — 2026-10-11 — component-based bank and controller layouts
 

@@ -1,5 +1,7 @@
 # Design records
 
+- [V2.2.9 area-constrained 6T frequency revision](timing/ACCESS_SPEEDUP_AREA_V2_2_9.md): four routed area ceilings, measured 32×32 timing and conditional larger-array estimates.
+
 Records are grouped by subject. Version labels and validation limits remain
 those of the original record. Historical JSON and waveform images stay beside
 their reports; diagnostic datasets remain in [`../data/`](../data/README.md).
