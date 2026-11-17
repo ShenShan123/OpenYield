@@ -22,7 +22,10 @@ constrains the controller router:
   VSS spine;
 * over each half-array, an M4 VSS mesh: a strap every fourth column with a
   via3 on every row-edge M3 VSS rail, stacked to the top M7 VSS strap and,
-  in the left half, to the left M9 VSS strap.
+  in the left half, to the left M9 VSS strap;
+* over each half-array's bottom well-strap row, an M8 VDD strap merged into
+  the half's vertical M8 VDD strap and stacked onto the bitcells' VDD M2
+  lines every fourth column (V2.2.9 512x256 fix, `array_vdd_straps`).
 
 Every via, pad and strap is checked against all existing metal and cut
 shapes with the larger of the rule spacing and a margin; a blocked site is
@@ -47,6 +50,7 @@ STRAP = {8: 500., 9: 800.}
 TOP_STRAP = 500.
 STEP = 3200.                     # stack pitch per net along a trunk; the other net sits half way
 GAP_SPACE = 270.                 # M3 spacing of the 480 nm gap straps (wider than 0.27 um class)
+MIN_FILL = 70.                   # narrowest fill chunk drawn on its own (M1 65 / M2 70 nm minimum width)
 MESH_PITCH = 4                   # bitcell VSS mesh: one M4 strap per four columns
 
 
@@ -96,25 +100,29 @@ class Grid:
         if net is not None:
             self.own[(net, layer)] = (self.own.get((net, layer), pya.Region()) + shape).merged()
 
-    def stack(self, net: str, x: float, y: float, low: int, high: int, xmax: float | None = None) -> bool:
+    def stack(self, net: str, x: float, y: float, low: int, high: int, xmax: float | None = None,
+              shift: tuple[int, float] | None = None) -> bool:
         """Single-cut stack from metal `low` (existing net metal at the point) to `high`.
 
         With `xmax`, pads wider than the landing shift left so no new metal
-        passes the macro edge; every cut stays inside both of its pads.
+        passes the macro edge; every cut stays inside both of its pads. With
+        `shift` = (metal, dx), the pads and cuts from that metal up sit dx
+        from x (|dx| at most half the pad-minus-cut width below it).
         """
         x, y = round(x / 5) * 5., round(y / 5) * 5.
         base = self.at(f'm{low}', x, y)
         if base.is_empty():
             return False
 
-        def centre(width):
-            return x if xmax is None else min(x, round((xmax - width / 2) / 2.5) * 2.5)
+        def centre(width, k=0):
+            px = x if xmax is None else min(x, round((xmax - width / 2) / 2.5) * 2.5)
+            return px + (shift[1] if shift is not None and k >= shift[0] else 0.)
 
         shapes, below = [], None
         self.why = None
         for k in range(low, high + 1):
             w, h = PAD[k]
-            px = centre(w)
+            px = centre(w, k)
             pad = self.box(px - w / 2, y - h / 2, px + w / 2, y + h / 2)
             if k > low:
                 if not self.clear(f'm{k}', pad, net) or not (below - pad).is_empty():
@@ -125,9 +133,10 @@ class Grid:
                 c = CUT[k]
                 upper = PAD[k + 1][0]
                 # The cut sits as far right as both its pads allow (2.5 nm enclosure).
-                cxk = min(x, centre(upper) + upper / 2 - c / 2 - 2.5)
+                xk = centre(0., k)
+                cxk = min(xk, centre(upper, k + 1) + upper / 2 - c / 2 - 2.5)
                 if k == low:
-                    cxk = x if xmax is None or x + c / 2 <= xmax else cxk
+                    cxk = xk if xmax is None or x + c / 2 <= xmax else cxk
                 cut = self.box(cxk - c / 2, y - c / 2, cxk + c / 2, y + c / 2)
                 landing = base if k == low else pad
                 if not (cut - landing).is_empty() or not self.clear(f'v{k}', cut, net):
@@ -352,13 +361,20 @@ class Grid:
         own = pya.Region()
         for a in anchors:
             own += self.box(*a)
+        drawn = False
         while x < x1:
             xe = min(x + step, x1)
             chunk = self.box(x, y0, xe, y1)
             near = self.local(layer, x - space - 100., y0 - space - 100., xe + space + 100., y1 + space + 100.)
-            if self.clear(layer, chunk, net, near.interacting(own), space):
+            # A remainder chunk below the minimum width only extends a drawn
+            # strip; alone it is a sliver (16x64..16x256: 5-65 nm M1/M2 beside
+            # the raised RWL driver, whose blockage left the chunk before it empty).
+            if (xe - x >= MIN_FILL or drawn) and self.clear(layer, chunk, net, near.interacting(own), space):
                 self.draw(layer, chunk, net)
                 filled += xe - x
+                drawn = True
+            else:
+                drawn = False
             x = xe
         return filled
 
@@ -406,7 +422,10 @@ def add_grid(b, bm: dict, left_trunks: dict, root: dict, macro_box: tuple, frame
     right = {'VSS': (core_trunks['right']['VSS'] - 400., core_trunks['right']['VSS'] + 400.),
              'VDD': (root['VDD'] - 205. - 500. - 500., root['VDD'] - 205. - 500.)}
     lv = left_trunks['VSS']
-    left = {'VSS': (lv - 2700., lv - 1900.), 'VDD': (lv - 1300., lv - 800.)}
+    # In the narrowest macros (4 columns) the left trunks sit near the macro
+    # edge; move the VSS strap inside it (no shift elsewhere).
+    inside = max(0., x_left - (lv - 2700.))
+    left = {'VSS': (lv - 2700. + inside, lv - 1900. + inside), 'VDD': (lv - 1300., lv - 800.)}
     # Top straps: the highest clear band below the macro top. A vertical M9
     # riser crosses the decoder, so the top VSS strap is M7 (clear above the
     # periphery's M7 feedback returns), at least 1 um below the VDD strap.
@@ -615,6 +634,7 @@ def add_grid(b, bm: dict, left_trunks: dict, root: dict, macro_box: tuple, frame
         join(net, lx, y_bottom + 300. + (STEP / 2 if net == 'VDD' else 0.), core_y0 - 300., 6, left[net][1],
              f'left trunk {net}')
     report['array_mesh'] = array_mesh(g, bm, core_y0, top_y['VSS'], left['VSS'])
+    report['array_vdd_straps'] = array_vdd_straps(g, bm, core_y0, left['VDD'], right['VDD'])
     return report
 
 
@@ -679,4 +699,51 @@ def array_mesh(g: Grid, bm: dict, core_y0: float, top_vss_y: float, left_vss: tu
                     else:
                         skip('M9 join')
     g.report['stacks'] = counted
+    return out
+
+
+def array_vdd_straps(g: Grid, bm: dict, core_y0: float, left_vdd: tuple, right_vdd: tuple) -> dict:
+    """M8 VDD strap over each half-array's bottom well-strap row, stacked onto the cells' VDD lines.
+
+    A half-array's bitcell VDD is the 65 nm M1 rail of each well-strap row
+    (compact_core.draw_strap), joined to the half's M4 trunk at the trunk
+    end only; the columns' two VDD M2 lines run between the bottom and top
+    strap rows. The whole half-array's static current therefore flows along
+    the two rails: at 512x256 SS 0.9 V 125 C the far-end cells' supply sat
+    at 0.79 V (0.84 V at 256x256, 0.89 V at 128x128). The strap merges into
+    the half's vertical M8 VDD strap and reaches the M1 rail every fourth
+    column through an M2-M8 stack on that column's VDD M2 line, so a rail
+    segment carries four columns. From M4 up the stack sits 20 nm towards
+    the column centre, clear of the bitline drop via4 at the column edge.
+    The top strap row keeps its trunk link only: its M3 row-edge rail and
+    the right half's M7 top pin leave no stack site there. A half narrower
+    than one stack pitch (4-column arrays) gets no strap.
+    """
+    cx, _ = bm['array_origin_nm']
+    nc = bm['cols'] // 2
+    W = bm['core_pitch_nm']['column']
+    y = core_y0 + 115.          # M3 pad top >= 72.5 nm below the strap row's VSS M3 rail (core_y0 + 260)
+    half = STRAP[8] / 2
+    out = dict(straps=0, stacks=0, skipped={})
+
+    def skip(what):
+        out['skipped'][what] = out['skipped'].get(what, 0) + 1
+
+    for side, x0, x_end in (('left', 0., left_vdd[1]), ('right', cx, right_vdd[1])):
+        # compact_core X_VDD: the column centre +- 92.5 nm in both mirrorings.
+        centres = [x0 + c * W + W / 2 for c in range(MESH_PITCH - 1, nc, MESH_PITCH)]
+        if not centres:
+            # A half narrower than one stack pitch (4-column arrays) carries
+            # negligible cell current; it keeps the trunk-end rail feed.
+            skip(f'{side} narrow half')
+            continue
+        if not g.strap('VDD', centres[0] + 92.5 - PAD[8][0] / 2, y - half, x_end, y + half):
+            skip(f'{side} strap')
+            continue
+        out['straps'] += 1
+        for x in centres:
+            if g.stack('VDD', x + 92.5, y, 2, 8, shift=(4, -20.)) or g.stack('VDD', x - 92.5, y, 2, 8, shift=(4, 20.)):
+                out['stacks'] += 1
+            else:
+                skip(f'{side} stack')
     return out

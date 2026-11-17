@@ -1,0 +1,283 @@
+{
+  "schema": 1,
+  "compiler_version": "V2.2.9",
+  "scope": "Overlapped-recovery compact 6T TIME_CONTROL post-layout timing protocol (default compact controller; recovery_overlap=false keeps V2.2.9); this manifest is a protocol, not a pass record",
+  "architecture": {
+    "control_architecture": "v2.2.9-overlapped-recovery-1:compact",
+    "cell": "SRAM_6T_CELL",
+    "column_mux": 2,
+    "netlist": "ov12: PRE after sense release; writes restore once their WL is off; read_fired_held latch feeds read_complete",
+    "sizing_lookup": "sram_compiler/sizing/layout_sizing_lookup.json (= outputs/pl_large/overlap/lookup_c10.json); evidence macros were built from lookup_c8/c9/c10, whose netlists are identical for every class except the 512x256-covered sizes (c9: enable_off 30) and 64x256/128x256 (c10: 256x256 peripheral sizing)",
+    "layout": "band placement for self-timed controllers; overlap cell spacing 130 nm (16 rows) / 80 nm (<=256 rows) / 30 nm; overlap minimum frame 24.5 um; frame-candidate fallback (FRAME_ATTEMPTS=4)"
+  },
+  "corners": [
+    {
+      "tag": "SS",
+      "corner": "SS",
+      "vdd": 0.9,
+      "temperature_c": 125
+    },
+    {
+      "tag": "SFc",
+      "corner": "SF",
+      "vdd": 0.9,
+      "temperature_c": -40
+    },
+    {
+      "tag": "FSh",
+      "corner": "FS",
+      "vdd": 0.9,
+      "temperature_c": 125
+    },
+    {
+      "tag": "FFc",
+      "corner": "FF",
+      "vdd": 1.1,
+      "temperature_c": -40
+    },
+    {
+      "tag": "FFh",
+      "corner": "FF",
+      "vdd": 1.1,
+      "temperature_c": 125
+    }
+  ],
+  "cases": {
+    "accesses": "seq/mixed/first_read: first four accesses; reads: eight accesses (two writes, six back-to-back reads alternating rows)",
+    "patterns": {
+      "seq": {
+        "corners": [
+          "SS",
+          "SFc",
+          "FSh",
+          "FFc",
+          "FFh"
+        ],
+        "operation": "read&write",
+        "variation": "nominal",
+        "mux": true,
+        "w_rc": false,
+        "cycles": 4
+      },
+      "mixed": {
+        "corners": [
+          "SS",
+          "SFc",
+          "FSh",
+          "FFc",
+          "FFh"
+        ],
+        "operation": "read&write",
+        "variation": "nominal",
+        "mux": true,
+        "w_rc": false,
+        "cycles": 4,
+        "pattern": [
+          {
+            "op": "write",
+            "row": 31,
+            "data": "10101010101010101010101010101010"
+          },
+          {
+            "op": "write",
+            "row": 0,
+            "data": "01010101010101010101010101010101"
+          },
+          {
+            "op": "read",
+            "row": 31,
+            "data": "11111111111111111111111111111111"
+          },
+          {
+            "op": "read",
+            "row": 0,
+            "data": "00000000000000000000000000000000"
+          },
+          {
+            "op": "write",
+            "row": 31,
+            "data": "01010101010101010101010101010101"
+          },
+          {
+            "op": "read",
+            "row": 31,
+            "data": "11111111111111111111111111111111"
+          },
+          {
+            "op": "write",
+            "row": 0,
+            "data": "10101010101010101010101010101010"
+          },
+          {
+            "op": "read",
+            "row": 0,
+            "data": "00000000000000000000000000000000"
+          }
+        ],
+        "column_sequence": [
+          31,
+          30,
+          30,
+          31,
+          31,
+          30,
+          30,
+          31
+        ]
+      },
+      "first_read": {
+        "corners": [
+          "FFc",
+          "SFc"
+        ],
+        "operation": "read&write",
+        "variation": "nominal",
+        "mux": true,
+        "w_rc": false,
+        "cycles": 4,
+        "clock_duty": 0.7,
+        "pattern": [
+          {
+            "op": "read",
+            "row": 31,
+            "data": "00000000000000000000000000000000"
+          },
+          {
+            "op": "write",
+            "row": 0,
+            "data": "01010101010101010101010101010101"
+          },
+          {
+            "op": "read",
+            "row": 0,
+            "data": "11111111111111111111111111111111"
+          },
+          {
+            "op": "read",
+            "row": 31,
+            "data": "00000000000000000000000000000000"
+          },
+          {
+            "op": "write",
+            "row": 31,
+            "data": "10101010101010101010101010101010"
+          },
+          {
+            "op": "read",
+            "row": 31,
+            "data": "11111111111111111111111111111111"
+          },
+          {
+            "op": "write",
+            "row": 0,
+            "data": "10101010101010101010101010101010"
+          },
+          {
+            "op": "read",
+            "row": 0,
+            "data": "00000000000000000000000000000000"
+          }
+        ],
+        "column_sequence": [
+          31,
+          30,
+          30,
+          31,
+          31,
+          30,
+          30,
+          31
+        ],
+        "first_read": true
+      },
+      "reads": {
+        "corners": [
+          "SS",
+          "FFc"
+        ],
+        "operation": "read&write",
+        "variation": "nominal",
+        "mux": true,
+        "w_rc": false,
+        "cycles": 8,
+        "pattern": [
+          {
+            "op": "write",
+            "row": 31,
+            "data": "10101010101010101010101010101010"
+          },
+          {
+            "op": "write",
+            "row": 0,
+            "data": "01010101010101010101010101010101"
+          },
+          {
+            "op": "read",
+            "row": 31,
+            "data": "11111111111111111111111111111111"
+          },
+          {
+            "op": "read",
+            "row": 0,
+            "data": "11111111111111111111111111111111"
+          },
+          {
+            "op": "read",
+            "row": 31,
+            "data": "11111111111111111111111111111111"
+          },
+          {
+            "op": "read",
+            "row": 0,
+            "data": "11111111111111111111111111111111"
+          },
+          {
+            "op": "read",
+            "row": 31,
+            "data": "11111111111111111111111111111111"
+          },
+          {
+            "op": "read",
+            "row": 0,
+            "data": "11111111111111111111111111111111"
+          }
+        ],
+        "column_sequence": [
+          31,
+          30,
+          30,
+          31,
+          31,
+          30,
+          30,
+          31
+        ]
+      }
+    },
+    "device_variation": "nominal",
+    "indices": "Row, column and data patterns are shown for 32x32; other sizes use row 0, the last row and the last two columns the same way (dev/large_postlayout/campaign.py)",
+    "sets": {
+      "round1": "SS seq, SS read stream, FF/FS 125 C seq, FF -40 C seq at the V2.2.9 table clock",
+      "stalled": "SS read stream at about occupancy + 0.1 ns (measures recovered -> admit); skipped when restore binds by > 0.5 ns",
+      "confirmation_square_and_512x256": "5 corners x seq/mixed, FF/SF -40 C first reads, SS/FF -40 C read streams (14 cases)",
+      "confirmation_other": "SS seq, SS read stream, FF -40 C, FF 125 C and FS 125 C seq (5 cases), at the published clock"
+    }
+  },
+  "clock_policy": {
+    "cycle_budget": "max(longest SS 0.9 V 125 C read occupancy (access_admit -> recovered) + stalled recovered -> admit delay, restore-limited spacing = admission -> last far bitline and RBL at 0.96 VDD at the worst measured corner)",
+    "access_budget": "Worst capture -> OUT with every selected latch settled at that spacing",
+    "margin": "One 10 percent margin, each budget rounded up to 50 ps; the joint grid is made monotonic upward",
+    "recheck": "After each confirmation both terms are recomputed from its SS/FS cases; a term above the budget raises it and the class is rerun"
+  },
+  "verification": {
+    "physical": "DRC 0, LVS CORRECT, distributed R+C+CC; 20 ohm series merge, 1 ohm shorts, 10 aF grounded coupling, every supply pin fed, kit via resistance unchanged",
+    "waveforms": "tests/spice/phased_waveforms.py two-pass contract: control ordering, settlement and pulse counts at the device-off level CONTROL_OFF = 0.2 VDD (1 % of on-current at FF 1.1 V 125 C), repeat edges with 0.05 VDD hysteresis; strict (0.1/0.9 VDD) verdict and metrics kept. Strict in both: unselected wordlines, W_EN/s_en exclusion, write-completion edges, retention, OUT/sense data, far-bitline restore within 0.05 VDD at the next admission (replica 0.95 VDD); cycle budgets use the 0.96 VDD restore crossing",
+    "first_read": "Decoder setup reserve 1.5x (settle before WL_EN) on overlap traces too",
+    "solver": "FineSim V-2023.12-SP1 spicexd, -mt 8, 20 ps maximum step, on the translated HSPICE deck (validated against HSPICE: docs/data/FINESIM_VALIDATION_V2_2_9.json); schematic DC operating point held as .IC",
+    "negative_controls": [
+      "32x256 with the 256x256 peripheral sizing at FF -40 C (unselected wordline glitch)",
+      "512x256 with a 22-stage enable-off guard at FF -40 C (ISO release before far W_EN off)",
+      "64x256 and 128x256 with row-class sizing at FF -40 C (ISO release 170 / 95 ps early)"
+    ]
+  }
+}

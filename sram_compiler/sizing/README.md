@@ -47,9 +47,10 @@ legacy path of `sizing_lookup.json` keeps `N = 9`.
 
 ## Self-timed references and clocks
 
-The standard 2:1-mux 6T architecture uses the V2.2.9 controller in the
-versioned lookup profiles. `sizing.access_speedup: false` selects the legacy
-controller for diagnostics; 10T retains it. Direct `TIME_CONTROL` and factory
+The standard 2:1-mux 6T architecture uses the V2.2.9 self-timed controller in
+the versioned lookup profiles; compact layouts default to its
+overlapped-recovery form (below). `sizing.access_speedup: false` selects the
+legacy controller for diagnostics; 10T retains it. Direct `TIME_CONTROL` and factory
 callers keep their historical default unless they select `access_speedup`.
 
 A row class's `self_timed` block sets `setup_stages`, `replica.K/N` and optional
@@ -88,14 +89,64 @@ They do not change any guard, setup or completion stage count. These choices
 enter the frozen sizing fingerprint, and a changed lookup invalidates a
 previously resolved record. The shipped 32/64/128/256 square anchor overrides
 use two-unit delay drivers and one dummy per stage; 64/128/256 also use PRE2
-and write-driver input1/output4. Their periods are 6.90 / 10.60 / 15.85 /
-27.00 ns and deadlines 4.10 / 6.00 / 9.35 / 14.80 ns. Only the 32×32 clock
-has a full extracted waveform anchor; larger values are conditional estimates.
+and write-driver input1/output4. The 64×256 and 128×256 classes use the
+256×256 values: with the row-class PRE4 / write-driver 2/8 sizing their
+256-column PRE and `W_EN` lines released too slowly at FF −40 °C, and the
+overlapped-recovery controller then released ISO 95–170 ps before far `W_EN`
+was off. Short wide classes (32×128, 32×256, 64×128) keep their row-class
+sizes: with only two decoder setup stages, the faster override delay chain
+let unselected 32×256 wordlines glitch.
 A sizing entry is not timing or area qualification;
 characterize it at a fixed diagnostic clock before publishing new budgets.
 
+### Overlapped recovery (default compact 6T controller)
+
+When the lookup carries `overlapped_recovery_references`, compact self-timed
+6T arrays use the overlapped-recovery `TIME_CONTROL`
+(`v2.2.9-overlapped-recovery-1`): the next access is captured, decoded and set
+up while the previous access's bitlines restore. `sizing.recovery_overlap:
+false` selects the V2.2.9 recovery-before-capture controller. Each array takes
+the smallest reference class that covers it (`read_completion_stages`,
+`write_completion_stages`, `restore_stages` and optional guard overrides).
+512-row classes have explicit entries; the 512×256 entry raises
+`enable_off_stages` from 22 to 30, because at 22 stages ISO released 25 ps
+(FF −40 °C) before far `W_EN` was off. The
+[design record](../../docs/design/timing/OVERLAPPED_RECOVERY_V2_2_9.md) gives
+the architecture, the waveform contract and the per-class evidence.
+
+The `overlapped_recovery` block of `layout_timing_lookup.json` carries every
+joint class measured post-layout (FineSim, extracted macros). The cycle budget
+is the larger of the longest SS 0.9 V 125 °C read occupancy (admission to
+`recovered`) plus the stalled recovered-to-admission delay, and the
+restore-limited spacing (admission to the last far bitline at 0.96 VDD, worst
+measured corner). The access budget is the worst CLK→OUT at that spacing. Both
+receive one 10% margin and 50 ps rounding, as in V2.2.9:
+
+| Rows \ Cols | 32 | 64 | 128 | 256 |
+|---|---|---|---|---|
+| 32 | 6.60 / 4.15 | 7.40 / 4.80 | 8.70 / 5.75 | 14.75 / 9.95 |
+| 64 | 7.15 / 4.75 | 7.80 / 5.00 | 9.70 / 6.65 | 14.75 / 9.95 |
+| 128 | 8.90 / 6.20 | 9.20 / 6.45 | 10.05 / 7.15 | 14.75 / 10.30 |
+| 256 | 11.15 / 7.85 | 11.80 / 8.20 | 13.00 / 9.20 | 16.90 / 12.15 |
+| 512 | 14.70 / 11.15 | 16.05 / 11.70 | 19.50 / 13.45 | 25.20 / 16.20 |
+
+(clock / read deadline, ns). 64×256 and 128×256 measure 13.05 and 14.00 ns but
+are raised to 32×256's budget, because the grid must not decrease with either
+dimension.
+
+The V2.2.9 `self_timed` block is unchanged except for its 512-row classes:
+512×32 / 512×64 / 512×128 are measured post-layout on the macros with the
+read-held latch, the array VDD strap and the 512-row band placement, at
+16.65 / 17.25 / 24.30 ns (deadlines 11.05 / 11.55 / 15.10 ns; 512×32 is raised to
+the 256×32 cycle). 512×256 is 35.95 / 17.75 ns (capture-to-full-recovery
+32,669 ps, capture-to-data 16,095 ps); its earlier 30.10 ns extrapolation left
+too little time for the 512-row bitline restore.
+
 Both clock JSONs use schema 2. The `self_timed` block holds integer-ps budgets
-for capture-to-data (`access_ps`) and capture-to-full-recovery (`cycle_ps`).
+for capture-to-data (`access_ps`) and capture-to-full-recovery (`cycle_ps`);
+the `overlapped_recovery` block holds capture-to-data and the sustained
+capture spacing, with its own frozen baseline (the sizing policy key includes
+`recovery_overlap`).
 Recovery includes all bitlines at 98%, PRE on, physical enables off, and every
 completion timer and settling guard reset. A single bitline's `TRESTORE` at
 90% is insufficient; the CLK(min) diagnostic requires full-waveform `TCYCLE`.

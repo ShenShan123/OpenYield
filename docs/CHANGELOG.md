@@ -38,6 +38,42 @@ proposals and that circuit review were purged after V2.2.6; retrieve them with
   64×64 completion/guard coupons pass but do not qualify full-array waveforms.
   Legacy/10T, schematic profiles and unlisted joint sizing classes retain
   their earlier policy. Finite samples do not establish yield qualification.
+- 2026-11-14: compact 2:1-mux 6T layouts default to the
+  [overlapped-recovery controller](design/timing/OVERLAPPED_RECOVERY_V2_2_9.md):
+  the next access is captured and decoded while the previous one recovers.
+  Every 32×32–512×256 joint class has a post-layout clock from extracted
+  macros (FineSim `spicexd`): **6.60 / 7.80 / 10.05 / 16.90 / 25.20 ns** at
+  32×32 / 64×64 / 128×128 / 256×256 / 512×256 (V2.2.9: 6.90 / 10.60 /
+  15.85 / 27.00 / 35.95 ns). The cycle is the longer of read occupancy plus
+  readmission and the measured bitline restore (which binds from 256 rows).
+  `sizing.recovery_overlap: false` keeps the V2.2.9 controller.
+- 2026-11-14: V2.2.9 controller fixes:
+  - a `read_held` latch, because 256-column FF −40 °C reads otherwise hung
+    when the far `s_en` pulse ended before the WL-off guard;
+  - an M8 array VDD strap (the 512×256 far-end cell supply had sat at
+    0.79 V);
+  - post-layout 512×32 / 64 / 128 / 256 clocks of 16.65 / 17.25 / 24.30 /
+    35.95 ns.
+- 2026-11-14: 64×256 and 128×256 use the 256×256 peripheral sizing.
+  Short wide classes had never been simulated; at FF −40 °C their slow PRE
+  and `W_EN` edges broke enable ordering.
+- 2026-11-14: the waveform contract judges control-signal ordering,
+  settlement and pulse counts at the device-off level (0.2 VDD, 1% of
+  on-current at FF 125 °C), with edge hysteresis. Data, retention,
+  unselected wordlines, `W_EN`/`s_en` exclusion and bitline restore stay
+  strict, and the strict verdict is recorded alongside. Far-bitline restore
+  is checked at 0.95 VDD (leakage-limited 125 °C plateau of 0.964 VDD at 512
+  rows, with a few-mV coupling dip at admission); the cycle budgets keep the
+  0.96 VDD restore crossing.
+- 2026-11-14: layout:
+  - self-timed controllers stay in the band below the array, so V2.2.9
+    64/128/256-row frames route again;
+  - an overlap minimum frame and per-size cell spacing;
+  - a frame-candidate fallback;
+  - 4-column supply-grid fixes and no lone sub-minimum fill chunks.
+  A [size sweep](data/LAYOUT_SIZE_SWEEP_V2_2_9.json) of 47 sizes per
+  controller (rows 16–512, columns 4–512) passes DRC 0 / LVS CORRECT with
+  extraction for all 94 macros.
 
 ## V2.2.8 — 2026-10-11 — component-based bank and controller layouts
 

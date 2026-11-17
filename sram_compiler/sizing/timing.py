@@ -144,6 +144,10 @@ def load_timing_lookup(path=None):
                 raise ValueError('Timing lookup variants must keep the shared anchors and never relax a budget')
     if table['schema'] == 2:
         _validate_completion_ladders(table.get('self_timed'))
+        if 'overlapped_recovery' in table:
+            # V2.2.9 overlapped recovery: access_ps is CLK-to-data, cycle_ps the
+            # sustained capture spacing (recovery hidden behind the next decode).
+            _validate_completion_ladders(table['overlapped_recovery'])
     _validate_envelope(table)
     table['sha256'] = hashlib.sha256(raw).hexdigest()
     return table
@@ -298,7 +302,7 @@ def _validate_completion_baseline(block: dict, config: Any, sizes: Any) -> None:
     options = config.global_config.sizing
     options = options if isinstance(options, dict) else vars(options)
     if (sizes.source != 'lookup' or options.keys() -
-            {'mode', 'lookup', 'compact_control', 'access_speedup', 'replica'}):
+            {'mode', 'lookup', 'compact_control', 'access_speedup', 'replica', 'recovery_overlap'}):
         raise ValueError('Self-timed budgets require the frozen lookup driver baseline; use fixed diagnostic timing')
     lookup = load_lookup(options.get('lookup'))
     if (lookup['sha256'] != baseline.get('sizing_lookup_sha256')
@@ -353,6 +357,10 @@ def resolve_timing(config, driver_sizes, context=None):
             raise ValueError('Qualified timing record is stale or unavailable for this physical context')
         return timing
     completion = table.get('self_timed') if driver_sizes.access_speedup and table['schema'] == 2 else None
+    if getattr(driver_sizes, 'recovery_overlap', False):
+        completion = table.get('overlapped_recovery') if table['schema'] == 2 else None
+        if completion is None:
+            raise ValueError('Overlapped-recovery clocks need an overlapped_recovery budget table; use fixed diagnostic timing')
     if driver_sizes.access_speedup and completion is None:
         raise ValueError('Self-timed automatic clocks require a completion-budget table; use fixed diagnostic timing')
     margin = options.get('margin', completion.get('margin', .10) if completion else .25)

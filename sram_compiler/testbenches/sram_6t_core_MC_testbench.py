@@ -29,9 +29,36 @@ ACCESS_DEADLINE = 0.68
 
 SELF_TIMED_RECOVERY_LOW = tuple('XTIME_CONTROL:' + node for node in (
     'access_phase', 'access_done', 'read_complete', 'write_complete',
-    'read_resolved', 'write_resolved', 'read_completion_ready', 'write_completion_ready'))
+    'read_resolved', 'write_resolved', 'read_completion_ready', 'write_completion_ready', 'read_held'))
 SELF_TIMED_RECOVERY_HIGH = tuple('XTIME_CONTROL:' + node + ':pre_on_delayed' for node in (
     'Xaccess_guard', 'Xisolation_guard', 'Xwrite_drive_guard', 'Xread_observe', 'Xwrite_observe'))
+# Overlapped recovery: completion guards reset immediately; write_done and the
+# admitted phase must also be low, and the recovered latch set, before the
+# next access is admitted (no longer before the next capture).
+OVERLAP_RECOVERY_LOW = tuple('XTIME_CONTROL:' + node for node in (
+    'access_phase', 'access_done', 'read_complete', 'write_complete',
+    'read_resolved', 'write_resolved', 'write_done', 'read_done', 'read_end', 'read_fired_held', 'access_admit'))
+OVERLAP_RECOVERY_HIGH = SELF_TIMED_RECOVERY_HIGH + ('XTIME_CONTROL:recovered',)
+
+
+def boundary_nodes(driver_sizes) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(low, high) access-path state that must be idle between accesses."""
+    if getattr(driver_sizes, 'recovery_overlap', False):
+        return (tuple('XTIME_CONTROL:' + node for node in (
+                    'iso_ready', 'access_request', 'read_done', 'read_end', 'write_done')) + ('rbl_delay',),
+                tuple('XTIME_CONTROL:' + node for node in ('enables_off', 'pre_ready', 'recovered')))
+    return (tuple('XTIME_CONTROL:' + node for node in (
+                'wordline_busy', 'iso_ready', 'access_request', 'access_settled', 'read_done')) + ('rbl_delay',),
+            ('XTIME_CONTROL:enables_off', 'XTIME_CONTROL:wordline_idle'))
+
+
+def recovery_nodes(driver_sizes) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(low, high) internal recovery probes of the controller architecture."""
+    if getattr(driver_sizes, 'recovery_overlap', False):
+        return OVERLAP_RECOVERY_LOW, OVERLAP_RECOVERY_HIGH
+    if driver_sizes.access_speedup:
+        return SELF_TIMED_RECOVERY_LOW, SELF_TIMED_RECOVERY_HIGH
+    return (), ()
 
 
 def access_deadline_time(period: float, cycle: int, access_time: float = 0.,
@@ -690,15 +717,16 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                                   f'MAX {{{expression}}} FROM={1e-9 + (cycle + .2) * period:.12g} '
                                   f'TO={1e-9 + (cycle + 1.2) * period:.12g}')
             boundary = f'MAX(ABS(V({wl})),MAX(ABS(V({enable})),MAX(ABS(V({sense})),ABS(V({isolation})))))'
-            for node in ('XTIME_CONTROL:wordline_busy', 'XTIME_CONTROL:iso_ready',
-                         'XTIME_CONTROL:access_request', 'XTIME_CONTROL:access_settled',
-                         'XTIME_CONTROL:read_done', 'rbl_delay'):
+            idle_low, idle_high = boundary_nodes(self.driver_sizes)
+            for node in idle_low:
                 boundary = f'MAX({boundary},ABS(V({node})))'
-            boundary = f'MAX({boundary},ABS(V(XTIME_CONTROL:enables_off)-{vdd:.12g}))'
+            for node in idle_high[:1] if not getattr(self.driver_sizes, 'recovery_overlap', False) else idle_high:
+                boundary = f'MAX({boundary},ABS(V({node})-{vdd:.12g}))'
             if self.driver_sizes.access_speedup:
-                for node in SELF_TIMED_RECOVERY_LOW:
+                low_nodes, high_nodes = recovery_nodes(self.driver_sizes)
+                for node in low_nodes:
                     boundary = f'MAX({boundary},ABS(V({node})))'
-                for node in SELF_TIMED_RECOVERY_HIGH:
+                for node in high_nodes:
                     boundary = f'MAX({boundary},ABS(V({node})-{vdd:.12g}))'
             simulator.measure('TRAN', f'VBOUNDARY_ERROR_{cycle}',
                               f'FIND {{{boundary}}} AT={1e-9 + (cycle + .2) * period:.12g}')
@@ -799,14 +827,20 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         probes = ['RWL', 'RWL_far', self.sense_input_probe('IN'), self.sense_input_probe('INB')]
         probes += ['XTIME_CONTROL:access_request', 'XTIME_CONTROL:pre_off_ready',
                    'XTIME_CONTROL:wordline_request', 'XTIME_CONTROL:access_settled',
-                   'XTIME_CONTROL:write_window',
+                   *(() if getattr(self.driver_sizes, 'recovery_overlap', False) else ('XTIME_CONTROL:write_window',)),
                    'XTIME_CONTROL:enables_off',
-                   'XTIME_CONTROL:wordline_busy', 'XTIME_CONTROL:wordline_idle',
+                   *(('XTIME_CONTROL:pre_ready',) if getattr(self.driver_sizes, 'recovery_overlap', False) else
+                     ('XTIME_CONTROL:wordline_busy', 'XTIME_CONTROL:wordline_idle')),
                    'XTIME_CONTROL:read_done', 'XTIME_CONTROL:iso_ready',
                    'XTIME_CONTROL:local_enables_off', 'XTIME_CONTROL:far_enables_off',
                    'XTIME_CONTROL:far_enables_ready']
         if self.driver_sizes.access_speedup:
-            probes += list(SELF_TIMED_RECOVERY_LOW + SELF_TIMED_RECOVERY_HIGH)
+            probes += list(sum(recovery_nodes(self.driver_sizes), ()))
+        if getattr(self.driver_sizes, 'recovery_overlap', False):
+            probes += ['XTIME_CONTROL:' + node for node in (
+                'restore_ready', 'pre_on_settled', 'recovered_bar', 'write_hit', 'sense_released',
+                'access_admit_bar', 'read_hit', 'read_done_n', 'read_fired', 'read_fired_held_bar',
+                'recovery_ready', 'precharge_gate', 'write_live', 'write_prepare_bar', 'write_tail')]
         if not self.driver_sizes.compact_control:
             probes.append('XTIME_CONTROL:s_en_bar')
         probes += [f'{self.replica_inst_prefix}:RBL_far', f'{self.replica_inst_prefix}:RBLB_far']
@@ -881,6 +915,16 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             init_cond[f'{prefix}:z2'] = 0 @ u_V
             for node in ('D_b', 'z1', 'z3', 'z4', 'z5', 'QB'):
                 init_cond[f'{prefix}:{node}'] = self.vdd @ u_V
+            if not getattr(self.driver_sizes, 'recovery_overlap', False):
+                init_cond['XTIME_CONTROL:read_held'] = 0 @ u_V
+                init_cond['XTIME_CONTROL:read_held_bar'] = self.vdd @ u_V
+        if getattr(self.driver_sizes, 'recovery_overlap', False):
+            # Precharged idle state: restored and recovered, nothing admitted.
+            for node, high in (('recovered', True), ('recovered_bar', False), ('access_admit', False),
+                               ('access_admit_bar', True), ('write_done', False), ('write_done_bar', True),
+                               ('read_done', False), ('read_done_n', True), ('read_end', False),
+                               ('read_end_bar', True), ('read_fired_held', False), ('read_fired_held_bar', True)):
+                init_cond[f'XTIME_CONTROL:{node}'] = (self.vdd if high else 0) @ u_V
         for bit in range(n_bits):
             # address register output (inside TIME_CONTROL) and the held / buffered copy
             init_cond[f'XTIME_CONTROL:A_reg{bit}'] = 0 @ u_V

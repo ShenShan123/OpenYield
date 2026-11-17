@@ -244,6 +244,8 @@ ESCAPE_RADIUS=8000   # ... or stand alone, routed to the access, at most this fa
 ESCAPE_LANDING={4:145.,5:145.,6:145.,7:400.,8:405.,9:805.}
 ESCAPE_SPACE={4:140.,5:140.,6:140.,7:400.,8:400.,9:800.}
 RIPUP_LIMIT=400      # centre rip-ups per attempt before a restart with new priority
+OVERLAP_CELL_SPACE=80.  # nm between band logic cells of overlapped-recovery controllers (_band_space)
+OVERLAP_SMALL_CELL_SPACE=130.  # ... with <= 4 address bits (16 rows: 80 nm did not converge in 1 h)
 HEAL_ROUNDS=3        # centre reroutes of nets whose same-net gaps cannot be filled
 HISTORY_RADIUS=(6,6,6,10,10,16)  # M4..M9 grid cells, about each layer's clearance
 ANTENNA_LIMIT=250.   # centre routing: lower metal per gate area (Calibre 300, less cell-internal metal)
@@ -361,6 +363,19 @@ def _antenna(path: str,m: dict) -> bool:
     return any(m[p] in ANTENNA_INPUTS for p in m if p not in ('VDD','VSS','Z')) or path=='Xpre_unbuf'
 
 
+def _band_space(sources: dict) -> float:
+    """Gap between neighbouring band logic cells; make_control fills it with
+    wells and rails. Band logic cells of overlapped-recovery controllers
+    through 256 rows keep OVERLAP_CELL_SPACE. Packed at 30 nm, a gate beside
+    a frame edge or blockage left its input and output too few escape tracks,
+    and the 32/64-row frames did not route in 42 h; at 80 nm 32..256 rows
+    route in under 160 rip-ups without extra frame tracks. 16-row frames
+    (four address bits) need OVERLAP_SMALL_CELL_SPACE."""
+    address_bits=sum(path.startswith('Xdff_buf_addr/') and cell.name=='DFF' for path,cell in sources.items())
+    if 'Xrecovered_set' in sources and address_bits<=4: return OVERLAP_SMALL_CELL_SPACE
+    return OVERLAP_CELL_SPACE if 'Xrecovered_set' in sources and address_bits<=8 else 30.
+
+
 def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic: bool=False,
                   share_completion: bool=False):
     """Fill the full-width band, then decoder lanes, keeping source order.
@@ -389,10 +404,24 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
            or not lane_ready(p)]
     address_bits=sum(path.startswith('Xdff_buf_addr/') and cell.name=='DFF' for path,cell in sources.items())
     data_bits=sum(path.startswith('Xdff_buf_data/') and cell.name=='DFF' for path,cell in sources.items())
-    if 'Xaccess_phase' in sources and address_bits<=5 and 0<data_bits<=32:
+    overlap_band='Xrecovered_set' in sources and address_bits<=9
+    latched_band='Xread_held_set' in sources and (address_bits<=8 or (address_bits==9 and data_bits<=64))
+    if overlap_band or latched_band or ('Xaccess_phase' in sources and address_bits<=5 and 0<data_bits<=32):
         # Keep the small self-timed feedback graph below the array instead
         # of spreading its guard logic through the narrow decoder lanes.
+        # Overlapped-recovery controllers also keep it: with lane spill their
+        # 64/128/256-row frames did not route in 8 h and 512x256 restarted
+        # twice in 42 h; in the band they route in under 70 rip-ups (512x256
+        # at 30 nm spacing in about an hour, +8.4% macro area). The V2.2.9
+        # controller with the read_held latch also stays in the band through
+        # 256 rows: in decoder lanes its 64/128/256-row frames did not route in
+        # 16 h, and 16x128/24x64/32x256 failed or exceeded 1 h. At 512 rows it
+        # keeps the band up to 64 columns (one data register per column): the
+        # 512x32/64 lane frames (29-35 x 196-229 um) had not routed in 13 h; in
+        # the band they route in under 10 rip-ups. Wider 512-row arrays keep
+        # their lanes (512x128/256/512 route there in 1-3 h).
         fixed=list(order)
+    space=_band_space(sources)
     # Groups driving decoder nets (address buffers, wl_en) take the bottom
     # rows, beside the block-edge pins of their outputs; the DFF rows above
     # them then carry no decoder net across. Members too wide for a lane
@@ -417,7 +446,7 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
                 hole=next((h for h in holes if h[1]==v.height_nm and h[3]+v.width_nm+tap<=h[4]),None)
                 if hole is not None:
                     prepared.append((path,v,m,hole[3],hole[0],hole[2],False))
-                    hole[3]+=v.width_nm+30+tap;used+=area;done=index+1
+                    hole[3]+=v.width_nm+space+tap;used+=area;done=index+1
                     continue
             used+=area
             fits=True
@@ -441,7 +470,7 @@ def _place_centre(layout,inventory,sources,width,band_span,lanes,x0,local_logic:
                 x=state['cursor'];prepared.append((path,v,m,x,state['y'],state['row'],False))
                 following=entries[order[index+1]][0][0] if index+1<len(order) else None
                 nxt=following is not None and following.standard_family=='DFF'
-                state['cursor']=x+v.width_nm+((190 if nxt else 290) if dff else 30)+tap
+                state['cursor']=x+v.width_nm+((190 if nxt else 290) if dff else space)+tap
                 state['height']=max(state['height'],v.height_nm);state['vdd']=max(state['vdd'],v.pins['VDD'][1])
                 if chain is not None:state['chains']=state['chains']|{chain}
             if not fits:
@@ -721,9 +750,10 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     band=0.
     for shelf in shelves:
         shelf['y']=band;band+=shelf['height']
-    prepared=[];cursor=x0;y=band;row_height=0.;row_vdd=0.;row=0;rows=[];lane_taps={}
+    prepared=[];cursor=x0;y=band;row_height=0.;row_vdd=0.;row=0;rows=[];lane_taps={};band_gap=30.
     if lanes is not None:
         sources={p:c for p,c,_ in units(component)}
+        band_gap=_band_space(sources)
         prepared,rows,lane_taps=_place_centre(layout,inventory,sources,width,band_span,lanes,x0,
                                             local_logic=compact_registers,share_completion=share_completion)
         inventory=[]
@@ -826,11 +856,11 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
             b.rect('nwell',x+v.width_nm,y+v.well_split,end,y+v.height_nm)
             for phase in (100,v.height_nm-100):b.rect('m1',x+v.width_nm,y+phase-35,end,y+phase+35)
         elif not passive and v.standard_family!='DFF':
-            b.rect('pwell',x+v.width_nm,y,x+v.width_nm+30,y+640)
-            b.rect('nwell',x+v.width_nm,y+640,x+v.width_nm+30,y+1500)
-            for phase in (100,1400):b.rect('m1',x+v.width_nm,y+phase-35,x+v.width_nm+30,y+phase+35)
+            b.rect('pwell',x+v.width_nm,y,x+v.width_nm+band_gap,y+640)
+            b.rect('nwell',x+v.width_nm,y+640,x+v.width_nm+band_gap,y+1500)
+            for phase in (100,1400):b.rect('m1',x+v.width_nm,y+phase-35,x+v.width_nm+band_gap,y+phase+35)
             if row and rows[row-1][1]==1800 and y-rows[row-1][0]==1900:
-                b.rect('pwell',x,y-200,x+v.width_nm+30,y)
+                b.rect('pwell',x,y-200,x+v.width_nm+band_gap,y)
         placed.append(dict(instance=path,cell=v.builder.name,family=v.standard_family,x_nm=x,y_nm=y,width_nm=v.width_nm,height_nm=v.height_nm))
         terminals.update({path+'/'+n:(x+px,y+yy,l) for n,(px,yy,l) in v.device_pins.items()})
         fs=getattr(v,'physical_fingers',None)
@@ -917,8 +947,8 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
                     # sizes and the far-end feedback path stay fixed.
                     from .control_passives import antenna_diode
                     tapx=x+v.width_nm+250;tapy=y+300
-                    b.rect('pwell',x+v.width_nm,y,x+v.width_nm+530,y+640)
-                    b.rect('nwell',x+v.width_nm,y+640,x+v.width_nm+530,y+1500)
+                    b.rect('pwell',x+v.width_nm,y,x+v.width_nm+500+band_gap,y+640)
+                    b.rect('nwell',x+v.width_nm,y+640,x+v.width_nm+500+band_gap,y+1500)
                     antenna_diode(b,tapx,tapy);lift(tapx,tapy,3,4)
                     wire('m4',tx,ty,tapx,ty,145);wire('m4',tapx,ty,tapx,tapy,145)
                     ownership.append((net,(tapx,tapy,'m4')));tap=True
@@ -973,6 +1003,7 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     base=band_span[0] if lanes is not None else 0.
     wire('m3',vss_x,pins['VSS'][1],vss_x,base+200)
     self_timed=any(child.name=='Xaccess_phase' for child in component.children)
+    overlap=any(child.name=='Xrecovered_set' for child in component.children)
     if self_timed:
         # The first register may occupy the bottom row. Keep its native M4
         # clock rail clear by landing the VSS via at the public access point.
@@ -1188,10 +1219,20 @@ def make_control(layout: pya.Layout,component: Component,width: float=32500.,exc
     for attempt in range(32):
         router=ControlRouter(b,width,height,upper_metal=9,profile=profile);router.blocked=set(fixed_blocked)
         router.clearance={p:set(n) for p,n in fixed_clearance.items()}
+        # Every access is reserved before any first-metal pin claims the
+        # access above it, so a pin cannot take a point that another net's
+        # own access needs (reserved above, in any order). This was scoped to
+        # overlapped-recovery controllers while the V2.2.9 layouts were
+        # frozen; with the read_held latch the self-timed 64/128-row frames
+        # raised 'Conflicting fixed access' (A_dff3 against Xpre/b0) under the
+        # in-order rule, so both controllers now share it.
         for net,pt in access:
-            q=router.point(*pt);router.reserve(q,net)
+            router.reserve(router.point(*pt),net)
+        for net,pt in access:
+            q=router.point(*pt)
             above=(q[0],q[1],1)
-            if q[2]==0 and (not native_delays or (above not in router.blocked and not (router.clearance.get(above,set())-{net}))):
+            free=not (router.clearance.get(above,set())-{net})
+            if q[2]==0 and free and (not native_delays or above not in router.blocked):
                 router.reserve(above,net)
         for net,pt in access:
             q=router.point(*pt)

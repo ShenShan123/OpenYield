@@ -754,6 +754,132 @@ class IsolationAccessNand(PNAND2):
     NAME = 'ISOLATION_ACCESS_NAND'
 
 
+# Overlapped recovery (recovery_overlap=True).
+# Strongest single-finger gates of a 1500 nm compact control row (control_cells:
+# PMOS <= 550 nm, NMOS <= 330 nm, sum <= 805 nm; folded NOR series is unsupported).
+STRONG_NOR_WIDTHS = (260e-9, 540e-9)
+STRONG_NAND3_WIDTHS = (300e-9, 500e-9)
+
+
+class AccessAdmitNand(PNAND2):
+    """access_admit_bar = !(access_phase & recovered)."""
+    NAME = 'ACCESS_ADMIT_NAND'
+
+
+class RecoveredNor(PNOR2):
+    """One half of the recovered set/reset latch."""
+    NAME = 'RECOVERED_NOR'
+
+
+class ReplicaRestoreGuard(PrechargeOffGuard):
+    """Replica bitline observed restored (rbl_delay low) for the remaining tail allowance.
+
+    The replica column swings fully in every access and sits at the far end
+    of the PRE line, so it restores no earlier than any data bitline; the
+    stages cover only the measured gap to the last data bitline's 98 % point.
+    """
+    NAME = 'REPLICA_RESTORE_GUARD'
+
+
+class PrechargeResetGuard(PrechargeOffGuard):
+    """PRE-off guard that also exports `pre_on_delayed` (far PRE on and settled)."""
+    NAME = 'PRECHARGE_RESET_GUARD'
+    NODES = (*PrechargeOffGuard.NODES, 'pre_on_delayed')
+
+
+class WriteHitAnd(AND3):
+    NAME = 'WRITE_HIT_AND'
+
+
+class WriteDoneNor(PNOR2):
+    """One half of the write_done set/reset latch (cleared with the request)."""
+    NAME = 'WRITE_DONE_NOR'
+
+
+class WriteCompleteAnd(AND2):
+    NAME = 'WRITE_COMPLETE_AND'
+
+
+class CompletionGateNor(PNOR2):
+    NAME = 'COMPLETION_GATE_NOR'
+
+
+class ReadStopNor(PNOR2):
+    """Halves of the read_done / read_end set/reset latches."""
+    NAME = 'READ_STOP_NOR'
+
+
+class ReadFiredNor(PNOR2):
+    """Halves of the read_fired_held latch (far s_en fired, until the admission ends)."""
+    NAME = 'READ_FIRED_NOR'
+
+
+class ReadHeldNor(PNOR2):
+    """Halves of the self-timed read_held latch (read resolved, until the phase clears)."""
+    NAME = 'READ_HELD_NOR'
+
+
+class WriteHitNor(PNOR2):
+    """Set half of the write_done latch; its output stops the write WL."""
+    NAME = 'WRITE_HIT_NOR'
+
+
+class ReadHitNor(PNOR2):
+    """Set half of the read_done latch; its output stops the read WL."""
+    NAME = 'READ_HIT_NOR'
+
+
+class OverlapSenseAnd(AND3):
+    NAME = 'OVERLAP_SENSE_AND'
+
+
+class WriteLiveAnd(AND2):
+    NAME = 'WRITE_LIVE_AND'
+
+
+class WritePrepareNand(PNAND2):
+    NAME = 'WRITE_PREPARE_NAND'
+
+
+class OverlapIsolationNand(PNAND3):
+    NAME = 'OVERLAP_ISOLATION_NAND'
+
+
+class WriteTailNand3(PNAND3):
+    NAME = 'WRITE_TAIL_NAND3'
+
+
+class WriteDriveNand3(PNAND3):
+    NAME = 'WRITE_DRIVE_NAND3'
+
+
+class WriteDriveNand(PNAND2):
+    NAME = 'WRITE_DRIVE_NAND'
+
+
+class WriteDriveNor(PNOR2):
+    NAME = 'WRITE_DRIVE_NOR'
+
+
+class PrechargeGateNand3(PNAND3):
+    """!(access_phase & recovered & !write_done): a write restores once its WL has ended."""
+    NAME = 'PRECHARGE_GATE_NAND3'
+
+
+class PrechargeReleaseNand3(PNAND3):
+    """PRE_UNBUF = !(precharge_gate & WL physically off & sense released)."""
+    NAME = 'PRECHARGE_RELEASE_NAND3'
+
+
+class SenseReleasedAnd(AND2):
+    """read_done cleared and far s_en off: PRE never turns on while sense amplifiers regenerate."""
+    NAME = 'SENSE_RELEASED_AND'
+
+
+class RecoveredSetAnd(AND3):
+    NAME = 'RECOVERED_SET_AND'
+
+
 def address_bits(num_rows: int) -> int:
     return ceil(log2(num_rows)) if num_rows > 1 else 1
 
@@ -942,8 +1068,16 @@ class TIME_CONTROL(BaseSubcircuit):
                  write_completion_stages: int = 8,
                  write_drive_guard_stages: Optional[int] = None,
                  delay_driver_scale: Optional[float] = None,
-                 delay_loads_per_stage: Optional[int] = None) -> None:
+                 delay_loads_per_stage: Optional[int] = None,
+                 recovery_overlap: bool = False,
+                 restore_stages: Optional[int] = None) -> None:
         """
+        recovery_overlap: with access_speedup, a capture may follow access
+                  completion before bitline recovery ends; PRE release, the
+                  admitted request and every write/read drive of the next
+                  access wait for the `recovered` latch (replica bitline
+                  restored for `restore_stages`, PRE-off and isolation guards
+                  reset), so recovery overlaps the next decode.
         num_sa:   number of sense amplifiers driven by s_en (num_cols / mux_in);
                   default num_cols.
         wl_load:  load on wl_en in units of a 0.18/0.27 um NAND2 gate, i.e.
@@ -994,7 +1128,21 @@ class TIME_CONTROL(BaseSubcircuit):
             }
             values['delays']['unit_loads_per_stage'] = delay_loads_per_stage
             self.control_config = cfg = resolve_time_control_config(values)
+        if type(recovery_overlap) is not bool:
+            raise ValueError('recovery_overlap must be boolean')
+        if recovery_overlap and not (access_speedup and compact_control):
+            raise ValueError('Overlapped recovery requires compact self-timed control')
+        if recovery_overlap:
+            if type(restore_stages) is not int or restore_stages < 2 or restore_stages % 2:
+                raise ValueError('Restore stages must be a positive even integer')
+        elif restore_stages is not None:
+            raise ValueError('Restore stages apply only to overlapped recovery')
+        self.recovery_overlap = recovery_overlap
+        self.restore_stages = restore_stages
         self.access_source = 'access_phase' if access_speedup else 'gated_clk_buf'
+        # The admitted phase starts PRE release and the request; decoder setup
+        # still starts from the raw phase so it overlaps the previous restore.
+        self.admit_source = 'access_admit' if recovery_overlap else self.access_source
         num_rows = cfg.defaults.num_rows if num_rows is None else num_rows
         num_cols = cfg.defaults.num_cols if num_cols is None else num_cols
         w_rc = cfg.defaults.w_rc if w_rc is None else w_rc
@@ -1045,6 +1193,13 @@ class TIME_CONTROL(BaseSubcircuit):
         self.read_completion_stages = read_completion_stages
         self.write_completion_stages = write_completion_stages
         self.write_drive_guard_stages = write_drive_guard_stages
+        if recovery_overlap and isolation_guard_stages > precharge_off_guard_stages:
+            raise ValueError('A following write must settle PRE off at least as long as ISO assertion')
+        if recovery_overlap and write_drive_guard_stages > 2 * precharge_off_guard_stages:
+            # Write drivers release with PRE on; far PRE stays on for the
+            # PRE-off stages before the next admission and settles off for them
+            # again before the next drivers: that must reset the write-drive guard.
+            raise ValueError('The write-drive guard must reset within the PRE-on and PRE-off settling')
         self.interconnect = resolve_interconnect(interconnect)
         self.nmos_model = nmos_model
         self.pmos_model = pmos_model
@@ -1107,7 +1262,9 @@ class TIME_CONTROL(BaseSubcircuit):
         self._add_isolation_guard()
         self._add_precharge()
         self._add_enable_observers()
-        if self.access_speedup:
+        if self.recovery_overlap:
+            self._add_overlapped_completion()
+        elif self.access_speedup:
             self._add_completion()
 
     # -- ports ---------------------------------------------------------------
@@ -1222,20 +1379,43 @@ class TIME_CONTROL(BaseSubcircuit):
             self.X('phase_select', inv.NAME, 'VDD', 'VSS', 'csb', 'phase_select')
             self.X('access_phase', phase.NAME, 'VDD', 'VSS', 'phase_select',
                    'access_phase', 'clk_buf', 'access_done')
-            self.X('phase_bar', inv.NAME, 'VDD', 'VSS', 'access_phase', 'access_phase_bar')
+            if not self.recovery_overlap:
+                self.X('phase_bar', inv.NAME, 'VDD', 'VSS', 'access_phase', 'access_phase_bar')
+        if self.recovery_overlap:
+            cfg = self.control_config
+            admit = AccessAdmitNand(self.nmos_model, self.pmos_model, cfg.devices.nand.nmos_width_m,
+                                    cfg.devices.nand.pmos_width_m, cfg.devices.gate_length_m)
+            latch = RecoveredNor(self.nmos_model, self.pmos_model, *cfg.widths('nor'), cfg.devices.gate_length_m)
+            admit_inv = self._unit_inverter('_admit')
+            for sub in (admit, latch, admit_inv):
+                self.subcircuit(sub)
+            # recovered: set by recovery_ready (replica bitline restored, far
+            # PRE on and settled, ISO released), reset by the access_done
+            # pulse; it stays set through the admitted access.
+            self.X('recovered_reset', latch.NAME, 'VDD', 'VSS', 'access_done', 'recovered_bar', 'recovered')
+            self.X('recovered_set', latch.NAME, 'VDD', 'VSS', 'recovery_ready', 'recovered', 'recovered_bar')
+            self.X('access_admit_nand', admit.NAME, 'VDD', 'VSS', 'access_phase', 'recovered', 'access_admit_bar')
+            self.X('access_admit_inv', admit_inv.NAME, 'VDD', 'VSS', 'access_admit_bar', 'access_admit')
 
     def _add_access_request(self) -> None:
         """Admit the request after far PRE releases and prepare the write path."""
         self.access_request = self.access_source
         if self.precharge_off_guard:
-            guard = PrechargeOffGuard(self.nmos_model, self.pmos_model,
+            guard = (PrechargeResetGuard if self.recovery_overlap else PrechargeOffGuard)(self.nmos_model, self.pmos_model,
                                       stages=self.precharge_off_guard_stages,
                                       access_load=self.access_load,
                                       settling_tau=0., control_config=self.control_config)
             self.subcircuit(guard)
             self.access_request = 'access_request'
-            self.X('access_guard', guard.NAME, 'VDD', 'VSS',
-                   self.access_source, 'pre_far', self.access_request, 'pre_off_ready')
+            if self.recovery_overlap:
+                # The request may fall once PRE turns on after this access's
+                # WL stopped; every state that must outlive it is latched and
+                # cleared with the admitted phase instead.
+                self.X('access_guard', guard.NAME, 'VDD', 'VSS', 'access_admit', 'pre_far', self.access_request,
+                       'pre_off_ready', 'pre_on_settled')
+            else:
+                self.X('access_guard', guard.NAME, 'VDD', 'VSS',
+                       self.admit_source, 'pre_far', self.access_request, 'pre_off_ready')
         # Legacy writes start setup at the far enable. Self-timed setup runs
         # from the raw phase and separately waits for the settled write drive.
         ready = WriteReadyNor(self.nmos_model, self.pmos_model, *self.control_config.widths("nor"), self.control_config.devices.gate_length_m)
@@ -1268,7 +1448,12 @@ class TIME_CONTROL(BaseSubcircuit):
         self.X('wordline_setup_delay', delay.NAME, 'VDD', 'VSS',
                self.access_source if self.access_speedup else 'wordline_start', 'access_settled')
         inputs = (self.access_request, 'access_settled')
-        if self.access_speedup:
+        if self.recovery_overlap:
+            live = self._and_gate(WriteLiveAnd, self.control_config.widths('enable_inverter'))
+            self.subcircuit(live)
+            self.X('write_live', live.NAME, 'VDD', 'VSS', 'write_ready', 'write_done_bar', 'write_live')
+            inputs += ('write_live',)
+        elif self.access_speedup:
             inputs += ('write_ready',)
         self.X('wordline_setup_gate', gate.NAME, 'VDD', 'VSS', *inputs, 'wordline_request')
 
@@ -1277,7 +1462,8 @@ class TIME_CONTROL(BaseSubcircuit):
         buffer = WordlineEnableBuffer(self.nmos_model, self.pmos_model,
                                       drive_scale=self.sizing.wl_en_scale, fold_gates=self.effort_buffers, control_config=self.control_config)
         self.subcircuit(buffer)
-        self.X('wl_en', buffer.NAME, 'VDD', 'VSS', 'wordline_request', 'read_done_bar', 'wl_en')
+        self.X('wl_en', buffer.NAME, 'VDD', 'VSS', 'wordline_request',
+               'read_done_n' if self.recovery_overlap else 'read_done_bar', 'wl_en')
         inverter = self._unit_inverter('_wl_en_bar', self.sizing.wlb_scale)
         self.subcircuit(inverter)
         self.X('inv_wl_en_bar', inverter.NAME, 'VDD', 'VSS', 'wl_en', 'wl_en_bar')
@@ -1298,6 +1484,22 @@ class TIME_CONTROL(BaseSubcircuit):
         re-arm the wordline during the same access. It is not used for writes.
         """
         gate = self._and_gate(ReadDoneAnd, self.control_config.widths("enable_inverter"))
+        if self.recovery_overlap:
+            # PRE restores RBL mid-access, so the sense trigger is latched for
+            # the rest of this request.
+            cfg = self.control_config
+            latch = ReadStopNor(self.nmos_model, self.pmos_model, *cfg.widths('nor'), cfg.devices.gate_length_m)
+            # read_done_n stops the WL and asserts ISO: drive it like the
+            # V2.2.9 read_done_bar inverter it replaces.
+            fast = ReadHitNor(self.nmos_model, self.pmos_model, *STRONG_NOR_WIDTHS, cfg.devices.gate_length_m)
+            for sub in (gate, latch, fast):
+                self.subcircuit(sub)
+            self.X('read_hit', gate.NAME, 'VDD', 'VSS', 'rbl_delay', self.access_request, 'we_bar', 'read_hit')
+            self.X('read_done_set', fast.NAME, 'VDD', 'VSS', 'read_hit', 'read_done', 'read_done_n')
+            # Cleared by resolution (read_end), not by the phase: the phase is
+            # freed once far s_en has fired, while the isolated SA resolves.
+            self.X('read_done_reset', latch.NAME, 'VDD', 'VSS', 'read_end', 'read_done_n', 'read_done')
+            return
         inverter = self._unit_inverter('_read_done_bar', self.sizing.senb_scale)
         self.subcircuit(gate)
         self.subcircuit(inverter)
@@ -1338,6 +1540,8 @@ class TIME_CONTROL(BaseSubcircuit):
 
     def _add_wordline_busy(self) -> None:
         """Busy from wl_en assertion through the observed physical wordline tail."""
+        if self.recovery_overlap:
+            return  # The write tail NAND3 reads wl_en_bar and pre_ready directly.
         nand = WordlineBusyNand(self.nmos_model, self.pmos_model, self.control_config.devices.nand.nmos_width_m, self.control_config.devices.nand.pmos_width_m, self.control_config.devices.gate_length_m)
         inverter = self._unit_inverter('_wordline_idle')
         self.subcircuit(nand)
@@ -1352,6 +1556,17 @@ class TIME_CONTROL(BaseSubcircuit):
         the entire write access; no delayed handoff to the next cycle is needed.
         Clock-low must finish recovery before the next register capture.
         """
+        if self.recovery_overlap:
+            # Drive from the admitted request (after far PRE off) until
+            # write_done, then through the observed WL tail.
+            cfg = self.control_config
+            tail = WriteTailNand3(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
+                                  nmos_width=cfg.devices.nand.nmos_width_m, pmos_width=cfg.devices.nand.pmos_width_m,
+                                  length=cfg.devices.gate_length_m, w_rc=self.w_rc)
+            self.subcircuit(tail)
+            self.X('write_tail', tail.NAME, 'VDD', 'VSS', 'write_done', 'wl_en_bar', self.wordline_off, 'write_tail')
+            self.write_window = 'write_tail'
+            return
         nor = WriteWindowNor(self.nmos_model, self.pmos_model, *self.control_config.widths("nor"), self.control_config.devices.gate_length_m)
         inverter = self._unit_inverter('_write_window')
         self.subcircuit(nor)
@@ -1362,10 +1577,29 @@ class TIME_CONTROL(BaseSubcircuit):
 
     def _add_write_enable(self) -> None:
         """Registered write request is stable through access and recovery."""
+        if self.recovery_overlap:
+            # w_en = we & request & pre_off_ready & tail & iso_ready in two
+            # levels (NAND3, NAND2 -> NOR2) ahead of the write-enable buffer.
+            cfg = self.control_config
+            nand_w = (cfg.devices.nand.nmos_width_m, cfg.devices.nand.pmos_width_m)
+            first = WriteDriveNand3(nmos_model=self.nmos_model, pmos_model=self.pmos_model, nmos_width=nand_w[0],
+                                    pmos_width=nand_w[1], length=cfg.devices.gate_length_m, w_rc=self.w_rc)
+            second = WriteDriveNand(self.nmos_model, self.pmos_model, *nand_w, cfg.devices.gate_length_m)
+            nor = WriteDriveNor(self.nmos_model, self.pmos_model, *STRONG_NOR_WIDTHS, cfg.devices.gate_length_m)
+            for sub in (first, second, nor):
+                self.subcircuit(sub)
+            self.X('write_drive_a', first.NAME, 'VDD', 'VSS', 'we', self.access_request, 'pre_off_ready',
+                   'write_drive_a_bar')
+            self.X('write_drive_b', second.NAME, 'VDD', 'VSS', self.write_window, 'iso_ready', 'write_drive_b_bar')
+            s = self.sizing
+            self.wen_source = self._buffered_output(
+                'w_en', nor, ('write_drive_a_bar', 'write_drive_b_bar'), 'w_en', s.wen_buffered,
+                'WRITE_ENABLE_BUFFER', 'w_en_buf', drive_scale=ceil(s.wen_load / s.wen_effort), load_units=s.wen_load)
+            return
         gate = self._and_gate(GuardedWriteAnd, self.control_config.widths("enable_inverter"))
         self.subcircuit(gate)
         write_window = self.write_window
-        if self.access_speedup:
+        if self.access_speedup and not self.recovery_overlap:
             precharge = self._and_gate(WritePrechargeAnd, self.control_config.widths('enable_inverter'))
             self.subcircuit(precharge)
             self.X('write_precharge', precharge.NAME, 'VDD', 'VSS',
@@ -1383,13 +1617,16 @@ class TIME_CONTROL(BaseSubcircuit):
         pass gates are driven by sa_iso.  Buffered above 32 unit loads (V2.0.2:
         the shared inverter had a fan-out of ~75 and a precharge-coupling bump).
         """
-        gate = self._and_gate(SelfTimedSenseAnd if self.access_speedup else AND3,
+        gate = self._and_gate(OverlapSenseAnd if self.recovery_overlap else
+                              SelfTimedSenseAnd if self.access_speedup else AND3,
                               self.control_config.widths("enable_inverter"))
         self.subcircuit(gate)
         s = self.sizing
+        inputs = (('read_done', 'iso_ready', 'read_end_bar') if self.recovery_overlap else
+                  ('read_done', 'iso_ready') if self.access_speedup else
+                  ('read_done', 'wordline_idle', 'iso_ready'))
         self.sen_source = self._buffered_output(
-            's_en', gate, (('read_done', 'iso_ready') if self.access_speedup else
-                          ('read_done', 'wordline_idle', 'iso_ready')), 's_en', s.sen_buffered,
+            's_en', gate, inputs, 's_en', s.sen_buffered,
             'SENSE_ENABLE_BUFFER', 's_en_buf', drive_scale=ceil(s.sen_load / s.sen_effort), load_units=s.sen_load)
 
     def _add_sense_isolation(self) -> None:
@@ -1398,6 +1635,23 @@ class TIME_CONTROL(BaseSubcircuit):
         The request raises ISO ahead of the enables. Their observed outputs
         then keep it high until both have released; no storage latch is needed.
         """
+        if self.recovery_overlap:
+            s = self.sizing
+            cfg = self.control_config
+            prepare = WritePrepareNand(self.nmos_model, self.pmos_model, cfg.devices.nand.nmos_width_m,
+                                       cfg.devices.nand.pmos_width_m, cfg.devices.gate_length_m)
+            # The widest NAND3 the compact control row keeps unfolded.
+            iso = OverlapIsolationNand(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
+                                       nmos_width=STRONG_NAND3_WIDTHS[0], pmos_width=STRONG_NAND3_WIDTHS[1],
+                                       length=cfg.devices.gate_length_m, w_rc=self.w_rc)
+            self.subcircuit(prepare)
+            self.subcircuit(iso)
+            self.X('write_prepare', prepare.NAME, 'VDD', 'VSS', 'we', 'access_admit', 'write_prepare_bar')
+            self._buffered_output(
+                'sa_iso', iso, ('read_done_n', 'write_prepare_bar', 'enables_off'), 'sa_iso',
+                s.iso_buffered(self.effort_buffers), 'SENSE_ISOLATION_BUFFER', 'sa_iso_buf',
+                drive_scale=ceil(s.iso_load / s.iso_effort), load_units=s.iso_load, fall_strength=s.iso_fall_strength)
+            return
         gate = IsolationNand(self.nmos_model, self.pmos_model, *self.control_config.widths("isolation_nand"), self.control_config.devices.gate_length_m)
         if self.compact_control and not self.access_speedup:
             # read_done | write_prepare = A & (we | rbl_delay).
@@ -1424,7 +1678,7 @@ class TIME_CONTROL(BaseSubcircuit):
             for sub in (write, request, gate):
                 self.subcircuit(sub)
             self.X('write_prepare', write.NAME, 'VDD', 'VSS', 'we',
-                   self.access_source if self.access_speedup else self.access_request, 'write_prepare')
+                   self.admit_source if self.access_speedup else self.access_request, 'write_prepare')
             self.X('isolation_request', request.NAME, 'VDD', 'VSS', 'read_done', 'write_prepare', 'isolation_request_bar')
         s = self.sizing
         self._buffered_output(
@@ -1433,6 +1687,14 @@ class TIME_CONTROL(BaseSubcircuit):
             fall_strength=s.iso_fall_strength)
 
     def _add_isolation_guard(self) -> None:
+        if self.recovery_overlap:
+            # The next access may be admitted once far ISO has released; a
+            # following write's drivers still wait for the PRE-off settling,
+            # which is at least as long as this guard (validated), so its
+            # reset is not on the recovery path.
+            inverter = self._unit_inverter('_iso_released')
+            self.subcircuit(inverter)
+            self.X('iso_released', inverter.NAME, 'VDD', 'VSS', 'iso_ready', 'iso_released')
         guard = IsolationOffGuard(self.nmos_model, self.pmos_model,
                                   stages=self.isolation_guard_stages,
                                   access_load=self.control_config.guards.isolation_access_load_units,
@@ -1450,10 +1712,35 @@ class TIME_CONTROL(BaseSubcircuit):
         nand = PNAND3(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
                       nmos_width=self.control_config.devices.precharge_nand.nmos_width_m,
                       pmos_width=self.control_config.devices.precharge_nand.pmos_width_m, length=self.control_config.devices.gate_length_m, w_rc=self.w_rc)
-        self.subcircuit(nand)
-        self.X('pre_unbuf', nand.NAME, 'VDD', 'VSS',
-               'access_phase_bar' if self.access_speedup else 'clk_bar',
-               self.wordline_off, 'enables_off', 'PRE_UNBUF')
+        if not self.recovery_overlap:
+            self.subcircuit(nand)
+        if self.recovery_overlap:
+            # A write restores as soon as its WL is physically off; PRE may
+            # overlap the write drivers' release (no WL is on). A read restores
+            # only after sensing: with PRE on while the isolated sense
+            # amplifiers regenerate, the precharge current compressed their
+            # local supply by 155 mV and slowed resolution sixfold at 128
+            # columns (35 mV without the overlap).
+            cfg = self.control_config
+            pmos_w, nmos_w = cfg.devices.precharge_nand.pmos_width_m, cfg.devices.precharge_nand.nmos_width_m
+            release = PrechargeReleaseNand3(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
+                                            nmos_width=nmos_w, pmos_width=pmos_w,
+                                            length=cfg.devices.gate_length_m, w_rc=self.w_rc)
+            gate = PrechargeGateNand3(nmos_model=self.nmos_model, pmos_model=self.pmos_model,
+                                      nmos_width=nmos_w, pmos_width=pmos_w,
+                                      length=cfg.devices.gate_length_m, w_rc=self.w_rc)
+            released = self._and_gate(SenseReleasedAnd, cfg.widths('enable_inverter'))
+            for sub in (release, gate, released):
+                self.subcircuit(sub)
+            self.X('sense_released', released.NAME, 'VDD', 'VSS', 'read_done_n', 'sen_far_bar', 'sense_released')
+            self.X('precharge_gate', gate.NAME, 'VDD', 'VSS', 'access_phase', 'recovered', 'write_done_bar',
+                   'precharge_gate')
+            self.X('pre_unbuf', release.NAME, 'VDD', 'VSS', 'precharge_gate', self.wordline_off, 'sense_released',
+                   'PRE_UNBUF')
+        else:
+            self.X('pre_unbuf', nand.NAME, 'VDD', 'VSS',
+                   'access_phase_bar' if self.access_speedup else 'clk_bar',
+                   self.wordline_off, 'enables_off', 'PRE_UNBUF')
         buffer = TaperedBuffer('PRECHARGE_BUFFER', effort_based=self.effort_buffers, drive_scale=self.sizing.pre_scale,
                                nmos_model=self.nmos_model, pmos_model=self.pmos_model,
                                load_units=self.pre_load, control_config=self.control_config)
@@ -1488,6 +1775,77 @@ class TIME_CONTROL(BaseSubcircuit):
         self.X('enable_off_guard', guard.NAME, 'VDD', 'VSS', 'local_enables_off',
                'far_enables_off', 'enables_off', 'far_enables_ready')
 
+    def _add_overlapped_completion(self) -> None:
+        """Completion pulse, stop/end latches and the restore guard (recovery_overlap).
+
+        read_resolved / write_resolved are settled-high guards with immediate
+        reset. read_end latches resolution (ending s_en) until read_done is
+        cleared; write_done ends the write WL. access_done is qualified by the
+        admitted phase: clearing the phase drops access_admit, which ends the
+        pulse before the next capture. Both read and write wordlines are
+        physically off at completion. recovered is set once the replica
+        bitline has been restored for the tail allowance, far PRE has settled
+        on and far ISO has released.
+        """
+        cfg = self.control_config
+        nor = lambda cls: cls(self.nmos_model, self.pmos_model, *cfg.widths('nor'), cfg.devices.gate_length_m)
+        read_guard = ReadCompletionGuard(self.nmos_model, self.pmos_model, stages=self.read_completion_stages,
+                                         access_load=1., control_config=cfg)
+        write_guard = WriteCompletionGuard(self.nmos_model, self.pmos_model, stages=self.write_completion_stages,
+                                           access_load=1., control_config=cfg)
+        restore_guard = ReplicaRestoreGuard(self.nmos_model, self.pmos_model, stages=self.restore_stages,
+                                            access_load=1., control_config=cfg)
+        hit = self._and_gate(WriteHitAnd, cfg.widths('enable_inverter'))
+        done = nor(WriteDoneNor)
+        fast = WriteHitNor(self.nmos_model, self.pmos_model, *STRONG_NOR_WIDTHS, cfg.devices.gate_length_m)
+        end = nor(ReadStopNor)
+        read_complete = self._and_gate(CompletionAnd, cfg.widths('enable_inverter'))
+        write_complete = self._and_gate(WriteCompleteAnd, cfg.widths('enable_inverter'))
+        recovery = self._and_gate(RecoveredSetAnd, cfg.widths('enable_inverter'))
+        combine = CompletionNor(self.nmos_model, self.pmos_model, *cfg.widths('nor'), cfg.devices.gate_length_m)
+        gate = nor(CompletionGateNor)
+        fired_obs = _control_inverter(self.nmos_model, self.pmos_model, *cfg.widths('observer'),
+                                      length=cfg.devices.gate_length_m, num='_read_fired_observer', control_config=cfg)
+        fired_inv = self._unit_inverter('_read_fired')
+        fired_latch = ReadFiredNor(self.nmos_model, self.pmos_model, *STRONG_NOR_WIDTHS, cfg.devices.gate_length_m)
+        for sub in (read_guard, write_guard, restore_guard, hit, done, fast, end, read_complete, write_complete,
+                    recovery, combine, gate, fired_obs, fired_inv, fired_latch):
+            self.subcircuit(sub)
+        self.X('read_observe', read_guard.NAME, 'VDD', 'VSS', 'VDD', 'sen_far', 'read_observed', 'read_resolved')
+        self.X('write_observe', write_guard.NAME, 'VDD', 'VSS', 'VDD', 'rwl', 'write_observed', 'write_resolved')
+        # read_end: set by resolution, cleared only after read_done is cleared,
+        # so s_en (read_done & iso_ready & !read_end) cannot glitch at the reset.
+        self.X('read_end_set', end.NAME, 'VDD', 'VSS', 'read_resolved', 'read_end', 'read_end_bar')
+        self.X('read_end_reset', end.NAME, 'VDD', 'VSS', 'read_done_n', 'read_end_bar', 'read_end')
+        self.X('write_hit', hit.NAME, 'VDD', 'VSS', 'write_resolved', 'we', self.access_request, 'write_hit')
+        self.X('write_done_set', fast.NAME, 'VDD', 'VSS', 'write_hit', 'write_done', 'write_done_bar')
+        self.X('write_done_reset', done.NAME, 'VDD', 'VSS', 'access_admit_bar', 'write_done_bar', 'write_done')
+        # A read completes once far s_en has fired (ISO asserted) and its WL is
+        # physically off; read_done/read_end carry sensing past the phase clear.
+        # The fired state is latched until the admission ends: the WL-off guard
+        # (wordline_off, 44 stages at 256 columns) can release after the far
+        # s_en pulse has ended at FF -40 C, and a plain AND of the pulse then
+        # never completed the read (256x256 post-layout, first read hung
+        # until the next write).
+        self.X('read_fired_observer', fired_obs.NAME, 'VDD', 'VSS', 'sen_far', 'sen_far_bar')
+        self.X('read_fired', fired_inv.NAME, 'VDD', 'VSS', 'sen_far_bar', 'read_fired')
+        self.X('read_fired_set', fired_latch.NAME, 'VDD', 'VSS', 'read_fired', 'read_fired_held',
+               'read_fired_held_bar')
+        self.X('read_fired_reset', fired_latch.NAME, 'VDD', 'VSS', 'access_admit_bar', 'read_fired_held_bar',
+               'read_fired_held')
+        self.X('read_complete', read_complete.NAME, 'VDD', 'VSS', 'read_fired_held', self.wordline_off, 'we_bar',
+               'read_complete')
+        self.X('write_complete', write_complete.NAME, 'VDD', 'VSS', 'write_done', self.wordline_off, 'write_complete')
+        self.X('access_done_nor', combine.NAME, 'VDD', 'VSS', 'read_complete', 'write_complete', 'access_done_bar')
+        self.X('access_done_gate', gate.NAME, 'VDD', 'VSS', 'access_done_bar', 'access_admit_bar', 'access_done')
+        # Restore: the replica bitline back high (rbl_delay low) for the tail
+        # allowance, far PRE on for the PRE-off guard's stages (that guard is
+        # then reset), and far ISO released and settled (its guard reset).
+        self.X('restore_guard', restore_guard.NAME, 'VDD', 'VSS', 'VDD', 'rbl_delay_bar',
+               'restore_observed', 'restore_ready')
+        self.X('recovery_ready', recovery.NAME, 'VDD', 'VSS', 'restore_ready', 'pre_on_settled', 'iso_released',
+               'recovery_ready')
+
     def _add_completion(self) -> None:
         """Clear both flop latches so a stopped-high clock cannot re-arm access.
 
@@ -1514,10 +1872,18 @@ class TIME_CONTROL(BaseSubcircuit):
         combine = CompletionNor(self.nmos_model, self.pmos_model,
                                 *cfg.widths('nor'), cfg.devices.gate_length_m)
         inv = self._unit_inverter('_completion')
-        for sub in (complete, combine, inv):
+        held = ReadHeldNor(self.nmos_model, self.pmos_model, *STRONG_NOR_WIDTHS, cfg.devices.gate_length_m)
+        for sub in (complete, combine, inv, held):
             self.subcircuit(sub)
+        # read_resolved is a settled-high pulse; the WL-off guard (wordline_off,
+        # 44 stages at 256 columns) can release after it has ended at FF -40 C,
+        # and a plain AND then never completed the read (256x256 post-layout,
+        # overlapped-recovery matrices). Hold the resolution until the phase
+        # register clears; access_done then ends through that clear.
+        self.X('read_held_set', held.NAME, 'VDD', 'VSS', 'read_resolved', 'read_held', 'read_held_bar')
+        self.X('read_held_reset', held.NAME, 'VDD', 'VSS', 'access_phase_bar', 'read_held_bar', 'read_held')
         self.X('read_complete', complete.NAME, 'VDD', 'VSS',
-               'read_resolved', self.wordline_off, 'we_bar', 'read_complete')
+               'read_held', self.wordline_off, 'we_bar', 'read_complete')
         self.X('write_complete', complete.NAME, 'VDD', 'VSS',
                'write_resolved', 'we', 'access_phase', 'write_complete')
         self.X('access_done_nor', combine.NAME, 'VDD', 'VSS',

@@ -22,6 +22,8 @@ RULE_VERSION = _RULES['rule_version']
 CONTROL_ARCHITECTURE = 'v2.2.8-digital-guards-high-access'
 COMPACT_CONTROL_ARCHITECTURE = 'v2.2.8-compact-digital-guards-high-access'
 SELF_TIMED_CONTROL_ARCHITECTURE = 'v2.2.9-self-timed-completion-1'
+# Self-timed access whose bitline recovery overlaps the next capture/decode.
+OVERLAP_CONTROL_ARCHITECTURE = 'v2.2.9-overlapped-recovery-1'
 DEFAULT_LOOKUP = Path(__file__).with_name('sizing_lookup.json')
 _MODES = ("lookup", "rules_only", "auto")
 _PERIPHERALS = (
@@ -45,6 +47,10 @@ _STAGE_FIELDS = {"row_classes": "setup_stages", "column_classes": "guard_stages"
 # restore and write completion is limited by the bar, not the bitline.
 _COLUMN_CAPS = {"pre_cap": "pre", "wd_cap": "wd_out"}
 _JOINT_SIZING_FIELDS = (*_ROW_SCALES, 'delay_driver_scale', 'delay_loads_per_stage')
+# Overlapped recovery: settled-high completion guards (total stages, immediate
+# reset), the far-PRE restore guard and any guard/setup override, taken from
+# the smallest `overlapped_recovery_references` class covering the array.
+_OVERLAP_FIELDS = ('setup_stages', 'enable_off_stages', *_GUARD_PATHS, *_COMPLETION_STAGES, 'restore_stages')
 
 
 @dataclass(frozen=True)
@@ -119,6 +125,8 @@ class DriverSizes:
     write_drive_guard_stages: int = 4
     delay_driver_scale: float | None = None
     delay_loads_per_stage: int | None = None
+    recovery_overlap: bool = False
+    restore_stages: int = 0
 
     def to_dict(self):
         """JSON-ready experiment metadata, including the result's evidence source."""
@@ -129,6 +137,8 @@ class DriverSizes:
         architecture = COMPACT_CONTROL_ARCHITECTURE if self.compact_control else CONTROL_ARCHITECTURE
         if self.access_speedup:
             architecture = SELF_TIMED_CONTROL_ARCHITECTURE + (':compact' if self.compact_control else ':schematic')
+        if self.recovery_overlap:
+            architecture = OVERLAP_CONTROL_ARCHITECTURE + ':compact'
         if self.control_architecture != architecture:
             raise ValueError("Frozen driver sizes belong to a different control architecture")
         cfg = sram_config.global_config
@@ -144,7 +154,8 @@ class DriverSizes:
                     or self.delay_loads_per_stage != profile.get('delay_loads_per_stage')):
                 raise ValueError('Frozen driver sizes require the current delay sizing profile')
         requested_speedup = _self_timed_control(options, cell_type, mux)
-        if requested_speedup != self.access_speedup:
+        if (requested_speedup != self.access_speedup
+                or _recovery_overlap(options, requested_speedup) != self.recovery_overlap):
             raise ValueError('Frozen driver sizes belong to a different control architecture')
         if 'compact_control' in options:
             if options['compact_control'] != self.compact_control:
@@ -160,9 +171,11 @@ class DriverSizes:
         # Archived snapshots can still be read, but the current topology must
         # not silently add an observer or common gate to an older load budget.
         expected_access = 1.25 * max(1, ceil(self.loads.wl_load / (24.0 if self.effort_buffers else 32.0))) + 2.5
-        stages = _stage_policy(options, cfg.num_rows, cfg.num_cols, self.access_speedup)
+        stages = _stage_policy(options, cfg.num_rows, cfg.num_cols, self.access_speedup, self.recovery_overlap)
         if self.access_speedup and any(getattr(self,name) != stages[name] for name in _COMPLETION_STAGES):
             raise ValueError('Frozen driver sizes require the current completion timing references')
+        if self.recovery_overlap and self.restore_stages != stages['restore_stages']:
+            raise ValueError('Frozen driver sizes require the current restore timing reference')
         if (self.precharge_off_guard is not True
                 or self.replica_precharge_guard is not True
                 or type(self.precharge_off_guard_stages) is not int
@@ -307,6 +320,29 @@ def _replica_reference(value: object, where: str) -> dict:
     return value
 
 
+def _recovery_overlap(options: dict, access_speedup: bool, table: dict | None = None) -> bool:
+    """The explicit option, else on for compact self-timed lookups with overlap references."""
+    if 'recovery_overlap' in options:
+        value = options['recovery_overlap']
+        if type(value) is not bool:
+            raise ValueError('recovery_overlap must be boolean')
+        return value
+    if not (access_speedup is True and options.get('compact_control') is True
+            and options.get('mode', 'lookup') == 'lookup'):
+        return False
+    table = load_lookup(options.get('lookup')) if table is None else table
+    return bool(table.get('overlapped_recovery_references'))
+
+
+def _overlap_reference(table: dict, rows: int, cols: int) -> dict:
+    """Smallest characterized overlapped-recovery class that covers rows x cols."""
+    covering = [entry for entry in table.get('overlapped_recovery_references', [])
+                if entry['max_rows'] >= rows and entry['max_cols'] >= cols]
+    if not covering:
+        raise ValueError(f'No overlapped-recovery reference covers {rows}x{cols}')
+    return min(covering, key=lambda entry: (entry['max_rows'] * entry['max_cols'], entry['max_rows']))
+
+
 def _self_timed_control(options: dict, cell_type: str, mux: bool, table: dict | None = None) -> bool:
     if 'access_speedup' in options:
         if type(options['access_speedup']) is not bool:
@@ -417,6 +453,26 @@ def load_lookup(path=None):
                 count = profile['delay_loads_per_stage']
                 if type(count) is not int or count < 1:
                     raise ValueError('Delay load count must be a positive integer')
+    if 'overlapped_recovery_references' in table:
+        references = table['overlapped_recovery_references']
+        row_bounds = {r['max_rows'] for r in table['row_classes']}
+        col_bounds = {c['max_cols'] for c in table['column_classes']}
+        if not isinstance(references, list) or not references:
+            raise ValueError('Overlapped-recovery references must be a non-empty list')
+        seen = set()
+        for entry in references:
+            if not isinstance(entry, dict) or entry.keys() - {'max_rows', 'max_cols', *_OVERLAP_FIELDS}:
+                raise ValueError('Unsupported overlapped-recovery reference field')
+            pair = (entry.get('max_rows'), entry.get('max_cols'))
+            if (any(type(value) is not int for value in pair) or pair[0] not in row_bounds
+                    or pair[1] not in col_bounds or pair in seen):
+                raise ValueError('Overlapped-recovery references require unique row/column anchors')
+            seen.add(pair)
+            if {*_COMPLETION_STAGES, 'restore_stages'} - entry.keys():
+                raise ValueError('Overlapped-recovery references need completion and restore stages')
+            if any(type(entry[name]) is not int or entry[name] < 2 or entry[name] % 2
+                   for name in _OVERLAP_FIELDS if name in entry):
+                raise ValueError('Overlapped-recovery stages must be positive even integers')
     table["path"] = str(path)
     table["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
     return table
@@ -467,7 +523,8 @@ def lookup_classes(table, rows, cols):
             interpolate_class(table["column_classes"], "max_cols", _COLUMN_SCALES, cols))
 
 
-def _stage_policy(options: dict, rows: int, cols: int, access_speedup: bool = False) -> dict:
+def _stage_policy(options: dict, rows: int, cols: int, access_speedup: bool = False,
+                  recovery_overlap: bool = False) -> dict:
     """TIME_CONTROL fixed-delay stage counts for an array: the class table's
     `setup_stages` (row class) and `guard_stages` (column class) when the
     lookup sets them, otherwise the fixed defaults. Self-timed completion
@@ -506,6 +563,16 @@ def _stage_policy(options: dict, rows: int, cols: int, access_speedup: bool = Fa
                     for field in _COMPLETION_STAGES:
                         stages[field]=max(stages[field],reference.get(field,8))
     for field in _GUARD_PATHS:stages.setdefault(field,stages['guard_stages'])
+    if recovery_overlap:
+        reference = _overlap_reference(load_lookup(options.get('lookup')), rows, cols)
+        missing = {*_COMPLETION_STAGES, 'restore_stages'} - reference.keys()
+        if missing:
+            raise ValueError(f'Overlapped-recovery reference lacks {sorted(missing)}')
+        for field in _OVERLAP_FIELDS:
+            if field in reference:
+                stages[field] = int(reference[field])
+        if 'enable_off_stages' not in reference and 'guard_stages' in reference:
+            stages['enable_off_stages'] = int(reference['guard_stages'])
     return stages
 
 
@@ -544,6 +611,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         "mode", "parasitic_factor", "wd_floor_margin", "k_w", "pre_min",
         "replica", "scale_decoder", "effort_buffers", "canonical_read",
         "table", "lookup", "precharge_guard_stages", "compact_control", "access_speedup",
+        "recovery_overlap",
     }
     if unknown:
         raise ValueError(f"Unsupported sizing options: {sorted(unknown)}")
@@ -563,6 +631,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     k_w = _positive("k_w", options.get("k_w", _RULES['k_w']))
     pre_min = _positive("pre_min", options.get("pre_min", _RULES['pre_min']))
     access_speedup = _self_timed_control(options, cell_type, mux, lookup)
+    recovery_overlap = _recovery_overlap(options, access_speedup, lookup)
     replica = dict(_mapping(options.get("replica", {})))
     if replica.keys() - {"K", "N", "matched"}:
         raise ValueError("replica accepts only K, N and matched")
@@ -595,6 +664,10 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     architecture = COMPACT_CONTROL_ARCHITECTURE if compact_control else CONTROL_ARCHITECTURE
     if access_speedup:
         architecture = SELF_TIMED_CONTROL_ARCHITECTURE + (':compact' if compact_control else ':schematic')
+    if recovery_overlap:
+        if not (access_speedup and compact_control and mode == 'lookup'):
+            raise ValueError('Overlapped recovery requires compact self-timed lookup sizing')
+        architecture = OVERLAP_CONTROL_ARCHITECTURE + ':compact'
     if not replica_matched or not canonical_read:
         raise ValueError('Distributed wiring requires a matched replica and canonical read')
     if replica_k > cols:
@@ -632,7 +705,7 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
     nand_units = round(nand_gate / 0.45e-6, 12)
     rc_input_units = (_positive('pi_cap', context.get('pi_cap', _RULES['peripheral_rc_cap_f'])) / _RULES['unit_inverter_cap_f']
                       if context.get('w_rc', False) else 0.0)
-    stages = _stage_policy(options, rows, cols, access_speedup)
+    stages = _stage_policy(options, rows, cols, access_speedup, recovery_overlap)
     guard_stages = options.get('precharge_guard_stages', stages['wordline_off_stages'])
     if type(guard_stages) is not int or guard_stages < 0 or guard_stages % 2:
         raise ValueError('precharge_guard_stages must be a nonnegative even integer')
@@ -717,6 +790,8 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
         path_options['access_speedup'] = True
         path_options.update({name:stages[name] for name in _COMPLETION_STAGES})
         path_options['write_drive_guard_stages']=stages['write_drive_stages']
+    if recovery_overlap:
+        path_options.update(recovery_overlap=True, restore_stages=stages['restore_stages'])
     if 'delay_driver_scale' in joint_sizing:
         path_options.update(delay_driver_scale=float(joint_sizing['delay_driver_scale']),
                             delay_loads_per_stage=joint_sizing['delay_loads_per_stage'])
@@ -751,7 +826,8 @@ def resolve_driver_sizes(sram_config, *, cell_type=None, mux=None, sizing=None, 
             'k_w':k_w,'pre_min':pre_min,'scale_decoder':scale_decoder,'effort_buffers':effort_buffers,
             'canonical_read':canonical_read,'replica_matched':replica_matched,
             'compact_control':compact_control,'access_speedup':access_speedup,
-            'precharge_guard_override':options.get('precharge_guard_stages')}),
+            'precharge_guard_override':options.get('precharge_guard_stages'),
+            **({'recovery_overlap':True} if recovery_overlap else {})}),
         area_precharge_width=pre_width,
         area_wordline_width=max(
             _positive('WL NAND NMOS width', wl.nmos_width.value[0]) * scales['wl_nand'],

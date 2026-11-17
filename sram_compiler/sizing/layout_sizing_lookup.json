@@ -165,8 +165,26 @@
       "wd_in": 1.0
     },
     {
+      "max_rows": 64,
+      "max_cols": 256,
+      "delay_driver_scale": 2.0,
+      "delay_loads_per_stage": 1,
+      "pre": 2.0,
+      "wd_out": 4.0,
+      "wd_in": 1.0
+    },
+    {
       "max_rows": 128,
       "max_cols": 128,
+      "delay_driver_scale": 2.0,
+      "delay_loads_per_stage": 1,
+      "pre": 2.0,
+      "wd_out": 4.0,
+      "wd_in": 1.0
+    },
+    {
+      "max_rows": 128,
+      "max_cols": 256,
       "delay_driver_scale": 2.0,
       "delay_loads_per_stage": 1,
       "pre": 2.0,
@@ -204,6 +222,89 @@
       "max_rows": 256,
       "max_cols": 256,
       "write_completion_stages": 54
+    }
+  ],
+  "overlapped_recovery_references": [
+    {
+      "max_rows": 32,
+      "max_cols": 32,
+      "read_completion_stages": 12,
+      "write_completion_stages": 4,
+      "restore_stages": 8,
+      "wordline_off_stages": 2,
+      "enable_off_stages": 2
+    },
+    {
+      "max_rows": 64,
+      "max_cols": 64,
+      "read_completion_stages": 12,
+      "write_completion_stages": 4,
+      "restore_stages": 10,
+      "wordline_off_stages": 4,
+      "enable_off_stages": 4
+    },
+    {
+      "max_rows": 128,
+      "max_cols": 128,
+      "read_completion_stages": 12,
+      "write_completion_stages": 4,
+      "restore_stages": 12,
+      "wordline_off_stages": 8,
+      "enable_off_stages": 8
+    },
+    {
+      "max_rows": 256,
+      "max_cols": 256,
+      "read_completion_stages": 12,
+      "write_completion_stages": 30,
+      "restore_stages": 16,
+      "wordline_off_stages": 22,
+      "enable_off_stages": 22
+    },
+    {
+      "max_rows": 512,
+      "max_cols": 32,
+      "read_completion_stages": 12,
+      "write_completion_stages": 30,
+      "restore_stages": 16,
+      "wordline_off_stages": 22,
+      "enable_off_stages": 22
+    },
+    {
+      "max_rows": 512,
+      "max_cols": 64,
+      "read_completion_stages": 12,
+      "write_completion_stages": 30,
+      "restore_stages": 16,
+      "wordline_off_stages": 22,
+      "enable_off_stages": 22
+    },
+    {
+      "max_rows": 512,
+      "max_cols": 128,
+      "read_completion_stages": 12,
+      "write_completion_stages": 30,
+      "restore_stages": 16,
+      "wordline_off_stages": 22,
+      "enable_off_stages": 22
+    },
+    {
+      "max_rows": 512,
+      "max_cols": 256,
+      "read_completion_stages": 12,
+      "write_completion_stages": 30,
+      "restore_stages": 16,
+      "wordline_off_stages": 22,
+      "enable_off_stages": 30
+    },
+    {
+      "max_rows": 512,
+      "max_cols": 512,
+      "read_completion_stages": 12,
+      "write_completion_stages": 30,
+      "restore_stages": 16,
+      "wordline_off_stages": 32,
+      "enable_off_stages": 32
     }
   ]
 }

@@ -26,9 +26,13 @@ from .time_control import make_control, units, centre_lanes_used, _centre_policy
 from . import macro_control
 from .macro_control import Planner, bank_conductor, snap, GRID
 from .power_grid import add_grid
+from .router import RoutingError
 
 INPUTS_EXTRA = ('SEL0', 'SEL1')     # bank inputs that are not TIME_CONTROL ports
 MIN_COLUMN_FRAME = 20600.          # smallest routed controller frame; larger sources use the fit search
+OVERLAP_MIN_FRAME = 24500.         # ... for overlapped-recovery controllers: their ~215 band units at
+                                   # 16-32 rows took 150-250+ rip-ups (or none converged) in 22-23.6 um
+                                   # frames and route in under 60 at 24.5 um
 COLUMN_CONTROL_DROP = 0.           # align controller and data-register bottom edges
 
 
@@ -42,6 +46,7 @@ FRAME_X = 35.
 RETURN_SPACE = 800.
 LANE_SAVING = 1000.                # least width the decoder lanes must save to be used
 ROUTE_SLACK = 400.                 # band height a minimum-width frame keeps beyond its placement fit
+FRAME_ATTEMPTS = 4                 # frame candidates tried, by estimated area, before a routing failure is final
 DRIVE_SPACE = 300.
 ROUTER_LAYERS = ('m4', 'm5', 'm6', 'm7', 'm8', 'm9')
 LATCH_GAP = 300.
@@ -428,6 +433,18 @@ def build(deck: Union[str, Path], output: Union[str, Path], bank_dir: Union[str,
                 bb = trap.bbox(); s = ly.dbu * 1000
                 obstacles.append((layer, bb.left * s - frame_x, bb.bottom * s - y0,
                                   bb.right * s - frame_x, bb.top * s - y0, next(iter(owners), None)))
+    if bm.get('left_supply_trunks_nm'):
+        # The register supply bars' M6 jumpers (register_bar: right - 1000 to
+        # right, on the frame's bottom row) are obstacles owned by their net,
+        # so that net may approach them freely. A same-net route one grid
+        # row above runs 55 nm from the jumper (Metal6.1 at ov12 32x32).
+        # Keep the rows above the jumper's left part clear of every net; the
+        # channel site at right - 500 stays reachable from above.
+        right_edge = bm['controller_channel_nm'][1]
+        for net, y in rs.supplies:
+            yy = reg_y + y
+            obstacles.append(('m6', right_edge - 1000. - frame_x, yy + 72.5 - y0,
+                              right_edge - 712.5 - frame_x, yy + 72.5 + GRID - y0, None))
     edge_y = {'upper': next(y for y in (local(band_top) // GRID * GRID - 500. - GRID * k for k in range(30))
                            if all(abs(y + y0 - yy) >= 350. for _, _, yy in channel_sites))}
     grid_x = lambda x: min(snap(x - frame_x), width - 200.) + frame_x
@@ -949,8 +966,12 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
             pad = smallest(lambda pad: _fits(tc, width + pad, band, True, share_completion=share_completion, completion_source_order=completion_source_order), pad + LANE_SAVING) + GRID
         return pad
 
-    best, previous = None, None
+    best, previous, candidates = None, None, []
     self_timed = any(child.name == 'Xaccess_phase' for child in tc.children)
+    # Overlapped-recovery controllers keep the five escape tracks also where
+    # they would fit without a decoder pad; their band spacing
+    # (time_control.OVERLAP_CELL_SPACE) provides the routing room.
+    overlap = any(child.name == 'Xrecovered_set' for child in tc.children)
     gaps = REG_GAPS + tuple(2800. + 500. * k for k in range(20)) if self_timed else REG_GAPS
     for gap in gaps:
         bottom = _register_origin(rs, gap)[0] - 140.
@@ -964,13 +985,14 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
         fit = pad_for(band, previous)
         previous = fit
         # Keep five routing-grid tracks beyond the placement minimum for escapes.
-        pads = [fit + 5 * GRID if fit else 0.]
+        pads = [fit + 5 * GRID if fit or overlap else 0.]
         if room + pads[0] < 0:
             # A wider pad also gives the replica wordline driver its decoder row.
             pads.append(max(ceil(-room / GRID) * GRID, fit + 5 * GRID))
+        min_frame = OVERLAP_MIN_FRAME if overlap else MIN_COLUMN_FRAME
         for pad in pads:
-            extra = max(0. if pad else 5 * GRID, MIN_COLUMN_FRAME - width - pad)
-            if width + pad + extra <= MIN_COLUMN_FRAME and not _fits(tc, width + pad + extra - 5 * GRID,
+            extra = max(0. if pad else 5 * GRID, min_frame - width - pad)
+            if width + pad + extra <= min_frame and not _fits(tc, width + pad + extra - 5 * GRID,
                                               (_register_origin(rs, gap)[0], ceiling - ROUTE_SLACK), True, _lanes(rows, pad), share_completion=share_completion, completion_source_order=completion_source_order):
                 # A minimum-width frame is routing-limited: a band that only just
                 # holds its last controller row did not route at 32 rows.
@@ -981,20 +1003,33 @@ def generate(deck: Union[str, Path], output: Union[str, Path]) -> dict:
                   f'RWL {"in decoder" if room + pad >= 0 else "raised"} area {area / 1e6:.1f} um2', flush=True)
             if best is None or area < best[0] - 1e-6:
                 best = (area, gap, pad, extra)
+            candidates.append((area, gap, pad, extra))
     if best is None:
         raise ValueError('Controller does not fit the supported frame candidates')
-    _, gap, pad, extra = best
-    band = (_register_origin(rs, gap)[0], ceiling)
-    while pad or extra:
-        shutil.rmtree(bank_dir)
-        build_bank(deck, bank_dir, core_x=bm['array_origin_nm'][0] + pad + extra if extra else None,
-                   controller_channel=True, decoder_pad=pad)
-        if not pad:
-            break
-        # The pad estimate shifts the unpadded decoder rows; confirm the fit
-        # on the rebuilt metal.
-        padded = json.loads((bank_dir / 'layout.json').read_text())
-        if _fits(tc, width + pad + extra, band, True, _column_lanes(_imported(new_layout(), bank_dir, padded), padded), share_completion=share_completion, completion_source_order=completion_source_order):
-            break
-        pad += GRID
-    return build(deck, output, bank_dir, gap)
+    # The smallest candidate first; a frame whose controller does not route
+    # falls back to the next larger candidate (overlap 256x64: a clk_buf
+    # same-net gap that the heal rounds could not close).
+    order = [best] + sorted((c for c in candidates if c != best), key=lambda c: c[0])
+    for attempt, (_, gap, pad, extra) in enumerate(order[:FRAME_ATTEMPTS]):
+        band = (_register_origin(rs, gap)[0], ceiling)
+        if attempt and not (pad or extra):
+            shutil.rmtree(bank_dir)
+            build_bank(deck, bank_dir, controller_channel=True)
+        while pad or extra:
+            shutil.rmtree(bank_dir)
+            build_bank(deck, bank_dir, core_x=bm['array_origin_nm'][0] + pad + extra if extra else None,
+                       controller_channel=True, decoder_pad=pad)
+            if not pad:
+                break
+            # The pad estimate shifts the unpadded decoder rows; confirm the fit
+            # on the rebuilt metal.
+            padded = json.loads((bank_dir / 'layout.json').read_text())
+            if _fits(tc, width + pad + extra, band, True, _column_lanes(_imported(new_layout(), bank_dir, padded), padded), share_completion=share_completion, completion_source_order=completion_source_order):
+                break
+            pad += GRID
+        try:
+            return build(deck, output, bank_dir, gap)
+        except RoutingError as error:
+            if attempt + 1 == min(FRAME_ATTEMPTS, len(order)):
+                raise
+            print(f'MACRO candidate gap {gap:.0f} pad {pad:.0f} did not route ({error}); next candidate', flush=True)

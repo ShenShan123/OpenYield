@@ -53,8 +53,18 @@ trunks reach top/bottom on M6, with extra supply pins from the grid (below). See
 Compact decoder leaves abut like implants; wide WL NAND drivers use fewer,
 wider fingers at unchanged total W/L. Minimum decoder-to-array well clearance
 is 225 nm. The controller fit search uses the 100 nm routing grid, reserves
-500 nm for escapes and keeps a 20.6 µm minimum frame. Integrated controllers
-can require a larger right-side gap than the external-control bank.
+500 nm for escapes and keeps a 20.6 µm minimum frame (24.5 µm for the
+overlapped-recovery controller, whose ~215 band cells at 16–32 rows did not
+route in narrower frames). Integrated controllers
+can require a larger right-side gap than the external-control bank. Self-timed
+controllers keep their whole feedback graph in the band below the array (the
+overlapped-recovery controller through 512 rows, the V2.2.9 controller
+through 256 rows and at 512 rows up to 64 columns); spilled into the narrow
+decoder lanes, their 64–256-row and narrow 512-row frames did not route.
+Band logic cells keep 30 nm spacing, 80 nm in overlapped-recovery controllers
+up to 256 rows and 130 nm at 16 rows. If a frame candidate still fails to
+route, generation falls back to the next candidate by estimated area
+(`FRAME_ATTEMPTS`).
 
 Controller logic leaves are 55 nm narrower at unchanged source W/L and gate
 pitch. Their compact DFFs shrink from 5.710 to 5.325 µm; data-column register
@@ -69,8 +79,11 @@ supply grid pass DRC 0/LVS CORRECT with R+C+CC extraction at every size
 (32–512). The post-layout record covers worst-PVT access
 waveforms of the extracted macros without local mismatch; no operating point,
 yield or release qualification is claimed.
-The additional 16×4 controller routing screen did not complete; it has no
-DRC/LVS receipt. The five-size physical evidence does not qualify that case.
+A V2.2.9 size sweep builds and verifies 47 sizes per 6T controller (rows
+16–512 by columns 4–512: every power-of-two class plus off-grid sizes such
+as 24×12, 40×40, 136×68, 264×132 and 504×252). All 94 complete macros pass
+DRC 0 / LVS CORRECT with R+C+CC extraction in their first routing attempt
+([record](../../docs/data/LAYOUT_SIZE_SWEEP_V2_2_9.json)).
 
 The latest [read/write periphery](../../docs/design/layout/PERIPHERY_HEIGHT_V2_2_8.md)
 uses two write rows, one shared select-inverter output-bar level, and abutting
@@ -100,7 +113,18 @@ under M2 buses joined to the VSS spine. Over each half-array an M4 VSS mesh
 (a 140 nm strap at every fourth column centre, with a via3 on every M3 VSS
 rail it crosses) ties the bitcell VSS rails together, which otherwise reach the
 M4 trunk only at one end of the half-array; the straps stack to the top M7
-VSS strap and, in the left half, to the left M9 VSS strap. Each shape is checked against existing metal and
+VSS strap and, in the left half, to the left M9 VSS strap. Over each
+half-array's bottom well-strap row a 500 nm M8 VDD strap, merged into the
+half's vertical M8 VDD strap, stacks (M2–M8) onto the bitcells' VDD M2 lines
+every fourth column: the strap row's 65 nm M1 VDD rail otherwise feeds the
+whole half-array from its trunk end, and at 512×256 SS 0.9 V 125 °C the
+far-end cells' supply sat at 0.79 V (`array_vdd_straps` in `layout.json`).
+A 4-column array's halves are narrower than one stack pitch and keep the
+trunk-end feed; there the left VSS strap moves inside the macro edge.
+Rail and bus fills are drawn in 200 nm chunks; a remainder below 70 nm is drawn
+only to extend a filled chunk (a lone remainder was a 5–65 nm sliver at
+16×64–16×256).
+Each shape is checked against existing metal and
 cuts; blocked sites are skipped and counted in `layout.json` (`power_grid`).
 The grid never moves the macro boundary. The controller keeps each enable
 driver chain (`w_en`, `s_en`, `sa_iso`, precharge, `wl_en`) on its own band

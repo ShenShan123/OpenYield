@@ -1,9 +1,9 @@
 {
   "schema": 2,
   "version": "V2.2.9",
-  "lookup_version": "v2.2.9-layout-area-self-timed-1",
+  "lookup_version": "v2.2.9-layout-overlapped-recovery-1",
   "units": "integer picoseconds before margin",
-  "status": "V2.2.9 area-constrained finite screen: measured32 anchor and conditional larger-array estimates; not release qualification",
+  "status": "V2.2.9 compact 6T: overlapped-recovery clocks (default) measured post-layout for every joint class (FineSim spicexd, nominal devices, finite corner screen); the self_timed block keeps the V2.2.9 recovery-before-capture controller. Not release or yield qualification.",
   "supported_envelope": {
     "max_rows": 512,
     "max_cols": 256
@@ -185,7 +185,7 @@
     "margin": 0.1,
     "policy": "Round dimensions up, select explicit joint class; ceil each budget*(1+margin) to50ps. Legacy entries retain their original phase policy.",
     "baseline": {
-      "sizing_lookup_sha256": "792454146c1c9910c36993d827a14255b02772db20a045fabae9cc8131c8f00f",
+      "sizing_lookup_sha256": "b40136e430462fe2f915428a1373f03fa726805190567896efe59489e8c51591",
       "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
       "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
       "physical_keys": [
@@ -321,30 +321,30 @@
       {
         "max_rows": 512,
         "max_cols": 32,
-        "access_ps": 14808,
-        "cycle_ps": 22949,
-        "evidence_status": "extrapolated"
+        "access_ps": 10017,
+        "cycle_ps": 15099,
+        "evidence_status": "postlayout"
       },
       {
         "max_rows": 512,
         "max_cols": 64,
-        "access_ps": 15070,
-        "cycle_ps": 23211,
-        "evidence_status": "extrapolated"
+        "access_ps": 10490,
+        "cycle_ps": 15679,
+        "evidence_status": "postlayout"
       },
       {
         "max_rows": 512,
         "max_cols": 128,
-        "access_ps": 15870,
-        "cycle_ps": 24011,
-        "evidence_status": "extrapolated"
+        "access_ps": 13695,
+        "cycle_ps": 22054,
+        "evidence_status": "postlayout"
       },
       {
         "max_rows": 512,
         "max_cols": 256,
-        "access_ps": 17419,
-        "cycle_ps": 27330,
-        "evidence_status": "extrapolated"
+        "access_ps": 16095,
+        "cycle_ps": 32669,
+        "evidence_status": "postlayout"
       }
     ],
     "row_classes": [
@@ -374,9 +374,9 @@
       },
       {
         "max_rows": 512,
-        "access_ps": 14808,
-        "cycle_ps": 22949,
-        "evidence_status": "extrapolated"
+        "access_ps": 10017,
+        "cycle_ps": 15099,
+        "evidence_status": "postlayout"
       }
     ],
     "column_classes": [
@@ -406,7 +406,41 @@
       }
     ],
     "measured_anchor_source": "outputs/area_speedup/physical32_v4_report.json",
-    "measured_anchor_sha256": "dc457e09b6ac91a00dc9e5ce92ee28cc08d6c73742907135acae60bf1a4f3da8"
+    "measured_anchor_sha256": "dc457e09b6ac91a00dc9e5ce92ee28cc08d6c73742907135acae60bf1a4f3da8",
+    "postlayout_512_rows": {
+      "note": "V2.2.9 controller with the read_held latch, the array VDD strap and the 512-row band rule: measured SS 0.9 V 125 C capture-to-full-recovery and capture-to-data; raised entries follow the monotonic grid rule.",
+      "measured": {
+        "512x32": {
+          "cycle_ps": 14764,
+          "access_ps": 10017,
+          "evidence": "runs/vl_c512x32_T35p95 SS ; vl_c512x32_T16p65 5/5 (SS, SF -40 C, FS/FF 125 C, FF -40 C seq)"
+        },
+        "512x64": {
+          "cycle_ps": 15679,
+          "access_ps": 10490,
+          "evidence": "runs/vl_c512x64_T35p95 SS ; vl_c512x64_T17p25 5/5 (SS, SF -40 C, FS/FF 125 C, FF -40 C seq)"
+        },
+        "512x128": {
+          "cycle_ps": 22054,
+          "access_ps": 13695,
+          "evidence": "runs/vl_c512x128_T35p95 SS ; vl_c512x128_T24p30 5/5 (SS, SF -40 C, FS/FF 125 C, FF -40 C seq)"
+        },
+        "512x256": {
+          "cycle_ps": 32669,
+          "access_ps": 16095,
+          "evidence": "runs/vm_c512x256_T35p5 (SS), vm_c512x256_T35p95 SS confirmation, vl_c512x256_T35p95 5 corners (read_held latch)"
+        }
+      },
+      "raised": {
+        "512x32": {
+          "cycle_ps": {
+            "measured": 14764,
+            "raised_to": 15099,
+            "from_class": "256x32"
+          }
+        }
+      }
+    }
   },
   "integration_evidence": {
     "assumptions": [
@@ -439,5 +473,517 @@
       "vsys_v": 0.057213321617768584
     },
     "model_sha256": "ccc7a067254fa5c4d10d0e32b69e636c0074ec74d686249d60963e148aa5ae93"
+  },
+  "overlapped_recovery": {
+    "cell_type": "SRAM_6T_CELL",
+    "mux": true,
+    "compact_control": true,
+    "control_architecture": "v2.2.9-overlapped-recovery-1",
+    "margin": 0.1,
+    "policy": "Cycle = sustained capture spacing (longest SS read occupancy admit->recovered plus the stalled recovered->admit delay); access = CLK->OUT at that spacing. Round dimensions up, select the joint class; ceil each budget*(1+margin) to 50 ps.",
+    "baseline": {
+      "sizing_lookup_sha256": "b40136e430462fe2f915428a1373f03fa726805190567896efe59489e8c51591",
+      "peripheral_key": "5447c9efce1e8adb5918624ff3704c7e81d425acaf33bb1204908ae3f1bf587d",
+      "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+      "physical_keys": [
+        "0431ed4e9d16e9bb08dabfbdda628c0b7013a0617d882c6baa9a06583c9b9c82",
+        "0d3e813206d19f46af39a2a7f1b3b6e41375d4338180f233f7a5a927708f0ae2",
+        "150ce28ffa4e8110376b0ed3fb58757173562d2f4cabc8b8a8dda2d6813cfece",
+        "6e4d56d4c94f70f69546a9fbc9b9c204764ca140400ac3e33bcd445159eb05da",
+        "7a4d9ff3fd2250fb08d15bc3761ada54292b4f86e2f92584e30920b773b9f143",
+        "7d198d69973b499750671a32cedaa05d2bec39f2f918ae6d25a99ba2de7933d1",
+        "84742cf98b06f5a5fc3543236c6642e954a8416c9bb949616e8bbf47cb1fbfb8",
+        "cabb0bd9b10dd4cbcdaa1c9ebfbe5842392071b9cfd536696406317033cfde0c",
+        "cb6bf03d811c508ae8713585cf5f1170baa91902ff7e53eb368e83c9ce7c28a5",
+        "da162acce5e4572349b21ca5d0e28bfe20286d132ce18ac93056f08f7b7f906c"
+      ],
+      "sizing_policy_key": "121e0c366181c1ec68189eef8af4bb2f88854649768924184456aaff4a0be889"
+    },
+    "row_classes": [
+      {
+        "max_rows": 32,
+        "access_ps": 3750,
+        "cycle_ps": 5960,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 64,
+        "access_ps": 4281,
+        "cycle_ps": 6477,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 128,
+        "access_ps": 5612,
+        "cycle_ps": 8051,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 256,
+        "access_ps": 7118,
+        "cycle_ps": 10107,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 512,
+        "access_ps": 10108,
+        "cycle_ps": 13343,
+        "evidence_status": "postlayout"
+      }
+    ],
+    "column_classes": [
+      {
+        "max_cols": 32,
+        "access_ps": 3750,
+        "cycle_ps": 5960,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_cols": 64,
+        "access_ps": 4332,
+        "cycle_ps": 6702,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_cols": 128,
+        "access_ps": 5210,
+        "cycle_ps": 7873,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_cols": 256,
+        "access_ps": 9017,
+        "cycle_ps": 13364,
+        "evidence_status": "postlayout"
+      }
+    ],
+    "joint_classes": [
+      {
+        "max_rows": 32,
+        "max_cols": 32,
+        "access_ps": 3750,
+        "cycle_ps": 5960,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 64,
+        "access_ps": 4332,
+        "cycle_ps": 6702,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 128,
+        "access_ps": 5210,
+        "cycle_ps": 7873,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 32,
+        "max_cols": 256,
+        "access_ps": 9017,
+        "cycle_ps": 13364,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 32,
+        "access_ps": 4281,
+        "cycle_ps": 6477,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 64,
+        "access_ps": 4527,
+        "cycle_ps": 7073,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 128,
+        "access_ps": 6007,
+        "cycle_ps": 8799,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 64,
+        "max_cols": 256,
+        "access_ps": 9017,
+        "cycle_ps": 13364,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 32,
+        "access_ps": 5612,
+        "cycle_ps": 8051,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 64,
+        "access_ps": 5837,
+        "cycle_ps": 8344,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 128,
+        "access_ps": 6459,
+        "cycle_ps": 9133,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 128,
+        "max_cols": 256,
+        "access_ps": 9321,
+        "cycle_ps": 13364,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 32,
+        "access_ps": 7118,
+        "cycle_ps": 10107,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 64,
+        "access_ps": 7438,
+        "cycle_ps": 10705,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 128,
+        "access_ps": 8326,
+        "cycle_ps": 11811,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 256,
+        "max_cols": 256,
+        "access_ps": 11019,
+        "cycle_ps": 15336,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 32,
+        "access_ps": 10108,
+        "cycle_ps": 13343,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 64,
+        "access_ps": 10613,
+        "cycle_ps": 14584,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 128,
+        "access_ps": 12198,
+        "cycle_ps": 17690,
+        "evidence_status": "postlayout"
+      },
+      {
+        "max_rows": 512,
+        "max_cols": 256,
+        "access_ps": 14693,
+        "cycle_ps": 22909,
+        "evidence_status": "postlayout"
+      }
+    ],
+    "anchors": {
+      "128x128": {
+        "cycle_ps": 9133,
+        "access_ps": 6459,
+        "clock_ns": 10.05,
+        "deadline_ns": 7.15,
+        "occupancy_read_ps": 8900,
+        "stalled_admit_ps": 233,
+        "restore_limit_ps": 8501,
+        "binding": "recovered",
+        "evidence": "runs/ov12_c128_S9p05 (stalled), runs/ov12_c128_T10p05 14/14",
+        "ratio_access": 0.763565,
+        "ratio_cycle": 0.634589
+      },
+      "128x256": {
+        "cycle_ps": 12686,
+        "access_ps": 9321,
+        "clock_ns": 14.0,
+        "deadline_ns": 10.3,
+        "occupancy_read_ps": 12441,
+        "stalled_admit_ps": 245,
+        "restore_limit_ps": 12143,
+        "binding": "recovered",
+        "evidence": "macro_x10o_c128x256 (lookup_c10 sizing); round 1, runs/x10o_c128x256_S12p45 (stalled), runs/x10o_c128x256_C14p00 5/5; table clock 14.75 (monotonic raise): runs/x10o_c128x256_C14p75 5/5",
+        "ratio_access": 0.781963,
+        "ratio_cycle": 0.529179
+      },
+      "128x32": {
+        "cycle_ps": 8051,
+        "access_ps": 5612,
+        "clock_ns": 8.9,
+        "deadline_ns": 6.2,
+        "occupancy_read_ps": 7769,
+        "stalled_admit_ps": 282,
+        "restore_limit_ps": 6928,
+        "binding": "recovered",
+        "evidence": "macro_swo_c128x32; runs/swo_c128x32_T* (round 1), runs/swo_c128x32_S7p85 (stalled), runs/swo_c128x32_C8p9 5/5",
+        "ratio_access": 0.789644,
+        "ratio_cycle": 0.697056
+      },
+      "128x64": {
+        "cycle_ps": 8344,
+        "access_ps": 5837,
+        "clock_ns": 9.2,
+        "deadline_ns": 6.45,
+        "occupancy_read_ps": 8089,
+        "stalled_admit_ps": 255,
+        "restore_limit_ps": 7370,
+        "binding": "recovered",
+        "evidence": "macro_swo_c128x64; round 1, runs/swo_c128x64_S8p15 (stalled), runs/swo_c128x64_C9p20 5/5",
+        "ratio_access": 0.792102,
+        "ratio_cycle": 0.700823
+      },
+      "256x128": {
+        "cycle_ps": 11811,
+        "access_ps": 8326,
+        "clock_ns": 13.0,
+        "deadline_ns": 9.2,
+        "occupancy_read_ps": 11539,
+        "stalled_admit_ps": 272,
+        "restore_limit_ps": 11134,
+        "binding": "recovered",
+        "evidence": "macro_swo_c256x128; runs/swo_c256x128_T* (round 1), runs/swo_c256x128_S11p65 (stalled), runs/swo_c256x128_C13p00 5/5",
+        "ratio_access": 0.784657,
+        "ratio_cycle": 0.693826
+      },
+      "256x256": {
+        "cycle_ps": 15336,
+        "access_ps": 11019,
+        "clock_ns": 16.9,
+        "deadline_ns": 12.15,
+        "occupancy_read_ps": 14891,
+        "stalled_admit_ps": 274,
+        "restore_limit_ps": 15336,
+        "binding": "restore",
+        "evidence": "runs/ov12_c256_S15p05 (stalled), runs/ov12_c256_T16p90 14/14 at 16.90/12.20 (deadline sets measurement times only; read-output margin >= 1181 ps)",
+        "ratio_access": 0.820049,
+        "ratio_cycle": 0.625398
+      },
+      "256x32": {
+        "cycle_ps": 10107,
+        "access_ps": 7118,
+        "clock_ns": 11.15,
+        "deadline_ns": 7.85,
+        "occupancy_read_ps": 9841,
+        "stalled_admit_ps": 266,
+        "restore_limit_ps": 8900,
+        "binding": "recovered",
+        "evidence": "macro_swo_c256x32; runs/swo_c256x32_T* (round 1), runs/swo_c256x32_S9p90 (stalled), runs/swo_c256x32_C11p15 5/5",
+        "ratio_access": 0.745418,
+        "ratio_cycle": 0.669382
+      },
+      "256x64": {
+        "cycle_ps": 10705,
+        "access_ps": 7438,
+        "clock_ns": 11.8,
+        "deadline_ns": 8.2,
+        "occupancy_read_ps": 10399,
+        "stalled_admit_ps": 306,
+        "restore_limit_ps": 9661,
+        "binding": "recovered",
+        "evidence": "macro_swo_c256x64; runs/swo_c256x64_T* (round 1), runs/swo_c256x64_S10p50 (stalled), runs/swo_c256x64_C11p8 5/5",
+        "ratio_access": 0.758129,
+        "ratio_cycle": 0.696895
+      },
+      "32x128": {
+        "cycle_ps": 7873,
+        "access_ps": 5210,
+        "clock_ns": 8.7,
+        "deadline_ns": 5.75,
+        "occupancy_read_ps": 7659,
+        "stalled_admit_ps": 214,
+        "restore_limit_ps": 6695,
+        "binding": "recovered",
+        "evidence": "macro_swo_c32x128; runs/swo_c32x128_T* (round 1), runs/swo_c32x128_S7p70 (stalled), runs/swo_c32x128_C8p7 5/5",
+        "ratio_access": 0.775528,
+        "ratio_cycle": 0.561195
+      },
+      "32x256": {
+        "cycle_ps": 13364,
+        "access_ps": 9017,
+        "clock_ns": 14.75,
+        "deadline_ns": 9.95,
+        "occupancy_read_ps": 13038,
+        "stalled_admit_ps": 326,
+        "restore_limit_ps": 12286,
+        "binding": "recovered",
+        "evidence": "macro_swo_c32x256; runs/swo_c32x256_T26p20 (round 1), runs/swo_c32x256_S13p05 (stalled), runs/swo_c32x256_C14p70 5/5, runs/swo_c32x256_C14p75 5/5",
+        "ratio_access": 0.820399,
+        "ratio_cycle": 0.561867
+      },
+      "32x32": {
+        "cycle_ps": 5960,
+        "access_ps": 3750,
+        "clock_ns": 6.6,
+        "deadline_ns": 4.15,
+        "occupancy_read_ps": 5728,
+        "stalled_admit_ps": 232,
+        "restore_limit_ps": 4809,
+        "binding": "recovered",
+        "evidence": "macro_ov13_c32x32 (final tree); runs/ov13_c32_S5p80 (stalled), runs/ov13_c32_T6p90 14/14, runs/ov13_c32_T6p60 14/14",
+        "ratio_access": 1.015435,
+        "ratio_cycle": 0.956354
+      },
+      "32x64": {
+        "cycle_ps": 6702,
+        "access_ps": 4332,
+        "clock_ns": 7.4,
+        "deadline_ns": 4.8,
+        "occupancy_read_ps": 6482,
+        "stalled_admit_ps": 220,
+        "restore_limit_ps": 5506,
+        "binding": "recovered",
+        "evidence": "macro_swo_c32x64; runs/swo_c32x64_T* (round 1), runs/swo_c32x64_S6p55 (stalled), runs/swo_c32x64_C7p4 5/5",
+        "ratio_access": 0.873916,
+        "ratio_cycle": 0.696384
+      },
+      "512x128": {
+        "cycle_ps": 17690,
+        "access_ps": 12198,
+        "clock_ns": 19.5,
+        "deadline_ns": 13.45,
+        "occupancy_read_ps": 16957,
+        "stalled_admit_ps": null,
+        "restore_limit_ps": 17672,
+        "restore_limit_fsh_ps": 16466,
+        "binding": "restore",
+        "evidence": "runs/ov12_c512x128_T35p95 4/4, T35p95h FSh 1/1, T19p45 5/5, T19p50 5/5",
+        "ratio_access": 0.89069,
+        "ratio_cycle": 0.802122
+      },
+      "512x256": {
+        "cycle_ps": 22909,
+        "access_ps": 14693,
+        "clock_ns": 25.2,
+        "deadline_ns": 16.2,
+        "occupancy_read_ps": 20661,
+        "stalled_admit_ps": null,
+        "restore_limit_ps": 22766,
+        "restore_limit_fsh_ps": 22909,
+        "binding": "restore (FS 125 C)",
+        "evidence": "macro_ov13_c512x256 (lookup_c9); runs/ov13_c512x256_T35p95 5/5, runs/ov13_c512x256_T25p20 14/14",
+        "ratio_access": 0.912892,
+        "ratio_cycle": 0.701246
+      },
+      "512x32": {
+        "cycle_ps": 13343,
+        "access_ps": 10108,
+        "clock_ns": 14.7,
+        "deadline_ns": 11.15,
+        "occupancy_read_ps": 13055,
+        "stalled_admit_ps": 288,
+        "restore_limit_ps": 12627,
+        "binding": "recovered",
+        "evidence": "runs/ov12_c512x32_T35p95 4/4, runs/ov12_c512x32_S13p10 (stalled), runs/ov12_c512x32_T14p70 5/5",
+        "ratio_access": 1.009085,
+        "ratio_cycle": 0.883701
+      },
+      "512x64": {
+        "cycle_ps": 14584,
+        "access_ps": 10613,
+        "clock_ns": 16.05,
+        "deadline_ns": 11.7,
+        "occupancy_read_ps": 14259,
+        "stalled_admit_ps": 325,
+        "restore_limit_ps": 14070,
+        "binding": "recovered",
+        "evidence": "runs/ov12_c512x64_T35p95 4/4, runs/ov12_c512x64_S14p35 (stalled), runs/ov12_c512x64_T16p05 5/5 (rescored, edge hysteresis)",
+        "ratio_access": 1.011725,
+        "ratio_cycle": 0.930161
+      },
+      "64x128": {
+        "cycle_ps": 8799,
+        "access_ps": 6007,
+        "clock_ns": 9.7,
+        "deadline_ns": 6.65,
+        "occupancy_read_ps": 8557,
+        "stalled_admit_ps": 242,
+        "restore_limit_ps": 7734,
+        "binding": "recovered",
+        "evidence": "macro_swo_c64x128; round 1, runs/swo_c64x128_S8p60 (stalled), runs/swo_c64x128_C9p70 5/5",
+        "ratio_access": 0.850127,
+        "ratio_cycle": 0.624618
+      },
+      "64x256": {
+        "cycle_ps": 11837,
+        "access_ps": 8716,
+        "clock_ns": 13.05,
+        "deadline_ns": 9.6,
+        "occupancy_read_ps": 11492,
+        "stalled_admit_ps": 345,
+        "restore_limit_ps": 10886,
+        "binding": "recovered",
+        "evidence": "macro_w10o_c64x256 (lookup_c10 sizing); round 1, runs/w10o_c64x256_S11p55 (stalled), runs/w10o_c64x256_C13p05 5/5; table clock 14.75 (monotonic raise): runs/w10o_c64x256_C14p75 5/5",
+        "ratio_access": 0.768742,
+        "ratio_cycle": 0.496435
+      },
+      "64x32": {
+        "cycle_ps": 6477,
+        "access_ps": 4281,
+        "clock_ns": 7.15,
+        "deadline_ns": 4.75,
+        "occupancy_read_ps": 6231,
+        "stalled_admit_ps": 246,
+        "restore_limit_ps": 5347,
+        "binding": "recovered",
+        "evidence": "macro_swo_c64x32; runs/swo_c64x32_T* (round 1), runs/swo_c64x32_S6p30 (stalled), runs/swo_c64x32_C7p15 5/5",
+        "ratio_access": 0.85432,
+        "ratio_cycle": 0.749566
+      },
+      "64x64": {
+        "cycle_ps": 7073,
+        "access_ps": 4527,
+        "clock_ns": 7.8,
+        "deadline_ns": 5.0,
+        "occupancy_read_ps": 6744,
+        "stalled_admit_ps": 329,
+        "restore_limit_ps": 5942,
+        "binding": "recovered",
+        "evidence": "runs/ov12_c64_S6p85 (stalled), runs/ov12_c64_T7p80 14/14",
+        "ratio_access": 0.830033,
+        "ratio_cycle": 0.734933
+      }
+    },
+    "raised": {
+      "64x256": {
+        "access_ps": {
+          "measured": 8716,
+          "raised_to": 9017,
+          "from_class": "32x256"
+        },
+        "cycle_ps": {
+          "measured": 11837,
+          "raised_to": 13364,
+          "from_class": "32x256"
+        }
+      },
+      "128x256": {
+        "cycle_ps": {
+          "measured": 12686,
+          "raised_to": 13364,
+          "from_class": "64x256"
+        }
+      }
+    },
+    "estimation": "Every joint class is measured post-layout."
   }
 }

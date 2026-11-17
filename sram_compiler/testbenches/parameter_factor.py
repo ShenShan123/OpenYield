@@ -919,6 +919,8 @@ class TimeControlFactory:
                  write_drive_guard_stages=None,
                  delay_driver_scale: Optional[float] = None,
                  delay_loads_per_stage: Optional[int] = None,
+                 recovery_overlap: bool = False,
+                 restore_stages: Optional[int] = None,
                  ):
 
         self.interconnect = interconnect
@@ -961,6 +963,8 @@ class TimeControlFactory:
         self.write_drive_guard_stages = write_drive_guard_stages
         self.delay_driver_scale = delay_driver_scale
         self.delay_loads_per_stage = delay_loads_per_stage
+        self.recovery_overlap = recovery_overlap
+        self.restore_stages = restore_stages
     def create(self):
         return TIME_CONTROL(
             nmos_model=self.nmos_model,
@@ -1002,6 +1006,8 @@ class TimeControlFactory:
             write_drive_guard_stages=self.write_drive_guard_stages,
             delay_driver_scale=self.delay_driver_scale,
             delay_loads_per_stage=self.delay_loads_per_stage,
+            recovery_overlap=self.recovery_overlap,
+            restore_stages=self.restore_stages,
         )
     
 class Sram10TCellFactory:

@@ -156,6 +156,8 @@ class Sram6TCoreTestbench(BaseTestbench):#sram阵列测试平台，继承自Base
             write_drive_guard_stages=self.driver_sizes.write_drive_guard_stages,
             delay_driver_scale=self.driver_sizes.delay_driver_scale,
             delay_loads_per_stage=self.driver_sizes.delay_loads_per_stage,
+            recovery_overlap=self.driver_sizes.recovery_overlap,
+            restore_stages=self.driver_sizes.restore_stages if self.driver_sizes.recovery_overlap else None,
         ).create()
         circuit.subcircuit(time_control)   # Add to main circuit
         

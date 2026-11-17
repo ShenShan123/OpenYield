@@ -264,6 +264,12 @@ The following commands require the ignored `dev/` workspace:
 | `dev/sizing/execution.py` | Support campaign MPI execution and timeout cleanup |
 | `dev/sizing/provenance.py` | Verify local scoring sources against the tracked manifest |
 | `dev/v216_time_audit/` | TIME_CONTROL / replica-column netlist tools (V2.1.6): `topo_check.py` (static connectivity and subcircuit-collision audit over a size matrix), `snapshot_decks.py` + `compare_snapshots.py` (netlist equivalence proof for refactors); see `docs/design/timing/TIME_CONTROL_PATH.md` |
+| `dev/postlayout/` | Extracted-macro post-layout decks: DSPF reduction, HSPICE translation (`hspice_deck.py`), FineSim PSF reader (`finesim_deck.py`) |
+| `dev/large_postlayout/campaign.py`, `queue.py` | Prepare and run post-layout case sets on a built macro (`--macro-tag`, `--overlap-lookup`, `--read-stream`, `--first-read`; `OY_SIM=finesim`; `OY_LOOKUP` for scratch sizing) |
+| `dev/large_postlayout/sweep_source.py`, `make_source.py` | Layout source decks per size and controller (fixed diagnostic period) |
+| `dev/large_postlayout/overlap_measure.py`, `rescore.py` | Per-access admission/occupancy/CLK→OUT of overlap traces; rescore campaigns with the current scorer |
+| `dev/large_postlayout/overlap_table.py`, `update_tables.py`, `overlap_doc_table.py` | Build the `overlapped_recovery` timing block and the V2.2.9 512-row update from measured anchors; render the design-record clock table |
+| `dev/large_postlayout/overlap_evidence.py`, `v229_large_evidence.py`, `layout_sweep_evidence.py`, `finesim_validation.py` | Write the tracked evidence JSON in `docs/data/` |
 | `dev/tests/` | Tests of these development tools |
 
 ```bash

@@ -14,14 +14,20 @@ six MOS instances. Component and standalone controller tools remain available.
 Physical checks do not qualify autonomous bank operation.
 
 **V2.2.9** adds self-timed access and recovery for 6T SRAMs with the standard
-2:1 column mux. The [area and timing record](docs/design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md)
-reports a measured 6.90 ns period at 32×32 and conditional 10.60 / 15.85 /
-27.00 ns estimates at 64×64 / 128×128 / 256×256. All four routed macros fit
-within their V2.2.8 areas. Scoped delay/peripheral resizing is included; 10T retains
-its earlier controller. The supported timing envelope is 512 rows by 256
-columns. Larger-class estimates do not establish full-macro waveform or
-yield qualification. Earlier incomplete release campaigns retain their
-[recorded scope](docs/validation/V2_2_5_SIMULATION_SUMMARY.md).
+2:1 column mux. Compact layouts default to its
+[overlapped-recovery controller](docs/design/timing/OVERLAPPED_RECOVERY_V2_2_9.md),
+which captures and decodes the next access while the previous one recovers.
+Every timing class from 32×32 to 512×256 has a post-layout clock measured on an
+extracted macro, for example 6.60 / 7.80 / 10.05 / 16.90 / 25.20 ns at 32×32 /
+64×64 / 128×128 / 256×256 / 512×256 (read deadlines 4.15 / 5.00 / 7.15 / 12.15 /
+16.20 ns). `sizing.recovery_overlap: false` keeps the V2.2.9
+recovery-before-capture controller
+([area and timing record](docs/design/timing/ACCESS_SPEEDUP_AREA_V2_2_9.md)).
+10T retains its earlier controller. The supported timing envelope is 512 rows
+by 256 columns. Complete macros of 47 sizes per controller pass DRC/LVS and
+extraction. The post-layout screens use nominal devices at finite corners and
+do not establish yield qualification. Earlier incomplete release campaigns
+retain their [recorded scope](docs/validation/V2_2_5_SIMULATION_SUMMARY.md).
 
 ## Environment setup
 
