@@ -112,6 +112,12 @@ class TSSBOOptimizer:
         self.sigma = sigma
         self.mu = mu
         self.k = k
+        self.min_update_batch = max(2, math.ceil(1.0 / mu)) if mu > 0 else 1
+        if batch_size < self.min_update_batch:
+            raise ValueError(
+                f"tSS-BO batch_size={batch_size} is too small for mu={mu}; "
+                f"need at least {self.min_update_batch} so floor(batch_size * mu) >= 1."
+            )
         self.batch_size = batch_size
         self.n_candidates = n_candidates
         self.n_resample = n_resample
@@ -207,6 +213,8 @@ class TSSBOOptimizer:
             # 2. Select best candidates via EI (or raw if not enough data)
             model_list = None
             m_n_s = None
+            remaining = max_iter - iteration
+            target_batch = min(self.batch_size, remaining)
             if self.eval_x.shape[0] >= 2:
                 X_train_tss = self._to_tss(self.eval_x)
                 Y_train = self.eval_y  # already negated merit
@@ -223,13 +231,13 @@ class TSSBOOptimizer:
                         X_train_tss,
                         Y_train,
                         X_candidates_tss,
-                        batch_size=min(self.batch_size, max_iter - iteration),
+                        batch_size=target_batch,
                     )
                 except Exception as e:
                     print(f"EI selection failed ({e}), using top candidates from sampling")
-                    X_cand_tss = X_candidates_tss[: self.batch_size]
+                    X_cand_tss = X_candidates_tss[:target_batch]
             else:
-                X_cand_tss = X_candidates_tss[: self.batch_size]
+                X_cand_tss = X_candidates_tss[:target_batch]
 
             # 3. Evaluate selected candidates
             X_cand_01 = self._to_framework(X_cand_tss).clamp(0, 1)
@@ -251,18 +259,50 @@ class TSSBOOptimizer:
 
             Y_cand = torch.tensor(y_vals, dtype=torch.float32)
 
-            # 4. Update subspace
-            if self.subspace.mean_f is None:
-                self.subspace.set_mean_f(Y_cand[0])
-                if X_cand_tss.shape[0] > 1:
+            # 4. Update subspace (skip partial tail batches and degenerate zero-gradient batches)
+            if X_cand_tss.shape[0] >= self.min_update_batch:
+                if self.subspace.mean_f is None:
+                    ref_y = float(self.eval_y.min()) if self.eval_y.numel() > 0 else float(Y_cand.mean())
+                    self.subspace.set_mean_f(ref_y)
+                zero_contrast = torch.allclose(
+                    Y_cand, torch.full_like(Y_cand, float(self.subspace.mean_f))
+                )
+                zero_prior = float(self.subspace.prior.norm()) == 0.0
+                if zero_contrast and zero_prior:
+                    print("  skipping subspace update: zero gradient / zero contrast batch")
+                else:
+                    prev_state = (
+                        self.subspace.mean.clone(),
+                        float(self.subspace.sigma),
+                        self.subspace._W.clone(),
+                        self.subspace.prior.clone(),
+                        self.subspace.mean_f,
+                    )
                     self.subspace.update_subspace(
-                        X_cand_tss[1:].t(), Y_cand[1:],
+                        X_cand_tss.t(), Y_cand,
                         GP_model_list=None, mean_and_std=None,
                     )
+                    valid = (
+                        torch.isfinite(self.subspace.mean).all()
+                        and math.isfinite(float(self.subspace.sigma))
+                        and float(self.subspace.sigma) > 0.0
+                        and torch.isfinite(self.subspace._W).all()
+                    )
+                    if not valid:
+                        print("  warning: non-finite subspace state after update; restoring previous state")
+                        (
+                            self.subspace.mean,
+                            self.subspace.sigma,
+                            self.subspace._W,
+                            self.subspace.prior,
+                            self.subspace.mean_f,
+                        ) = prev_state
+                        self.subspace.value_sqrt = None
+                        self.subspace.Q = None
             else:
-                self.subspace.update_subspace(
-                    X_cand_tss.t(), Y_cand,
-                    GP_model_list=None, mean_and_std=None,
+                print(
+                    f"  skipping subspace update for partial batch "
+                    f"({X_cand_tss.shape[0]} < {self.min_update_batch})"
                 )
 
             t1 = time.time()
@@ -318,7 +358,7 @@ def main(config_path="config_sram.yaml", problem=None, max_iter=400, **kwargs):
         sigma=0.2,
         mu=0.5,
         k=max(100, 3 * dim),
-        batch_size=1,          # sequential evaluation, one at a time
+        batch_size=2,          # >= ceil(1/mu)=2 so floor(batch_size*mu) >= 1
         n_candidates=200,
         n_resample=10,
         n_training=min(dim * 2, 500),

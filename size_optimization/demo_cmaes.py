@@ -112,10 +112,8 @@ class CMAESOptimizer:
 
             # Ask for candidates
             remaining = max_iter - self.total_evals
-            solutions = self.es.ask()
-            # Limit to remaining budget
-            if len(solutions) > remaining:
-                solutions = solutions[:remaining]
+            population = self.es.ask()
+            solutions = population[:remaining]
 
             fitness_values = []
             for x in solutions:
@@ -139,13 +137,9 @@ class CMAESOptimizer:
                     # Penalty for failed simulations
                     fitness_values.append(1e6)
 
-            # Tell CMA-ES the fitness values
-            # Must match the full population for tell()
-            if len(fitness_values) == len(solutions):
+            # A partial final batch contributes observations without a covariance update.
+            if len(solutions) == len(population):
                 self.es.tell(solutions, fitness_values)
-            else:
-                # Pad if we truncated solutions
-                self.es.tell(solutions[:len(fitness_values)], fitness_values)
 
             t1 = time.time()
             print(

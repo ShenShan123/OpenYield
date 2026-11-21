@@ -170,7 +170,8 @@ class SAOptimizer:
             print(f"评估初始点 {i + 1}/10:")
             self.parameter_space.print_params(params)
 
-            objectives, constraints, result, success = evaluate_sram(params)
+            eval_func = self.evaluate_backend if self.evaluate_backend is not None else evaluate_sram
+            objectives, constraints, result, success = eval_func(params)
 
             # If it's a successful simulation, check if it's the best initial point
             # 如果是成功的仿真，检查是否为最佳初始点
