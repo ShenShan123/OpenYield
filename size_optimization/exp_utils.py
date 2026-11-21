@@ -1108,6 +1108,12 @@ def evaluate_sram(params, timeout=120, driver_sizes=None, timing_config=None):
         timing_config = _baseline_timing(driver_sizes, w_rc, _configuration_stamp())
     # Apply candidate values only after the baseline has been frozen.
     apply_params_to_sram_config(sram_config, params)
+    ctx = physical_context(w_rc, interconnect=getattr(sram_config.global_config, 'interconnect', None))
+    try:
+        driver_sizes.validate_for(sram_config, sram_config.global_config.sram_cell_type, choose_mux, ctx)
+    except ValueError:
+        driver_sizes = resolve_driver_sizes(sram_config, mux=choose_mux, physical_context=ctx)
+        timing_config = resolve_timing(sram_config, driver_sizes, context=ctx)
 
     try:
         print(f"Starting SRAM evaluation with parameters: {params}")
@@ -1231,8 +1237,11 @@ def evaluate_sram(params, timeout=120, driver_sizes=None, timing_config=None):
                        (read_delay, write_delay, read_power, write_power, area)):
                 raise ValueError('Simulation returned invalid delay, power or area')
             limits = sram_config.global_config.metrics.delay.upper
-            read_delay_feasible = read_delay <= float(limits[0])
-            write_delay_feasible = write_delay <= float(limits[1])
+            tc = mc_testbench.timing_config or timing_config
+            read_limit = float(tc.low_read) if (tc is not None and getattr(tc, "low_read", 0) > 0) else float(limits[0])
+            write_limit = float(limits[1])
+            read_delay_feasible = read_delay <= read_limit
+            write_delay_feasible = write_delay <= write_limit
             max_delay = max(read_delay, write_delay)
             if min_snm > 0 and max_power > 0 and area > 0 and max_delay > 0:
                 merit = np.log10(min_snm / (max_power * np.sqrt(area) * max_delay))
@@ -1244,8 +1253,8 @@ def evaluate_sram(params, timeout=120, driver_sizes=None, timing_config=None):
             # 4目标，全部最小化: [-SNM, power, area, delay]
             objectives = [-min_snm, max_power, area, max_delay]
 
-            constraints = [max(0.0, read_delay / float(limits[0]) - 1.0),
-                           max(0.0, write_delay / float(limits[1]) - 1.0)]
+            constraints = [max(0.0, read_delay / read_limit - 1.0),
+                           max(0.0, write_delay / write_limit - 1.0)]
 
             # Construct detailed results
             # 构建详细结果
